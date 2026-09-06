@@ -477,15 +477,18 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   and the test asserts against a default it believes it set. Catching it needs the binder's own view
   of which properties persist, which is `BIND`'s surface rather than a line here — the same reason
   the inclusion-gate entry above is parked. *(TKIT pass row 20 — `BIND`.)*
-- **Four shipped SDK packages carry no analyzer reference.** `Vion.Dale.Sdk.Modbus.Core`,
-  `Vion.Dale.Sdk.Modbus.Rtu`, `Vion.Dale.Sdk.Modbus.Tcp` and `Vion.Dale.Sdk.Http` each declare
+- **~~Four~~ Three shipped SDK packages carry no analyzer reference.** `Vion.Dale.Sdk.Modbus.Core`,
+  `Vion.Dale.Sdk.Modbus.Rtu` and `Vion.Dale.Sdk.Modbus.Tcp` each declare
   `[assembly: PublicApiNamespace]` and none of them references `Vion.Dale.Sdk.Generators`, so
   `DALE014` never asks them for a surface mark and the API manifest's diff — auto-committed on a
   pull request, not failed — is the only gate on their public types. The fix is the one
   `ProjectReference` element this pass added to the five kits
   (`Vion.Dale.Sdk.DigitalIo.csproj:43` is the shape), plus a wiring probe per package so the
   reference is proven live rather than merely present. Not fixed here because they are their own
-  pages' packages. *(TKIT pass row 171's sweep — `ANLZ` with `MODB` and `HTTP`.)*
+  pages' packages. **`Vion.Dale.Sdk.Http` is done** — the HTTP pass armed it (`AC-HTTP-013.2`), and
+  the diagnostic it had been blind to was real: three of that package's five public types carried no
+  surface mark. The three Modbus packages remain, and are `MODB`'s.
+  *(TKIT pass row 171's sweep — `ANLZ` with `MODB`; `HTTP` closed by the HTTP pass, 2026-09-06.)*
 - **Two downstream test projects cannot be proven against a same-PR kit change.**
   `templates/vion-iot-library/VionIotLibraryTemplate.Test` and
   `libraries/Vion.Diagnostics/Vion.Diagnostics.Test` carry no `DaleLocalSource` switch, where 9 test
@@ -574,3 +577,50 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `hal-raspberry` `Vion.Hal.Raspberry.dotnet/Handlers/DigitalInputHandler.cs:157` passes them the other
   way round. Nothing has noticed because the Dale SDK reads neither field — it takes the contract
   identity from the topic (`AC-IO-005.3`). *(Found by the IO pass's reader sweep — `hal-sim`.)*
+
+## `HTTP` — the logic-block HTTP client (2026-09-06)
+
+- **A per-request timeout does not bound the response body.** The token reaches the exchange up to
+  the response headers and no further: the delegate that reads the body runs without it
+  (`Vion.Dale.Sdk.Http/HttpRequestExecutor.cs:297` against `:139`), and the serializer reads and
+  deserializes with none (`HttpContentSerializer.cs:25-26`). For `SendRequest` the callback reads the
+  body after the executor returned and disposed the source, so not even the client's ceiling is
+  between the block and a stalled body. The consumer who would meet it is a block streaming a large
+  response from a server that answers headers promptly and then stops. Not fixed here because
+  threading the token changes the exception class on that path — a stalled body would start arriving
+  as a cancellation rather than as whatever the stream raises — which is a change to what a callback
+  receives today, not an area-local repair. A failure raised on that unbounded stretch does at least
+  keep its own class: the relabel predicate (`HttpRequestExecutor.cs:329`) asks whether what failed
+  was a cancellation, not only whether the source had fired, so a body that will not parse after the
+  bound elapsed still arrives as a `JsonException` (`AC-HTTP-006.1`). *(HTTP pass row 45 — `HTTP`;
+  the clause added by the fix-up round.)*
+- **A callback lost before the block's first message stays lost.** A block that issues a request from
+  its constructor may have its answer arrive before it has an actor; the dispatcher refuses the
+  self-send (`AC-LIFE-006.3`) and the package turns that refusal into a log line, so neither callback
+  runs and the block waits forever (`AC-HTTP-005.2` states it). Neither cure belongs to this package:
+  re-queuing needs an actor it does not have, and refusing at issue time needs to know whether the
+  block has one, which `IActorDispatcher`'s two members do not expose. The HTTP pass corrected the log
+  message, which had named disposal as the cause, and stated the outcome on the page.
+  *(HTTP pass row 18 — `LIFE`.)*
+- **Two timeout bounds deliver two exception classes.** A per-request timeout expires as
+  `TimeoutException`; the client's own thirty-second ceiling expires as `TaskCanceledException` with an
+  inner `TimeoutException` (`AC-HTTP-008.1`, `AC-HTTP-008.2`), so a block catching only the first
+  misses every expiry of the second — including every request that set no per-request timeout at all.
+  The predicate that rewrites the class (`HttpRequestExecutor.cs:329`) fires only when a per-request
+  timeout was given, and widening it is one line. What makes it more than one line is the message:
+  saying "after {n} seconds" on the ceiling's path needs the executor to read `HttpClient.Timeout`,
+  which it never does — it only asks the factory for a client. Left as a proposal because it changes
+  an exception class a callback receives today. *(HTTP pass row 28n — `HTTP`, flagged for the
+  operator.)*
+- **The package ships no HTTP test kit.** `ILogicBlockHttpClient` mocks cleanly, but there is no fake
+  harness with the byte-level fidelity `FakeModbusTcpHarness` gives, and `AC-TKIT-013.1` names five
+  kits of which this is not one. Raised by the first consumer while evaluating the package for a real
+  device: `logic-block-libraries/docs/notes/2026-09-04-emu-m-center-integration-options.md:75-77`
+  ("no fake harness comparable to `FakeModbusTcpHarness`"). A sixth kit is its own change doc.
+  *(HTTP pass row 64a — `HTTP`, raised by `logic-block-libraries`.)*
+- **The package surfaces no link or connection diagnostics.** There is no HTTP analogue of
+  `ModbusLink` / `ModbusSocket`: the transport is `IHttpClientFactory`'s pooled handler
+  (`AC-HTTP-002.1`) and nothing reads its state, so a device family cannot mirror
+  `_families/modbus-tcp-device`'s link criterion. Raised by the same note, `:78-79`. A feature band
+  rather than a defect, and it would need the package to own the primary handler.
+  *(HTTP pass row 64b — `HTTP`, raised by `logic-block-libraries`.)*

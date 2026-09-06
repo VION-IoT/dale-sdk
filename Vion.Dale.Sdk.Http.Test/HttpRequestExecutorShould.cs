@@ -1,24 +1,73 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
-using Moq.Protected;
 using Vion.Dale.Sdk.Abstractions;
-using JsonSerializer = System.Text.Json.JsonSerializer;
+using Vion.Dale.Sdk.Http.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Http.Test
 {
+    /// <summary>
+    ///     What a block sees once a request is on its way: which failure arrives as which exception, when a
+    ///     callback runs and on what, what is disposed, and which timeout bound produced an expiry.
+    ///     <para>
+    ///         Every test drives the real executor over a stub innermost handler and <b>awaits</b> the returned
+    ///         task, so nothing here waits on the clock and no assertion races the exchange. Callbacks are
+    ///         drained from a <c>RecordingDispatcher</c> afterwards, because that is what a real block's actor
+    ///         does: the self-send runs the callback after the executor has already returned.
+    ///     </para>
+    ///     <para>
+    ///         Two limits of this seam are stated rather than worked around. A 3xx is not followed, because the
+    ///         stub replaces the very handler that follows redirects — so a redirect assertion here would prove
+    ///         the opposite of production, and `AC-HTTP-002.1` states the policy the package owns instead. And a
+    ///         <c>Content-Length</c> that disagrees with the body is accepted here where a real
+    ///         <c>SocketsHttpHandler</c> fails the read.
+    ///     </para>
+    /// </summary>
     [TestClass]
     public class HttpRequestExecutorShould
     {
-        private const string Url = "http://localhost";
+        private const string Url = "http://vion.test/resource";
 
-        public enum TargetMethod
+        /// <summary>
+        ///     The bound on a settlement this suite expects to be immediate. It is not a race: the exchanges
+        ///     it guards complete without their body ever arriving, so an implementation that waited for the
+        ///     body could not finish at all, however long the bound.
+        /// </summary>
+        private static readonly TimeSpan SettlementTimeout = TimeSpan.FromSeconds(10);
+
+        /// <summary>The failures the error model names, one per row of `AC-HTTP-006.1`.</summary>
+        public enum Failure
+        {
+            NonSuccessStatus,
+
+            RelativeUrl,
+
+            EmptyBody,
+
+            MalformedBody,
+
+            NullBody,
+
+            DisposedClient,
+
+            TransportSocketFailure,
+
+            TransportStreamFailure,
+        }
+
+        /// <summary>The three executor overloads, as the rows of the families above.</summary>
+        public enum Overload
         {
             ResponseContent,
 
@@ -27,413 +76,877 @@ namespace Vion.Dale.Sdk.Http.Test
             ResponseMessage,
         }
 
-        private readonly Mock<IActorDispatcher> _actorDispatcherMock = new();
-
-        private readonly Mock<IHttpClientFactory> _clientFactoryMock = new();
-
-        private readonly Dictionary<string, string> _headers = new()
-                                                               {
-                                                                   { "Authorization", "Bearer token" },
-                                                                   { "Test", Guid.NewGuid().ToString() },
-                                                               };
-
         private readonly Mock<ILogger<HttpRequestExecutor>> _loggerMock = new();
 
-        private readonly string _requestContent = JsonSerializer.Serialize(new TestObject { StringValue = Guid.NewGuid().ToString(), IntValue = 2 });
+        private RecordingDispatcher _dispatcher = null!;
 
-        private readonly string _responseContent = JsonSerializer.Serialize(new TestObject { StringValue = Guid.NewGuid().ToString(), IntValue = 1 });
+        /// <summary>Values beyond the edges of the band the runtime's cancellation source accepts.</summary>
+        public static IEnumerable<object[]> TimeoutsOutsideBand
+        {
+            get =>
+            [
+                [HttpRequestExecutor.MaxRequestTimeout + TimeSpan.FromMilliseconds(1)],
+                [TimeSpan.MaxValue],
+                [TimeSpan.FromMilliseconds(-2)],
+                [TimeSpan.MinValue],
+            ];
+        }
 
-        private Exception? _actualException;
-
-        private string? _actualRequestContent;
-
-        private HttpRequestHeaders? _actualRequestHeaders;
-
-        private HttpMethod? _actualRequestMethod;
-
-        private Uri? _actualRequestUri;
-
-        private string? _actualResponseContent;
-
-        private HttpResponseMessage? _actualResponseMessage;
-
-        private Action _capturedInvokeSynchronized = () => { };
-
-        private bool _successCallbackInvoked;
-
-        private HttpRequestExecutor _sut = null!;
+        /// <summary>Values at or inside those edges, the infinite sentinel included.</summary>
+        public static IEnumerable<object[]> TimeoutsInsideBand
+        {
+            get =>
+            [
+                [HttpRequestExecutor.MaxRequestTimeout],
+                [HttpRequestExecutor.MaxRequestTimeout - TimeSpan.FromMilliseconds(1)],
+                [Timeout.InfiniteTimeSpan],
+            ];
+        }
 
         [TestInitialize]
         public void TestInitialize()
         {
-            _sut = new HttpRequestExecutor(_clientFactoryMock.Object, _loggerMock.Object);
-            SetupCaptureInvokeSynchronized();
+            _dispatcher = new RecordingDispatcher();
+        }
+
+        // ---- the actor hop ------------------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-005.1")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task ScheduleCallbackOntoDispatcherRatherThanRunItInline(Overload overload)
+        {
+            // Arrange
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+            var ranInline = false;
+
+            // Act
+            await Execute(sut, overload, () => ranInline = true);
+
+            // Assert — the callback is queued for the block's actor and has not run yet
+            Assert.IsFalse(ranInline);
+            Assert.AreEqual(1, _dispatcher.QueuedCount);
+            _dispatcher.Drain();
+            Assert.IsTrue(ranInline);
         }
 
         [TestMethod]
-        [DataRow(TargetMethod.ResponseContent, DisplayName = "for Action<TContent> callback overload")]
-        [DataRow(TargetMethod.NoResponse, DisplayName = "for Action callback overload")]
-        [DataRow(TargetMethod.ResponseMessage, DisplayName = "for Action<HttpResponseMessage> callback overload")]
-        public async Task SendRequestWithCorrectUri(TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-005.2")]
+        [DataRow(HttpStatusCode.OK, DisplayName = "success path")]
+        [DataRow(HttpStatusCode.BadGateway, DisplayName = "failure path")]
+        public async Task RunNeitherCallbackBeforeBlockReceivedFirstMessage(HttpStatusCode statusCode)
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK);
+            // Arrange — the dispatcher refuses the self-send exactly as LogicBlockBase does before a block
+            // has an actor; the executor catches that refusal, so the request's outcome reaches nobody
+            var sut = Executor(StubHttpMessageHandler.Answering(statusCode, TestObject.PascalCaseJson));
+            var unstarted = new UnstartedBlockDispatcher();
+            var successRan = false;
+            var errorRan = false;
 
             // Act
-            await ExecuteRequestAsync(targetMethod, Url, HttpMethod.Get);
+            await sut.ExecuteRequestAsync(unstarted, Url, HttpMethod.Get, () => successRan = true, _ => errorRan = true);
 
             // Assert
-            Assert.IsNotNull(_actualRequestUri);
-            Assert.AreEqual(Url, _actualRequestUri.OriginalString);
+            Assert.IsFalse(successRan);
+            Assert.IsFalse(errorRan);
         }
 
         [TestMethod]
-        [DataRow("GET", TargetMethod.ResponseContent)]
-        [DataRow("GET", TargetMethod.NoResponse)]
-        [DataRow("GET", TargetMethod.ResponseMessage)]
-        [DataRow("POST", TargetMethod.ResponseContent)]
-        [DataRow("POST", TargetMethod.NoResponse)]
-        [DataRow("POST", TargetMethod.ResponseMessage)]
-        [DataRow("PUT", TargetMethod.ResponseContent)]
-        [DataRow("PUT", TargetMethod.NoResponse)]
-        [DataRow("PUT", TargetMethod.ResponseMessage)]
-        [DataRow("DELETE", TargetMethod.ResponseContent)]
-        [DataRow("DELETE", TargetMethod.NoResponse)]
-        [DataRow("DELETE", TargetMethod.ResponseMessage)]
-        public async Task SendRequestWithCorrectHttpMethod(string httpMethodString, TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-005.3")]
+        public async Task DeliverCallbacksInOrderExchangesComplete()
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK);
-            var httpMethod = GetHttpMethod(httpMethodString);
+            // Arrange — the slow exchange is issued first and released last; nothing in the package
+            // serialises the two, so the order the block sees is the order they finished
+            var slowReleased = new TaskCompletionSource<bool>();
+            var handler = StubHttpMessageHandler.Responding(async (request, _) =>
+                                                            {
+                                                                if (request.RequestUri!.AbsolutePath.EndsWith("slow", StringComparison.Ordinal))
+                                                                {
+                                                                    await slowReleased.Task.ConfigureAwait(false);
+                                                                }
+
+                                                                return StubHttpMessageHandler.Respond(HttpStatusCode.OK, TestObject.PascalCaseJson);
+                                                            });
+            var sut = Executor(handler);
+            var completed = new List<string>();
 
             // Act
-            await ExecuteRequestAsync(targetMethod, Url, httpMethod);
+            var slow = sut.ExecuteRequestAsync(_dispatcher, "http://vion.test/slow", HttpMethod.Get, () => completed.Add("slow"));
+            await sut.ExecuteRequestAsync(_dispatcher, "http://vion.test/fast", HttpMethod.Get, () => completed.Add("fast"));
+            slowReleased.SetResult(true);
+            await slow;
+            _dispatcher.Drain();
 
             // Assert
-            Assert.IsNotNull(_actualRequestMethod);
-            Assert.AreEqual(httpMethod.Method, _actualRequestMethod.Method);
+            Assert.AreEqual("fast,slow", string.Join(",", completed));
         }
 
         [TestMethod]
-        [DataRow(TargetMethod.ResponseContent, DisplayName = "for Action<TContent> callback overload")]
-        [DataRow(TargetMethod.NoResponse, DisplayName = "for Action callback overload")]
-        [DataRow(TargetMethod.ResponseMessage, DisplayName = "for Action<HttpResponseMessage> callback overload")]
-        public async Task SendRequestWithCorrectContent(TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-005.3")]
+        public async Task AcceptRequestIssuedFromCallback()
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK);
+            // Arrange — the chained call a block makes when one answer decides the next request
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+            Task? chained = null;
 
             // Act
-            await ExecuteRequestAsync(targetMethod, Url, HttpMethod.Post, _requestContent);
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => chained = sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Post));
+            _dispatcher.Drain();
+            await chained!;
 
             // Assert
-            Assert.IsNotNull(_actualRequestContent);
-            Assert.AreEqual(_requestContent, _actualRequestContent);
+            Assert.HasCount(2, handler.Requests);
+            Assert.IsNull(_dispatcher.DrainFailure);
         }
 
         [TestMethod]
-        [DataRow(TargetMethod.ResponseContent, DisplayName = "for Action<TContent> callback overload")]
-        [DataRow(TargetMethod.NoResponse, DisplayName = "for Action callback overload")]
-        [DataRow(TargetMethod.ResponseMessage, DisplayName = "for Action<HttpResponseMessage> callback overload")]
-        public async Task SendRequestWithCorrectHeaders(TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-005.4")]
+        public async Task NotFailRequestWhenCallbackThrows()
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK);
-            var requestMessage = CreateRequestMessage(Url, HttpMethod.Post, headers: _headers);
+            // Arrange — an inline dispatcher, because this criterion is about the hand-over and nothing
+            // else: only when the callback runs inside `InvokeSynchronized` does the package's catch see the
+            // exception at all. The deferred shape `AC-HTTP-005.2` uses would leave the request finished
+            // before the throw and would read green however that catch were written.
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+            Exception? received = null;
 
             // Act
-            await ExecuteRequestAsync(targetMethod, requestMessage.RequestUri!.OriginalString, requestMessage.Method, headers: _headers);
+            var request = sut.ExecuteRequestAsync(new InlineDispatcher(),
+                                                  Url,
+                                                  HttpMethod.Get,
+                                                  () => throw new InvalidOperationException("callback failed"),
+                                                  exception => received = exception);
+            await request;
 
-            // Assert
-            Assert.IsNotNull(_actualRequestHeaders);
-            Assert.AreEqual(requestMessage.Headers.ToString(), _actualRequestHeaders.ToString());
+            // Assert — awaiting without a throw is the "not to the caller" half; the request neither faulted
+            // nor was reported as failed
+            Assert.AreEqual(TaskStatus.RanToCompletion, request.Status);
+            Assert.IsNull(received);
         }
 
         [TestMethod]
-        [DataRow(TargetMethod.ResponseContent, DisplayName = "for Action<TContent> callback overload")]
-        [DataRow(TargetMethod.NoResponse, DisplayName = "for Action callback overload")]
-        [DataRow(TargetMethod.ResponseMessage, DisplayName = "for Action<HttpResponseMessage> callback overload")]
-        public async Task InvokeErrorCallbackWithExceptionWhenRequestFails(TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-005.4")]
+        public async Task NotFailRequestWhenErrorCallbackThrows()
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.BadGateway);
-            await ExecuteRequestAsync(targetMethod, Url, HttpMethod.Get, _requestContent, errorCallback: ErrorCallback);
+            // Arrange — the sibling of the test above, on the other of `TryInvokeCallback`'s two callback
+            // kinds: here the request has already failed, and a block author's own bug in the handler for
+            // that failure must not turn into a second, different failure the caller has to deal with
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.BadGateway));
 
             // Act
-            _capturedInvokeSynchronized.Invoke();
+            var request = sut.ExecuteRequestAsync(new InlineDispatcher(), Url, HttpMethod.Get, () => { }, _ => throw new InvalidOperationException("error callback failed"));
+            await request;
 
             // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
-            Assert.IsNotNull(_actualException);
-            Assert.AreEqual(typeof(HttpRequestException), _actualException.GetType());
+            Assert.AreEqual(TaskStatus.RanToCompletion, request.Status);
+        }
+
+        // ---- the error model ---------------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-006.1")]
+        [DataRow(Failure.NonSuccessStatus, typeof(HttpRequestException))]
+        [DataRow(Failure.RelativeUrl, typeof(InvalidOperationException))]
+        [DataRow(Failure.EmptyBody, typeof(JsonException))]
+        [DataRow(Failure.MalformedBody, typeof(JsonException))]
+        [DataRow(Failure.NullBody, typeof(ContentNullAfterDeserializationException))]
+        [DataRow(Failure.DisposedClient, typeof(ObjectDisposedException))]
+        [DataRow(Failure.TransportSocketFailure, typeof(System.Net.Sockets.SocketException))]
+        [DataRow(Failure.TransportStreamFailure, typeof(IOException))]
+        public async Task DeliverOneExceptionClassPerFailure(Failure failure, Type expectedExceptionType)
+        {
+            // Arrange
+            var (sut, url) = ArrangeFailure(failure);
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          _ => { },
+                                          exception => received = exception);
+            _dispatcher.Drain();
+
+            // Assert — a transport failure arrives as the handler threw it: the package wraps nothing
+            Assert.IsNotNull(received);
+            Assert.AreEqual(expectedExceptionType, received.GetType());
         }
 
         [TestMethod]
-        [DataRow(TargetMethod.ResponseContent, DisplayName = "for Action<TContent> callback overload")]
-        [DataRow(TargetMethod.NoResponse, DisplayName = "for Action callback overload")]
-        [DataRow(TargetMethod.ResponseMessage, DisplayName = "for Action<HttpResponseMessage> callback overload")]
-        public async Task InvokeErrorCallbackWithExceptionWhenRequestTimesOut(TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-006.2")]
+        public async Task ScheduleNothingWhenRequestFailsWithoutErrorCallback()
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK, delay: TimeSpan.FromMilliseconds(500));
-            await ExecuteRequestAsync(targetMethod,
-                                      Url,
-                                      HttpMethod.Get,
-                                      _requestContent,
-                                      errorCallback: ErrorCallback,
-                                      timeout: TimeSpan.FromMilliseconds(10));
+            // Arrange — the same request with a callback schedules exactly one action, which is what makes
+            // this negative meaningful rather than vacuous
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.BadGateway));
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, _ => { });
+            Assert.AreEqual(1, _dispatcher.QueuedCount);
+            _dispatcher.Drain();
 
             // Act
-            _capturedInvokeSynchronized.Invoke();
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { });
 
             // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
-            Assert.IsNotNull(_actualException);
-            Assert.AreEqual(typeof(TimeoutException), _actualException.GetType());
+            Assert.AreEqual(0, _dispatcher.QueuedCount);
+        }
+
+        // ---- refusals at the caller ---------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.1")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public void RefuseRequestWithoutDispatcher(Overload overload)
+        {
+            // Arrange — without a dispatcher there is nowhere for either callback to run, so a request that
+            // went anyway would change the server's state and report nothing back
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+            _dispatcher = null!;
+
+            // Act / Assert
+            var refusal = Assert.ThrowsExactly<ArgumentNullException>(() => Execute(sut, overload));
+            Assert.AreEqual("dispatcher", refusal.ParamName);
+            Assert.Contains(nameof(IHttpRequestExecutor.ExecuteRequestAsync), refusal.Message);
+            Assert.IsEmpty(handler.Requests);
         }
 
         [TestMethod]
-        [DataRow(TargetMethod.ResponseContent, DisplayName = "for Action<TContent> callback overload")]
-        [DataRow(TargetMethod.NoResponse, DisplayName = "for Action callback overload")]
-        [DataRow(TargetMethod.ResponseMessage, DisplayName = "for Action<HttpResponseMessage> callback overload")]
-        public async Task NotThrowWhenInvokeSynchronizedThrows(TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public void RefuseTimeoutCancellationSourceWouldReject(Overload overload)
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.Forbidden);
-            _actorDispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Throws<Exception>();
+            // Arrange — the source throws from its constructor, which sits outside the executor's try, so
+            // an unrefused value loses the request with no callback and nothing thrown to the caller
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
 
-            // Act
-            await ExecuteRequestAsync(targetMethod, Url, HttpMethod.Get, errorCallback: ErrorCallback);
-
-            // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
+            // Act / Assert
+            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Execute(sut, overload, timeout: TimeSpan.MaxValue));
+            Assert.AreEqual("timeout", refusal.ParamName);
+            Assert.Contains(nameof(IHttpRequestExecutor.ExecuteRequestAsync), refusal.Message);
+            Assert.IsEmpty(handler.Requests);
         }
 
         [TestMethod]
-        public async Task InvokeErrorCallbackWithExceptionWhenRetrievingResponseFails()
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        [DynamicData(nameof(TimeoutsOutsideBand))]
+        public void RefuseEveryTimeoutBeyondEdgesOfBand(TimeSpan timeout)
         {
             // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK);
-            await ExecuteRequestAsync(TargetMethod.ResponseContent, Url, HttpMethod.Get, getResponseContent: _ => throw new Exception(), errorCallback: ErrorCallback);
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
 
-            // Act
-            _capturedInvokeSynchronized.Invoke();
-
-            // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
-            Assert.IsNotNull(_actualException);
-            Assert.AreEqual(typeof(Exception), _actualException.GetType());
+            // Act / Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher,
+                                                                                            Url,
+                                                                                            HttpMethod.Get,
+                                                                                            () => { },
+                                                                                            null,
+                                                                                            null,
+                                                                                            null,
+                                                                                            timeout));
+            Assert.IsEmpty(handler.Requests);
         }
 
         [TestMethod]
-        public async Task InvokeSuccessCallbackWithResponseContentOnSuccess()
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        [DynamicData(nameof(TimeoutsInsideBand))]
+        public async Task AcceptEveryTimeoutInsideBand(TimeSpan timeout)
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK, _responseContent);
-            await ExecuteRequestAsync(TargetMethod.ResponseContent,
-                                      Url,
-                                      HttpMethod.Get,
-                                      getResponseContent: GetResponseContentAsync,
-                                      successCallbackResponseContent: SuccessCallback,
-                                      errorCallback: ErrorCallback);
+            // Arrange — the two edges the source does take, and the sentinel that means no bound at all;
+            // refusing any of these would refuse a value the request could have run with
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
 
             // Act
-            _capturedInvokeSynchronized.Invoke();
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          null,
+                                          null,
+                                          null,
+                                          timeout);
 
             // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
-            Assert.IsNotNull(_actualResponseContent);
-            Assert.AreEqual(_responseContent, _actualResponseContent);
+            Assert.HasCount(1, handler.Requests);
         }
 
         [TestMethod]
-        public async Task InvokeSuccessCallbackWithoutResponseOnSuccess()
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        public void NameParameterMemberAndBoundsWhenRefusingTimeout()
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK);
-            await ExecuteRequestAsync(TargetMethod.NoResponse, Url, HttpMethod.Get, successCallbackNoContent: SuccessCallback);
+            // Arrange — a block author meeting this refusal has to learn three things from it: which
+            // argument was wrong, which of their own calls to edit, and what would have been taken instead.
+            // The bounds are asserted against the package's own constants, because what this criterion
+            // claims is that the message names them — the value of the band itself is pinned separately,
+            // against the cancellation source, by `RefuseExactlyWhatCancellationSourceRefuses`.
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
 
-            // Act
-            _capturedInvokeSynchronized.Invoke();
-
-            // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
-            Assert.IsTrue(_successCallbackInvoked);
+            // Act / Assert
+            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher,
+                                                                                                          Url,
+                                                                                                          HttpMethod.Get,
+                                                                                                          () => { },
+                                                                                                          null,
+                                                                                                          null,
+                                                                                                          null,
+                                                                                                          TimeSpan.MaxValue));
+            Assert.AreEqual("timeout", refusal.ParamName);
+            Assert.Contains(nameof(IHttpRequestExecutor.ExecuteRequestAsync), refusal.Message);
+            Assert.Contains($"A request timeout is {Timeout.InfiniteTimeSpan} for no bound, or from {TimeSpan.Zero} to {HttpRequestExecutor.MaxRequestTimeout}.", refusal.Message);
         }
 
         [TestMethod]
-        public async Task InvokeSuccessCallbackWithHttpResponseOnSuccess()
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        public void RefuseExactlyWhatCancellationSourceRefuses()
         {
-            // Arrange
-            const HttpStatusCode statusCode = HttpStatusCode.OK;
-            SetupHttpClientFactory(statusCode, _responseContent);
-            await ExecuteRequestAsync(TargetMethod.ResponseMessage, Url, HttpMethod.Get, successCallbackResponseMessage: SuccessCallback);
+            // Arrange — the band's edge read off the runtime rather than restated, because the families
+            // above express their rows relative to the package's constant and would follow it anywhere it
+            // moved. This is the one assertion that would notice.
 
-            // Act
-            _capturedInvokeSynchronized.Invoke();
-
-            // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
-            Assert.IsNotNull(_actualResponseMessage);
-
-            var actualResponseContent = await _actualResponseMessage.Content.ReadAsStringAsync(CancellationToken.None);
-            Assert.AreEqual(_responseContent, actualResponseContent);
-            Assert.AreEqual(statusCode, _actualResponseMessage.StatusCode);
+            // Act / Assert
+            using var atEdge = new CancellationTokenSource(HttpRequestExecutor.MaxRequestTimeout);
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new CancellationTokenSource(HttpRequestExecutor.MaxRequestTimeout + TimeSpan.FromMilliseconds(1)));
         }
 
         [TestMethod]
-        [DataRow(TargetMethod.NoResponse, DisplayName = "for Action callback overload")]
-        [DataRow(TargetMethod.ResponseMessage, DisplayName = "for Action<HttpResponseMessage> callback overload")]
-        public async Task NotInvokeDispatcherWhenSuccessCallbackIsNull(TargetMethod targetMethod)
+        [TestProperty("spec", "AC-HTTP-003.3")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task ScheduleNothingWithoutSuccessCallback(Overload overload)
         {
-            // Arrange
-            SetupHttpClientFactory(HttpStatusCode.OK);
+            // Arrange — the same exchange with a callback schedules exactly one action, which is what makes
+            // this negative meaningful; without the guard the queued action throws inside the block's actor
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+            await Execute(sut, overload, () => { });
+            Assert.AreEqual(1, _dispatcher.QueuedCount);
+            _dispatcher.Drain();
 
             // Act
-            await ExecuteRequestAsync(targetMethod, Url, HttpMethod.Get);
+            await Execute(sut, overload);
 
             // Assert
-            _actorDispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Never);
+            Assert.AreEqual(0, _dispatcher.QueuedCount);
         }
 
-        private void SetupCaptureInvokeSynchronized()
+        // ---- the two timeout bounds --------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.1")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task DeliverTimeoutExceptionWhenPerRequestBoundElapses(Overload overload)
         {
-            _actorDispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Callback<Action>(action => _capturedInvokeSynchronized = action);
+            // Arrange — the handler never answers and honours the token, so the per-request bound is the
+            // only thing that can end the exchange; nothing here waits on the wall clock
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting());
+            Exception? received = null;
+
+            // Act
+            await Execute(sut, overload, onError: exception => received = exception, timeout: TimeSpan.FromMilliseconds(50));
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsInstanceOfType<TimeoutException>(received);
         }
 
-        private void SetupHttpClientFactory(HttpStatusCode statusCode, string? responseContent = null, TimeSpan? delay = null)
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.1")]
+        [DataRow("en-US")]
+        [DataRow("de-DE")]
+        [DataRow("fr-FR")]
+        public async Task NameTimeoutInInvariantCultureWhateverMachineRunsIt(string culture)
         {
-            var handlerMock = new Mock<HttpMessageHandler>();
-            handlerMock.Protected()
-                       .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
-                       .Callback<HttpRequestMessage, CancellationToken>(async void (request, cancellationToken) =>
-                                                                        {
-                                                                            try
-                                                                            {
-                                                                                _actualRequestUri = request.RequestUri;
-                                                                                _actualRequestMethod = request.Method;
-                                                                                _actualRequestHeaders = request.Headers;
+            // Arrange — the gateways this runs on are German-locale machines, where a message rendering the
+            // number in the current culture reads 0,05 and no support query for 0.05 finds it. The restore
+            // is in a finally because a failing assert would otherwise leave the locale set for every test
+            // the assembly runs after this one.
+            var previousCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo(culture);
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting());
+            Exception? received = null;
 
-                                                                                if (request.Content != null)
-                                                                                {
-                                                                                    _actualRequestContent = await request.Content.ReadAsStringAsync(cancellationToken);
-                                                                                }
-                                                                            }
-                                                                            catch (Exception)
-                                                                            {
-                                                                                // ignore
-                                                                            }
-                                                                        })
-                       .Returns(async (HttpRequestMessage _, CancellationToken cancellationToken) =>
-                                {
-                                    if (delay.HasValue)
-                                    {
-                                        await Task.Delay(delay.Value, cancellationToken);
-                                    }
-
-                                    return new HttpResponseMessage { StatusCode = statusCode, Content = responseContent != null ? new StringContent(responseContent) : null };
-                                });
-
-            var httpClient = new HttpClient(handlerMock.Object);
-            _clientFactoryMock.Setup(factory => factory.CreateClient(It.IsAny<string>())).Returns(httpClient);
-        }
-
-        private static HttpRequestMessage CreateRequestMessage(string url, HttpMethod httpMethod, string? requestContent = null, Dictionary<string, string>? headers = null)
-        {
-            var expectedRequestMessage = new HttpRequestMessage(httpMethod, url) { Content = requestContent != null ? new StringContent(requestContent) : null };
-            if (headers == null)
+            try
             {
-                return expectedRequestMessage;
+                // Act
+                await sut.ExecuteRequestAsync(_dispatcher,
+                                              Url,
+                                              HttpMethod.Get,
+                                              () => { },
+                                              exception => received = exception,
+                                              timeout: TimeSpan.FromMilliseconds(50));
+                _dispatcher.Drain();
+
+                // Assert
+                Assert.IsNotNull(received);
+                Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.1")]
+        public async Task FailRequestAtOnceOnZeroPerRequestBound()
+        {
+            // Arrange — a zero bound is already expired when the source is built
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting());
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          exception => received = exception,
+                                          timeout: TimeSpan.Zero);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsInstanceOfType<TimeoutException>(received);
+            Assert.AreEqual("Timed out after 0 seconds", received.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-006.1")]
+        [DataRow(HttpStatusCode.BadGateway, null, typeof(HttpRequestException), DisplayName = "a non-success status judged after the bound")]
+        [DataRow(HttpStatusCode.OK, "{\"IntValue\":", typeof(JsonException), DisplayName = "a body that will not parse, read after the bound")]
+        public async Task KeepExceptionClassOfFailureAfterBoundElapsed(HttpStatusCode statusCode, string? jsonBody, Type expectedExceptionType)
+        {
+            // Arrange — the bound has already fired by the time the failure happens: a zero timeout builds
+            // an already-cancelled source, and this handler answers regardless of the token. Nothing here
+            // waits, and what failed is then not the cancellation — so the class must still name the failure
+            var sut = Executor(StubHttpMessageHandler.Answering(statusCode, jsonBody));
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          _ => { },
+                                          exception => received = exception,
+                                          timeout: TimeSpan.Zero);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(received);
+            Assert.AreEqual(expectedExceptionType, received.GetType());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.1")]
+        public async Task ApplyNoPerRequestBoundOnInfiniteTimeout()
+        {
+            // Arrange — the handler honours the token and answers only when the test releases it, so a bound
+            // that was armed at all would have ended the exchange before the release. A handler that ignored
+            // the token could not tell the two apart: it would answer either way.
+            var released = new TaskCompletionSource<bool>();
+            var handler = StubHttpMessageHandler.Responding(async (_, cancellationToken) =>
+                                                            {
+                                                                await released.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+                                                                return StubHttpMessageHandler.Respond(HttpStatusCode.OK, TestObject.PascalCaseJson);
+                                                            });
+            var sut = Executor(handler);
+            var succeeded = false;
+            Exception? received = null;
+
+            // Act
+            var request = sut.ExecuteRequestAsync(_dispatcher,
+                                                  Url,
+                                                  HttpMethod.Get,
+                                                  () => succeeded = true,
+                                                  exception => received = exception,
+                                                  timeout: Timeout.InfiniteTimeSpan);
+            released.SetResult(true);
+            await request;
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsTrue(succeeded);
+            Assert.IsNull(received);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.2")]
+        public async Task DeliverTaskCanceledExceptionWhenClientTimeoutElapses()
+        {
+            // Arrange — no per-request bound, so the client's own is the only one; the exception class is
+            // the platform's cancellation rather than the package's TimeoutException
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsInstanceOfType<TaskCanceledException>(received);
+            Assert.IsInstanceOfType<TimeoutException>(received.InnerException);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.2")]
+        public async Task BoundRequestByClientTimeoutUnderLongerPerRequestTimeout()
+        {
+            // Arrange — the per-request bound is three orders of magnitude larger than the client's, so a
+            // request that ends at all ended at the client's
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          exception => received = exception,
+                                          timeout: TimeSpan.FromMinutes(1));
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsInstanceOfType<TaskCanceledException>(received);
+        }
+
+        // ---- lifetime and disposal ---------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.1")]
+        public async Task JudgeStatusOnHeadersBeforeBodyArrives()
+        {
+            // Arrange — the body is never released, so a failure reported at all was reported on the
+            // headers alone
+            var gated = new GatedHttpContent(TestObject.PascalCaseJson);
+            var sut = Executor(StubHttpMessageHandler.Returning(new HttpResponseMessage(HttpStatusCode.BadGateway) { Content = gated }));
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          _ => { },
+                                          exception => received = exception)
+                     .WaitAsync(SettlementTimeout);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsInstanceOfType<HttpRequestException>(received);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.2")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task DisposeResponseWhenRequestFails(Overload overload)
+        {
+            // Arrange — no callback ever receives a failed response, so nothing downstream can dispose it;
+            // a block polling a failing endpoint on a timer leaks one per tick
+            var response = new CountingHttpResponse(HttpStatusCode.BadGateway, "{}");
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+
+            // Act
+            await Execute(sut, overload, onError: _ => { });
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.2")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task DisposeFailedResponseBeforeBodyEverArrives(Overload overload)
+        {
+            // Arrange — the failure is judged on the headers, so the leaked response would still be holding
+            // a body stream nobody will ever drain; this is the shape the leak actually takes in production
+            var response = new CountingHttpResponse(HttpStatusCode.BadGateway, "{}") { Content = new GatedHttpContent(TestObject.PascalCaseJson) };
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+
+            // Act
+            await Execute(sut, overload, onError: _ => { }).WaitAsync(SettlementTimeout);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.2")]
+        public async Task DisposeResponseWhenReadingBodyFails()
+        {
+            // Arrange — the sibling of the failed-status path: here the status was fine and the body was
+            // not, so the response reached the caller's local and the failure came afterwards
+            var response = new CountingHttpResponse(HttpStatusCode.OK, "{}");
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync<TestObject>(_dispatcher,
+                                                      Url,
+                                                      HttpMethod.Get,
+                                                      _ => throw new InvalidOperationException("body unreadable"),
+                                                      _ => { },
+                                                      exception => received = exception);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsInstanceOfType<InvalidOperationException>(received);
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.3")]
+        public async Task DisposeResponseItCreatedForMemberCarryingResponseType()
+        {
+            // Arrange
+            var response = new CountingHttpResponse(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+            TestObject? deserialized = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, ReadBody, value => deserialized = value);
+            _dispatcher.Drain();
+
+            // Assert — the value was read out of the response before it went, so the callback loses nothing
+            Assert.AreEqual(1, response.Disposals);
+            Assert.AreEqual(42, deserialized?.IntValue);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-004.2")]
+        public async Task LeaveSendRequestResponseAndCallerRequestUndisposed()
+        {
+            // Arrange — the callback receives a response whose body has not arrived; both it and the
+            // caller's own request must outlive the call
+            var gated = new GatedHttpContent(TestObject.PascalCaseJson);
+            var response = new CountingHttpResponse(HttpStatusCode.OK, "{}") { Content = gated };
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+            var request = new HttpRequestMessage(HttpMethod.Post, Url) { Content = new StringContent("{\"sent\":true}") };
+            string? body = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, request, received => body = ReadReleasedBody(received, gated));
+            _dispatcher.Drain();
+
+            // Assert — the callback read a body that had not arrived when it was scheduled, and the caller's
+            // own request is still readable, which a disposed one would not be
+            Assert.AreEqual(TestObject.PascalCaseJson, body);
+            Assert.AreEqual(0, response.Disposals);
+            Assert.AreEqual("{\"sent\":true}", await request.Content.ReadAsStringAsync());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-004.1")]
+        public async Task SendContentOfCallerOnAnyMethod()
+        {
+            // Arrange — a GET carrying a body, with the charset parameter `AC-HTTP-011.2` says the other
+            // seven members cannot set. The escape hatch challenges neither: it is how a block reaches a
+            // server that wants a body on a method that conventionally has none, or a content type of its own
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+            var request = new HttpRequestMessage(HttpMethod.Get, Url) { Content = new StringContent(TestObject.PascalCaseJson, Encoding.UTF8, "application/json") };
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, request);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(handler.LastRequest?.Content);
+            Assert.AreEqual(HttpMethod.Get, handler.LastRequest.Method);
+            Assert.AreEqual(TestObject.PascalCaseJson, await handler.LastRequest.Content.ReadAsStringAsync());
+            Assert.AreEqual("application/json; charset=utf-8", handler.LastRequest.Content.Headers.ContentType?.ToString());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-004.2")]
+        public async Task DisposeSendRequestResponseWhenCallerGaveNoCallback()
+        {
+            // Arrange — the sibling of the ownership rule above. `SendRequest`'s success callback owns the
+            // response, and the signature lets a caller pass none; the overload has no `finally` precisely
+            // so that a callback's response survives, which leaves this branch with no owner at all
+            var response = new CountingHttpResponse(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, new HttpRequestMessage(HttpMethod.Get, Url));
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-011.2")]
+        public async Task DisposeSerializedBodyWithRequest()
+        {
+            // Arrange — the body belongs to the request the executor built, so it goes with it; a caller
+            // holding a reference to what the serializer produced must not expect to read it afterwards
+            var body = new StringContent("{\"sent\":true}");
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Post,
+                                          () => { },
+                                          null,
+                                          null,
+                                          body);
+            _dispatcher.Drain();
+
+            // Act / Assert
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => body.ReadAsStringAsync());
+        }
+
+        // ---- headers ------------------------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-012.1")]
+        public async Task AddHeadersOfCallerWithoutValidatingThem()
+        {
+            // Arrange
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+            var headers = new Dictionary<string, string> { { "Authorization", "Bearer token" }, { "X-Trace", "42" } };
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          null,
+                                          headers);
+
+            // Assert
+            Assert.IsNotNull(handler.LastRequest);
+            Assert.AreEqual("Bearer token", string.Join(",", handler.LastRequest.Headers.GetValues("Authorization")));
+            Assert.AreEqual("42", string.Join(",", handler.LastRequest.Headers.GetValues("X-Trace")));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-012.2")]
+        [DataRow("Content-Type", "application/xml", DisplayName = "a content header, which is not a request header")]
+        [DataRow("Content-Length", "7", DisplayName = "a content header the transport owns")]
+        [DataRow("Bad Name", "value", DisplayName = "a name the header collection rejects")]
+        public async Task DropHeaderRequestRefusesAndSendAnyway(string headerName, string headerValue)
+        {
+            // Arrange
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+            var headers = new Dictionary<string, string> { { headerName, headerValue }, { "X-Kept", "yes" } };
+            var succeeded = false;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => succeeded = true,
+                                          null,
+                                          headers);
+            _dispatcher.Drain();
+
+            // Assert — the request goes, without the header and without telling the caller
+            Assert.IsTrue(succeeded);
+            Assert.IsNotNull(handler.LastRequest);
+            Assert.AreEqual("X-Kept", string.Join(",", handler.LastRequest.Headers.Select(header => header.Key)));
+        }
+
+        // ---- fixtures -----------------------------------------------------
+
+        private HttpRequestExecutor Executor(StubHttpMessageHandler handler, TimeSpan? clientTimeout = null)
+        {
+            var httpClient = new HttpClient(handler);
+            if (clientTimeout.HasValue)
+            {
+                httpClient.Timeout = clientTimeout.Value;
             }
 
-            foreach (var header in headers)
+            return new HttpRequestExecutor(new SingleHttpClientFactory(httpClient), _loggerMock.Object);
+        }
+
+        private (HttpRequestExecutor Sut, string Url) ArrangeFailure(Failure failure)
+        {
+            switch (failure)
             {
-                expectedRequestMessage.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                case Failure.NonSuccessStatus:
+                    return (Executor(StubHttpMessageHandler.Answering(HttpStatusCode.BadGateway)), Url);
+                case Failure.RelativeUrl:
+                    return (Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson)), "/relative/path");
+                case Failure.EmptyBody:
+                    return (Executor(StubHttpMessageHandler.Answering(HttpStatusCode.NoContent)), Url);
+                case Failure.MalformedBody:
+                    return (Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, "{\"IntValue\":")), Url);
+                case Failure.NullBody:
+                    return (Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, "null")), Url);
+                case Failure.DisposedClient:
+                    var disposedClient = new HttpClient(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+                    disposedClient.Dispose();
+
+                    return (new HttpRequestExecutor(new SingleHttpClientFactory(disposedClient), _loggerMock.Object), Url);
+                case Failure.TransportSocketFailure:
+                    return (Executor(StubHttpMessageHandler.Throwing(new System.Net.Sockets.SocketException(10061))), Url);
+                case Failure.TransportStreamFailure:
+                    return (Executor(StubHttpMessageHandler.Throwing(new IOException("the connection was reset"))), Url);
+                default: throw new ArgumentOutOfRangeException(nameof(failure), failure, null);
             }
-
-            return expectedRequestMessage;
         }
 
-        private static HttpMethod GetHttpMethod(string httpMethodString)
+        private Task Execute(HttpRequestExecutor sut, Overload overload, Action? onSuccess = null, Action<Exception>? onError = null, TimeSpan? timeout = null)
         {
-            return httpMethodString switch
+            switch (overload)
             {
-                "GET" => HttpMethod.Get,
-                "POST" => HttpMethod.Post,
-                "PUT" => HttpMethod.Put,
-                "DELETE" => HttpMethod.Delete,
-                _ => throw new ArgumentOutOfRangeException(nameof(httpMethodString)),
-            };
-        }
-
-        private static async Task<TestObject> GetResponseContentAsync(HttpResponseMessage response)
-        {
-            var responseContent = await response.Content.ReadAsStringAsync(CancellationToken.None);
-            return JsonSerializer.Deserialize<TestObject>(responseContent)!;
-        }
-
-        private void SuccessCallback()
-        {
-            _successCallbackInvoked = true;
-        }
-
-        private void SuccessCallback(TestObject responseContent)
-        {
-            _actualResponseContent = JsonSerializer.Serialize(responseContent);
-        }
-
-        private void SuccessCallback(HttpResponseMessage responseMessage)
-        {
-            _actualResponseMessage = responseMessage;
-        }
-
-        private void ErrorCallback(Exception exception)
-        {
-            _actualException = exception;
-        }
-
-        private async Task ExecuteRequestAsync(TargetMethod targetMethod,
-                                               string url,
-                                               HttpMethod httpMethod,
-                                               string? requestContent = null,
-                                               Func<HttpResponseMessage, Task<TestObject>>? getResponseContent = null,
-                                               Action<TestObject>? successCallbackResponseContent = null,
-                                               Action? successCallbackNoContent = null,
-                                               Action<HttpResponseMessage>? successCallbackResponseMessage = null,
-                                               Action<Exception>? errorCallback = null,
-                                               Dictionary<string, string>? headers = null,
-                                               TimeSpan? timeout = null)
-        {
-            var requestHttpContent = requestContent != null ? new StringContent(requestContent) : null;
-            switch (targetMethod)
-            {
-                case TargetMethod.ResponseContent:
-                    await _sut.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                   url,
-                                                   httpMethod,
-                                                   getResponseContent!,
-                                                   successCallbackResponseContent!,
-                                                   errorCallback,
-                                                   headers,
-                                                   requestHttpContent,
-                                                   timeout);
-                    break;
-                case TargetMethod.NoResponse:
-                    await _sut.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                   url,
-                                                   httpMethod,
-                                                   successCallbackNoContent,
-                                                   errorCallback,
-                                                   headers,
-                                                   requestHttpContent,
-                                                   timeout);
-                    break;
-                case TargetMethod.ResponseMessage:
-                    var request = CreateRequestMessage(url, httpMethod, requestContent, headers);
-                    await _sut.ExecuteRequestAsync(_actorDispatcherMock.Object, request, successCallbackResponseMessage!, errorCallback, timeout);
-                    break;
-                default: throw new ArgumentOutOfRangeException(nameof(httpMethod), httpMethod, null);
+                case Overload.ResponseContent:
+                    return sut.ExecuteRequestAsync(_dispatcher,
+                                                   Url,
+                                                   HttpMethod.Get,
+                                                   ReadBody,
+                                                   onSuccess == null ? null! : _ => onSuccess(),
+                                                   onError,
+                                                   timeout: timeout);
+                case Overload.NoResponse:
+                    return sut.ExecuteRequestAsync(_dispatcher,
+                                                   Url,
+                                                   HttpMethod.Get,
+                                                   onSuccess,
+                                                   onError,
+                                                   timeout: timeout);
+                case Overload.ResponseMessage:
+                    return sut.ExecuteRequestAsync(_dispatcher, new HttpRequestMessage(HttpMethod.Get, Url), onSuccess == null ? null : _ => onSuccess(), onError, timeout);
+                default: throw new ArgumentOutOfRangeException(nameof(overload), overload, null);
             }
+        }
+
+        /// <summary>
+        ///     The delegate the client hands the executor in production, built from the real serializer, so
+        ///     the exception classes a body produces are the ones a block author actually receives.
+        /// </summary>
+        private static Task<TestObject> ReadBody(HttpResponseMessage response)
+        {
+            return new HttpContentSerializer(Options.Create(new JsonSerializerOptions())).DeserializeJsonAsync<TestObject>(response.Content);
+        }
+
+        private static string ReadReleasedBody(HttpResponseMessage response, GatedHttpContent gated)
+        {
+            gated.Release();
+
+            return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         }
     }
 }

@@ -199,7 +199,7 @@ The protocol is packaged as the `spec-pass` skill; each pass is one change doc +
 PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating (done) → introspection +
 identifiers (done) → scenario/stepping/pairing (done) → DevHost control (done) → block lifecycle
 (done) → contracts (done) → analyzers (done) → Modbus (done) → CLI (done) → I/O (done) → test kits
-(done) → `HTTP` remains. `docs/rfcs/` was frozen throughout and **disappeared with the `TKIT`
+(done) → HTTP (done). `docs/rfcs/` was frozen throughout and **disappeared with the `TKIT`
 pass**, which absorbed the last two.
 
 ## Dispatching a pass to a fresh session
