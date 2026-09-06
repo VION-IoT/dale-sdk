@@ -183,7 +183,7 @@ symbol-only check no-op in a real build.
   `[ServiceProperty]` beside `[ServiceMeasuringPoint]`, which are distinct bases.
 - `AC-ANLZ-006.2` (Event-driven): WHEN a non-abstract class implements two interfaces declaring one
   property name with conflicting `Unit` values THE SYSTEM SHALL report `DALE020`.
-- `AC-ANLZ-006.3` (Event-driven): WHEN a **public** implementing declaration carries its own
+- `AC-ANLZ-006.3` (Event-driven): WHEN a public implementing declaration carries its own
   `[ServiceProperty]` or `[ServiceMeasuringPoint]` THE SYSTEM SHALL report nothing, wherever in the
   base chain that declaration sits — and SHALL still report where the only such declaration is an
   explicit interface implementation, which the service binder's own walk does not reach.
@@ -261,7 +261,7 @@ exists because the failure is invisible in the running system.
   key without judging its value.
 - `AC-ANLZ-010.3` (Ubiquitous): THE SYSTEM SHALL treat `DALE026` as suppressible for a deliberate one-off key, the group vocabulary being open. GAP: the mechanism is `AC-ANLZ-020.1`'s; this line records that this rule in particular is designed to be suppressed rather than obeyed.
 - `AC-ANLZ-010.4` (Ubiquitous): THE SYSTEM SHALL collect group-key constants from the compilation's
-  own assembly **and from its references**.
+  own assembly and from its references.
 - `AC-ANLZ-010.5` (Ubiquitous): THE SYSTEM SHALL collect them only from a static class named exactly
   `PropertyGroup`, in any namespace and nested in a type or not.
 
@@ -302,7 +302,7 @@ found in one more place; `AC-ANLZ-011.3` is the target nothing reached — the k
   SYSTEM SHALL report `DALE015`.
 - `AC-ANLZ-012.4` (Ubiquitous): THE SYSTEM SHALL judge a nested public type by these rules exactly as
   it judges a top-level one, and only for types declared in source.
-- `AC-ANLZ-012.5` (Ubiquitous): THE SYSTEM SHALL judge a type by its **effective** accessibility for
+- `AC-ANLZ-012.5` (Ubiquitous): THE SYSTEM SHALL judge a type by its effective accessibility for
   the mark rule alone, so a public type nested in a non-public one is not asked for a mark and does
   not keep its namespace off the stale list — while a `[PublicApi]` the author wrote is asked for its
   documentation whatever encloses it.
@@ -397,7 +397,7 @@ how the analyzers reach them are this page's.
 
 ## Observability
 
-- `AC-ANLZ-016.1` (Event-driven): WHEN a computed observable property's getter reads a **property**
+- `AC-ANLZ-016.1` (Event-driven): WHEN a computed observable property's getter reads a property
   of a struct-typed field or property the type owns THE SYSTEM SHALL report `DALE031`, at most once
   per pair, covering the null-conditional form as well as the plain one.
 - `AC-ANLZ-016.2` (Ubiquitous): THE SYSTEM SHALL report nothing for a struct field read, a method

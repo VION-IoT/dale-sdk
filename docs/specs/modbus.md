@@ -34,7 +34,8 @@ and are cited, never re-argued.
 `Vion.Dale.Sdk.Modbus.Core`, `.Tcp` or `.Rtu` carries the analyzer `ProjectReference` that
 `Vion.Dale.Sdk.DigitalIo` and `.AnalogIo` do, so `AC-ANLZ-018.*` puts every type, mark and XML doc
 here outside the pack. The `[PublicApi]` marks and the documentation below are author discipline with
-no gate behind them; only the PublicApi manifest snapshot notices when the marked set changes.
+no gate behind them; only the PublicApi manifest snapshot notices when the marked set changes, and
+the manifest rule is `SYS-API-*` ([`_invariants.md`](_invariants.md)).
 
 ## The shared client surface
 

@@ -325,9 +325,9 @@ The classification is also what the API manifest is drawn from: a `[PublicApi]` 
 is why marking the registration class internal changed no row. The rows this area holds are seven per
 package — the four faces and the three message types — and four per TestKit. The manifest is
 regenerated and diffed by `.github/workflows/publish.yml` (`:140-146` generates it, `:162-206`
-regenerates it, auto-commits a drift onto the pull request head and warns on `main`), and **no criterion
-in this corpus states that gate** — not here and not on any other page — so it is named as evidence
-rather than cited.
+regenerates it, auto-commits a drift onto the pull request head and warns on `main`). The manifest
+rule itself is `SYS-API-*` in [`_invariants.md`](_invariants.md), which this page cites rather than
+restating.
 
 ## The mirror
 
