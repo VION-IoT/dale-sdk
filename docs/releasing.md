@@ -101,8 +101,8 @@ One-time setup per repo. Flag this if you fork or rotate credentials:
 
 - GitHub secret `AZURE_DEVOPS_PAT` — PAT with `Packaging: Read & write` on the Azure DevOps feed.
 - GitHub secret `NUGET_API_KEY` — nuget.org API key scoped to push this SDK's packages. Rotate per nuget.org's policy (max 365 days).
-- GitHub secret `DOCS_REPO_PAT` — PAT with `contents:write` on `VION-IoT/documentation`. Used by `publish.yml` to auto-push the API reference and to open a drift issue when the PublicApi surface changes.
-- GitHub secret `ARCHITECTURE_REPO_PAT` — used by `publish.yml` to open a drift issue on `VION-IoT/architecture` when the CLI help snapshot changes.
+- GitHub secret `DOCS_REPO_PAT` — PAT with `contents:write` on `VION-IoT/documentation`. Used by `publish.yml` to auto-push the API reference.
+- GitHub secret `ARCHITECTURE_REPO_PAT` — used by `publish.yml` to open a drift issue on `VION-IoT/architecture` when the public-API manifest or the CLI help snapshot changes.
 - GitHub secrets `DALE_CI_CLIENT_ID` / `DALE_CI_CLIENT_SECRET` — Keycloak service-account credentials, scoped per GitHub Environment (`test` and `production`), used by `examples.yml` and `upload-libraries.yml`. Every qualifying `main` push uploads to Cloud test automatically and parks a production upload behind a required-reviewer approval; see [`specs/cli.md`](specs/cli.md).
 
 Trusted Publishing was the prior approach but does not currently work with reusable workflows: the OIDC `job_workflow_ref` claim points at the shared-workflows repo, not this repo, and nuget.org rejects the token exchange. See [community discussion #179952](https://github.com/orgs/community/discussions/179952). Re-evaluate when nuget.org adds reusable-workflow support.
@@ -112,7 +112,7 @@ Trusted Publishing was the prior approach but does not currently work with reusa
 `publish.yml` keeps [`docs/snapshots/publicapi-manifest.json`](snapshots/publicapi-manifest.json) and [`docs/snapshots/cli-help-snapshot.txt`](snapshots/cli-help-snapshot.txt) in sync with the code:
 
 - On PRs, the snapshots are regenerated and auto-committed to the PR branch so `main` is always up-to-date.
-- On `main` pushes, the snapshots are diffed against `HEAD~1` and any change opens an issue in [`VION-IoT/documentation`](https://github.com/VION-IoT/documentation) so the docs can be kept in step.
+- On `main` pushes, the snapshots are diffed against `HEAD~1` and any change opens an issue in [`VION-IoT/architecture`](https://github.com/VION-IoT/architecture) (both the public-API surface and the CLI help — `publish.yml` names that repository at both `gh issue create` sites) so the docs can be kept in step.
 - On `main` pushes, a fresh `api-reference.md` is also pushed to the docs repo.
 
 None of these run on tag pushes — tags are for publishing.

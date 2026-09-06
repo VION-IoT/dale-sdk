@@ -508,8 +508,9 @@ The meter name and all eight instrument names are a wire: the runtime's export o
 and a dashboard template names each instrument. `AC-LIFE-019.3`'s full tag set is deliberate — the
 runtime shapes cardinality by dropping tags at export, and a tag has to be emitted to be dropped.
 
-Nothing in this repository constructs the meter; a host that adds the SDK gets the core and wires the
-export itself. The finding ledger carries that.
+Nothing in this repository constructs the meter. The runtime does: its `ActorVitalsMeterHost`
+(`Dale/Diagnostics/ActorVitalsExport.cs`) builds one over the core it is handed and exports it by the
+meter's name; any other host that adds the SDK gets the core and wires the export itself.
 
 ## The two registrations
 

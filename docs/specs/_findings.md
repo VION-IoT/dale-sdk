@@ -10,23 +10,34 @@ page states it), or a missing test (that is a `GAP` marker on the page).
 
 ## `INTRO` — the introspection document and identifier stability (2026-09-02)
 
-- **`dale list` cannot render a nested block's short name, and drops an endpoint whose identifier is
-  empty.** The projection splits a block's identity on `.` (`Vion.Dale.Cli/Commands/ListCommand.cs:72`,
-  `:153`), so a nested block lists as `Outer+NestedBlock` — and it filters an empty identifier out
-  entirely (`:74`, `:76`), which contradicts the promise that `dale list` prints the identifiers as the
-  document emits them. `AC-INTRO-014.3` removes the second input at the source; the first survives
-  because `AC-INTRO-004.1` keeps a block's identity in CLR form deliberately. The projection is Tier B.
-  *(INTRO pass row 88 — `CLI`.)*
+- **`dale list` cannot render a nested block's short name.** The projection splits a block's
+  identity on `.` and `+` (`Vion.Dale.Cli/Commands/ListCommand.cs:63-71`), so a nested block lists
+  as `Outer+NestedBlock`. It survives because `AC-INTRO-004.1` keeps a block's identity in CLR form
+  deliberately. The projection is Tier B. **CLI pass row 88:** the second half of this line — an
+  endpoint whose identifier is empty being filtered out of `--output json` but not the table — is
+  fixed; both modes report the same bindings, and `AC-INTRO-014.3` refuses a blank identifier at the
+  source. *(INTRO pass row 88 — `CLI`.)*
 - **Nothing warns when a library's `<PackageId>` and `<AssemblyName>` diverge after the identity
   change.** `AC-INTRO-001.2` makes the document's package identity the nuspec id, which is the id the
   platform registers; a project that changes only its assembly name now silently keeps its keys, and one
   that changes only its package id silently re-namespaces them. A `dale build` / `dale pack` warning is
   where an author would see it. *(INTRO pass, residue of row 2 — `CLI`.)*
+  **Runtime review (2026-09-06):** the runtime is a reader of the package half only —
+  `Dale/Plugin/PluginLoader.cs:50-65` groups loaded libraries by `PackageId` and refuses two
+  versions of one, and `:94` keys the load table on it — so a project that changes only its assembly
+  name keeps its runtime identity while its introspection keys re-namespace, and nothing on either
+  side notices.
 - **`dale list` runs the introspection without the development-only exclusion**, so it lists blocks the
   packed artifact omits (`Vion.Dale.Cli/Helpers/ParserRunner.cs:250`–`:258` passes only `--package-id`).
   Whether the CLI should filter them or mark them in its output is a question about what `dale list` is
   for, which is decided when the CLI is specced; the introspection page says what the listing means in
   the meantime. *(INTRO pass amendment 2, M7 — `CLI`.)*
+  **Runtime review (2026-09-06):** the runtime is now the gate the listing is not —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:80-84` refuses a whole
+  configuration that binds a development-only contract (VION-131) and
+  `Dale/Reflection/LoadedTypeScanner.cs:87-89` never stands up a `[DevelopmentOnlyHandler]` on a
+  gateway — so a block `dale list` shows and the artifact omits is one a fielded configuration is
+  refused for, not one that quietly misbehaves.
 - **A blank or a colliding endpoint `Identifier =` draws no compile-time diagnostic.** The bind-time
   refusal (`AC-INTRO-014.3`, `AC-INTRO-014.4`) is the only guard, so an author learns of it at
   `dotnet pack` rather than in the editor. A collision check is a whole-type analysis across two
@@ -37,6 +48,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   eight deliberate `INTRO` fixtures in `Vion.Dale.Sdk.Test/TestHelpers/IntrospectionBlocks.cs` (`:82`
   and `:97` blank, six `Identifier = "Shared"` collisions), each needing a suppression. The first
   consumer declares no `Identifier =` at all.
+  **Runtime review (2026-09-06):** the runtime keys on the identifier —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:437` builds each block's
+  contract lookup with `.ToDictionary(m => m.ContractIdentifier, …)` — so two mappings sharing one
+  identifier are a duplicate-key throw at configuration time rather than a document ambiguity.
 
 ## `CTRL` — the development host's control surface and lifecycle (2026-09-04)
 
@@ -88,6 +103,12 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   (`Vion.Dale.Sdk/Messages/ActorMessages.cs:65-75`) have no handler and no construction site here — the
   private runtime's remote-interface proxy handler is the only reader. The page carries them and
   specifies neither, because no in-repo test can reach one. *(LIFE pass row 5 — `LIFE`.)*
+  **Runtime review (2026-09-06):** both ends are live in the runtime —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:855-856` sends
+  `LinkLogicBlockInterfaceActors` and `SetRemoteFunctionInterfaceInstallationTopics` to the
+  remote-interface proxy handler, which handles them at
+  `Dale/Mqtt/Handlers/RemoteFunctionInterfaceProxyHandler.cs:41,44` — so the page carries two types
+  whose only sender and only reader are one file apart in a repository this one cannot test against.
 - **A contract handler's reference is minted whether or not the actor exists.** `LookupByName` builds a
   reference from a name alone (`Vion.Dale.ProtoActor/ActorSystem.cs:373-376`,
   `PidUtils.cs:7-10`), so a block whose handler class is absent from the host binds to nothing and every
@@ -96,6 +117,11 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   (`Vion.Dale.DevHost/DevLogicSystemInitializer.cs:390`), so a contract whose handler it did not
   discover is silently dead. A registry lookup at link time is a spawn-ordering contract shared with the
   private runtime, which is past this pass. *(LIFE pass row 26 — `LIFE`.)*
+  **Runtime review (2026-09-06):** the runtime makes the silence worse, not better —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:641-645` looks each handler
+  up by `actorType.Name` over a deliberately degrading assembly scan, so a shared assembly that
+  fails to enumerate drops a handler from the scan and every contract mapped to it binds to a
+  live-looking reference that reaches no one.
 - **A `[Persistent]` property more than one level inside a block is silently not persisted.** Discovery
   walks a class-typed property's own properties and no further
   (`Vion.Dale.Sdk/Persistence/PersistentData.cs:264-295`), with no diagnostic at any door. Recursing
@@ -105,11 +131,9 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   a concatenation (`Vion.Dale.Sdk/Utils/LogicBlockUtils.cs:12`), so `logicblock_A_B_c_d` reads two ways.
   Every reader in the repository matches the prefix rather than splitting, so there is no harm to name
   today; the entry exists against the day one splits. *(LIFE pass row 137 — `LIFE`.)*
-- **The SDK ships an OpenTelemetry meter no host in this repository wires.** `ActorVitalsMeter` is
-  public and constructed only by its own tests; `AddDaleSdk` registers the vitals core and not the meter
-  (`Vion.Dale.Sdk/ServiceCollectionExtensions.cs:12-28`), so a host that adds the SDK gets the core and
-  no metrics until it builds the meter itself. Registering it there would start a meter in the
-  development host, the TestKit and every example. *(LIFE pass row 208 — `LIFE`.)*
+  **Runtime review (2026-09-06):** the runtime is one more prefix-matcher rather than a splitter —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:362` matches
+  `^(logicblock_)` by regex — so the "no harm today" holds across the fielded host too.
 - **The two dependency-injection registrations are independent, and one in-repo host uses only one.**
   `AddDaleSdk` and `AddProtoActorSystem` can each be called without the other
   (`Vion.Dale.Sdk/ServiceCollectionExtensions.cs:12`,
@@ -118,11 +142,9 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   actor system without the SDK's registrations* is a supported composition is a decision rather than a
   defect — the pipeline documents what it takes from the container instead. *(LIFE pass row 216 —
   the operator.)*
-- **`IActorContext.Headers` is published and nothing reads it.** The member is on the interface every
-  block handler is handed (`Vion.Dale.Sdk/Abstractions/IActorContext.cs:8`) and implemented over the
-  message's own headers (`Vion.Dale.ProtoActor/ActorContext.cs:37-40`); a repository-wide search finds
-  no reader in the SDK, the development host, the TestKit or the examples. Removing it is a surface
-  decision under `sdk-surface-conventions.md`, not a pass's. *(LIFE pass row 227 — `LIFE`.)*
+  **Runtime review (2026-09-06):** the fielded composition calls both, in that order —
+  `Dale/Program.cs:271` `AddProtoActorSystem()` then `:293` `AddDaleSdk()` — so "an actor system
+  without the SDK's registrations" is the parser's composition alone.
 - **A bound service the configuration gives no identifier is dropped at six sites for the instance's
   life.** The announcement omits it (`Vion.Dale.Sdk/Core/LogicBlockBase.cs:1180-1184`) and every value
   change, clear, flush and drain drops it in turn, each with its own warning, while the block reports
@@ -130,6 +152,11 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   its reader is the cloud's service allocation: the runtime builds the lookup from the configuration
   payload's service list, and whether a fielded configuration may lawfully omit a service the block
   binds is a contracts question no read in this repository answers. *(LIFE pass row 30 — `LIFE`.)*
+  **Runtime review (2026-09-06):** the reader this line defers to is one file —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:434` builds
+  `serviceIdLookup` straight from the configuration payload's service list — so "may a fielded
+  configuration lawfully omit a service the block binds" is a question the cloud's allocation
+  answers and the runtime merely forwards.
 - **A block whose configuration failed still starts, publishes and acknowledges.** The start arm has no
   configuration check (`Vion.Dale.Sdk/Core/LogicBlockBase.cs:263-277`), so such a block runs its start
   hook, publishes over whatever bindings the failed configuration registered, arms its periodic save and
@@ -139,6 +166,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   surface (`AC-CTRL-003.*`); acknowledging without starting mints an "acknowledged but inert" state the
   page would have to state; and a failure acknowledgement is a wire change on `StartLogicBlockResponse`.
   That is a decision, not a pass's. *(LIFE pass row 47 — `LIFE` + `CTRL`.)*
+  **Runtime review (2026-09-06):** the runtime is the reader the "throwing" shape would break —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:256` awaits
+  `StartLogicBlockResponse` on a timeout now bound to the configuration (VION-134) — so a block that
+  refused to start would stall the gateway's whole boot rather than surface one failed block.
 - **The development host restores nothing, so the start hook's persisted-value promise is one it cannot
   keep.** `AC-LIFE-012.2` says a member read in the start hook holds its restored value *on a host that
   restores*; the development host's start sequence sends no restore
@@ -146,6 +177,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   default and gets the operator's value in the field. Whether the host should send an empty restore for
   sequence parity — the way it sends the snapshot request it discards — is the host's decision.
   *(LIFE pass row 124 — `CTRL`.)*
+  **Runtime review (2026-09-06):** the asymmetry is real and one-sided — the runtime does restore:
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:135` calls
+  `RestorePersistentDataAsync`, which sends one `RestorePersistentDataRequest` per block at
+  `:920-934` — so the development host is the only host on which `AC-LIFE-012.2`'s promise is empty.
 - **`Vion.Dale.ProtoActor`, and three namespaces of `Vion.Dale.Sdk`, are outside the public-API
   snapshot.** The manifest covers 12 assemblies and `Vion.Dale.ProtoActor` is not among them although it
   is a shipped package a consumer's block depends on; `PublicApiConfig.cs` declares only `Core`,
@@ -181,6 +216,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   no contract dispatch at all, and the development host's codec builds the message from a declared wire
   struct — so there is no wrong outcome behind it, only a published shape that says less than it
   means. *(BIND pass row 62 — `BIND`.)*
+  **Runtime review (2026-09-06):** the one construction site outside this repository confirms the
+  laxity is unreachable — the first consumer's
+  `Ecocoach.Dale.Contracts.Ppc.Simulation/PpcProviderBase.cs:64` builds
+  `ContractMessage<TToConsumer>` from a type parameter its own base already constrains.
 - **A contract mapped to a handler class the host never spawned sends into nothing.** The handler
   reference is minted from a name whether or not an actor of that name exists (`AC-LIFE-017.1`), so a
   contract binds, maps and sends, and every message reaches no one. This is the contract-side half of
@@ -210,17 +249,16 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   (`AC-ANLZ-001.4`), without which the IDE drops it, and a decision about
   `ServiceRelationAnalyzer.cs:50-52`'s current-assembly boundary, which makes a duplicate against a
   *referenced* library invisible either way. *(BIND pass row 173, ANLZ pass row 175 — `ANLZ`.)*
+  **Runtime review (2026-09-06):** a duplicate does not stay soft in the field —
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:437` and `:632` both build
+  `ToDictionary` maps keyed on the contract identity, so the second occurrence is a duplicate-key
+  throw at configuration time rather than a second contract type wearing one name.
 - **A block's interface endpoints come from public properties only, and the walk cannot be widened
   without moving every consumer's artifact.** `DeclarativeInterfaceBinder.cs:86` walks public instance
   properties while the contract binder walks non-public ones too. This pass refuses the *declaration*
   that lands outside the walk (`AC-BIND-001.3`) rather than widening it, because widening mints
   endpoints into the introspection document every consumer uploads, whose reader is the cloud.
   *(BIND pass row 21 — `INTRO`.)*
-- **The generator's candidate predicate matches any attribute whose name contains "Contract".**
-  `Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:36-40` runs on every class in every compilation and
-  is confirmed semantically afterwards, so the output is correct — but the predicate is the incremental
-  generator's cache key, so its breadth is a build-time cost every consumer pays with no functional
-  observable. *(BIND pass row 186 — `ANLZ`.)*
 - **The TestKit maps a contract an inclusion gate would have excluded.**
   `Vion.Dale.Sdk.TestKit/LogicBlockTestContextBuilder.cs:352-369` discovers contract identifiers from
   marked, writable properties and reads no `[IncludedWhen]`, which is two of the binder's three
@@ -229,6 +267,14 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   discovery rule it follows from (`AC-TKIT-002.2`). Reading a gate means running the gate evaluator
   the binder owns, which is `BIND`'s surface and not a line in a kit; decision `0081` names
   "runtime/DevHost/TestKit" as one rule, so this is that rule's TestKit half and moves with it.
+  **Runtime review (2026-09-06):** decision `0081`'s "runtime/DevHost/TestKit" rule is honoured on
+  two of the three — `Vion.Dale.Sdk/Configuration/Contract/DeclarativeContractBinder.cs:51` runs
+  `InclusionGate.IsIncluded` before binding, and the runtime names that as the reason it forwards
+  `[InstantiationParameter]` values untouched
+  (`Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:443`) — and the divergence
+  is live for the first consumer, which gates fielded blocks and proves the gating with this kit in
+  the room
+  (`Ecocoach.EnergyManagement.Test/LogicBlocks/ChargingStationEvtec/ChargingStationEvtecGatingShould.cs`).
 - **Every namespace of this area but two is outside the public-API ratchet.**
   `Vion.Dale.Sdk/PublicApiConfig.cs:6-8` declares only `Core`, `Emission` and `Utils`, so `DALE014`
   never asks for a mark in `Configuration.Contract`, `Configuration.Interfaces`, `CodeGeneration`,
@@ -254,6 +300,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   went to zero keeps references to actors that no longer exist, and has no way to be told "none". No
   SDK change can cure it: the message that would say so is one the runtime does not send.
   *(BIND pass, second opinion's unrowed observable 5 — the runtime, promoted by the operator.)*
+  **Runtime review (2026-09-06):** verified on the runtime at
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:629` — `if
+  (allMappings.Count > 0)` guards the only send, and no message says "none". Escalated to the
+  operator as a Jira candidate (runtime; VION-16 with the `dale-sdk` label).
 - **`Vion.Dale.Sdk.Reflection.AssemblyExtensions.GetConcreteType` now has no caller.** The singular
   entry was the contract factory's only use, and this pass moved that to the plural one so the factory
   can name every candidate. It stays because deleting a public method of a namespace outside the
@@ -275,14 +325,17 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   consumer inheriting from it gets nothing. Widening means judging a referenced assembly's
   declarations, which is `AC-ANLZ-002.3`'s stated boundary rather than a defect in this rule.
   *(ANLZ pass row 66 — `ANLZ`.)*
-- **`[StructField]` on a target other than a struct's constructor parameter is judged by nothing.** The
-  attribute allows more targets than the one walk that reads it
-  (`TypeRefBuilder.BuildStructFieldAnnotations`, and `StructFieldPresentationBuilder.Build` over the
-  same constructor), so a misplaced declaration compiles and emits nothing. The two rules that judge
-  the knob are scoped to that reader's parameters (`AnalyzerHelper.IsStructFieldParameter`), so they
-  do not report the misplacement either. Narrowing `AttributeTargets` is a source-breaking
-  change to a published attribute — the same shape as the message-struct entry `DALE047` just closed,
-  and the same reason it became a diagnostic rather than a narrowing. *(ANLZ pass row 111 — `ANLZ`.)*
+- **`[StructField]` on a parameter other than a wire struct's constructor parameter is judged by
+  nothing.** The `INTRO` pass narrowed `AttributeUsage` to `AttributeTargets.Parameter`
+  (`Vion.Dale.Sdk/Core/StructFieldAttribute.cs:20`), which closed the property half of this line;
+  any method parameter and any non-wire struct's constructor parameter still take the attribute
+  while the one walk that reads it (`TypeRefBuilder.BuildStructFieldAnnotations`, and
+  `StructFieldPresentationBuilder.Build` over the same constructor) sees neither, so a misplaced
+  declaration compiles and emits nothing. The two rules that judge the knob are scoped to that
+  reader's parameters (`AnalyzerHelper.IsStructFieldParameter`), so they do not report the
+  misplacement either. Narrowing further is a source-breaking change to a published attribute — the
+  same shape as the message-struct entry `DALE047` just closed, and the same reason it became a
+  diagnostic rather than a narrowing. *(ANLZ pass row 111 — `ANLZ`.)*
 - **A `MinInterval` at the tick-representation boundary configures a negative interval, unreported.**
   `EmissionAttributeHelper.cs:267` and `Vion.Dale.Sdk/Emission/DurationParser.cs:120-121` carry the
   identical `> long.MaxValue` comparison against a `double` that *equals* `long.MaxValue`, so the cast
@@ -323,6 +376,9 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   unresolved type. The fix is the by-name half of the two-way lookup `ServiceRelationAnalyzer.cs:236-293`
   already carries, and the rule it would change is `AC-GATE-011.3`.
   *(ANLZ pass row 185 — `GATE` + `ANLZ`.)*
+  **Runtime review (2026-09-06):** `DALE043` is an error, not a warning, and the first consumer
+  carries five gating suites over fielded blocks — so this fails a consumer's build rather than
+  nagging in it. Escalated to the operator as a Jira candidate (VION-62).
 - **`AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed.**
   `Vion.Dale.Sdk.Generators.csproj:19`. The rules ship to every consumer through
   `Vion.Dale.Sdk.csproj:92`, so the suppression's comment was corrected to say that adopting release
@@ -435,6 +491,11 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   fix is a distinguishable field on the answer, which is the platform API's to add, not this tool's.
   `AC-CLI-011.8` states the substring match as today's contract. *(CLI pass row 137 — the platform
   API.)*
+  **Runtime review (2026-09-06):** re-verified on the consumer's release lane —
+  `release-prod.yml:90` and `release-test.yml:52` both pass `--skip-duplicate` — so the substring at
+  `Vion.Dale.Cli/Commands/UploadCommand.cs:307` sits between a wording change at the endpoint and
+  two fielded release workflows. Escalated to the operator as a Jira candidate (VION-62; the
+  distinguishable field is the platform API's).
 - **One thirty-second ceiling covers every cloud request, the package upload included.**
   `DaleHttpClient` sets `Timeout = 30 s` on the shared client (`:129`) and `dale upload` posts the
   whole `.nupkg` as a multipart body read into memory (`UploadCommand.cs:413-414`). None of the four
@@ -535,6 +596,12 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   output silently reports unmapped, so a correctly wired pump raises its fault. The area-local
   alternative — an `IsMapped` on the four faces — changes a face's members, which is a wire-surface
   change with its own readers. *(IO pass row 16 — `BIND`.)*
+  **Runtime review (2026-09-06):** re-verified in production —
+  `Ecocoach.EnergyManagement/LogicBlocks/Shared/DigitalOutputWiringProbe.cs:22-23` still reaches
+  `LogicBlockContractBase`'s `LogicBlockContractId` through `BindingFlags.NonPublic`, and the
+  runtime constructs the same identity at
+  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:437,615` — the value exists
+  on both sides of a member that does not. VION-130 is the item; this line tracks it.
 - **A state payload of the wrong schema decodes as a value nothing sent.** The IO pass added a
   schema-verifier guard on every inbound decode, which refuses an empty or truncated payload; it
   cannot refuse a *well-formed* payload of another type, because the layouts agree. The hole is
@@ -548,6 +615,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   (`Vion.Dale.Sdk/Mqtt/ActorMessages.cs:79-84`) and `ServiceProviderMqttMessage` does not expose them:
   a small accessor on that `[PublicApi]` struct, then a one-line check in each of this area's four
   decode sites. *(IO pass rows 28 and 69 — `BIND`.)*
+  **Runtime review (2026-09-06):** the runtime is a reader — `Dale/Mqtt/MqttClient.cs:135-139`
+  builds every inbound `MqttMessageReceived` with `e.ApplicationMessage.GetUserProperties()` — so
+  the `schema` property is already populated on the message this area decodes, and the accessor
+  `ServiceProviderMqttMessage` lacks is one line from a live value.
 - **A command that the far side refused is invisible to the block.** Every command this area publishes
   names a response topic (`Vion.Dale.Sdk.DigitalIo/Output/DigitalOutputHandler.cs:104`, published at
   `:75`) and nothing in the runtime subscribes it — `grep -rn '/response' dale/Dale --include=*.cs` is
@@ -557,6 +628,11 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   the retained state that a *successful* write produces, and a per-command failure reaches no one.
   Subscribing it is a new wire behaviour: a new message type, a new arm, and a decision about what a
   block observes. *(IO pass row 64 — `IO` with `BIND`.)*
+  **Runtime review (2026-09-06):** re-verified against the runtime — `git grep -n "/response" --
+  '*.cs' '*.json' '*.md'` there is zero hits, while
+  `Dale/Mqtt/Handlers/ServicePropertyHandler.cs:195-217` publishes *to* a response topic for a
+  service-property set — so the runtime knows the pattern and subscribes none of this area's
+  answers.
 - **The core SDK has the same unmarked public type the IO pass fixed in its own packages.**
   `Vion.Dale.Sdk/ServiceCollectionExtensions.cs:8-10` is public, carries neither `[PublicApi]` nor
   `[InternalApi]`, and sits in the undeclared root namespace — so `DALE014` never asks, exactly as it
@@ -570,6 +646,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `<Payload>Verify.Verify` beneath it is public and correct, which is what the IO pass calls directly
   with a `null` identifier. Anyone reaching for the documented wrapper gets an exception.
   *(Found by the IO pass, probes P5 and V6 — `vion-contracts`.)*
+  **Runtime review (2026-09-06):** re-verified at the source —
+  `Vion.Contracts/FlatBuffers.Generated/Hw/Ai/AiStatePayload.cs:19` and its nine siblings all call
+  `verifier.VerifyBuffer("", false, …)`. Escalated to the operator as a Jira candidate
+  (`vion-contracts`; VION-16 with the `dale-sdk` label).
 - **`hal-sim` writes the two payload identity strings transposed.**
   `HalSim/FlatBufferPayloadFactory.cs:33,47,61,75` calls
   `Create*StatePayload(builder, endpointOffset, hwBlockOffset, value)` where the generated parameters
@@ -577,6 +657,8 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `hal-raspberry` `Vion.Hal.Raspberry.dotnet/Handlers/DigitalInputHandler.cs:157` passes them the other
   way round. Nothing has noticed because the Dale SDK reads neither field — it takes the contract
   identity from the topic (`AC-IO-005.3`). *(Found by the IO pass's reader sweep — `hal-sim`.)*
+  **Runtime review (2026-09-06):** re-verified at `HalSim/FlatBufferPayloadFactory.cs:33,47,61,75`.
+  Escalated to the operator as a Jira candidate (`hal-sim`; VION-16 with the `dale-sdk` label).
 
 ## `HTTP` — the logic-block HTTP client (2026-09-06)
 
