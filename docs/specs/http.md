@@ -112,14 +112,18 @@ calling stops issuing rather than cancelling.
 ## `SendRequest`
 
 - `AC-HTTP-004.1` (Event-driven): WHEN a caller uses `SendRequest` THE SYSTEM SHALL send the
-  `HttpRequestMessage` it is given, taking no URL and no headers of its own.
+  `HttpRequestMessage` it is given, taking no URL and no headers of its own, including a body on any
+  method and the caller's own content type.
 - `AC-HTTP-004.2` (Ubiquitous): THE SYSTEM SHALL hand a `SendRequest` success callback a response
   whose body may still be streaming, disposing neither that response nor the request the caller
   supplied, and SHALL dispose that response itself when the caller gave no callback to own it.
 
 `SendRequest` is the escape hatch from everything the other seven decide: the method, the URI, the
 headers, the content and its content type are all the caller's, which is how a block reaches an
-endpoint that wants a form body, a charset parameter, or a method the family does not name.
+endpoint that wants a form body, a charset parameter, or a method the family does not name. Nothing
+is challenged on the way out either — a `GET` carrying a body is sent as written, because deciding
+which methods may carry one would be a policy this package does not have and the server is the one
+that answers the question.
 
 `AC-HTTP-004.2` is the price of that hatch, and it is the one ownership rule in the package an author
 must read rather than infer. The response is handed over as soon as its headers arrive, so the

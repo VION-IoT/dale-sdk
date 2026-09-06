@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -717,6 +718,28 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.AreEqual(TestObject.PascalCaseJson, body);
             Assert.AreEqual(0, response.Disposals);
             Assert.AreEqual("{\"sent\":true}", await request.Content.ReadAsStringAsync());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-004.1")]
+        public async Task SendContentOfCallerOnAnyMethod()
+        {
+            // Arrange — a GET carrying a body, with the charset parameter `AC-HTTP-011.2` says the other
+            // seven members cannot set. The escape hatch challenges neither: it is how a block reaches a
+            // server that wants a body on a method that conventionally has none, or a content type of its own
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+            var request = new HttpRequestMessage(HttpMethod.Get, Url) { Content = new StringContent(TestObject.PascalCaseJson, Encoding.UTF8, "application/json") };
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, request);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(handler.LastRequest?.Content);
+            Assert.AreEqual(HttpMethod.Get, handler.LastRequest.Method);
+            Assert.AreEqual(TestObject.PascalCaseJson, await handler.LastRequest.Content.ReadAsStringAsync());
+            Assert.AreEqual("application/json; charset=utf-8", handler.LastRequest.Content.Headers.ContentType?.ToString());
         }
 
         [TestMethod]
