@@ -720,6 +720,24 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-004.2")]
+        public async Task DisposeSendRequestResponseWhenCallerGaveNoCallback()
+        {
+            // Arrange — the sibling of the ownership rule above. `SendRequest`'s success callback owns the
+            // response, and the signature lets a caller pass none; the overload has no `finally` precisely
+            // so that a callback's response survives, which leaves this branch with no owner at all
+            var response = new CountingHttpResponse(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, new HttpRequestMessage(HttpMethod.Get, Url));
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-011.2")]
         public async Task DisposeSerializedBodyWithRequest()
         {

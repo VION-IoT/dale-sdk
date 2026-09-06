@@ -219,6 +219,13 @@ namespace Vion.Dale.Sdk.Http
                 {
                     TryInvokeCallback(dispatcher, () => successCallback(response), request.Method, url);
                 }
+                else
+                {
+                    // This overload has no `finally` on purpose: a callback's response outlives the call and
+                    // is that callback's to dispose. Where there is no callback there is no owner either, so
+                    // the response would be dropped still holding its body stream.
+                    response.Dispose();
+                }
             }
             catch (Exception exception)
             {

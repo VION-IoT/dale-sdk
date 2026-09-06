@@ -115,7 +115,7 @@ calling stops issuing rather than cancelling.
   `HttpRequestMessage` it is given, taking no URL and no headers of its own.
 - `AC-HTTP-004.2` (Ubiquitous): THE SYSTEM SHALL hand a `SendRequest` success callback a response
   whose body may still be streaming, disposing neither that response nor the request the caller
-  supplied.
+  supplied, and SHALL dispose that response itself when the caller gave no callback to own it.
 
 `SendRequest` is the escape hatch from everything the other seven decide: the method, the URI, the
 headers, the content and its content type are all the caller's, which is how a block reaches an
@@ -126,6 +126,12 @@ must read rather than infer. The response is handed over as soon as its headers 
 callback may be reached while the body is still coming; the callback owns it and disposes it. The
 request stays the caller's too. Every other member owns and disposes both, which is
 `AC-HTTP-010.3`'s subject.
+
+The success callback is optional, though, and the clause about the missing one is the other half of
+the same rule: with no callback there is no owner, so the package disposes the response rather than
+dropping it with its body stream still open. This is the one branch of `SendRequest` where it
+disposes anything, and it is deliberately narrower than a `finally` around the whole exchange — that
+would take the response away from the callback that was given one.
 
 ## The actor hop
 
