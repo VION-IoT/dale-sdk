@@ -183,7 +183,6 @@ namespace Vion.Dale.Sdk.TestKit.Test
             Assert.IsEmpty(forbidden, $"{projectName} references {string.Join(", ", forbidden)}");
         }
 
-
         // A project is packable unless something turns it off: an explicit <IsPackable>false</IsPackable>
         // (matched attribute-tolerantly — the bundled template writes <IsPackable Condition="true">false</…>),
         // or the MSTest / Microsoft.NET.Test.Sdk props, which set it off IsTestProject. One declaring no
