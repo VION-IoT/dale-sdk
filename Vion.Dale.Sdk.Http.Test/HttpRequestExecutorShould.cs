@@ -227,6 +227,27 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.IsNull(received);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-005.4")]
+        public async Task NotFailRequestWhenErrorCallbackThrows()
+        {
+            // Arrange — the sibling of the test above, on the other of `TryInvokeCallback`'s two callback
+            // kinds: here the request has already failed, and a block author's own bug in the handler for
+            // that failure must not turn into a second, different failure the caller has to deal with
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.BadGateway));
+
+            // Act
+            var request = sut.ExecuteRequestAsync(new InlineDispatcher(),
+                                                  Url,
+                                                  HttpMethod.Get,
+                                                  () => { },
+                                                  _ => throw new InvalidOperationException("error callback failed"));
+            await request;
+
+            // Assert
+            Assert.AreEqual(TaskStatus.RanToCompletion, request.Status);
+        }
+
         // ---- the error model ---------------------------------------------
 
         [TestMethod]
