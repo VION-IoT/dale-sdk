@@ -67,6 +67,16 @@ umbrella). Area codes: the roster above, uppercase alphanumerics. Every AC is on
 (ubiquitous / WHEN / WHILE / IF-THEN / WHERE) with a `SHALL`. No `should`, `fast`, `performant` —
 `spec-lint.ps1` rejects them.
 
+Every AC carries one of five labels, decided by its keyword — `(Ubiquitous)` no keyword;
+`(Event-driven)` WHEN; `(State-driven)` WHILE; `(Unwanted)` IF … THEN; `(Optional)` WHERE. A
+criterion combining keywords takes the label of its first keyword. `spec-lint` rejects any other
+label.
+
+**Minting.** One criterion states one rule, with the fields, tokens or sites the rule ranges over as
+its test's `[DataRow]`s — never one criterion per field. No criterion's subject is a test suite: a
+page states what a consumer observes, and test discipline is
+[`testing-conventions.md`](testing-conventions.md)'s.
+
 An AC is **covered** when its id appears as a quoted string literal in a test artifact:
 
 - MSTest: `[TestProperty("spec", "AC-EMIT-001.1")]` on the test method

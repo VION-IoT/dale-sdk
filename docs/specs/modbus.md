@@ -34,7 +34,8 @@ and are cited, never re-argued.
 `Vion.Dale.Sdk.Modbus.Core`, `.Tcp` or `.Rtu` carries the analyzer `ProjectReference` that
 `Vion.Dale.Sdk.DigitalIo` and `.AnalogIo` do, so `AC-ANLZ-018.*` puts every type, mark and XML doc
 here outside the pack. The `[PublicApi]` marks and the documentation below are author discipline with
-no gate behind them; only the PublicApi manifest snapshot notices when the marked set changes.
+no gate behind them; only the PublicApi manifest snapshot notices when the marked set changes, and
+the manifest rule is `SYS-API-*` ([`_invariants.md`](_invariants.md)).
 
 ## The shared client surface
 
@@ -87,7 +88,7 @@ does not want it discards it (`(values, _) => Power = values[0]`).
 
 - `AC-MODB-002.1` (Ubiquitous): THE SYSTEM SHALL default a Modbus client, and a hosted Modbus server,
   to disabled.
-- `AC-MODB-002.2` (Event-driven): WHILE a client is disabled THE SYSTEM SHALL execute no read, write
+- `AC-MODB-002.2` (State-driven): WHILE a client is disabled THE SYSTEM SHALL execute no read, write
   or disconnect, and SHALL invoke neither callback.
 - `AC-MODB-002.3` (Ubiquitous): THE SYSTEM SHALL run a request it has already accepted when the
   client is disabled afterwards.
@@ -533,8 +534,11 @@ actor by activation rather than resolution.
 
 ## Test discipline
 
-- `AC-MODB-019.1` (Ubiquitous): THE SYSTEM SHALL keep the hosted server's real-socket integration
-  tests passing unchanged as the acceptance bar for the server surface.
+The hosted server's real-socket integration suite is the acceptance bar for the server surface. It
+is discipline rather than a consumer observable, so it mints no criterion here
+([`../spec-process.md`](../spec-process.md) § IDs & EARS); what the suite proves is cited to the
+criteria it proves, and the seam choice behind it is
+[`../testing-conventions.md`](../testing-conventions.md) § 3's.
 
 The link policy is provable two ways and both are used. The TestKit's fake proxy substitutes the
 **proxy**, so the wrapper's real policy runs above it and a virtual clock elapses a backoff in

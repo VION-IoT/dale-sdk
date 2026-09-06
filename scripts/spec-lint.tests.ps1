@@ -78,6 +78,34 @@ trace: enforced
     Set-Content -LiteralPath $parked -NoNewline -Value "---`nslug: parked`nstatus: parked`nblocked-on: waiting on VION-99`n---`nbody"
     if ((Invoke-Lint) -ne 0) { throw "Case 7b (parked with reason) expected 0" }
 
+    # Case 8: an EARS label outside the five -> 1; each of the five on its own -> 0
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `AC-EMIT-001.1` (Conditional): IF x THEN THE SYSTEM SHALL y.
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 8 (unknown label) expected 1" }
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `AC-EMIT-001.1` (Ubiquitous): THE SYSTEM SHALL y.
+- `AC-EMIT-001.2` (Event-driven): WHEN x THE SYSTEM SHALL y.
+- `AC-EMIT-001.3` (State-driven): WHILE x THE SYSTEM SHALL y.
+- `AC-EMIT-001.4` (Unwanted): IF x THEN THE SYSTEM SHALL y.
+- `AC-EMIT-001.5` (Optional): WHERE x THE SYSTEM SHALL y.
+'@
+    if ((Invoke-Lint) -ne 0) { throw "Case 8b (the five labels) expected 0" }
+
+    # Case 9: the label and SHALL checks reach a SYS- declaration too (_invariants.md declares
+    # its rules as bullets in the same shape, and they drifted the same way)
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `SYS-REL-001` (Conditional): THE SYSTEM SHALL name every packable project in the roster.
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 9 (SYS- unknown label) expected 1" }
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `SYS-REL-001` (Ubiquitous): the system names every packable project in the roster.
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 9b (SYS- without SHALL) expected 1" }
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `SYS-REL-001` (Ubiquitous): THE SYSTEM SHALL name every packable project in the roster.
+'@
+    if ((Invoke-Lint) -ne 0) { throw "Case 9c (well-formed SYS-) expected 0" }
     Write-Host 'spec-lint.tests: PASS'
     exit 0
 }

@@ -16,8 +16,10 @@ Cited rather than restated: [`config-gating.md`](config-gating.md) for `[Instant
 decoding and config-time inclusion gates, [`introspection.md`](introspection.md) for the member and
 contract vocabulary a name path resolves against, [`emission.md`](emission.md) for the
 property-versus-measuring-point split a name path can land on, and `DALE046` (the analyzer registry's)
-for the compile-time check on a `[ScenarioWire]` type. The DevHost control API, the SPA's internals,
-the TestKit's virtual time and block lifecycle are other pages'.
+for the compile-time check on a `[ScenarioWire]` type, and [`io.md`](io.md) for what a provider face
+does with the messages a pairing carries it (`AC-IO-004.3`, `AC-IO-005.1`) — this page owns the
+pairing, not the face. The DevHost control API, the SPA's internals, the TestKit's virtual time and
+block lifecycle are other pages'.
 
 ## The three refusal layers
 
@@ -116,11 +118,10 @@ are not comparable: a scenario that needs to compare one is a C# test.
 
 - `AC-SCEN-004.1` (Ubiquitous): THE SYSTEM SHALL require exactly one of `above`, `below`, `equals`,
   `notEquals` or `oneOf` on every comparator block.
-- `AC-SCEN-004.2` (Ubiquitous): THE SYSTEM SHALL require an `above` or `below` comparand to be
-  numeric, and SHALL treat the comparator as unsatisfied when the compared value, or a resolved
-  relational comparand, is not a number.
-- `AC-SCEN-004.3` (Ubiquitous): THE SYSTEM SHALL reject a struct or array comparand for `equals` and
-  `notEquals`, and SHALL accept `null`.
+- `AC-SCEN-004.2` (Ubiquitous): THE SYSTEM SHALL require a relational comparand to take its
+  comparator's shape — a number for `above` and `below`, and a scalar or `null` rather than a struct
+  or an array for `equals` and `notEquals` — and SHALL treat the comparator as unsatisfied when the
+  compared value, or a resolved relational comparand, is not a number.
 - `AC-SCEN-004.4` (Ubiquitous): THE SYSTEM SHALL require `oneOf` to be a non-empty array of scalars,
   and SHALL satisfy it when the compared value equals any element under the same exact semantics.
 - `AC-SCEN-004.5` (Ubiquitous): THE SYSTEM SHALL accept a `tolerance` only alongside a numeric

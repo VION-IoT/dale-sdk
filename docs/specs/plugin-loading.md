@@ -14,6 +14,10 @@ published with — the shape `dotnet publish` produces, which is why `dale` publ
 builds before introspection. Each plugin is loaded into its own `PluginLoadContext` — an
 `AssemblyLoadContext` whose resolution rules are the subject of this page.
 
+Cited rather than restated: nothing. This page names no neighbour's criterion, because the ABI is
+what holds before any of them applies. What a loaded block then does — its lifecycle, the document
+its assembly is introspected into, the contracts it binds — is other pages'.
+
 ## Context lifetime
 
 - `AC-PLUG-001.1` (Ubiquitous): THE SYSTEM SHALL create every plugin load context as
@@ -86,6 +90,7 @@ instance.
 - `AC-PLUG-004.3` (Event-driven): WHEN a plugin binds to a framework assembly the host has not
   loaded and the plugin directory contains it, THE SYSTEM SHALL load it from the plugin directory
   into that plugin's context.
+
 The prefix rule is the contract, not a heuristic: an assembly a plugin author names `Microsoft.*` or
 `System.*` is resolved by these rules, whoever wrote it.
 
@@ -115,7 +120,7 @@ same way any third-party library does — the set is grep-enumerable
 - `AC-PLUG-005.4` (Ubiquitous): THE SYSTEM SHALL recognise an assembly as marked
   `[DaleSharedAssembly]` from that assembly's own metadata without loading it, including when it was
   built against a different `Vion.Dale.Sdk` version than the host's.
-- `AC-PLUG-005.5` (Conditional): IF an assembly's metadata cannot be read THEN THE SYSTEM SHALL
+- `AC-PLUG-005.5` (Unwanted): IF an assembly's metadata cannot be read THEN THE SYSTEM SHALL
   treat it as not marked `[DaleSharedAssembly]`.
 - `AC-PLUG-005.6` (State-driven): WHILE two plugins bind to the same shared extension concurrently,
   THE SYSTEM SHALL load it exactly once and resolve the same instance for both.
@@ -158,12 +163,9 @@ their types are distinct.
 Nothing recurses. A subdirectory below the plugin directory is invisible to all three passes over
 it, which is what makes "publish, don't build" the rule for producing one.
 
-- `AC-PLUG-008.1` (Ubiquitous): THE SYSTEM SHALL restrict the SDK version check to the assemblies
-  directly in the plugin directory.
-- `AC-PLUG-008.2` (Ubiquitous): THE SYSTEM SHALL restrict eager loading of shared extensions to the
-  assemblies directly in the plugin directory.
-- `AC-PLUG-008.3` (Ubiquitous): THE SYSTEM SHALL look for a bound assembly only directly in the
-  plugin directory, and SHALL treat one that exists solely in a subdirectory as absent.
+- `AC-PLUG-008.1` (Ubiquitous): THE SYSTEM SHALL consider only the assemblies directly in the plugin
+  directory — for the SDK version check, for eager loading of shared extensions, and when looking for
+  a bound assembly — and SHALL treat an assembly that exists solely in a subdirectory as absent.
 
 ## Eager loading and the shared registry
 

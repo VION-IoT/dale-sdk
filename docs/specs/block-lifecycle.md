@@ -74,7 +74,7 @@ this page carries them, and specifies them nowhere.
   the emission gates, the contract mappings, persistence, the service announcement, the ready hook.
 - `AC-LIFE-002.2` (Ubiquitous): THE SYSTEM SHALL take a block's identifier and name from its
   configuration message and make them readable by the block and by nothing outside it.
-- `AC-LIFE-002.3` (Conditional): WHERE the configuration message's service provider carries a vitals
+- `AC-LIFE-002.3` (Optional): WHERE the configuration message's service provider carries a vitals
   collector or a clock THE SYSTEM SHALL use them, and SHALL otherwise measure nothing and read the
   real clock.
 - `AC-LIFE-002.4` (Event-driven): WHEN any part of the configuration phase fails THE SYSTEM SHALL
@@ -200,7 +200,7 @@ cancelled, so a cycle that must not run after a stop ends by not re-scheduling i
   restarted block resumes them.
 - `AC-LIFE-007.6` (Ubiquitous): THE SYSTEM SHALL arm a timer's next tick before invoking its callback,
   so a callback that throws does not end the chain.
-- `AC-LIFE-007.7` (Conditional): WHERE a vitals collector is registered THE SYSTEM SHALL report each
+- `AC-LIFE-007.7` (Optional): WHERE a vitals collector is registered THE SYSTEM SHALL report each
   timer callback's duration and the difference between the observed and the declared interval, and
   SHALL report them for a callback that threw as well as one that returned.
 
@@ -308,6 +308,7 @@ guarantee and not the SDK's.
   and a copy of the snapshot its stop took, rather than a freshly captured one.
 - `AC-LIFE-011.2` (Event-driven): WHEN a block whose persistence was never initialised is asked for its
   snapshot THE SYSTEM SHALL answer with an empty one.
+
 `AC-LIFE-011.1` returns the stop's capture and not a new one because the stop hook runs between them:
 a fresh capture here would persist exactly the values `AC-LIFE-010.2` promises will not survive.
 `AC-LIFE-011.2` is `AC-GATE-003.5`'s shape at the last message of the sequence. What happens after the
@@ -354,14 +355,14 @@ into its parts, which is why the construction can be a concatenation.
 
 ## What the pipeline guarantees per message
 
-- `AC-LIFE-014.1` (Conditional): WHERE a message observer is registered THE SYSTEM SHALL notify it
+- `AC-LIFE-014.1` (Optional): WHERE a message observer is registered THE SYSTEM SHALL notify it
   before each message is dispatched and again after it is handled, carrying the handler's duration and
   the exception it threw where it threw one.
 - `AC-LIFE-014.2` (Event-driven): WHEN a handler throws THE SYSTEM SHALL log the failure, drop the
   message and leave the actor running.
 - `AC-LIFE-014.3` (Ubiquitous): THE SYSTEM SHALL isolate a faulty observer or activity monitor, so its
   exception affects neither message delivery nor another observer.
-- `AC-LIFE-014.4` (Conditional): WHERE an activity monitor is registered THE SYSTEM SHALL enter it
+- `AC-LIFE-014.4` (Optional): WHERE an activity monitor is registered THE SYSTEM SHALL enter it
   before a handler runs and leave it afterwards, on the path where the handler returned and on the path
   where it threw alike.
 - `AC-LIFE-014.5` (Ubiquitous): THE SYSTEM SHALL carry the sending actor's own reference, and the
@@ -423,6 +424,7 @@ the registration is a discovery entry rather than a lifetime, and the block is n
   already terminated and for a name nothing was ever spawned under.
 - `AC-LIFE-016.8` (Ubiquitous): THE SYSTEM SHALL count an actor a caller listed more than once in a
   wait's input once, so neither wait is given a total its answers can never reach.
+
 Both waits arm their timeout through the registered clock and register it in the virtual schedule,
 which is what makes them virtual on a stepped host — `AC-SCEN-012.*` states that seam's semantics and
 this page adds nothing to it.
@@ -450,7 +452,7 @@ configuration (`AC-CTRL-004.5`) without risking a wait on a name that is already
 - `AC-LIFE-017.1` (Ubiquitous): THE SYSTEM SHALL mint an actor reference from a name alone, whether or
   not an actor of that name exists, and SHALL warn on each message that reaches no actor.
 - `AC-LIFE-017.2` (Ubiquitous): THE SYSTEM SHALL list the actors whose names match a caller's pattern.
-- `AC-LIFE-017.3` (Conditional): WHERE a message observer, an activity monitor, a delayed-send gate, a
+- `AC-LIFE-017.3` (Optional): WHERE a message observer, an activity monitor, a delayed-send gate, a
   virtual schedule, a clock or a vitals collector is registered THE SYSTEM SHALL use it, and SHALL
   otherwise behave as though the seam did not exist.
 - `AC-LIFE-017.4` (Ubiquitous): THE SYSTEM SHALL combine every registered message observer into the one

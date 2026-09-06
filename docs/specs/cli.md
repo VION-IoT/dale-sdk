@@ -41,15 +41,16 @@ matters most to a script: **in table mode a failure goes to standard error and e
 standard output; in JSON mode there is one stream, and it carries only JSON.**
 
 - `AC-CLI-001.1` (Event-driven): WHEN `--version` or `-v` appears before any command name THE SYSTEM
-  SHALL print the tool's version and exit 0 without running a command, and SHALL leave the option to
-  the command WHERE a command has already been named.
+  SHALL print the tool's version and exit 0 without running a command.
+- `AC-CLI-001.11` (Optional): WHERE a command has already been named THE SYSTEM SHALL leave
+  `--version` and `-v` to that command.
 - `AC-CLI-001.2` (Ubiquitous): THE SYSTEM SHALL print that version with the source-link commit
   suffix removed.
 - `AC-CLI-001.3` (Event-driven): WHEN an option is given a value it does not accept THE SYSTEM SHALL
   report it as a command-line error and exit 1.
-- `AC-CLI-001.4` (State-driven): WHERE the output format is `table` THE SYSTEM SHALL write a failure
+- `AC-CLI-001.4` (Optional): WHERE the output format is `table` THE SYSTEM SHALL write a failure
   to standard error and every other line to standard output.
-- `AC-CLI-001.5` (State-driven): WHERE the output format is `json` THE SYSTEM SHALL suppress every
+- `AC-CLI-001.5` (Optional): WHERE the output format is `json` THE SYSTEM SHALL suppress every
   human-readable line and write both results and failures to standard output as JSON, so the mode
   has one stream.
 - `AC-CLI-001.6` (Ubiquitous): THE SYSTEM SHALL report a failure in JSON mode as an object carrying
@@ -57,7 +58,7 @@ standard output; in JSON mode there is one stream, and it carries only JSON.**
 - `AC-CLI-001.7` (Ubiquitous): THE SYSTEM SHALL suppress verbose output unless `--verbose` was
   given, and in JSON mode always.
 - `AC-CLI-001.8` (Ubiquitous): THE SYSTEM SHALL write its output as UTF-8 whatever the console's default encoding, so a redirected stream carries the characters it wrote. GAP: the observable is the byte sequence a *redirected* process emits, which no in-process test can construct; verified by probe (`dale --version > file` carries `e2 8094` for the em dash).
-- `AC-CLI-001.9` (State-driven): WHERE the output format is `json` THE SYSTEM SHALL capture every
+- `AC-CLI-001.9` (Optional): WHERE the output format is `json` THE SYSTEM SHALL capture every
   child process's standard output and relay it to standard error, so standard output carries the
   tool's document and nothing else.
 - `AC-CLI-001.10` (Ubiquitous): THE SYSTEM SHALL emit every JSON document with camel-cased member
@@ -122,12 +123,12 @@ editing or publishing a project the caller did not name.
 ## `dale new`, and the bundled template
 
 - `AC-CLI-005.1` (Ubiquitous): THE SYSTEM SHALL accept a project name of a letter followed by letters, digits, dots, hyphens and underscores, and SHALL refuse any other name before running anything. GAP: `dale new` runs `dotnet new` twice and `dotnet restore`; no test in this area spawns a process.
-- `AC-CLI-005.2` (Ubiquitous): THE SYSTEM SHALL refuse to scaffold into a directory that already exists, set the new project's package identity to its name, and scaffold from the template bundled inside the tool. GAP: same spawned-process path as `AC-CLI-005.1`.
+- `AC-CLI-005.2` (Ubiquitous): THE SYSTEM SHALL refuse to scaffold into a directory that already exists, set the new project's package identity to its name, and scaffold from the template bundled inside the tool. GAP: the same spawned-process path as `AC-CLI-005.1`.
 - `AC-CLI-005.3` (Event-driven): WHEN a project name is refused THE SYSTEM SHALL state the whole rule, first character included. GAP: the refusal is inside `dale new`'s action, which runs `dotnet new` twice and `dotnet restore`; no test in this area spawns a process.
-- `AC-CLI-005.4` (Event-driven): WHEN no project name is given and the session cannot prompt THE SYSTEM SHALL refuse naming the reason that applies — the option that was passed, or the output format that made it non-interactive. GAP: same spawned-process path as `AC-CLI-005.1`.
+- `AC-CLI-005.4` (Event-driven): WHEN no project name is given and the session cannot prompt THE SYSTEM SHALL refuse naming the reason that applies — the option that was passed, or the output format that made it non-interactive. GAP: the same spawned-process path as `AC-CLI-005.1`.
 - `AC-CLI-005.5` (Event-driven): WHEN installing the bundled template fails THE SYSTEM SHALL report what the installer said and refuse, and WHEN restoring the new project fails THE SYSTEM SHALL warn with what the restore said and keep the scaffold. GAP: the failures reported are those of the spawned `dotnet new install` and `dotnet restore`.
 - `AC-CLI-005.6` (Ubiquitous): THE SYSTEM SHALL report the logic blocks it scaffolded, read from the project it wrote. GAP: the blocks are read from a tree `dotnet new` has just written.
-- `AC-CLI-005.7` (State-driven): WHERE the scaffolded project references an SDK version other than the tool's own THE SYSTEM SHALL say which it wrote. GAP: the comparison is against a scaffold `dotnet new` has just written.
+- `AC-CLI-005.7` (Optional): WHERE the scaffolded project references an SDK version other than the tool's own THE SYSTEM SHALL say which it wrote. GAP: the comparison is against a scaffold `dotnet new` has just written.
 
 The template travels inside the tool, and a pack-time target rewrites its SDK references to the
 tool's own version — except for a `0.0.0` version, which is on no feed and would scaffold a project
@@ -256,7 +257,7 @@ tool does is find the project, set four variables, compose the run, and bound th
 - `AC-CLI-009.5` (Event-driven): WHEN an export is asked for THE SYSTEM SHALL bound the wait for the
   file to appear, allow the host a grace period to exit afterwards, and stop a host that never wrote
   it.
-- `AC-CLI-009.6` (State-driven): WHERE no export was asked for THE SYSTEM SHALL run the host until it exits and return its exit code. GAP: the exit code is the spawned host's; no test in this area spawns one.
+- `AC-CLI-009.6` (Optional): WHERE no export was asked for THE SYSTEM SHALL run the host until it exits and return its exit code. GAP: the exit code is the spawned host's; no test in this area spawns one.
 - `AC-CLI-009.7` (Event-driven): WHEN `--project` points into a directory that does not exist THE SYSTEM SHALL refuse naming it rather than fail while enumerating it. GAP: the refusal is reached through `dale dev`'s action, which then looks for a DevHost project to run.
 - `AC-CLI-009.8` (Event-driven): WHEN an export was asked for THE SYSTEM SHALL exit 0 whenever every
   export file was written, whatever code the host itself exited with, and SHALL report a failure
@@ -304,7 +305,7 @@ against the apostrophes and dashes the source schema holds literal.
 ## `dale upload`
 
 - `AC-CLI-011.1` (Ubiquitous): THE SYSTEM SHALL upload the packed package as multipart form data bearing the resolved access token, to the integrator's library-versions endpoint. GAP: the upload runs inside the command's own action, which packs a real project first; the request's shape is stated and its transport is proven by `AC-CLI-017.1`.
-- `AC-CLI-011.2` (State-driven): WHERE no release notes were given THE SYSTEM SHALL omit that part rather than send an empty one. GAP: same path as `AC-CLI-011.1`.
+- `AC-CLI-011.2` (Optional): WHERE no release notes were given THE SYSTEM SHALL omit that part rather than send an empty one. GAP: the same pack-and-upload path as `AC-CLI-011.1`.
 - `AC-CLI-011.3` (Ubiquitous): THE SYSTEM SHALL pack in Release with packing forced on, and SHALL
   pass an explicit version to the pack only when one was given.
 - `AC-CLI-011.4` (Ubiquitous): THE SYSTEM SHALL report the version it packed by reading it back from
@@ -317,11 +318,11 @@ against the apostrophes and dashes the source schema holds literal.
 - `AC-CLI-011.7` (Ubiquitous): THE SYSTEM SHALL report an upload in JSON mode in a shape it owns — a
   status, the package identity and version, the parser's notices, and the endpoint's own answer
   nested under a member of its own.
-- `AC-CLI-011.8` (State-driven): WHERE duplicates are to be skipped THE SYSTEM SHALL treat only a
+- `AC-CLI-011.8` (Optional): WHERE duplicates are to be skipped THE SYSTEM SHALL treat only a
   conflict naming an existing version as a skip, and SHALL fail on every other conflict.
 - `AC-CLI-011.9` (Ubiquitous): THE SYSTEM SHALL relay the introspection tool's pack-time notices,
   and nothing else of the pack's output, in both output modes.
-- `AC-CLI-011.10` (State-driven): WHERE a continuous-integration upload supplies no integrator THE
+- `AC-CLI-011.10` (Optional): WHERE a continuous-integration upload supplies no integrator THE
   SYSTEM SHALL resolve it from the credential's own memberships, which holds while each service
   account maps to exactly one integrator.
 
@@ -340,7 +341,7 @@ the credentials.
 
 - `AC-CLI-012.1` (Ubiquitous): THE SYSTEM SHALL treat a stored access token as expired thirty
   seconds before its stated expiry.
-- `AC-CLI-012.2` (Ubiquitous): THE SYSTEM SHALL resolve an access token from the client-id and
+- `AC-CLI-012.2` (Optional): THE SYSTEM SHALL resolve an access token from the client-id and
   client-secret options first, from `DALE_CLIENT_ID` with `DALE_CLIENT_SECRET` second, and from the
   stored login third, and SHALL fall through to the next source WHERE only one half of a credential
   pair is supplied.
@@ -361,9 +362,9 @@ the credentials.
   the two named ones, and SHALL name only those two as known.
 - `AC-CLI-013.3` (Ubiquitous): THE SYSTEM SHALL resolve the environment from the `--environment`
   option first, the stored configuration second, and `production` third.
-- `AC-CLI-013.4` (State-driven): WHERE the environment is not a named one THE SYSTEM SHALL take its
+- `AC-CLI-013.4` (Optional): WHERE the environment is not a named one THE SYSTEM SHALL take its
   auth and API URLs from the stored configuration.
-- `AC-CLI-013.5` (Ubiquitous): THE SYSTEM SHALL exchange credentials against the resolved
+- `AC-CLI-013.5` (Event-driven): THE SYSTEM SHALL exchange credentials against the resolved
   environment's realm, taking a custom environment's realm from the stored configuration, and SHALL
   refuse before contacting anything WHEN no realm can be resolved.
 
@@ -396,8 +397,8 @@ the credentials.
 ## The interactive login
 
 - `AC-CLI-016.1` (Ubiquitous): THE SYSTEM SHALL authenticate interactively with authorization code and proof key exchange, over a loopback redirect on a free port, checking the returned state against the one it sent. GAP: the flow opens a browser and binds a loopback listener; no test in this area reaches either.
-- `AC-CLI-016.2` (Ubiquitous): THE SYSTEM SHALL abandon an interactive login that is not completed within five minutes, and SHALL report the identity provider's own error description where it returns one. GAP: same browser-bound path as `AC-CLI-016.1`.
-- `AC-CLI-016.3` (Event-driven): WHEN the browser cannot be opened THE SYSTEM SHALL print the authorization URL so the login can be completed by hand. GAP: same browser-bound path as `AC-CLI-016.1`.
+- `AC-CLI-016.2` (Ubiquitous): THE SYSTEM SHALL abandon an interactive login that is not completed within five minutes, and SHALL report the identity provider's own error description where it returns one. GAP: the same browser-bound path as `AC-CLI-016.1`.
+- `AC-CLI-016.3` (Event-driven): WHEN the browser cannot be opened THE SYSTEM SHALL print the authorization URL so the login can be completed by hand. GAP: the same browser-bound path as `AC-CLI-016.1`.
 
 ## Talking to the cloud API
 
@@ -411,7 +412,7 @@ the credentials.
 - `AC-CLI-017.4` (Ubiquitous): THE SYSTEM SHALL report the human sentence out of the platform's
   error envelope whatever case its members carry, and the raw body when the answer is not that
   shape.
-- `AC-CLI-017.5` (State-driven): WHERE a caller allows a status THE SYSTEM SHALL return that answer
+- `AC-CLI-017.5` (Optional): WHERE a caller allows a status THE SYSTEM SHALL return that answer
   instead of refusing.
 - `AC-CLI-017.6` (Ubiquitous): THE SYSTEM SHALL bound every cloud API request by thirty seconds. GAP: the only observable is a thirty-second wall-clock wait, which `../testing-conventions.md` § 16 forbids a test from standing on.
 
@@ -435,7 +436,7 @@ request rather than a considered one.
 - `AC-CLI-018.6` (Event-driven): WHEN switching environment would clear a configured integrator THE
   SYSTEM SHALL confirm first, treat `--force` as that confirmation, and exit non-zero when the
   change was declined.
-- `AC-CLI-018.7` (Event-driven): WHEN an interactive login selects an integrator THE SYSTEM SHALL store it, and SHALL leave a previously stored one in place where it selected none. GAP: same browser-bound path as `AC-CLI-018.4`.
+- `AC-CLI-018.7` (Event-driven): WHEN an interactive login selects an integrator THE SYSTEM SHALL store it, and SHALL leave a previously stored one in place where it selected none. GAP: the same browser-bound path as `AC-CLI-018.4`.
 - `AC-CLI-018.8` (Event-driven): WHEN `--integrator-id` names a value that is not one of the
   account's own integrator memberships THE SYSTEM SHALL refuse naming it, leaving the stored one in
   place.

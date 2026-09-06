@@ -6,9 +6,10 @@
   plus the change-doc lifecycle checks (docs/changes/).
 
   Corpus (docs/specs/*.md):
-    - an AC declaration missing the EARS 'SHALL' predicate
+    - an AC or SYS declaration missing the EARS 'SHALL' predicate
     - an escape-hatch word (should/fast/performant) inside an AC block
     - a malformed declared id (shape: AC-<AREA>-NNN[.M] / SYS-<AREA>-NNN, uppercase)
+    - an EARS label outside the five (Ubiquitous/Event-driven/State-driven/Unwanted/Optional)
     - with -Diff <ref>: warns on change-narrative markers ADDED to a current-truth
       page since <ref> (-Strict turns the warning into a failure)
 
@@ -33,13 +34,18 @@ if (-not $RepoRoot) {
 $specsDir = Join-Path $RepoRoot 'docs/specs'
 $changesDir = Join-Path $RepoRoot 'docs/changes'
 
-# Identifies an AC *declaration* bullet: id followed by an EARS `(label):`. The
-# `(label):` is what separates a declaration from a prose cross-reference.
-$acStartRx   = '^\s*-\s+`?(AC-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*\([^)]+\):'
+# Identifies an AC or SYS *declaration* bullet: id followed by an EARS `(label):`. The
+# `(label):` is what separates a declaration from a prose cross-reference. SYS- is in scope
+# because `_invariants.md` declares its rules the same way and they drift the same way.
+$acStartRx   = '^\s*-\s+`?((?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*\(([^)]+)\):'
 # Loose: captures the id-ish token at a declaration site so a MALFORMED id is
 # still seen (and then fails $wellFormed).
 $declLooseRx = '^\s*-\s+`?((?:AC|SYS)-[A-Za-z0-9.\-]+)`?\s*\([^)]+\):'
 $wellFormed  = '^(?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?$'
+# The five EARS labels (docs/spec-process.md § IDs & EARS). The vocabulary drifted to
+# five spellings for one pattern because the declaration regex above accepts any
+# `(label):` — enforcing it here is the gate the prose never had.
+$earsLabels  = @('Ubiquitous', 'Event-driven', 'State-driven', 'Unwanted', 'Optional')
 # Escape-hatch words, but not inside a hyphenated/word compound (fast-charge is fine).
 $escapeRx    = '(?i)(?<![-\w])(should|fast|performant)(?![-\w])'
 # Change-narrative markers that must not be ADDED to a current-truth page.
@@ -60,6 +66,7 @@ if (Test-Path $specsDir) {
             # top-level bullet / heading). Indented sub-bullets stay in the block.
             if ($line -match $acStartRx) {
                 $acId = $Matches[1]
+                $acLabel = $Matches[2]
                 $block = $line
                 $j = $i + 1
                 while ($j -lt $lines.Count -and $lines[$j].Trim() -ne '' -and
@@ -70,6 +77,7 @@ if (Test-Path $specsDir) {
                 # 'shall' is a prose escape, not a predicate.
                 if ($block -cnotmatch '\bSHALL\b') { $problems.Add("${rel}: $acId - no EARS 'SHALL' predicate") }
                 if ($block -match $escapeRx)      { $problems.Add("${rel}: $acId - escape-hatch '$($Matches[1])'") }
+                if ($acLabel -notin $earsLabels) { $problems.Add("${rel}: $acId - unknown EARS label '($acLabel)'") }
             }
 
             # Declared id well-formedness (declaration sites only). -cnotmatch:

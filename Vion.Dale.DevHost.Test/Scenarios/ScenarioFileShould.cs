@@ -372,7 +372,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-004.3")]
+        [TestProperty("spec", "AC-SCEN-004.2")]
         public void RejectStructOrArrayComparandWhileAcceptingNull()
         {
             // Arrange / Act

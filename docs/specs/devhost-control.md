@@ -40,7 +40,7 @@ every route that could answer that way was made to refuse instead.
 
 - `AC-CTRL-001.1` (Event-driven): WHEN a development host is built without a configuration THE SYSTEM
   SHALL refuse to build it, naming the builder that produces one.
-- `AC-CTRL-001.2` (Conditional): WHERE the caller registered no logger factory THE SYSTEM SHALL supply
+- `AC-CTRL-001.2` (Optional): WHERE the caller registered no logger factory THE SYSTEM SHALL supply
   one, so a host builds and logs without being told how.
 - `AC-CTRL-001.3` (Ubiquitous): THE SYSTEM SHALL enumerate as the block catalog every distinct logic
   block type the added plugin assemblies register, excluding every other registration, counting an
@@ -318,7 +318,10 @@ of the network.
 
 Pause holds delayed sends and nothing else — the world stands still and stays pokeable — so each
 timer may tick at most once more after it, and a block computing from the current time observes the
-gap. That is why it is meaningful on a real-clock host, where stepping is not.
+gap. That is why it is meaningful on a real-clock host, where stepping is not. What a delayed
+self-send *is* — an action the dispatcher runs on the block's own actor, immediately or after a
+requested delay — is [`block-lifecycle.md`](block-lifecycle.md)'s `AC-LIFE-006.*`, cited here rather
+than restated; this page owns only what pause does to it.
 
 ## Stepping entry points
 
@@ -492,7 +495,7 @@ persists anything keys on name paths instead.
   logger without those defaults.
 - `AC-CTRL-020.3` (Ubiquitous): THE SYSTEM SHALL publish a parameter's declared bound in its editor
   schema only where that bound can be carried there.
-- `AC-CTRL-020.4` (Conditional): WHERE the caller does not say THE SYSTEM SHALL boot the web interface
+- `AC-CTRL-020.4` (Optional): WHERE the caller does not say THE SYSTEM SHALL boot the web interface
   stepped exactly when the process environment asks for it.
 
 `AC-CTRL-020.3` is `AC-INTRO-007.3`'s rule at a second site, and its second half is what that one does

@@ -18,6 +18,10 @@ A write *into* a writable member is always forwarded.
 A single C# property may declare **both** attributes. It then publishes to two streams — its own
 retained topic each — and this page treats them as two members throughout.
 
+Cited rather than restated: nothing. This page names no neighbour's criterion today. What the outside
+world does with a published value — the document that describes the policy, the wire the value
+travels on, the clock a test binds a block to — is other pages'.
+
 ## When the policy applies
 
 Throttling and a controllable clock do not mix: a test that advances time in jumps would silently
@@ -43,7 +47,7 @@ package: any clock a test can wind forward is recognised by the method it offers
 
 - `AC-EMIT-002.1` (Ubiquitous): THE SYSTEM SHALL gate a member's service-property stream and its
   measuring-point stream independently, each from the knobs declared on its own attribute.
-- `AC-EMIT-002.2` (Unwanted): WHERE a member's attribute for one stream declares no emission knobs
+- `AC-EMIT-002.2` (Optional): WHERE a member's attribute for one stream declares no emission knobs
   THE SYSTEM SHALL apply the knob defaults to that stream, and SHALL NOT apply knobs declared on the
   member's attribute for the other stream.
 - `AC-EMIT-002.3` (Event-driven): WHEN the implementing property declares a stream's emission
@@ -111,7 +115,7 @@ per-field tolerance.
 
 ### 2. It is declared urgent
 
-- `AC-EMIT-005.6` (Unwanted): WHERE a member sets `Immediate` THE SYSTEM SHALL emit every distinct
+- `AC-EMIT-005.6` (Optional): WHERE a member sets `Immediate` THE SYSTEM SHALL emit every distinct
   value at once, applying neither the interval nor the deadband.
 
 `Immediate` is the knob for a signal whose every edge matters, and for a `bool`, which has no
@@ -124,7 +128,7 @@ magnitude to deadband. It makes `MinInterval` and `MinChange` inert, which `DALE
 - `AC-EMIT-006.2` (Ubiquitous): THE SYSTEM SHALL measure a deadband against the last emitted value
   rather than the previously offered one, so a series of sub-threshold steps emits as soon as their
   accumulated difference reaches the threshold.
-- `AC-EMIT-006.3` (Conditional): IF either side of a deadband comparison is absent or is not a number
+- `AC-EMIT-006.3` (Unwanted): IF either side of a deadband comparison is absent or is not a number
   THEN THE SYSTEM SHALL treat the change as clearing the threshold.
 
 `AC-EMIT-006.1` says *suppress*, not *hold*: a value inside the deadband must not resurface at the
@@ -142,7 +146,7 @@ where the last published value was.
   the offered value until it expires, replacing any value already held.
 - `AC-EMIT-005.4` (Event-driven): WHEN a held value's interval expires THE SYSTEM SHALL emit the held
   value and clear the hold.
-- `AC-EMIT-005.5` (Unwanted): WHERE a member sets `MinInterval` to the disabling sentinel THE SYSTEM
+- `AC-EMIT-005.5` (Optional): WHERE a member sets `MinInterval` to the disabling sentinel THE SYSTEM
   SHALL emit every value that clears the dedup floor and the deadband, holding nothing.
 - `AC-EMIT-005.7` (Event-driven): WHEN a value is suppressed while an earlier value is held THE SYSTEM
   SHALL discard the held value, so what is released at the interval is the member's latest.
@@ -307,17 +311,16 @@ which is what a dashboard renders as the member's throttle badge.
 - `AC-EMIT-013.1` (Ubiquitous): THE SYSTEM SHALL report a member's effective emission policy for a
   stream in the introspection document as that stream's `runtime.throttle` carrying `minInterval`,
   `minChange` and `immediate`.
-- `AC-EMIT-013.2` (Unwanted): WHERE a stream's emission policy is the default THE SYSTEM SHALL omit
-  its `runtime.throttle` entirely, comparing the declared `MinInterval` as a duration rather than as a
-  spelling.
-- `AC-EMIT-013.3` (Unwanted): WHERE a stream's emission policy is reported THE SYSTEM SHALL carry its
+- `AC-EMIT-013.2` (Optional): WHERE part of a stream's emission policy is the default THE SYSTEM
+  SHALL omit that part from the report — the whole `runtime.throttle` entry where the policy is
+  default throughout, `minChange` where the member declares no deadband, and `immediate` where it is
+  false — comparing the declared `MinInterval` as a duration rather than as a spelling.
+- `AC-EMIT-013.3` (Optional): WHERE a stream's emission policy is reported THE SYSTEM SHALL carry its
   effective `minInterval` even when that is the default.
 - `AC-EMIT-013.4` (Ubiquitous): THE SYSTEM SHALL report each stream's policy from the same attribute
   the gate reads it from, so a member declaring both attributes reports two independent policies.
 - `AC-EMIT-013.5` (Ubiquitous): THE SYSTEM SHALL treat an empty `MinChange` as unset, in the reported
   policy as in the gate.
-- `AC-EMIT-013.6` (Ubiquitous): THE SYSTEM SHALL omit `minChange` from a reported policy where the
-  member declares no deadband, and `immediate` where it is false.
 
 Every member carries a policy, so a badge on all of them would say nothing — hence `AC-EMIT-013.2`.
 `AC-EMIT-013.3` is its complement: once a policy *is* reported, its interval is carried whole, so a

@@ -113,7 +113,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-TKIT-013.4")]
+        [TestProperty("spec", "SYS-REL-001")]
         public void NameEveryPackableProjectInReleaseCacheRoster()
         {
             // Arrange — a package the roster does not name keeps its previous version in the local cache
@@ -132,7 +132,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-TKIT-013.4")]
+        [TestProperty("spec", "SYS-REL-001")]
         public void CountProjectPackableByBuildDefaultAsReleased()
         {
             // Arrange — packable is MSBuild's default, so a roster check that reads <IsPackable>true</…>
@@ -156,8 +156,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
             Assert.IsNotEmpty(widened.Except(narrow, StringComparer.Ordinal).ToList());
         }
 
+        /// <summary>
+        ///     A premise test: it pins the kits' testability in isolation, which is a property of this
+        ///     repository's test tree rather than anything a consumer observes, so it cites no criterion
+        ///     (`docs/spec-process.md` § IDs & EARS). Its guard is real — a kit suite that reached a
+        ///     runtime would be testing the runtime.
+        /// </summary>
         [TestMethod]
-        [TestProperty("spec", "AC-TKIT-014.1")]
         [DataRow("Vion.Dale.Sdk.TestKit.Test")]
         [DataRow("Vion.Dale.Sdk.DigitalIo.TestKit.Test")]
         [DataRow("Vion.Dale.Sdk.AnalogIo.TestKit.Test")]
@@ -176,27 +181,6 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Assert
             Assert.IsEmpty(forbidden, $"{projectName} references {string.Join(", ", forbidden)}");
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-TKIT-014.2")]
-        public void LeaveSuiteProvingAnotherAreaCitedToThatArea()
-        {
-            // Arrange — 63 of the tests in these five projects prove emission, gating, lifecycle and
-            // Modbus criteria; they stay where they are and keep citing the page that owns them
-            var root = RepositoryRoot();
-
-            // Act
-            var foreignCitations = new[] { "Vion.Dale.Sdk.TestKit.Test", "Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test" }
-                                   .SelectMany(project => Directory.EnumerateFiles(Path.Combine(root, project), "*.cs", SearchOption.AllDirectories))
-                                   .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
-                                                  !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-                                   .SelectMany(path => Regex.Matches(File.ReadAllText(path), "\"(AC-(?:EMIT|GATE|LIFE|MODB)-[0-9.]+)\"").Select(match => match.Groups[1].Value))
-                                   .Distinct()
-                                   .ToList();
-
-            // Assert
-            Assert.IsNotEmpty(foreignCitations, "A suite in these projects proves other areas' criteria and must keep citing them.");
         }
 
         // A project is packable unless something turns it off: an explicit <IsPackable>false</IsPackable>

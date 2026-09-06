@@ -157,7 +157,7 @@ a gate, and a property-based one is gateable (`AC-GATE-007.2`).
 - `AC-BIND-005.4` (Event-driven): WHEN building an endpoint fails THE SYSTEM SHALL name the endpoint
   identifier, its member and its logic block in the refusal, and SHALL carry the underlying reason
   rather than the reflection wrapper's.
-- `AC-BIND-005.5` (Event-driven): WHEN an assembly cannot be fully enumerated during that search THE SYSTEM SHALL take the types that did load and continue. GAP: an assembly whose types fail to load cannot be produced inside the test process.
+- `AC-BIND-005.5` (Event-driven): WHEN an assembly cannot be fully enumerated during that search THE SYSTEM SHALL take the types that did load and continue. GAP: no fixture can make an endpoint search's assembly load only some of its types inside the test process.
 
 `AC-BIND-005.3`'s middle clause is not an oversight: a role that receives and never sends has no
 generated extension class at all (`AC-BIND-003.5`), so an absent class is the ordinary shape of half
@@ -226,7 +226,7 @@ states where a host discovers those registrations from.
   of its interface the search reaches, whatever else implements it.
 - `AC-BIND-008.2` (Event-driven): WHEN no implementation of a contract is loaded THE SYSTEM SHALL
   refuse the configuration naming the contract and the binding that wanted it.
-- `AC-BIND-008.3` (Event-driven): WHEN an assembly the search considers cannot be enumerated THE SYSTEM SHALL refuse the configuration naming the assembly and the contract. GAP: an assembly whose types fail to load cannot be produced inside the test process.
+- `AC-BIND-008.3` (Event-driven): WHEN an assembly the search considers cannot be enumerated THE SYSTEM SHALL refuse the configuration naming the assembly and the contract. GAP: no fixture can make a contract search's assembly fail to enumerate inside the test process.
 
 The two discoveries of this page do not share a rule, and the divergence is real: this one filters the
 assemblies by whether they reference the one that declares what it is looking for, and refuses what it

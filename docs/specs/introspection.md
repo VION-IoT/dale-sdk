@@ -14,6 +14,11 @@ The document is produced by `Vion.Dale.LogicBlockParser`, a tool the SDK's MSBui
 the *published* assembly. Its shape is `Vion.Contracts`' — this repository fills the fields, it does
 not define them.
 
+Cited rather than restated: [`emission.md`](emission.md) for the per-stream emission policy the
+document reports (`AC-EMIT-013.*`); [`config-gating.md`](config-gating.md) for what a config-time gate
+does to a member before it is described, and for an instantiation parameter's own marker and default
+(`AC-GATE-006.1`, `AC-GATE-007.7`, `AC-GATE-010.*`).
+
 ## The document
 
 One document per plugin assembly: who the library is, which version, and one record per logic block.
@@ -109,7 +114,7 @@ an export boundary, so every reader of the document gets the canonical form.
   display form, with the nesting separator written the way source spells it.
 - `AC-INTRO-004.3` (Event-driven): WHEN a logic block declares a name THE SYSTEM SHALL report it as
   the block's default-name annotation, and SHALL report its icon and its groups under their own.
-- `AC-INTRO-004.4` (Unwanted): WHERE a logic block's declared name, icon or group set is empty THE
+- `AC-INTRO-004.4` (Optional): WHERE a logic block's declared name, icon or group set is empty THE
   SYSTEM SHALL omit that annotation.
 - `AC-INTRO-004.5` (Event-driven): WHEN a logic block declares no annotations at all THE SYSTEM SHALL
   report an empty annotation map.
@@ -276,7 +281,7 @@ even though no model declares them.
   importance, UI hint, decimals, format and visibility predicate as declared.
 - `AC-INTRO-009.3` (Ubiquitous): THE SYSTEM SHALL treat the integer sentinel as unset for order and
   for decimals, reporting neither.
-- `AC-INTRO-009.4` (Unwanted): WHERE a member's importance is the default THE SYSTEM SHALL omit it.
+- `AC-INTRO-009.4` (Optional): WHERE a member's importance is the default THE SYSTEM SHALL omit it.
 - `AC-INTRO-009.5` (Event-driven): WHEN a member is declared a status indicator and declares no
   explicit UI hint THE SYSTEM SHALL report the status-indicator hint.
 - `AC-INTRO-009.6` (Ubiquitous): THE SYSTEM SHALL accept a presentation declaration on a service
@@ -386,7 +391,7 @@ the implementing property is the binding target, so its accessors decide.
   without excluding itself, and SHALL report no runtime document where there is nothing to report.
 
 The document's other two runtime concerns are stated elsewhere and cited here rather than re-minted: a
-member's emission policy is `AC-EMIT-013.1`–`AC-EMIT-013.6`, and an instantiation parameter's marker
+member's emission policy is `AC-EMIT-013.*`, and an instantiation parameter's marker
 and default are `AC-GATE-010.4` and `AC-GATE-010.5`.
 
 ## Endpoint identifiers
@@ -506,8 +511,8 @@ The SDK's MSBuild targets are what make all of the above happen without a librar
 anything.
 
 - `AC-INTRO-017.1` (Event-driven): WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly supplying the project's package id and excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
-- `AC-INTRO-017.2` (Ubiquitous): THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: as `AC-INTRO-017.1`.
-- `AC-INTRO-017.3` (Ubiquitous): THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: as `AC-INTRO-017.1`.
+- `AC-INTRO-017.2` (Ubiquitous): THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: the same pack-and-consume path as `AC-INTRO-017.1`.
+- `AC-INTRO-017.3` (Ubiquitous): THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: the same pack-and-consume path as `AC-INTRO-017.1`.
 - `AC-INTRO-017.4` (Ubiquitous): THE SYSTEM SHALL supply the source generator and analyzers to every
   consuming project.
 

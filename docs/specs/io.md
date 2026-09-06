@@ -325,15 +325,17 @@ The classification is also what the API manifest is drawn from: a `[PublicApi]` 
 is why marking the registration class internal changed no row. The rows this area holds are seven per
 package — the four faces and the three message types — and four per TestKit. The manifest is
 regenerated and diffed by `.github/workflows/publish.yml` (`:140-146` generates it, `:162-206`
-regenerates it, auto-commits a drift onto the pull request head and warns on `main`), and **no criterion
-in this corpus states that gate** — not here and not on any other page — so it is named as evidence
-rather than cited.
+regenerates it, auto-commits a drift onto the pull request head and warns on `main`). The manifest
+rule itself is `SYS-API-*` in [`_invariants.md`](_invariants.md), which this page cites rather than
+restating.
 
 ## The mirror
 
-- `AC-IO-010.1` (Ubiquitous): THE SYSTEM SHALL ship the digital and analog packages as one design, each file's counterpart differing only in the value type it carries and in what that value type implies. GAP: by convention a package's test project references only its own package, so no test compares the two; each pass diffs them file by file.
-
-The mirror is a contract on every change, not an observation about today: a fix applied to one package
+The two packages ship one design twice, each file's counterpart differing only in the value type it
+carries and in what that value type implies. That is a rule about how the packages are *changed*, not
+something a consumer can observe of either one, so it mints no criterion
+([`../spec-process.md`](../spec-process.md) § IDs & EARS) — and it is a contract on every change, not
+an observation about today: a fix applied to one package
 is applied to the other in the same commit, or the change doc says why not. What the diff legitimately
 still shows, after normalising `Digital`/`Analog` and the payload type names, is exactly five things:
 the value type itself, `bool` against `double`; the English article each package's noun takes; each

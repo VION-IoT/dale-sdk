@@ -649,7 +649,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-EMIT-013.6")]
+        [TestProperty("spec", "AC-EMIT-013.2")]
         public void OmitUnsetFieldsOfReportedPolicy()
         {
             // Arrange / Act
