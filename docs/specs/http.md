@@ -165,11 +165,20 @@ an exception it throws is the actor's to handle and not this package's.
   member and the bound.
 - `AC-HTTP-007.3` (Event-driven): WHEN a caller passes `SendRequest` no request, or a request with no
   URI, THE SYSTEM SHALL refuse the call before sending anything, naming the parameter and the member.
+- `AC-HTTP-007.4` (Event-driven): WHEN the configured serializer cannot serialize a request body THE
+  SYSTEM SHALL throw the serializer's own exception at the caller before sending anything.
 
-All three are `AC-LIFE-006.2`'s shape, for `AC-LIFE-006.2`'s reason: each named an argument whose
-only symptom was a request that went nowhere or went and reported nothing. They are raised
+The first three are `AC-LIFE-006.2`'s shape, for `AC-LIFE-006.2`'s reason: each named an argument
+whose only symptom was a request that went nowhere or went and reported nothing. They are raised
 synchronously, at the caller, because a `void` member that faults a task nobody holds has no other
 way to say anything.
+
+`AC-HTTP-007.4` is the fourth thing a member can throw and the one the package does not word itself.
+The four members that take a body serialize it on the calling thread, before the exchange is started,
+so a body `AC-HTTP-011.1`'s options cannot write — a cycle, a property getter that throws, a
+converter the consumer supplied — surfaces at the call site rather than in the error callback.
+Nothing is sent and no callback runs. The exception is the serializer's own, which is why this
+criterion names no class: a `catch` here is around the member, not around a request.
 
 The accepted band for a timeout is the runtime's own: the infinite timespan for no bound, or from
 zero up to what the cancellation source will take. That upper bound has the same origin as the delay

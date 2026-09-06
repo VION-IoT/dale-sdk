@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -277,6 +278,31 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.IsEmpty(handler.Requests);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.4")]
+        [DataRow(Member.PostJson)]
+        [DataRow(Member.PostJsonWithoutResponse)]
+        [DataRow(Member.PutJson)]
+        [DataRow(Member.PutJsonWithoutResponse)]
+        public void ThrowSerializerRefusalAtCallerWithoutSendingAnything(Member member)
+        {
+            // Arrange — the real stack, because the serialization runs on the caller's own thread before the
+            // executor's task exists; a mocked serializer would prove only that this test can throw. The
+            // converter is registered the way `AC-HTTP-011.1` lets a consumer register one.
+            var handler = StubHttpMessageHandler.Answering(System.Net.HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddDaleHttpSdk();
+            services.AddHttpClient(HttpRequestExecutor.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => handler);
+            services.Configure<JsonSerializerOptions>(options => options.Converters.Add(new RefusingJsonConverter()));
+            var sut = services.BuildServiceProvider().GetRequiredService<ILogicBlockHttpClient>();
+
+            // Act / Assert — at the caller, with nothing sent and nothing scheduled onto the block's actor
+            Assert.ThrowsExactly<JsonException>(() => Invoke(sut, member));
+            Assert.IsEmpty(handler.Requests);
+            _dispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Never);
+        }
+
         /// <summary>
         ///     Records the one executor call a member makes, whichever of the three overloads it reached, so
         ///     the families above vary in the member they call and in nothing else.
@@ -340,10 +366,15 @@ namespace Vion.Dale.Sdk.Http.Test
 
         private void Invoke(Member member)
         {
+            Invoke(_sut, member);
+        }
+
+        private void Invoke(ILogicBlockHttpClient client, Member member)
+        {
             switch (member)
             {
                 case Member.GetJson:
-                    _sut.GetJson<TestObject>(_dispatcherMock.Object,
+                    client.GetJson<TestObject>(_dispatcherMock.Object,
                                              Url,
                                              _ => { },
                                              _errorCallback,
@@ -351,7 +382,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                              _timeout);
                     break;
                 case Member.PostJson:
-                    _sut.PostJson<TestObject, TestObject>(_dispatcherMock.Object,
+                    client.PostJson<TestObject, TestObject>(_dispatcherMock.Object,
                                                           Url,
                                                           _requestBody,
                                                           _ => { },
@@ -360,7 +391,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                                           _timeout);
                     break;
                 case Member.PostJsonWithoutResponse:
-                    _sut.PostJson(_dispatcherMock.Object,
+                    client.PostJson(_dispatcherMock.Object,
                                   Url,
                                   _requestBody,
                                   () => { },
@@ -369,7 +400,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                   _timeout);
                     break;
                 case Member.PutJson:
-                    _sut.PutJson<TestObject, TestObject>(_dispatcherMock.Object,
+                    client.PutJson<TestObject, TestObject>(_dispatcherMock.Object,
                                                          Url,
                                                          _requestBody,
                                                          _ => { },
@@ -378,7 +409,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                                          _timeout);
                     break;
                 case Member.PutJsonWithoutResponse:
-                    _sut.PutJson(_dispatcherMock.Object,
+                    client.PutJson(_dispatcherMock.Object,
                                  Url,
                                  _requestBody,
                                  () => { },
@@ -387,7 +418,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                  _timeout);
                     break;
                 case Member.DeleteJson:
-                    _sut.DeleteJson<TestObject>(_dispatcherMock.Object,
+                    client.DeleteJson<TestObject>(_dispatcherMock.Object,
                                                 Url,
                                                 _ => { },
                                                 _errorCallback,
@@ -395,7 +426,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                                 _timeout);
                     break;
                 case Member.Delete:
-                    _sut.Delete(_dispatcherMock.Object,
+                    client.Delete(_dispatcherMock.Object,
                                 Url,
                                 () => { },
                                 _errorCallback,
@@ -403,7 +434,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                 _timeout);
                     break;
                 case Member.SendRequest:
-                    _sut.SendRequest(_dispatcherMock.Object, new HttpRequestMessage(HttpMethod.Patch, Url), _ => { }, _errorCallback, _timeout);
+                    client.SendRequest(_dispatcherMock.Object, new HttpRequestMessage(HttpMethod.Patch, Url), _ => { }, _errorCallback, _timeout);
                     break;
                 default: throw new ArgumentOutOfRangeException(nameof(member), member, null);
             }

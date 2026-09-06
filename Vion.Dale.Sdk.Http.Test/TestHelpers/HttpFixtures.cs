@@ -3,6 +3,8 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -102,6 +104,24 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
         internal static ILogicBlockHttpClient ComposeClient(StubHttpMessageHandler handler, Action<HttpClient>? configureClient = null)
         {
             return Compose(handler, configureClient).GetRequiredService<ILogicBlockHttpClient>();
+        }
+    }
+
+    /// <summary>
+    ///     A converter a consumer could plausibly register that refuses the type it is asked for. It stands
+    ///     for the family of bodies the configured serializer cannot write — a cycle, a property getter that
+    ///     throws, a converter of the consumer's own — all of which surface where the serialization runs.
+    /// </summary>
+    internal sealed class RefusingJsonConverter : JsonConverter<TestObject>
+    {
+        public override TestObject Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            throw new JsonException("this converter refuses to read");
+        }
+
+        public override void Write(Utf8JsonWriter writer, TestObject value, JsonSerializerOptions options)
+        {
+            throw new JsonException("this converter refuses to write");
         }
     }
 
