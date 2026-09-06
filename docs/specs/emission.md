@@ -18,6 +18,10 @@ A write *into* a writable member is always forwarded.
 A single C# property may declare **both** attributes. It then publishes to two streams — its own
 retained topic each — and this page treats them as two members throughout.
 
+Cited rather than restated: nothing. This page names no neighbour's criterion today. What the outside
+world does with a published value — the document that describes the policy, the wire the value
+travels on, the clock a test binds a block to — is other pages'.
+
 ## When the policy applies
 
 Throttling and a controllable clock do not mix: a test that advances time in jumps would silently

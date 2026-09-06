@@ -14,6 +14,10 @@ published with — the shape `dotnet publish` produces, which is why `dale` publ
 builds before introspection. Each plugin is loaded into its own `PluginLoadContext` — an
 `AssemblyLoadContext` whose resolution rules are the subject of this page.
 
+Cited rather than restated: nothing. This page names no neighbour's criterion, because the ABI is
+what holds before any of them applies. What a loaded block then does — its lifecycle, the document
+its assembly is introspected into, the contracts it binds — is other pages'.
+
 ## Context lifetime
 
 - `AC-PLUG-001.1` (Ubiquitous): THE SYSTEM SHALL create every plugin load context as

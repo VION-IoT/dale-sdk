@@ -14,6 +14,10 @@ excluded member does not exist for the life of the instance, and changing a para
 re-activation that re-instantiates the block. The soft, runtime-reactive sibling is
 `[Presentation(VisibleWhen = …)]`, which only hides a member that still exists and still publishes.
 
+Cited rather than restated: [`introspection.md`](introspection.md) for the identifier stability a
+parameter identifier inherits — this page's one neighbour, and named by page rather than by id. What
+an included member then does — how it publishes, what it binds — is other pages'.
+
 ## Instantiation parameters
 
 An `[InstantiationParameter]` is a modifier on a real `[ServiceProperty]`: the property is an

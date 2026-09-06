@@ -14,6 +14,11 @@ The document is produced by `Vion.Dale.LogicBlockParser`, a tool the SDK's MSBui
 the *published* assembly. Its shape is `Vion.Contracts`' — this repository fills the fields, it does
 not define them.
 
+Cited rather than restated: [`emission.md`](emission.md) for the per-stream emission policy the
+document reports (`AC-EMIT-013.*`); [`config-gating.md`](config-gating.md) for what a config-time gate
+does to a member before it is described, and for an instantiation parameter's own marker and default
+(`AC-GATE-006.1`, `AC-GATE-007.7`, `AC-GATE-010.*`).
+
 ## The document
 
 One document per plugin assembly: who the library is, which version, and one record per logic block.
