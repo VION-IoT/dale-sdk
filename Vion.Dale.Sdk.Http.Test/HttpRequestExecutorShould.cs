@@ -210,6 +210,112 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.AreEqual(0, _dispatcher.QueuedCount);
         }
 
+        // ---- refusals at the caller ---------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.1")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public void RefuseRequestWithoutDispatcher(Overload overload)
+        {
+            // Arrange — without a dispatcher there is nowhere for either callback to run, so a request that
+            // went anyway would change the server's state and report nothing back
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+            _dispatcher = null!;
+
+            // Act / Assert
+            var refusal = Assert.ThrowsExactly<ArgumentNullException>(() => Execute(sut, overload));
+            Assert.AreEqual("dispatcher", refusal.ParamName);
+            Assert.Contains(nameof(IHttpRequestExecutor.ExecuteRequestAsync), refusal.Message);
+            Assert.IsEmpty(handler.Requests);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public void RefuseTimeoutCancellationSourceWouldReject(Overload overload)
+        {
+            // Arrange — the source throws from its constructor, which sits outside the executor's try, so
+            // an unrefused value loses the request with no callback and nothing thrown to the caller
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+
+            // Act / Assert
+            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Execute(sut, overload, timeout: TimeSpan.MaxValue));
+            Assert.AreEqual("timeout", refusal.ParamName);
+            Assert.Contains(nameof(IHttpRequestExecutor.ExecuteRequestAsync), refusal.Message);
+            Assert.IsEmpty(handler.Requests);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        [DynamicData(nameof(TimeoutsOutsideBand))]
+        public void RefuseEveryTimeoutBeyondEdgesOfBand(TimeSpan timeout)
+        {
+            // Arrange
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+
+            // Act / Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, null, null, null, timeout));
+            Assert.IsEmpty(handler.Requests);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        [DynamicData(nameof(TimeoutsInsideBand))]
+        public async Task AcceptEveryTimeoutInsideBand(TimeSpan timeout)
+        {
+            // Arrange — the two edges the source does take, and the sentinel that means no bound at all;
+            // refusing any of these would refuse a value the request could have run with
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = Executor(handler);
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, null, null, null, timeout);
+
+            // Assert
+            Assert.HasCount(1, handler.Requests);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.2")]
+        public void RefuseExactlyWhatCancellationSourceRefuses()
+        {
+            // Arrange — the band's edge read off the runtime rather than restated, because the families
+            // above express their rows relative to the package's constant and would follow it anywhere it
+            // moved. This is the one assertion that would notice.
+
+            // Act / Assert
+            using var atEdge = new CancellationTokenSource(HttpRequestExecutor.MaxRequestTimeout);
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new CancellationTokenSource(HttpRequestExecutor.MaxRequestTimeout + TimeSpan.FromMilliseconds(1)));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-003.3")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task ScheduleNothingWithoutSuccessCallback(Overload overload)
+        {
+            // Arrange — the same exchange with a callback schedules exactly one action, which is what makes
+            // this negative meaningful; without the guard the queued action throws inside the block's actor
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+            await Execute(sut, overload, onSuccess: () => { });
+            Assert.AreEqual(1, _dispatcher.QueuedCount);
+            _dispatcher.Drain();
+
+            // Act
+            await Execute(sut, overload);
+
+            // Assert
+            Assert.AreEqual(0, _dispatcher.QueuedCount);
+        }
+
         // ---- the two timeout bounds --------------------------------------
 
         [TestMethod]
@@ -462,11 +568,11 @@ namespace Vion.Dale.Sdk.Http.Test
             switch (overload)
             {
                 case Overload.ResponseContent:
-                    return sut.ExecuteRequestAsync<TestObject>(_dispatcher, Url, HttpMethod.Get, ReadBody, _ => onSuccess?.Invoke(), onError, timeout: timeout);
+                    return sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, ReadBody, onSuccess == null ? null! : _ => onSuccess(), onError, timeout: timeout);
                 case Overload.NoResponse:
                     return sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, onSuccess, onError, timeout: timeout);
                 case Overload.ResponseMessage:
-                    return sut.ExecuteRequestAsync(_dispatcher, new HttpRequestMessage(HttpMethod.Get, Url), _ => onSuccess?.Invoke(), onError, timeout);
+                    return sut.ExecuteRequestAsync(_dispatcher, new HttpRequestMessage(HttpMethod.Get, Url), onSuccess == null ? null : _ => onSuccess(), onError, timeout);
                 default: throw new ArgumentOutOfRangeException(nameof(overload), overload, null);
             }
         }
@@ -486,6 +592,23 @@ namespace Vion.Dale.Sdk.Http.Test
 
             return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         }
+
+        /// <summary>Values beyond the edges of the band the runtime's cancellation source accepts.</summary>
+        public static IEnumerable<object[]> TimeoutsOutsideBand =>
+        [
+            [HttpRequestExecutor.MaxRequestTimeout + TimeSpan.FromMilliseconds(1)],
+            [TimeSpan.MaxValue],
+            [TimeSpan.FromMilliseconds(-2)],
+            [TimeSpan.MinValue],
+        ];
+
+        /// <summary>Values at or inside those edges, the infinite sentinel included.</summary>
+        public static IEnumerable<object[]> TimeoutsInsideBand =>
+        [
+            [HttpRequestExecutor.MaxRequestTimeout],
+            [HttpRequestExecutor.MaxRequestTimeout - TimeSpan.FromMilliseconds(1)],
+            [Timeout.InfiniteTimeSpan],
+        ];
 
         /// <summary>The three executor overloads, as the rows of the families above.</summary>
         public enum Overload

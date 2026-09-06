@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Abstractions;
@@ -234,6 +235,26 @@ namespace Vion.Dale.Sdk.Http.Test
 
             // Assert
             _requestExecutorMock.Verify(executor => executor.ExecuteRequestAsync(_dispatcherMock.Object, request, successCallback, _errorCallback, _timeout), Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.3")]
+        [DataRow(false, DisplayName = "no request at all")]
+        [DataRow(true, DisplayName = "a request with no URI")]
+        public void RefuseSendRequestWithoutRequestOrUri(bool hasRequest)
+        {
+            // Arrange — the real executor, because the refusal has to reach the caller before this member
+            // reads the request itself to build its logging continuation; a mocked executor would let that
+            // read happen and the caller would get a bare null-reference exception instead
+            var handler = StubHttpMessageHandler.Answering(System.Net.HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var sut = new LogicBlockHttpClient(HttpSdk.Compose(handler).GetRequiredService<IHttpRequestExecutor>(), _serializerMock.Object, _loggerMock.Object);
+            var request = hasRequest ? new HttpRequestMessage { Method = HttpMethod.Get, RequestUri = null } : null;
+
+            // Act / Assert
+            var refusal = Assert.Throws<ArgumentException>(() => sut.SendRequest(_dispatcherMock.Object, request!, _ => { }, _errorCallback));
+            Assert.AreEqual("request", refusal.ParamName);
+            Assert.Contains("SendRequest", refusal.Message);
+            Assert.IsEmpty(handler.Requests);
         }
 
         /// <summary>
