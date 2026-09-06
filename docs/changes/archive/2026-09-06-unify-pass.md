@@ -228,9 +228,9 @@ mechanically — every `AC-` id on the page that is not its own area — and onl
 
 | page | foreign ids the prose already relies on | what was written |
 |---|---|---|
-| `plugin-loading.md` | none | "Cited rather than restated: nothing." + the one-sentence "does not own" line (`scenarios.md:20`'s shape) |
+| `plugin-loading.md` | none | "Cited rather than restated: nothing." + the one-sentence "does not own" line (`scenarios.md:19-20`'s shape) |
 | `emission.md` | none | the same |
-| `config-gating.md` | none — it links `introspection.md` at `:77` for identifier stability, by page and without an id | the neighbour named by page, plus the "does not own" line |
+| `config-gating.md` | none — it links `introspection.md` at `:81` for identifier stability, by page and without an id | the neighbour named by page, plus the "does not own" line |
 | `introspection.md` | `AC-EMIT-013.1`, `AC-EMIT-013.4`, `AC-EMIT-013.6`, `AC-GATE-006.1`, `AC-GATE-007.7`, `AC-GATE-010.3`, `AC-GATE-010.4`, `AC-GATE-010.5` | a full block: `AC-EMIT-013.*`, `AC-GATE-006.1`, `AC-GATE-007.7`, `AC-GATE-010.*` |
 
 Three of the four cite nothing foreign, as the brief's fallback anticipated. Neither page's block
@@ -337,7 +337,7 @@ corrected in the same commit rather than left for a reader to trip over.
   ids where the brief expected an unchanged 1069. Both are covered by their own leaves (a bare
   umbrella is covered by any `.M`), the page GAP count is unchanged at 68 — the run reports 70 while
   this doc is in-flight, because a delta line carrying the marker is exempt-but-counted exactly as a
-  page line is (`spec-trace.ps1:112-121`) — and no id was removed. The set
+  page line is (`spec-trace.ps1:116-124`) — and no id was removed. The set
   difference was computed directly: added `AC-EMIT-013`, `AC-GATE-010`; removed none. Writing the six
   leaf ids out in full instead would hold the count at 1069 at the cost of the glob the brief asked
   for; the glob is `io.md`'s own idiom.
@@ -364,7 +364,7 @@ corrected in the same commit rather than left for a reader to trip over.
 > refuses until every line is applied. The `ID` must be an exact token greppable in the target
 > after distill (backticks stripped) — a real `AC-`/`SYS-` id, never an ad-hoc label.
 
-Two lines. The archive gate **can** target `_invariants.md`: `spec-change.ps1:119-138` accepts any
+Two lines. The archive gate **can** target `_invariants.md`: `spec-change.ps1:119-123` accepts any
 `.md` target, `SYS-REL-001` matches its `$specIdRx` (`:73`), and `Get-DeclaringBullet` (`:102-113`)
 finds a `` - `SYS-…` `` bullet exactly as it finds an `AC-` one. The `GAP:` tails on both bullets are
 stripped by the text comparison, so they do not need repeating here.
