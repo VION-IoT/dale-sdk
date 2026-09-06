@@ -1,23 +1,30 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Http.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Http.Test
 {
+    /// <summary>
+    ///     The eight members a block author calls, against a mocked executor: what each one hands over, which
+    ///     method it sends, and whether it asks for the body back. The executor is the seam here because these
+    ///     members do exactly one thing — map a member to an executor call — which makes them synchronous and
+    ///     therefore free of any waiting. What the executor then does is <c>HttpRequestExecutorShould</c>'s.
+    ///     <para>
+    ///         Every family below captures the same record off whichever executor overload the member reached,
+    ///         so the rows vary only in which member is called and never in the shape of the arrangement.
+    ///     </para>
+    /// </summary>
     [TestClass]
     public class LogicBlockHttpClientShould
     {
-        private const string Url = "http://localhost";
+        private const string Url = "http://vion.test/resource";
 
-        private readonly Mock<IActorDispatcher> _actorDispatcherMock = new();
-
-        private readonly Action<TestObject> _callbackWithResponse = _ => { };
-
-        private readonly Action _callbackWithoutResponse = () => { };
+        private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 
         private readonly Action<Exception> _errorCallback = _ => { };
 
@@ -25,349 +32,340 @@ namespace Vion.Dale.Sdk.Http.Test
 
         private readonly Mock<ILogger<LogicBlockHttpClient>> _loggerMock = new();
 
-        private readonly TestObject _requestBody = new() { StringValue = "test", IntValue = 42 };
+        private readonly TestObject _requestBody = new() { StringValue = "pinned", IntValue = 42 };
 
         private readonly Mock<IHttpRequestExecutor> _requestExecutorMock = new();
 
-        private readonly Action<HttpResponseMessage> _sendRequestCallback = _ => { };
+        private readonly StringContent _serializedBody = new("serialized");
 
         private readonly Mock<IHttpContentSerializer> _serializerMock = new();
 
         private readonly TimeSpan _timeout = TimeSpan.FromSeconds(10);
 
-        private Func<HttpResponseMessage, Task<TestObject>> _capturedGetResponseContent =
-            _ => Task.FromResult(new TestObject { StringValue = Guid.NewGuid().ToString(), IntValue = 1 });
+        private ExecutorCall? _executorCall;
 
         private LogicBlockHttpClient _sut = null!;
 
         [TestInitialize]
         public void TestInitialize()
         {
+            _serializerMock.Setup(serializer => serializer.SerializeJson(_requestBody)).Returns(_serializedBody);
+            CaptureExecutorCall();
             _sut = new LogicBlockHttpClient(_requestExecutorMock.Object, _serializerMock.Object, _loggerMock.Object);
         }
 
         [TestMethod]
-        public void ExecuteGetRequestWithCorrectParameters()
+        [TestProperty("spec", "AC-HTTP-003.1")]
+        public void ReturnBeforeExchangeCompletes()
         {
-            // Arrange
+            // Arrange — an executor that never finishes; a member that awaited it would never return
+            var pending = new TaskCompletionSource<bool>();
+            _requestExecutorMock.Setup(executor => executor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
+                                                                                It.IsAny<string>(),
+                                                                                It.IsAny<HttpMethod>(),
+                                                                                It.IsAny<Action>(),
+                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<Dictionary<string, string>>(),
+                                                                                It.IsAny<HttpContent>(),
+                                                                                It.IsAny<TimeSpan?>()))
+                                .Returns(pending.Task);
 
             // Act
-            _sut.GetJson(_actorDispatcherMock.Object,
-                         Url,
-                         _callbackWithResponse,
-                         _errorCallback,
-                         _headers,
-                         _timeout);
+            _sut.Delete(_dispatcherMock.Object, Url, () => { }, _errorCallback);
 
-            // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               Url,
-                                                                                               HttpMethod.Get,
-                                                                                               It.IsAny<Func<HttpResponseMessage, Task<TestObject>>>(),
-                                                                                               _callbackWithResponse,
-                                                                                               _errorCallback,
-                                                                                               _headers,
-                                                                                               null,
-                                                                                               _timeout),
-                                        Times.Once);
+            // Assert — reaching this line at all is the behaviour; the exchange is still outstanding
+            Assert.IsFalse(pending.Task.IsCompleted);
         }
 
         [TestMethod]
-        public async Task ExecuteGetRequestWithCorrectDeserializer()
+        [TestProperty("spec", "AC-HTTP-003.1")]
+        [DataRow(Member.GetJson)]
+        [DataRow(Member.PostJson)]
+        [DataRow(Member.PostJsonWithoutResponse)]
+        [DataRow(Member.PutJson)]
+        [DataRow(Member.PutJsonWithoutResponse)]
+        [DataRow(Member.DeleteJson)]
+        [DataRow(Member.Delete)]
+        [DataRow(Member.SendRequest)]
+        public void PassDispatcherAndTimeoutOfCallerToExecutor(Member member)
         {
             // Arrange
-            SetupCaptureGetResponseContent();
-            _sut.GetJson(_actorDispatcherMock.Object,
-                         Url,
-                         _callbackWithResponse,
-                         _errorCallback,
-                         _headers,
-                         _timeout);
-            var responseContent = new HttpResponseMessage();
 
             // Act
-            await _capturedGetResponseContent(responseContent);
+            Invoke(member);
 
-            // Assert
-            _serializerMock.Verify(serializer => serializer.DeserializeJsonAsync<TestObject>(responseContent.Content), Times.Once);
+            // Assert — the block the author passed is the one the callbacks will run on
+            Assert.IsNotNull(_executorCall);
+            Assert.AreSame(_dispatcherMock.Object, _executorCall.Dispatcher);
+            Assert.AreEqual(_timeout, _executorCall.Timeout);
+            Assert.AreSame(_errorCallback, _executorCall.ErrorCallback);
         }
 
         [TestMethod]
-        public void ExecutePostRequestWithCorrectParameters()
+        [TestProperty("spec", "AC-HTTP-003.1")]
+        [DataRow(Member.GetJson)]
+        [DataRow(Member.PostJson)]
+        [DataRow(Member.PostJsonWithoutResponse)]
+        [DataRow(Member.PutJson)]
+        [DataRow(Member.PutJsonWithoutResponse)]
+        [DataRow(Member.DeleteJson)]
+        [DataRow(Member.Delete)]
+        public void PassUrlAndHeadersOfCallerToExecutor(Member member)
         {
             // Arrange
-            var expectedRequestContent = SetupSerializerToReturnContent();
 
             // Act
-            _sut.PostJson(_actorDispatcherMock.Object,
-                          Url,
-                          _requestBody,
-                          _callbackWithResponse,
-                          _errorCallback,
-                          _headers,
-                          _timeout);
+            Invoke(member);
+
+            // Assert — SendRequest is absent by design: it carries both on the message it was handed
+            Assert.IsNotNull(_executorCall);
+            Assert.AreEqual(Url, _executorCall.Url);
+            Assert.AreSame(_headers, _executorCall.Headers);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-003.2")]
+        [DataRow(Member.GetJson, "GET")]
+        [DataRow(Member.PostJson, "POST")]
+        [DataRow(Member.PostJsonWithoutResponse, "POST")]
+        [DataRow(Member.PutJson, "PUT")]
+        [DataRow(Member.PutJsonWithoutResponse, "PUT")]
+        [DataRow(Member.DeleteJson, "DELETE")]
+        [DataRow(Member.Delete, "DELETE")]
+        public void SendMethodNamingEachMember(Member member, string expectedMethod)
+        {
+            // Arrange
+
+            // Act
+            Invoke(member);
 
             // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               Url,
-                                                                                               HttpMethod.Post,
-                                                                                               It.IsAny<Func<HttpResponseMessage, Task<TestObject>>>(),
-                                                                                               _callbackWithResponse,
-                                                                                               _errorCallback,
-                                                                                               _headers,
-                                                                                               expectedRequestContent,
-                                                                                               _timeout),
-                                        Times.Once);
+            Assert.IsNotNull(_executorCall?.HttpMethod);
+            Assert.AreEqual(expectedMethod, _executorCall.HttpMethod.Method);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-003.2")]
+        [DataRow(Member.GetJson, true)]
+        [DataRow(Member.PostJson, true)]
+        [DataRow(Member.PutJson, true)]
+        [DataRow(Member.DeleteJson, true)]
+        [DataRow(Member.PostJsonWithoutResponse, false)]
+        [DataRow(Member.PutJsonWithoutResponse, false)]
+        [DataRow(Member.Delete, false)]
+        public void AskForResponseBodyOnlyForMembersCarryingResponseType(Member member, bool carriesResponseType)
+        {
+            // Arrange
+
+            // Act
+            Invoke(member);
+
+            // Assert
+            Assert.IsNotNull(_executorCall);
+            Assert.AreEqual(carriesResponseType, _executorCall.Deserializer != null);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-003.2")]
+        [DataRow(Member.GetJson)]
+        [DataRow(Member.PostJson)]
+        [DataRow(Member.PutJson)]
+        [DataRow(Member.DeleteJson)]
+        public async Task ReadResponseBodyThroughConfiguredSerializer(Member member)
+        {
+            // Arrange
+            Invoke(member);
+            var response = new HttpResponseMessage();
+
+            // Act
+            await _executorCall!.Deserializer!(response);
+
+            // Assert
+            _serializerMock.Verify(serializer => serializer.DeserializeJsonAsync<TestObject>(response.Content), Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-011.2")]
+        [DataRow(Member.PostJson)]
+        [DataRow(Member.PostJsonWithoutResponse)]
+        [DataRow(Member.PutJson)]
+        [DataRow(Member.PutJsonWithoutResponse)]
+        public void SerializeRequestBodyBeforeSending(Member member)
+        {
+            // Arrange
+
+            // Act
+            Invoke(member);
+
+            // Assert
+            Assert.AreSame(_serializedBody, _executorCall?.RequestContent);
             _serializerMock.Verify(serializer => serializer.SerializeJson(_requestBody), Times.Once);
         }
 
         [TestMethod]
-        public async Task ExecutePostRequestWithCorrectDeserializer()
-        {
-            // Arrange
-            SetupCaptureGetResponseContent();
-            _sut.PostJson(_actorDispatcherMock.Object,
-                          Url,
-                          _requestBody,
-                          _callbackWithResponse,
-                          _errorCallback,
-                          _headers,
-                          _timeout);
-            var responseContent = new HttpResponseMessage();
-
-            // Act
-            await _capturedGetResponseContent(responseContent);
-
-            // Assert
-            _serializerMock.Verify(serializer => serializer.DeserializeJsonAsync<TestObject>(responseContent.Content), Times.Once);
-        }
-
-        [TestMethod]
-        public void ExecutePostRequestWithoutResponseWithCorrectParameters()
-        {
-            // Arrange
-            var expectedRequestContent = SetupSerializerToReturnContent();
-
-            // Act
-            _sut.PostJson(_actorDispatcherMock.Object,
-                          Url,
-                          _requestBody,
-                          _callbackWithoutResponse,
-                          _errorCallback,
-                          _headers,
-                          _timeout);
-
-            // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               Url,
-                                                                                               HttpMethod.Post,
-                                                                                               _callbackWithoutResponse,
-                                                                                               _errorCallback,
-                                                                                               _headers,
-                                                                                               expectedRequestContent,
-                                                                                               _timeout),
-                                        Times.Once);
-            _serializerMock.Verify(serializer => serializer.SerializeJson(_requestBody), Times.Once);
-        }
-
-        [TestMethod]
-        public void ExecutePutRequestWithCorrectParameters()
-        {
-            // Arrange
-            var expectedRequestContent = SetupSerializerToReturnContent();
-
-            // Act
-            _sut.PutJson(_actorDispatcherMock.Object,
-                         Url,
-                         _requestBody,
-                         _callbackWithResponse,
-                         _errorCallback,
-                         _headers,
-                         _timeout);
-
-            // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               Url,
-                                                                                               HttpMethod.Put,
-                                                                                               It.IsAny<Func<HttpResponseMessage, Task<TestObject>>>(),
-                                                                                               _callbackWithResponse,
-                                                                                               _errorCallback,
-                                                                                               _headers,
-                                                                                               expectedRequestContent,
-                                                                                               _timeout),
-                                        Times.Once);
-            _serializerMock.Verify(serializer => serializer.SerializeJson(_requestBody), Times.Once);
-        }
-
-        [TestMethod]
-        public async Task ExecutePutRequestWithCorrectDeserializer()
-        {
-            // Arrange
-            SetupCaptureGetResponseContent();
-            _sut.PutJson(_actorDispatcherMock.Object,
-                         Url,
-                         _requestBody,
-                         _callbackWithResponse,
-                         _errorCallback,
-                         _headers,
-                         _timeout);
-            var responseContent = new HttpResponseMessage();
-
-            // Act
-            await _capturedGetResponseContent(responseContent);
-
-            // Assert
-            _serializerMock.Verify(serializer => serializer.DeserializeJsonAsync<TestObject>(responseContent.Content), Times.Once);
-        }
-
-        [TestMethod]
-        public void ExecutePutRequestWithoutResponseWithCorrectParameters()
-        {
-            // Arrange
-            var expectedRequestContent = SetupSerializerToReturnContent();
-
-            // Act
-            _sut.PutJson(_actorDispatcherMock.Object,
-                         Url,
-                         _requestBody,
-                         _callbackWithoutResponse,
-                         _errorCallback,
-                         _headers,
-                         _timeout);
-
-            // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               Url,
-                                                                                               HttpMethod.Put,
-                                                                                               _callbackWithoutResponse,
-                                                                                               _errorCallback,
-                                                                                               _headers,
-                                                                                               expectedRequestContent,
-                                                                                               _timeout),
-                                        Times.Once);
-            _serializerMock.Verify(serializer => serializer.SerializeJson(_requestBody), Times.Once);
-        }
-
-        [TestMethod]
-        public void ExecuteDeleteRequestWithCorrectParameters()
+        [TestProperty("spec", "AC-HTTP-011.2")]
+        [DataRow(Member.GetJson)]
+        [DataRow(Member.DeleteJson)]
+        [DataRow(Member.Delete)]
+        public void SendNoBodyForMembersTakingNone(Member member)
         {
             // Arrange
 
             // Act
-            _sut.DeleteJson(_actorDispatcherMock.Object,
-                            Url,
-                            _callbackWithResponse,
-                            _errorCallback,
-                            _headers,
-                            _timeout);
+            Invoke(member);
 
             // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               Url,
-                                                                                               HttpMethod.Delete,
-                                                                                               It.IsAny<Func<HttpResponseMessage, Task<TestObject>>>(),
-                                                                                               _callbackWithResponse,
-                                                                                               _errorCallback,
-                                                                                               _headers,
-                                                                                               null,
-                                                                                               _timeout),
-                                        Times.Once);
+            Assert.IsNotNull(_executorCall);
+            Assert.IsNull(_executorCall.RequestContent);
+            _serializerMock.Verify(serializer => serializer.SerializeJson(It.IsAny<TestObject>()), Times.Never);
         }
 
         [TestMethod]
-        public async Task ExecuteDeleteRequestWithCorrectDeserializer()
+        [TestProperty("spec", "AC-HTTP-004.1")]
+        public void SendRequestGivenWithoutUrlOrHeadersOfItsOwn()
         {
-            // Arrange
-            SetupCaptureGetResponseContent();
-            _sut.DeleteJson(_actorDispatcherMock.Object,
-                            Url,
-                            _callbackWithResponse,
-                            _errorCallback,
-                            _headers,
-                            _timeout);
-            var responseContent = new HttpResponseMessage();
-
-            // Act
-            await _capturedGetResponseContent(responseContent);
-
-            // Assert
-            _serializerMock.Verify(serializer => serializer.DeserializeJsonAsync<TestObject>(responseContent.Content), Times.Once);
-        }
-
-        [TestMethod]
-        public void ExecuteDeleteRequestWithoutResponseWithCorrectParameters()
-        {
-            // Arrange
-
-            // Act
-            _sut.Delete(_actorDispatcherMock.Object,
-                        Url,
-                        _callbackWithoutResponse,
-                        _errorCallback,
-                        _headers,
-                        _timeout);
-
-            // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               Url,
-                                                                                               HttpMethod.Delete,
-                                                                                               _callbackWithoutResponse,
-                                                                                               _errorCallback,
-                                                                                               _headers,
-                                                                                               null,
-                                                                                               _timeout),
-                                        Times.Once);
-        }
-
-        [TestMethod]
-        public void ExecuteSendRequestWithCorrectParameters()
-        {
-            // Arrange
+            // Arrange — the caller owns method, URI, headers and content on the message it hands over
             var request = new HttpRequestMessage(HttpMethod.Patch, Url);
+            request.Headers.Add("X-Caller", "yes");
+            Action<HttpResponseMessage> successCallback = _ => { };
 
             // Act
-            _sut.SendRequest(_actorDispatcherMock.Object, request, _sendRequestCallback, _errorCallback, _timeout);
+            _sut.SendRequest(_dispatcherMock.Object, request, successCallback, _errorCallback, _timeout);
 
             // Assert
-            _requestExecutorMock.Verify(requestExecutor => requestExecutor.ExecuteRequestAsync(_actorDispatcherMock.Object,
-                                                                                               request,
-                                                                                               _sendRequestCallback,
-                                                                                               _errorCallback,
-                                                                                               _timeout),
-                                        Times.Once);
+            _requestExecutorMock.Verify(executor => executor.ExecuteRequestAsync(_dispatcherMock.Object, request, successCallback, _errorCallback, _timeout), Times.Once);
         }
 
-        private void SetupCaptureGetResponseContent()
+        /// <summary>
+        ///     Records the one executor call a member makes, whichever of the three overloads it reached, so
+        ///     the families above vary in the member they call and in nothing else.
+        /// </summary>
+        private void CaptureExecutorCall()
         {
-            _requestExecutorMock
-                .Setup(requestExecutor => requestExecutor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
-                                                                              It.IsAny<string>(),
-                                                                              It.IsAny<HttpMethod>(),
-                                                                              It.IsAny<Func<HttpResponseMessage, Task<TestObject>>>(),
-                                                                              It.IsAny<Action<TestObject>>(),
-                                                                              It.IsAny<Action<Exception>>(),
-                                                                              It.IsAny<Dictionary<string, string>>(),
-                                                                              It.IsAny<HttpContent>(),
-                                                                              It.IsAny<TimeSpan?>()))
-                .Callback<IActorDispatcher, string, HttpMethod, Func<HttpResponseMessage, Task<TestObject>>, Action<TestObject>, Action<Exception>, Dictionary<string, string>,
-                    HttpContent, TimeSpan?>((_,
-                                             _,
-                                             _,
-                                             deserializer,
-                                             _,
-                                             _,
-                                             _,
-                                             _,
-                                             _) => _capturedGetResponseContent = deserializer)
-                .Returns(Task.CompletedTask);
+            _requestExecutorMock.Setup(executor => executor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
+                                                                                It.IsAny<string>(),
+                                                                                It.IsAny<HttpMethod>(),
+                                                                                It.IsAny<Func<HttpResponseMessage, Task<TestObject>>>(),
+                                                                                It.IsAny<Action<TestObject>>(),
+                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<Dictionary<string, string>>(),
+                                                                                It.IsAny<HttpContent>(),
+                                                                                It.IsAny<TimeSpan?>()))
+                                .Callback(new InvocationAction(invocation => _executorCall = new ExecutorCall
+                                                                                             {
+                                                                                                 Dispatcher = (IActorDispatcher)invocation.Arguments[0],
+                                                                                                 Url = (string)invocation.Arguments[1],
+                                                                                                 HttpMethod = (HttpMethod)invocation.Arguments[2],
+                                                                                                 Deserializer = (Func<HttpResponseMessage, Task<TestObject>>)invocation.Arguments[3],
+                                                                                                 ErrorCallback = (Action<Exception>?)invocation.Arguments[5],
+                                                                                                 Headers = (Dictionary<string, string>?)invocation.Arguments[6],
+                                                                                                 RequestContent = (HttpContent?)invocation.Arguments[7],
+                                                                                                 Timeout = (TimeSpan?)invocation.Arguments[8],
+                                                                                             }))
+                                .Returns(Task.CompletedTask);
+            _requestExecutorMock.Setup(executor => executor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
+                                                                                It.IsAny<string>(),
+                                                                                It.IsAny<HttpMethod>(),
+                                                                                It.IsAny<Action>(),
+                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<Dictionary<string, string>>(),
+                                                                                It.IsAny<HttpContent>(),
+                                                                                It.IsAny<TimeSpan?>()))
+                                .Callback(new InvocationAction(invocation => _executorCall = new ExecutorCall
+                                                                                             {
+                                                                                                 Dispatcher = (IActorDispatcher)invocation.Arguments[0],
+                                                                                                 Url = (string)invocation.Arguments[1],
+                                                                                                 HttpMethod = (HttpMethod)invocation.Arguments[2],
+                                                                                                 ErrorCallback = (Action<Exception>?)invocation.Arguments[4],
+                                                                                                 Headers = (Dictionary<string, string>?)invocation.Arguments[5],
+                                                                                                 RequestContent = (HttpContent?)invocation.Arguments[6],
+                                                                                                 Timeout = (TimeSpan?)invocation.Arguments[7],
+                                                                                             }))
+                                .Returns(Task.CompletedTask);
+            _requestExecutorMock.Setup(executor => executor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
+                                                                                It.IsAny<HttpRequestMessage>(),
+                                                                                It.IsAny<Action<HttpResponseMessage>>(),
+                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<TimeSpan?>()))
+                                .Callback(new InvocationAction(invocation => _executorCall = new ExecutorCall
+                                                                                             {
+                                                                                                 Dispatcher = (IActorDispatcher)invocation.Arguments[0],
+                                                                                                 ErrorCallback = (Action<Exception>?)invocation.Arguments[3],
+                                                                                                 Timeout = (TimeSpan?)invocation.Arguments[4],
+                                                                                             }))
+                                .Returns(Task.CompletedTask);
         }
 
-        private StringContent SetupSerializerToReturnContent()
+        private void Invoke(Member member)
         {
-            var serializedContent = new StringContent("serialized");
-            _serializerMock.Setup(serializer => serializer.SerializeJson(_requestBody)).Returns(serializedContent);
+            switch (member)
+            {
+                case Member.GetJson:
+                    _sut.GetJson<TestObject>(_dispatcherMock.Object, Url, _ => { }, _errorCallback, _headers, _timeout);
+                    break;
+                case Member.PostJson:
+                    _sut.PostJson<TestObject, TestObject>(_dispatcherMock.Object, Url, _requestBody, _ => { }, _errorCallback, _headers, _timeout);
+                    break;
+                case Member.PostJsonWithoutResponse:
+                    _sut.PostJson(_dispatcherMock.Object, Url, _requestBody, () => { }, _errorCallback, _headers, _timeout);
+                    break;
+                case Member.PutJson:
+                    _sut.PutJson<TestObject, TestObject>(_dispatcherMock.Object, Url, _requestBody, _ => { }, _errorCallback, _headers, _timeout);
+                    break;
+                case Member.PutJsonWithoutResponse:
+                    _sut.PutJson(_dispatcherMock.Object, Url, _requestBody, () => { }, _errorCallback, _headers, _timeout);
+                    break;
+                case Member.DeleteJson:
+                    _sut.DeleteJson<TestObject>(_dispatcherMock.Object, Url, _ => { }, _errorCallback, _headers, _timeout);
+                    break;
+                case Member.Delete:
+                    _sut.Delete(_dispatcherMock.Object, Url, () => { }, _errorCallback, _headers, _timeout);
+                    break;
+                case Member.SendRequest:
+                    _sut.SendRequest(_dispatcherMock.Object, new HttpRequestMessage(HttpMethod.Patch, Url), _ => { }, _errorCallback, _timeout);
+                    break;
+                default: throw new ArgumentOutOfRangeException(nameof(member), member, null);
+            }
+        }
 
-            return serializedContent;
+        /// <summary>The eight members of the client, as the rows of the families above.</summary>
+        public enum Member
+        {
+            GetJson,
+
+            PostJson,
+
+            PostJsonWithoutResponse,
+
+            PutJson,
+
+            PutJsonWithoutResponse,
+
+            DeleteJson,
+
+            Delete,
+
+            SendRequest,
+        }
+
+        /// <summary>What one member handed the executor, read back without knowing which overload it used.</summary>
+        private sealed class ExecutorCall
+        {
+            public Func<HttpResponseMessage, Task<TestObject>>? Deserializer { get; init; }
+
+            public IActorDispatcher? Dispatcher { get; init; }
+
+            public Action<Exception>? ErrorCallback { get; init; }
+
+            public Dictionary<string, string>? Headers { get; init; }
+
+            public HttpMethod? HttpMethod { get; init; }
+
+            public HttpContent? RequestContent { get; init; }
+
+            public TimeSpan? Timeout { get; init; }
+
+            public string? Url { get; init; }
         }
     }
 }
