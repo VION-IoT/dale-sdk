@@ -25,11 +25,31 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void GetJson<TResponse>(IActorDispatcher dispatcher,
                                 string url,
                                 Action<TResponse> successCallback,
@@ -54,11 +74,37 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PostJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                            string url,
                                            TRequest body,
@@ -84,11 +130,37 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked when the request succeeds.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PostJson<TRequest>(IActorDispatcher dispatcher,
                                 string url,
                                 TRequest body,
@@ -115,10 +187,36 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PutJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                           string url,
                                           TRequest body,
@@ -144,11 +242,37 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked when the request succeeds.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PutJson<TRequest>(IActorDispatcher dispatcher,
                                string url,
                                TRequest body,
@@ -171,11 +295,31 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void DeleteJson<TResponse>(IActorDispatcher dispatcher,
                                    string url,
                                    Action<TResponse> successCallback,
@@ -196,11 +340,31 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked when the request succeeds.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void Delete(IActorDispatcher dispatcher,
                     string url,
                     Action? successCallback = null,
@@ -216,14 +380,47 @@ namespace Vion.Dale.Sdk.Http
         ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
         ///     block).
         /// </param>
-        /// <param name="request">The <see cref="HttpRequestMessage" /> to send.</param>
-        /// <param name="successCallback">Callback invoked with the <see cref="HttpResponseMessage" /> on success.</param>
+        /// <param name="request">
+        ///     The <see cref="HttpRequestMessage" /> to send. It stays yours: this member does not dispose
+        ///     it, and its method, URI, headers and content are the ones sent — no URL or header parameter
+        ///     of this member applies, and no content type is set for you.
+        /// </param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the <see cref="HttpResponseMessage" /> on success. The response is
+        ///     <b>yours to read and to dispose</b>: unlike the members that carry a response type, this one
+        ///     disposes nothing, and the callback may be reached while the body is still arriving, because
+        ///     the response is handed over as soon as its headers are in.
+        /// </param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> or
+        ///     <paramref name="request" /> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="request" /> carries no
+        ///     <see cref="HttpRequestMessage.RequestUri" />, so there is nowhere to send it.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void SendRequest(IActorDispatcher dispatcher,
                          HttpRequestMessage request,
                          Action<HttpResponseMessage>? successCallback = null,

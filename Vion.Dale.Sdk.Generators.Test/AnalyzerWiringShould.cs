@@ -39,6 +39,11 @@ namespace Vion.Dale.Sdk.Generators.Test
         /// <summary>A version no other build in this repository uses, so the guard's child builds always recompile.</summary>
         private const string WiringGuardVersion = "0.0.0-analyzer-wiring-guard";
 
+        /// <summary>The HTTP package, whose project name and declared published namespace are the same string.</summary>
+        private const string HttpPackage = "Vion.Dale.Sdk.Http";
+
+        private const string HttpProbeProperty = "DaleHttpAnalyzerWiringProbe";
+
         /// <summary>
         ///     Every project the probe builds reach: the two under test, plus what they pull in by
         ///     <c>ProjectReference</c>. That set is exactly the blast radius of the 0.11.1 clobber.
@@ -122,6 +127,37 @@ namespace Vion.Dale.Sdk.Generators.Test
             Assert.Contains($"in namespace '{declaredNamespace}'",
                             output,
                             $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{output}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-013.2")]
+        public void RunDaleAnalyzersOverHttpPackage()
+        {
+            // Arrange
+            // Like the kits above and unlike the I/O probe, DALE014 is a warning, so this build SUCCEEDS and
+            // the proof is the diagnostic it emitted. Until the reference landed beside it, three of the five
+            // public types this package ships carried no surface mark and nothing said so.
+            var project = ProjectFile(HttpPackage);
+            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
+
+            // Act
+            var (_, output) = Build(project, probeProperty: HttpProbeProperty);
+
+            // Assert
+            Assert.Contains("DALE014", output, $"The probe build of {HttpPackage} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{output}");
+            Assert.Contains($"in namespace '{HttpPackage}'", output, $"The DALE014 in the probe build of {HttpPackage} named another namespace.{Environment.NewLine}{output}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-013.2")]
+        public void KeepHttpProbeOutOfOrdinaryBuild()
+        {
+            // Arrange / Act
+            var (exitCode, output) = Build(ProjectFile(HttpPackage), false, probeProperty: HttpProbeProperty);
+
+            // Assert — the probe is only a gate as long as it is invisible the rest of the time
+            Assert.AreEqual(0, exitCode, $"An ordinary build of {HttpPackage} must succeed.{Environment.NewLine}{output}");
+            Assert.DoesNotContain("DALE014", output, $"An ordinary build of {HttpPackage} must not compile the analyzer-wiring probe.{Environment.NewLine}{output}");
         }
 
         [TestMethod]
