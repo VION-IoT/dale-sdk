@@ -702,7 +702,13 @@ namespace Vion.Dale.Sdk.Http.Test
             var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Post, () => { }, null, null, body);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Post,
+                                          () => { },
+                                          null,
+                                          null,
+                                          body);
             _dispatcher.Drain();
 
             // Act / Assert
