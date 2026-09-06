@@ -408,63 +408,63 @@ namespace Vion.Dale.Sdk.Http.Test
             {
                 case Member.GetJson:
                     client.GetJson<TestObject>(_dispatcherMock.Object,
-                                             Url,
-                                             _ => { },
-                                             _errorCallback,
-                                             _headers,
-                                             _timeout);
+                                               Url,
+                                               _ => { },
+                                               _errorCallback,
+                                               _headers,
+                                               _timeout);
                     break;
                 case Member.PostJson:
                     client.PostJson<TestObject, TestObject>(_dispatcherMock.Object,
-                                                          Url,
-                                                          _requestBody,
-                                                          _ => { },
-                                                          _errorCallback,
-                                                          _headers,
-                                                          _timeout);
+                                                            Url,
+                                                            _requestBody,
+                                                            _ => { },
+                                                            _errorCallback,
+                                                            _headers,
+                                                            _timeout);
                     break;
                 case Member.PostJsonWithoutResponse:
                     client.PostJson(_dispatcherMock.Object,
+                                    Url,
+                                    _requestBody,
+                                    () => { },
+                                    _errorCallback,
+                                    _headers,
+                                    _timeout);
+                    break;
+                case Member.PutJson:
+                    client.PutJson<TestObject, TestObject>(_dispatcherMock.Object,
+                                                           Url,
+                                                           _requestBody,
+                                                           _ => { },
+                                                           _errorCallback,
+                                                           _headers,
+                                                           _timeout);
+                    break;
+                case Member.PutJsonWithoutResponse:
+                    client.PutJson(_dispatcherMock.Object,
+                                   Url,
+                                   _requestBody,
+                                   () => { },
+                                   _errorCallback,
+                                   _headers,
+                                   _timeout);
+                    break;
+                case Member.DeleteJson:
+                    client.DeleteJson<TestObject>(_dispatcherMock.Object,
+                                                  Url,
+                                                  _ => { },
+                                                  _errorCallback,
+                                                  _headers,
+                                                  _timeout);
+                    break;
+                case Member.Delete:
+                    client.Delete(_dispatcherMock.Object,
                                   Url,
-                                  _requestBody,
                                   () => { },
                                   _errorCallback,
                                   _headers,
                                   _timeout);
-                    break;
-                case Member.PutJson:
-                    client.PutJson<TestObject, TestObject>(_dispatcherMock.Object,
-                                                         Url,
-                                                         _requestBody,
-                                                         _ => { },
-                                                         _errorCallback,
-                                                         _headers,
-                                                         _timeout);
-                    break;
-                case Member.PutJsonWithoutResponse:
-                    client.PutJson(_dispatcherMock.Object,
-                                 Url,
-                                 _requestBody,
-                                 () => { },
-                                 _errorCallback,
-                                 _headers,
-                                 _timeout);
-                    break;
-                case Member.DeleteJson:
-                    client.DeleteJson<TestObject>(_dispatcherMock.Object,
-                                                Url,
-                                                _ => { },
-                                                _errorCallback,
-                                                _headers,
-                                                _timeout);
-                    break;
-                case Member.Delete:
-                    client.Delete(_dispatcherMock.Object,
-                                Url,
-                                () => { },
-                                _errorCallback,
-                                _headers,
-                                _timeout);
                     break;
                 case Member.SendRequest:
                     client.SendRequest(_dispatcherMock.Object, new HttpRequestMessage(HttpMethod.Patch, Url), _ => { }, _errorCallback, _timeout);

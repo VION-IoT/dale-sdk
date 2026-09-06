@@ -237,11 +237,7 @@ namespace Vion.Dale.Sdk.Http.Test
             var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.BadGateway));
 
             // Act
-            var request = sut.ExecuteRequestAsync(new InlineDispatcher(),
-                                                  Url,
-                                                  HttpMethod.Get,
-                                                  () => { },
-                                                  _ => throw new InvalidOperationException("error callback failed"));
+            var request = sut.ExecuteRequestAsync(new InlineDispatcher(), Url, HttpMethod.Get, () => { }, _ => throw new InvalidOperationException("error callback failed"));
             await request;
 
             // Assert
