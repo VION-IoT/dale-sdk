@@ -164,7 +164,10 @@ block has one, which `IActorDispatcher` does not expose. The finding ledger carr
 
 `AC-HTTP-005.4`'s "not throw to the caller" is narrow and worth reading exactly: this package catches
 only what handing the callback over throws. The callback's own body runs later, on the actor, where
-an exception it throws is the actor's to handle and not this package's.
+an exception it throws is the actor's to handle and not this package's. "Not fail the request" is the
+other half and the one with a visible consequence: a success callback that throws where the package
+can see it does not turn the exchange into a failure, so the error callback is not reached with the
+success callback's own exception.
 
 ## The refusals
 

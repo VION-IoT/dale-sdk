@@ -206,18 +206,25 @@ namespace Vion.Dale.Sdk.Http.Test
         [TestProperty("spec", "AC-HTTP-005.4")]
         public async Task NotFailRequestWhenCallbackThrows()
         {
-            // Arrange — the throw happens on the actor, after the executor has returned, so the package
-            // never sees it; what matters is that the request itself completed cleanly
+            // Arrange — an inline dispatcher, because this criterion is about the hand-over and nothing
+            // else: only when the callback runs inside `InvokeSynchronized` does the package's catch see the
+            // exception at all. The deferred shape `AC-HTTP-005.2` uses would leave the request finished
+            // before the throw and would read green however that catch were written.
             var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+            Exception? received = null;
 
             // Act
-            var request = sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => throw new InvalidOperationException("callback failed"));
+            var request = sut.ExecuteRequestAsync(new InlineDispatcher(),
+                                                  Url,
+                                                  HttpMethod.Get,
+                                                  () => throw new InvalidOperationException("callback failed"),
+                                                  exception => received = exception);
             await request;
-            _dispatcher.Drain();
 
-            // Assert
+            // Assert — awaiting without a throw is the "not to the caller" half; the request neither faulted
+            // nor was reported as failed
             Assert.AreEqual(TaskStatus.RanToCompletion, request.Status);
-            Assert.IsInstanceOfType<InvalidOperationException>(_dispatcher.DrainFailure);
+            Assert.IsNull(received);
         }
 
         // ---- the error model ---------------------------------------------

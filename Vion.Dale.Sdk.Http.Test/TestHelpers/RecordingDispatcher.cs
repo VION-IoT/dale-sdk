@@ -60,6 +60,25 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     }
 
     /// <summary>
+    ///     Runs the action inside <c>InvokeSynchronized</c> rather than queuing it. This is the one shape in
+    ///     which the package's catch around the hand-over is what stands between a callback's exception and
+    ///     the request: a queued action throws at the drain, where the package is long gone and the request
+    ///     has already completed however the catch is written.
+    /// </summary>
+    internal sealed class InlineDispatcher : IActorDispatcher
+    {
+        public void InvokeSynchronized(Action action)
+        {
+            action();
+        }
+
+        public void InvokeSynchronizedAfter(Action action, TimeSpan delay)
+        {
+            action();
+        }
+    }
+
+    /// <summary>
     ///     Stands in for a block that has not received its first message: `LogicBlockBase` refuses the
     ///     self-send from `RequireActorContext` with this exact shape, and the package's own catch is what
     ///     turns that refusal into a callback nobody runs.
