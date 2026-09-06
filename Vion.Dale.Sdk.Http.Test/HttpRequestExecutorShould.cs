@@ -488,6 +488,33 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-006.1")]
+        [DataRow(HttpStatusCode.BadGateway, null, typeof(HttpRequestException), DisplayName = "a non-success status judged after the bound")]
+        [DataRow(HttpStatusCode.OK, "{\"IntValue\":", typeof(JsonException), DisplayName = "a body that will not parse, read after the bound")]
+        public async Task KeepExceptionClassOfFailureAfterBoundElapsed(HttpStatusCode statusCode, string? jsonBody, Type expectedExceptionType)
+        {
+            // Arrange — the bound has already fired by the time the failure happens: a zero timeout builds
+            // an already-cancelled source, and this handler answers regardless of the token. Nothing here
+            // waits, and what failed is then not the cancellation — so the class must still name the failure
+            var sut = Executor(StubHttpMessageHandler.Answering(statusCode, jsonBody));
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          _ => { },
+                                          exception => received = exception,
+                                          timeout: TimeSpan.Zero);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(received);
+            Assert.AreEqual(expectedExceptionType, received.GetType());
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-008.1")]
         public async Task ApplyNoPerRequestBoundOnInfiniteTimeout()
         {

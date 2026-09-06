@@ -315,7 +315,11 @@ namespace Vion.Dale.Sdk.Http
                                      CancellationTokenSource cts,
                                      TimeSpan? timeout)
         {
-            if (cts.IsCancellationRequested && timeout != null)
+            // Only a cancellation is a timeout. The source's state alone does not say what failed: the body
+            // read and the deserialization run outside the token, so a JsonException, an IOException or a
+            // non-success status raised once the bound has elapsed would otherwise reach the block as
+            // "Timed out after n seconds" with nothing left of what actually went wrong.
+            if (exception is OperationCanceledException && cts.IsCancellationRequested && timeout != null)
             {
                 // Invariantly, not in the machine's culture: this message is what a block author matches on
                 // and what a support engineer greps for in a gateway log, and the gateways are German-locale.

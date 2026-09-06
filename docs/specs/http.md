@@ -183,7 +183,8 @@ larger; neither is derived from the other, and the dispatcher's is not reachable
   `InvalidOperationException`, a response body that is absent or malformed as `JsonException`, a body
   that deserializes to null as `ContentNullAfterDeserializationException` naming the full type name, a
   disposed client as `ObjectDisposedException`, and any transport failure as the exception the handler
-  threw.
+  threw; a per-request timeout is reported as a timeout only where that bound cancelled the exchange,
+  a failure raised after it has elapsed keeping the class of what failed.
 - `AC-HTTP-006.2` (Event-driven): WHEN a request fails and the caller gave no error callback THE
   SYSTEM SHALL schedule nothing onto the block's actor.
 
@@ -191,6 +192,12 @@ larger; neither is derived from the other, and the dispatcher's is not reachable
 wraps nothing. A DNS failure, a refused connection, a reset stream and a TLS fault reach the error
 callback exactly as the transport raised them, and what class that is belongs to the handler the
 platform composed, not to this package. The one class the package mints is the timeout below.
+
+The timeout clause matters because the per-request bound does not cover the whole exchange: it ends
+at the response headers, and the body read and the deserialization run outside it. A body that will
+not parse, a stream that breaks, or a status judged once the bound has elapsed is therefore a failure
+that happened *after* a cancellation source had fired without having cancelled anything — and it
+reaches the block as what it is, not as a timeout.
 
 A URL the client cannot resolve to an absolute URI — null, empty, whitespace, relative, or simply not
 a URI — fails this way rather than being refused at the caller, because the failure is the transport's
