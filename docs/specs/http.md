@@ -83,8 +83,9 @@ those facts from the platform's statement into this package's; the finding ledge
 ## The eight members
 
 - `AC-HTTP-003.1` (Ubiquitous): THE SYSTEM SHALL offer eight request members, each returning to its
-  caller before the exchange completes and each delivering its callbacks through the dispatcher it was
-  given.
+  caller before the exchange completes, and SHALL carry the dispatcher, the timeout and the error
+  callback its caller gave it into the request it makes, along with the URL and the headers for the
+  seven members that take them.
 - `AC-HTTP-003.2` (Ubiquitous): THE SYSTEM SHALL send the HTTP method each member is named for, and
   SHALL deserialize the response body only for the members that carry a response type.
 - `AC-HTTP-003.3` (Event-driven): WHEN a member is given no success callback THE SYSTEM SHALL
@@ -263,8 +264,8 @@ of the response before the hop, so the callback receives the value and never the
 - `AC-HTTP-011.1` (Ubiquitous): THE SYSTEM SHALL serialize and deserialize with the
   `JsonSerializerOptions` the consumer configured, and with the platform's defaults when none is
   configured.
-- `AC-HTTP-011.2` (Ubiquitous): THE SYSTEM SHALL send a body it serialized as `application/json` with
-  no charset, and SHALL dispose that content with the request.
+- `AC-HTTP-011.2` (Ubiquitous): THE SYSTEM SHALL serialize a request body only for the members that
+  carry one, send it as `application/json` with no charset, and dispose it with the request.
 - `AC-HTTP-011.3` (Event-driven): WHEN a caller passes a null request body THE SYSTEM SHALL serialize
   it as the JSON literal null and send it.
 - `AC-HTTP-012.1` (Ubiquitous): THE SYSTEM SHALL add the caller's headers to the request without

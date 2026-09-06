@@ -692,6 +692,23 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.AreEqual("{\"sent\":true}", await request.Content.ReadAsStringAsync());
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-011.2")]
+        public async Task DisposeSerializedBodyWithRequest()
+        {
+            // Arrange — the body belongs to the request the executor built, so it goes with it; a caller
+            // holding a reference to what the serializer produced must not expect to read it afterwards
+            var body = new StringContent("{\"sent\":true}");
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Post, () => { }, null, null, body);
+            _dispatcher.Drain();
+
+            // Act / Assert
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => body.ReadAsStringAsync());
+        }
+
         // ---- headers ------------------------------------------------------
 
         [TestMethod]
