@@ -473,7 +473,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-006.3")]
+        [TestProperty("spec", "AC-MODB-006.2")]
         public void ApplyDefaultPortOnConstruction()
         {
             // Arrange

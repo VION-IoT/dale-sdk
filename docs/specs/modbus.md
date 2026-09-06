@@ -204,9 +204,9 @@ different questions: `Connection.State` is about the transport, `Link.State` abo
 
 - `AC-MODB-006.1` (Ubiquitous): THE SYSTEM SHALL establish the connection lazily, inside the first
   operation that needs one, and keep it for later operations.
-- `AC-MODB-006.3` (Event-driven): THE SYSTEM SHALL default the port to 502, and WHEN a port outside
-  1–65535 is set on a Modbus TCP client or on a hosted Modbus TCP server SHALL throw a
-  `FormatException`.
+- `AC-MODB-006.2` (Ubiquitous): THE SYSTEM SHALL default the port to 502.
+- `AC-MODB-006.3` (Event-driven): WHEN a port outside 1–65535 is set on a Modbus TCP client or on a
+  hosted Modbus TCP server THE SYSTEM SHALL throw a `FormatException`.
 - `AC-MODB-006.4` (Event-driven): WHEN an address that is null, empty, whitespace or not a literal IP
   address is set THE SYSTEM SHALL throw a `FormatException`.
 - `AC-MODB-006.5` (Event-driven): WHEN an operation runs before an address has been set THE SYSTEM

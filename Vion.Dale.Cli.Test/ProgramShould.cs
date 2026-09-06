@@ -37,9 +37,25 @@ namespace Vion.Dale.Cli.Test
         [DataRow("upload", "--version", "1.2.3")]
         [DataRow("build", "--version")]
         [DataRow("test", "-v")]
+        public void LeaveVersionToCommandThatClaimedLine(params string[] args)
+        {
+            // Arrange / Act
+            var wantsVersion = Program.WantsVersion(args, TopLevel);
+
+            // Assert
+            Assert.IsFalse(wantsVersion);
+        }
+
+        /// <summary>
+        ///     A premise test: it pins that nothing but the option itself asks for the version, which
+        ///     no criterion states — neither half of the split is violated by answering it here, so
+        ///     both halves' mutations leave these rows green. It cites nothing by design
+        ///     (docs/spec-process.md § IDs & EARS, premise tests).
+        /// </summary>
+        [TestMethod]
         [DataRow("list")]
         [DataRow]
-        public void LeaveVersionToCommandThatClaimedLine(params string[] args)
+        public void WantNoVersionWhereTheOptionIsAbsent(params string[] args)
         {
             // Arrange / Act
             var wantsVersion = Program.WantsVersion(args, TopLevel);

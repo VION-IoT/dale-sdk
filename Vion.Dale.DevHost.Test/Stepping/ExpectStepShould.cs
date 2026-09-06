@@ -82,7 +82,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-004.2")]
+        [TestProperty("spec", "AC-SCEN-004.4")]
         public async Task SatisfyOneOfByMembershipWhileWaiting()
         {
             // Arrange — Ramp.L1 climbs one per virtual second, so the set is reached by advancing.

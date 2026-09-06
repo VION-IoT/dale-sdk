@@ -118,11 +118,12 @@ are not comparable: a scenario that needs to compare one is a C# test.
 
 - `AC-SCEN-004.1` (Ubiquitous): THE SYSTEM SHALL require exactly one of `above`, `below`, `equals`,
   `notEquals` or `oneOf` on every comparator block.
-- `AC-SCEN-004.2` (Ubiquitous): THE SYSTEM SHALL require each comparator's comparand to take that
-  comparator's shape — a number for `above` and `below`, a scalar or `null` for `equals` and
-  `notEquals`, and a non-empty array of scalars for `oneOf` — SHALL treat a relational comparator as
-  unsatisfied where the compared value or a resolved comparand is not a number, and SHALL satisfy a
-  `oneOf` where the compared value equals any element under the same exact semantics.
+- `AC-SCEN-004.2` (Ubiquitous): THE SYSTEM SHALL require a relational comparand to take its
+  comparator's shape — a number for `above` and `below`, and a scalar or `null` rather than a struct
+  or an array for `equals` and `notEquals` — and SHALL treat the comparator as unsatisfied when the
+  compared value, or a resolved relational comparand, is not a number.
+- `AC-SCEN-004.4` (Ubiquitous): THE SYSTEM SHALL require `oneOf` to be a non-empty array of scalars,
+  and SHALL satisfy it when the compared value equals any element under the same exact semantics.
 - `AC-SCEN-004.5` (Ubiquitous): THE SYSTEM SHALL accept a `tolerance` only alongside a numeric
   `equals`, SHALL reject a negative one, SHALL treat zero as exact equality, and SHALL apply the same
   rule at the schema.
