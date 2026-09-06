@@ -160,7 +160,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    after publication a hole is named in the change doc and never renumbered, because a consumer
    may cite the id.
 2. **Write the mutation with the test, before the AC counts.** For every AC: the test, the one
-   mutation of the code under it that reddens *that test and no other claim*, run and observed. An
+   mutation of the code under it that reddens *that test and no other claim*, run and observed. **A
+   test that pins an ordering, a bound or an edge value runs its own mutation once before it is
+   cited** — one pass's flush-ordering test survived its mutation until the fix-up round, because
+   the put-back landed in a queue the snapshot had just emptied, where inserting at the head and
+   appending coincide; a test that survives its mutation pins nothing. An
    AC no mutation can redden is not a requirement — reword it to what *is* observable, merge it
    into the AC it converges on, or drop it; never mint it. An AC that two guards enforce is
    **over-determined**: say so on its line, mutate both, and keep it — the binary rule has no other
@@ -451,3 +455,5 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "Two tests cite it, so it is proven" | The trace gate cannot tell a citation from a proof. A criterion the suite cannot reach is `GAP` however many tests name it. |
 | "The other side is the same mechanism" | A behaviour stated for one side of a symmetric mechanism is a prompt to read the other. Both of one pass's critic misses sat beside a row stated for the other side. |
 | "The mirror diff was clean" | The mirror diff covers the files the pass created too. Four mirrored articles in a pass's own new test files were invisible to a diff of the shipped packages. |
+| "The test pins the ordering" | A test that pins an ordering, a bound or an edge runs its own mutation once before it is cited. One survived its mutation for a round: the window it pinned was empty. |
+| "The csproj says so" | What a build system decides is read from its evaluation, not from a regex over its inputs. A roster proof was blind to MSBuild's packable default; a parallelisation claim read csprojs the test framework's props override. |
