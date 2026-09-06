@@ -115,7 +115,7 @@ same way any third-party library does — the set is grep-enumerable
 - `AC-PLUG-005.4` (Ubiquitous): THE SYSTEM SHALL recognise an assembly as marked
   `[DaleSharedAssembly]` from that assembly's own metadata without loading it, including when it was
   built against a different `Vion.Dale.Sdk` version than the host's.
-- `AC-PLUG-005.5` (Conditional): IF an assembly's metadata cannot be read THEN THE SYSTEM SHALL
+- `AC-PLUG-005.5` (Unwanted): IF an assembly's metadata cannot be read THEN THE SYSTEM SHALL
   treat it as not marked `[DaleSharedAssembly]`.
 - `AC-PLUG-005.6` (State-driven): WHILE two plugins bind to the same shared extension concurrently,
   THE SYSTEM SHALL load it exactly once and resolve the same instance for both.

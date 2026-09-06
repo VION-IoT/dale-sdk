@@ -87,7 +87,7 @@ does not want it discards it (`(values, _) => Power = values[0]`).
 
 - `AC-MODB-002.1` (Ubiquitous): THE SYSTEM SHALL default a Modbus client, and a hosted Modbus server,
   to disabled.
-- `AC-MODB-002.2` (Event-driven): WHILE a client is disabled THE SYSTEM SHALL execute no read, write
+- `AC-MODB-002.2` (State-driven): WHILE a client is disabled THE SYSTEM SHALL execute no read, write
   or disconnect, and SHALL invoke neither callback.
 - `AC-MODB-002.3` (Ubiquitous): THE SYSTEM SHALL run a request it has already accepted when the
   client is disabled afterwards.

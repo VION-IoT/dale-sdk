@@ -133,7 +133,7 @@ own `[InstantiationParameter]` properties, as bare single-segment names.
 
 - `AC-GATE-005.1` (Ubiquitous): THE SYSTEM SHALL treat a member carrying no `[IncludedWhen]` as part
   of every configured instance.
-- `AC-GATE-005.2` (State-driven): WHEN a member carries `[IncludedWhen]` THE SYSTEM SHALL include it
+- `AC-GATE-005.2` (Event-driven): WHEN a member carries `[IncludedWhen]` THE SYSTEM SHALL include it
   in the configured instance only while its predicate evaluates true against that instance's
   `[InstantiationParameter]` values.
 - `AC-GATE-005.3` (Ubiquitous): THE SYSTEM SHALL build a predicate's evaluation context from the
@@ -360,7 +360,7 @@ the opt-in: `[Persistent(Exclude = true)]` asks for exactly what a parameter alr
   binding and contract binding.
 - `AC-GATE-012.4` (Ubiquitous): THE SYSTEM SHALL overlay an instance's chosen parameter values on each
   parameter's reported default when resolving that live view.
-- `AC-GATE-012.5` (Conditional): WHERE an `[IncludedWhen]` predicate cannot be resolved while resolving
+- `AC-GATE-012.5` (Optional): WHERE an `[IncludedWhen]` predicate cannot be resolved while resolving
   that live view THE SYSTEM SHALL leave the member visible.
 - `AC-GATE-012.6` (Ubiquitous): THE SYSTEM SHALL project each catalog block's
   `[InstantiationParameter]` set with its editor schema and default, and each gated interface and

@@ -109,7 +109,7 @@ an export boundary, so every reader of the document gets the canonical form.
   display form, with the nesting separator written the way source spells it.
 - `AC-INTRO-004.3` (Event-driven): WHEN a logic block declares a name THE SYSTEM SHALL report it as
   the block's default-name annotation, and SHALL report its icon and its groups under their own.
-- `AC-INTRO-004.4` (Unwanted): WHERE a logic block's declared name, icon or group set is empty THE
+- `AC-INTRO-004.4` (Optional): WHERE a logic block's declared name, icon or group set is empty THE
   SYSTEM SHALL omit that annotation.
 - `AC-INTRO-004.5` (Event-driven): WHEN a logic block declares no annotations at all THE SYSTEM SHALL
   report an empty annotation map.
@@ -276,7 +276,7 @@ even though no model declares them.
   importance, UI hint, decimals, format and visibility predicate as declared.
 - `AC-INTRO-009.3` (Ubiquitous): THE SYSTEM SHALL treat the integer sentinel as unset for order and
   for decimals, reporting neither.
-- `AC-INTRO-009.4` (Unwanted): WHERE a member's importance is the default THE SYSTEM SHALL omit it.
+- `AC-INTRO-009.4` (Optional): WHERE a member's importance is the default THE SYSTEM SHALL omit it.
 - `AC-INTRO-009.5` (Event-driven): WHEN a member is declared a status indicator and declares no
   explicit UI hint THE SYSTEM SHALL report the status-indicator hint.
 - `AC-INTRO-009.6` (Ubiquitous): THE SYSTEM SHALL accept a presentation declaration on a service

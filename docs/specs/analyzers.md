@@ -63,16 +63,16 @@ Almost every rule walks a type's properties, and the walk is deliberately the on
 binders use: it exists to agree with them, so that a diagnostic and a bind-time refusal are two
 doors onto one rule rather than two rules.
 
-- `AC-ANLZ-002.1` (Ubiquitous): WHERE a rule walks a type's members THE SYSTEM SHALL walk the public,
+- `AC-ANLZ-002.1` (Optional): WHERE a rule walks a type's members THE SYSTEM SHALL walk the public,
   non-static properties of the type and of its base chain up to `object`, yielding the most-derived
   declaration of a shadowed name first.
 - `AC-ANLZ-002.2` (Ubiquitous): THE SYSTEM SHALL match every attribute it keys off by
   fully-qualified metadata name, so an alias or a `using` rename does not hide a declaration and an
   attribute *derived* from a Dale attribute is not matched.
-- `AC-ANLZ-002.3` (Ubiquitous): WHERE a rule analyses the whole compilation THE SYSTEM SHALL judge
+- `AC-ANLZ-002.3` (Optional): WHERE a rule analyses the whole compilation THE SYSTEM SHALL judge
   only the types declared in the compilation's own assembly.
 - `AC-ANLZ-002.4` (Ubiquitous): THE SYSTEM SHALL analyse no compiler-generated code. GAP: [`../sdk-surface-conventions.md`](../sdk-surface-conventions.md) § 5 records that flipping the flag changes no diagnostic in this repository, so there is no observable to assert.
-- `AC-ANLZ-002.5` (Ubiquitous): WHERE a member may declare both `[ServiceProperty]` and
+- `AC-ANLZ-002.5` (Optional): WHERE a member may declare both `[ServiceProperty]` and
   `[ServiceMeasuringPoint]` THE SYSTEM SHALL judge each attribute's own knobs and report at the
   attribute that declares them.
 - `AC-ANLZ-002.6` (Ubiquitous): THE SYSTEM SHALL judge a declaration's own attributes whatever its
@@ -100,7 +100,7 @@ support and the build rejects — § 4 records that this has already happened on
   `Guid`, any enum, any flat readonly record struct, `ImmutableArray<T>` of any of those, and the
   nullable form of any value type among them — and SHALL report `DALE003` naming that accepted set for
   any other type.
-- `AC-ANLZ-003.2` (Ubiquitous): WHEN one declaration violates more than one supported-type rule THE
+- `AC-ANLZ-003.2` (Event-driven): WHEN one declaration violates more than one supported-type rule THE
   SYSTEM SHALL report each rule independently.
 - `AC-ANLZ-003.3` (Ubiquitous): THE SYSTEM SHALL name, in each supported-type diagnostic's message,
   every type that rule accepts.
@@ -108,10 +108,10 @@ support and the build rejects — § 4 records that this has already happened on
   it is a readonly record struct whose positional parameters are all primitives, enums, strings,
   `TimeSpan`, `Guid`, or nullables of those — recognising a record struct loaded from metadata by its
   synthesized `Deconstruct` method, which `IsRecord` does not report.
-- `AC-ANLZ-003.5` (Ubiquitous): WHEN a service-element property is typed `string` in a
+- `AC-ANLZ-003.5` (Event-driven): WHEN a service-element property is typed `string` in a
   nullable-disabled context THE SYSTEM SHALL report `DALE017`, the compiler having no way to tell the
   author's intent.
-- `AC-ANLZ-003.6` (Ubiquitous): WHEN a service-element property is an auto-implemented
+- `AC-ANLZ-003.6` (Event-driven): WHEN a service-element property is an auto-implemented
   `ImmutableArray<T>` with no initializer THE SYSTEM SHALL report `DALE018`, and SHALL exempt an
   interface member, an abstract property and a property with an explicit getter — none of which can
   carry an initializer, or whose value the analyzer cannot read.
