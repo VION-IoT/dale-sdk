@@ -165,6 +165,15 @@ pwsh scripts/cleanup-code.ps1 -Changed
 
 Do not spend review effort on anything these three would catch.
 
+A proof about what the build decides — which projects pack, which assemblies carry an attribute,
+what a property evaluates to — is taken from the build system's evaluation (`dotnet msbuild <csproj>
+-getProperty:<name>`, the generated `AssemblyInfo.cs` under `obj/`, a full `--no-incremental` build's
+diagnostics), never from a regex over the csprojs: MSBuild's defaults and the packages' props decide
+what the file does not say. Two claims fell that way in one pass — a roster proof that matched
+`<IsPackable>true</IsPackable>` and could not see a package packable by default, and a
+parallelisation claim read off three csprojs whose test-framework props set the property the claim
+said was missing.
+
 A transient `CSC error LAMA0601: … Insufficient system resources` after many host boots is a process
 leak, not a test failure: `dotnet build-server shutdown`, kill stray `dotnet` / `VBCSCompiler` /
 `MSBuild`, retry.

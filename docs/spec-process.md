@@ -266,7 +266,10 @@ opinion — states the call site of every premise a finding rests on, and a find
 a static's mutability, a gate's existence or a probe's outcome names the line it read: three of one
 round's premises were refuted at the call site by the fix-up session (a setter that is write-once,
 a criterion that exists on no page, a probe the prose had right), each costing the item its first
-paragraph. An amendment's count is written with the command that produced it — one said "eight
+paragraph. A premise about a build — which projects pack, what an assembly carries, what a property
+evaluates to — is taken from the build system's evaluation, not from a regex over its inputs: a brief
+check's parallelisation claim and a review's roster reading both fell to `dotnet msbuild
+-getProperty` in one pass. An amendment's count is written with the command that produced it — one said "eight
 decode sites" for four, and the session had read the four before the coordinator's correction
 arrived. Findings go back as one
 numbered amendment per round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
