@@ -340,7 +340,11 @@ namespace Vion.Dale.Sdk.Http
         [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to add header {HeaderKey} for {HttpMethod} request to {Url} - may already exist or be invalid")]
         private partial void LogHeaderAddFailed(string headerKey, HttpMethod httpMethod, Uri url);
 
-        [LoggerMessage(Level = LogLevel.Error, Message = "Failed to invoke callback for {HttpMethod} request to {Url} - actor may be disposed")]
+        // "actor may be disposed" named the wrong cause. The dispatcher refuses a self-send while the block
+        // has not yet received its first message, and that refusal - which says so, and says where to
+        // schedule from instead - is the inner exception here far more often than a disposal is.
+        [LoggerMessage(Level = LogLevel.Error,
+                       Message = "Could not hand the callback for the {HttpMethod} request to {Url} to the block - it may not have received its first message yet, or may already have stopped. The request's outcome reached nobody")]
         private partial void LogCallbackFailed(Exception exception, HttpMethod httpMethod, string url);
     }
 }

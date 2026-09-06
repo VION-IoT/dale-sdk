@@ -29,7 +29,12 @@ namespace Vion.Dale.Sdk.Http
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void GetJson<TResponse>(IActorDispatcher dispatcher,
                                 string url,
                                 Action<TResponse> successCallback,
@@ -58,7 +63,12 @@ namespace Vion.Dale.Sdk.Http
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void PostJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                            string url,
                                            TRequest body,
@@ -88,7 +98,12 @@ namespace Vion.Dale.Sdk.Http
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void PostJson<TRequest>(IActorDispatcher dispatcher,
                                 string url,
                                 TRequest body,
@@ -118,7 +133,12 @@ namespace Vion.Dale.Sdk.Http
         ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void PutJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                           string url,
                                           TRequest body,
@@ -148,7 +168,12 @@ namespace Vion.Dale.Sdk.Http
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void PutJson<TRequest>(IActorDispatcher dispatcher,
                                string url,
                                TRequest body,
@@ -175,7 +200,12 @@ namespace Vion.Dale.Sdk.Http
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void DeleteJson<TResponse>(IActorDispatcher dispatcher,
                                    string url,
                                    Action<TResponse> successCallback,
@@ -200,7 +230,12 @@ namespace Vion.Dale.Sdk.Http
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void Delete(IActorDispatcher dispatcher,
                     string url,
                     Action? successCallback = null,
@@ -216,14 +251,28 @@ namespace Vion.Dale.Sdk.Http
         ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
         ///     block).
         /// </param>
-        /// <param name="request">The <see cref="HttpRequestMessage" /> to send.</param>
-        /// <param name="successCallback">Callback invoked with the <see cref="HttpResponseMessage" /> on success.</param>
+        /// <param name="request">
+        ///     The <see cref="HttpRequestMessage" /> to send. It stays yours: this member does not dispose
+        ///     it, and its method, URI, headers and content are the ones sent — no URL or header parameter
+        ///     of this member applies, and no content type is set for you.
+        /// </param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the <see cref="HttpResponseMessage" /> on success. The response is
+        ///     <b>yours to read and to dispose</b>: unlike the members that carry a response type, this one
+        ///     disposes nothing, and the callback may be reached while the body is still arriving, because
+        ///     the response is handed over as soon as its headers are in.
+        /// </param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
-        /// <param name="timeout">Request-specific timeout that overrides the <see cref="HttpClient" />'s default timeout.</param>
+        /// <param name="timeout">
+        ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
+        ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
+        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
+        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        /// </param>
         void SendRequest(IActorDispatcher dispatcher,
                          HttpRequestMessage request,
                          Action<HttpResponseMessage>? successCallback = null,
