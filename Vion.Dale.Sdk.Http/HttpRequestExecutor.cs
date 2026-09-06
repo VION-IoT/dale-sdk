@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -300,7 +301,9 @@ namespace Vion.Dale.Sdk.Http
         {
             if (cts.IsCancellationRequested && timeout != null)
             {
-                exception = new TimeoutException($"Timed out after {timeout.Value.TotalSeconds} seconds");
+                // Invariantly, not in the machine's culture: this message is what a block author matches on
+                // and what a support engineer greps for in a gateway log, and the gateways are German-locale.
+                exception = new TimeoutException($"Timed out after {timeout.Value.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds");
             }
 
             LogRequestFailed(exception, httpMethod, url);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -336,6 +337,30 @@ namespace Vion.Dale.Sdk.Http.Test
 
             // Assert
             Assert.IsInstanceOfType<TimeoutException>(received);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.1")]
+        [DataRow("en-US")]
+        [DataRow("de-DE")]
+        [DataRow("fr-FR")]
+        public async Task NameTimeoutInInvariantCultureWhateverMachineRunsIt(string culture)
+        {
+            // Arrange — the gateways this runs on are German-locale machines, where a message rendering the
+            // number in the current culture reads 0,05 and no support query for 0.05 finds it
+            var previousCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo(culture);
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting());
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception, timeout: TimeSpan.FromMilliseconds(50));
+            _dispatcher.Drain();
+            CultureInfo.CurrentCulture = previousCulture;
+
+            // Assert
+            Assert.IsNotNull(received);
+            Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
         }
 
         [TestMethod]

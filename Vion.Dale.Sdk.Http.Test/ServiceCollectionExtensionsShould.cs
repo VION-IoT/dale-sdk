@@ -108,6 +108,35 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-001.3")]
+        [DataRow(1, DisplayName = "registered once")]
+        [DataRow(2, DisplayName = "registered twice")]
+        [DataRow(3, DisplayName = "registered three times")]
+        public async Task SendOneUserAgentHoweverOftenRegistered(int registrations)
+        {
+            // Arrange — read off the outgoing request rather than off DefaultRequestHeaders, because what a
+            // server rejects is the header on the wire. A composed plugin whose two libraries each register
+            // the SDK is the shape that produces more than one.
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var services = new ServiceCollection();
+            services.AddLogging();
+            for (var registration = 0; registration < registrations; registration++)
+            {
+                services.AddDaleHttpSdk();
+            }
+
+            services.AddHttpClient(HttpRequestExecutor.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => handler);
+            var executor = services.BuildServiceProvider().GetRequiredService<IHttpRequestExecutor>();
+
+            // Act
+            await executor.ExecuteRequestAsync(new RecordingDispatcher(), Url, HttpMethod.Get, () => { });
+
+            // Assert
+            Assert.IsNotNull(handler.LastRequest);
+            Assert.AreEqual("Vion-DALE (info@vion-iot.com)", handler.LastRequest.Headers.UserAgent.ToString());
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-001.4")]
         public async Task DeliverCallerConfigurationFailureToErrorCallback()
         {

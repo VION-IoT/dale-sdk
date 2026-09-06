@@ -28,7 +28,11 @@ namespace Vion.Dale.Sdk.Http
             serviceCollection.AddHttpClient(HttpRequestExecutor.HttpClientName,
                                             client =>
                                             {
-                                                // Apply default configuration
+                                                // Apply default configuration. AddHttpClient keeps one configure
+                                                // action per call and runs them all against the same client, so a
+                                                // plugin composed from two libraries that each register the SDK
+                                                // would otherwise send the User-Agent twice on every request.
+                                                client.DefaultRequestHeaders.Remove("User-Agent");
                                                 client.DefaultRequestHeaders.Add("User-Agent", "Vion-DALE (info@vion-iot.com)");
                                                 client.Timeout = TimeSpan.FromSeconds(30);
 
