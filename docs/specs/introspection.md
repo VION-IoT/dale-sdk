@@ -506,8 +506,8 @@ The SDK's MSBuild targets are what make all of the above happen without a librar
 anything.
 
 - `AC-INTRO-017.1` (Event-driven): WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly supplying the project's package id and excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
-- `AC-INTRO-017.2` (Ubiquitous): THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: as `AC-INTRO-017.1`.
-- `AC-INTRO-017.3` (Ubiquitous): THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: as `AC-INTRO-017.1`.
+- `AC-INTRO-017.2` (Ubiquitous): THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: the same pack-and-consume path as `AC-INTRO-017.1`.
+- `AC-INTRO-017.3` (Ubiquitous): THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: the same pack-and-consume path as `AC-INTRO-017.1`.
 - `AC-INTRO-017.4` (Ubiquitous): THE SYSTEM SHALL supply the source generator and analyzers to every
   consuming project.
 

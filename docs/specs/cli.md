@@ -122,9 +122,9 @@ editing or publishing a project the caller did not name.
 ## `dale new`, and the bundled template
 
 - `AC-CLI-005.1` (Ubiquitous): THE SYSTEM SHALL accept a project name of a letter followed by letters, digits, dots, hyphens and underscores, and SHALL refuse any other name before running anything. GAP: `dale new` runs `dotnet new` twice and `dotnet restore`; no test in this area spawns a process.
-- `AC-CLI-005.2` (Ubiquitous): THE SYSTEM SHALL refuse to scaffold into a directory that already exists, set the new project's package identity to its name, and scaffold from the template bundled inside the tool. GAP: same spawned-process path as `AC-CLI-005.1`.
+- `AC-CLI-005.2` (Ubiquitous): THE SYSTEM SHALL refuse to scaffold into a directory that already exists, set the new project's package identity to its name, and scaffold from the template bundled inside the tool. GAP: the same spawned-process path as `AC-CLI-005.1`.
 - `AC-CLI-005.3` (Event-driven): WHEN a project name is refused THE SYSTEM SHALL state the whole rule, first character included. GAP: the refusal is inside `dale new`'s action, which runs `dotnet new` twice and `dotnet restore`; no test in this area spawns a process.
-- `AC-CLI-005.4` (Event-driven): WHEN no project name is given and the session cannot prompt THE SYSTEM SHALL refuse naming the reason that applies — the option that was passed, or the output format that made it non-interactive. GAP: same spawned-process path as `AC-CLI-005.1`.
+- `AC-CLI-005.4` (Event-driven): WHEN no project name is given and the session cannot prompt THE SYSTEM SHALL refuse naming the reason that applies — the option that was passed, or the output format that made it non-interactive. GAP: the same spawned-process path as `AC-CLI-005.1`.
 - `AC-CLI-005.5` (Event-driven): WHEN installing the bundled template fails THE SYSTEM SHALL report what the installer said and refuse, and WHEN restoring the new project fails THE SYSTEM SHALL warn with what the restore said and keep the scaffold. GAP: the failures reported are those of the spawned `dotnet new install` and `dotnet restore`.
 - `AC-CLI-005.6` (Ubiquitous): THE SYSTEM SHALL report the logic blocks it scaffolded, read from the project it wrote. GAP: the blocks are read from a tree `dotnet new` has just written.
 - `AC-CLI-005.7` (Optional): WHERE the scaffolded project references an SDK version other than the tool's own THE SYSTEM SHALL say which it wrote. GAP: the comparison is against a scaffold `dotnet new` has just written.
@@ -304,7 +304,7 @@ against the apostrophes and dashes the source schema holds literal.
 ## `dale upload`
 
 - `AC-CLI-011.1` (Ubiquitous): THE SYSTEM SHALL upload the packed package as multipart form data bearing the resolved access token, to the integrator's library-versions endpoint. GAP: the upload runs inside the command's own action, which packs a real project first; the request's shape is stated and its transport is proven by `AC-CLI-017.1`.
-- `AC-CLI-011.2` (Optional): WHERE no release notes were given THE SYSTEM SHALL omit that part rather than send an empty one. GAP: same path as `AC-CLI-011.1`.
+- `AC-CLI-011.2` (Optional): WHERE no release notes were given THE SYSTEM SHALL omit that part rather than send an empty one. GAP: the same pack-and-upload path as `AC-CLI-011.1`.
 - `AC-CLI-011.3` (Ubiquitous): THE SYSTEM SHALL pack in Release with packing forced on, and SHALL
   pass an explicit version to the pack only when one was given.
 - `AC-CLI-011.4` (Ubiquitous): THE SYSTEM SHALL report the version it packed by reading it back from
@@ -396,8 +396,8 @@ the credentials.
 ## The interactive login
 
 - `AC-CLI-016.1` (Ubiquitous): THE SYSTEM SHALL authenticate interactively with authorization code and proof key exchange, over a loopback redirect on a free port, checking the returned state against the one it sent. GAP: the flow opens a browser and binds a loopback listener; no test in this area reaches either.
-- `AC-CLI-016.2` (Ubiquitous): THE SYSTEM SHALL abandon an interactive login that is not completed within five minutes, and SHALL report the identity provider's own error description where it returns one. GAP: same browser-bound path as `AC-CLI-016.1`.
-- `AC-CLI-016.3` (Event-driven): WHEN the browser cannot be opened THE SYSTEM SHALL print the authorization URL so the login can be completed by hand. GAP: same browser-bound path as `AC-CLI-016.1`.
+- `AC-CLI-016.2` (Ubiquitous): THE SYSTEM SHALL abandon an interactive login that is not completed within five minutes, and SHALL report the identity provider's own error description where it returns one. GAP: the same browser-bound path as `AC-CLI-016.1`.
+- `AC-CLI-016.3` (Event-driven): WHEN the browser cannot be opened THE SYSTEM SHALL print the authorization URL so the login can be completed by hand. GAP: the same browser-bound path as `AC-CLI-016.1`.
 
 ## Talking to the cloud API
 
@@ -435,7 +435,7 @@ request rather than a considered one.
 - `AC-CLI-018.6` (Event-driven): WHEN switching environment would clear a configured integrator THE
   SYSTEM SHALL confirm first, treat `--force` as that confirmation, and exit non-zero when the
   change was declined.
-- `AC-CLI-018.7` (Event-driven): WHEN an interactive login selects an integrator THE SYSTEM SHALL store it, and SHALL leave a previously stored one in place where it selected none. GAP: same browser-bound path as `AC-CLI-018.4`.
+- `AC-CLI-018.7` (Event-driven): WHEN an interactive login selects an integrator THE SYSTEM SHALL store it, and SHALL leave a previously stored one in place where it selected none. GAP: the same browser-bound path as `AC-CLI-018.4`.
 - `AC-CLI-018.8` (Event-driven): WHEN `--integrator-id` names a value that is not one of the
   account's own integrator memberships THE SYSTEM SHALL refuse naming it, leaving the stored one in
   place.

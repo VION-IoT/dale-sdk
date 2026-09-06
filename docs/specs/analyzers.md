@@ -71,12 +71,16 @@ doors onto one rule rather than two rules.
   attribute *derived* from a Dale attribute is not matched.
 - `AC-ANLZ-002.3` (Optional): WHERE a rule analyses the whole compilation THE SYSTEM SHALL judge
   only the types declared in the compilation's own assembly.
-- `AC-ANLZ-002.4` (Ubiquitous): THE SYSTEM SHALL analyse no compiler-generated code. GAP: [`../sdk-surface-conventions.md`](../sdk-surface-conventions.md) § 5 records that flipping the flag changes no diagnostic in this repository, so there is no observable to assert.
+- `AC-ANLZ-002.4` (Ubiquitous): THE SYSTEM SHALL analyse no compiler-generated code. GAP: flipping the generated-code flag changes no diagnostic in this repository, so there is no observable to assert.
 - `AC-ANLZ-002.5` (Optional): WHERE a member may declare both `[ServiceProperty]` and
   `[ServiceMeasuringPoint]` THE SYSTEM SHALL judge each attribute's own knobs and report at the
   attribute that declares them.
 - `AC-ANLZ-002.6` (Ubiquitous): THE SYSTEM SHALL judge a declaration's own attributes whatever its
   accessibility, while a rule that walks a *type* sees only what the binders see.
+
+The generated-code rule above is the one criterion in this section with no observable of its own:
+[`../sdk-surface-conventions.md`](../sdk-surface-conventions.md) § 5 records that flipping the flag
+changes no diagnostic in this repository.
 
 `AC-ANLZ-002.2`'s last clause is a live limitation, not a design: a preset attribute — a class
 deriving from `ServicePropertyAttribute` so that `[Kilowatts]` carries a unit — is honoured by the

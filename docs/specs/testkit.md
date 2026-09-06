@@ -58,7 +58,7 @@ a `TargetInvocationException` wrapper with the author's own exception, stack int
 - `AC-TKIT-002.1` (Ubiquitous): THE SYSTEM SHALL build a test context by driving the block through initialization, runtime-actor linking, persistent-state restoration, interface linking and start, in that order.
 - `AC-TKIT-002.2` (Ubiquitous): THE SYSTEM SHALL initialize a block under a fixed logic-block identity and name, with the service and contract identifiers it discovers from the block's own class name and properties, and SHALL run every service registration declared in each discovered contract type's assembly.
 - `AC-TKIT-002.3` (Ubiquitous): THE SYSTEM SHALL restore a declared persistent value under the key the block's own service-property bindings give it, falling back to a direct key when the property is not a service property, and SHALL store an enumeration value as its integer form.
-- `AC-TKIT-002.4` (Ubiquitous): THE SYSTEM SHALL link each declared interface mapping to the block's own sender interface for that contract, addressing every mapped peer through a stand-in actor reference named after that peer. GAP: the kit's own test project cannot observe a mapping. A block binds its declared interfaces whether or not a mapping named them, so the bound-interface seam is over-determined by the declaration; the mapping is observable only as a message sent through the generated sender, and the generator that emits one is an analyzer on Vion.Dale.Sdk that does not travel through a project reference. The seven example suites drive the rule end to end against the published kit.
+- `AC-TKIT-002.4` (Ubiquitous): THE SYSTEM SHALL link each declared interface mapping to the block's own sender interface for that contract, addressing every mapped peer through a stand-in actor reference named after that peer. GAP: the kit's own test project cannot observe a mapping.
 - `AC-TKIT-002.5` (Ubiquitous): THE SYSTEM SHALL start a built block and clear every message the start produced, unless the caller suppressed the start, in which case the messages the earlier phases produced remain recorded.
 - `AC-TKIT-002.6` (Ubiquitous): THE SYSTEM SHALL expose the service provider the builder composed.
 
@@ -76,6 +76,13 @@ block does not reach through a property is not registered, so its dependency doe
 supported answer is `WithServices`, which adds registrations the discovery would not find. Widening
 the discovery would make a test's service graph depend on whatever else happened to be loaded, which
 is why it stays as it is.
+
+The interface-mapping rule above is the one criterion here the kit's own test project cannot
+reach. A block binds its declared interfaces whether or not a mapping named them, so the
+bound-interface seam is over-determined by the declaration; the mapping is observable only as a
+message sent through the generated sender, and the generator that emits one is an analyzer on
+`Vion.Dale.Sdk` that does not travel through a project reference. The seven example suites drive the
+rule end to end against the published kit.
 
 `AC-TKIT-002.5` is the asymmetry a test meets on its first `WithoutAutoStart`. The clear happens
 inside the start, so suppressing the start keeps what the earlier phases produced — which is the
@@ -163,7 +170,7 @@ label so a reader stops expecting it to narrow anything.
 
 - `AC-TKIT-006.1` (Ubiquitous): THE SYSTEM SHALL raise on an input face, an output face and an output provider face the event that face declares, carrying the given value, in both the digital and the analog kit, and SHALL offer no raise helper for an input provider face.
 - `AC-TKIT-006.2` (Event-driven): WHEN a raise helper is given no face, or a face that is not the implementation the SDK ships, THE SYSTEM SHALL refuse it, naming the argument or the event it cannot raise.
-- `AC-TKIT-006.3` (Ubiquitous): THE SYSTEM SHALL address a raised face message under the same logic-block identity the builder initializes a block with. GAP: no shipped reader reads a received contract message's identity — every face's HandleContractMessage dispatches on the message type and logs the face's own identity — so the rule guards the write path, where an empty identity is silently dropped, and no test can drive it until a helper raises through that path.
+- `AC-TKIT-006.3` (Ubiquitous): THE SYSTEM SHALL address a raised face message under the same logic-block identity the builder initializes a block with. GAP: no shipped reader reads a received contract message's identity.
 
 `AC-TKIT-006.1`'s absence is the faces' own shape rather than a gap: an input provider face carries a
 `Drive` operation and no event ([`io.md`](io.md)), so there is nothing on it to raise. What a
