@@ -4,10 +4,12 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Http
 {
     /// <inheritdoc />
+    [InternalApi]
     public partial class LogicBlockHttpClient : ILogicBlockHttpClient
     {
         private readonly IHttpContentSerializer _httpContentSerializer;

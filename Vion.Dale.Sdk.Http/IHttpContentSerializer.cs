@@ -1,11 +1,13 @@
 ﻿using System.Net.Http;
 using System.Threading.Tasks;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Http
 {
     /// <summary>
     ///     Provides serialization and deserialization functionality for HTTP content.
     /// </summary>
+    [InternalApi]
     public interface IHttpContentSerializer
     {
         /// <summary>

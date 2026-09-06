@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Http
 {
     /// <summary>
     ///     Executes HTTP requests and marshals responses back to the actor's synchronization context.
     /// </summary>
+    [InternalApi]
     public interface IHttpRequestExecutor
     {
         /// <summary>
