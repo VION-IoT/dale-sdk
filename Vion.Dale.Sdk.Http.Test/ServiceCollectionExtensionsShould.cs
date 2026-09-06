@@ -108,6 +108,36 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-001.2")]
+        public async Task KeepCallerConfigurationOfEarlierRegistration()
+        {
+            // Arrange — the composed-plugin shape `AC-HTTP-001.3` contemplates, with a caller's override in
+            // it: two libraries each register the SDK and only the first hands in a `configureClient`. The
+            // second registration's action runs against the same client, after the first's caller has
+            // already had its say.
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddDaleHttpSdk(configuredClient =>
+                                    {
+                                        configuredClient.DefaultRequestHeaders.Remove("User-Agent");
+                                        configuredClient.DefaultRequestHeaders.Add("User-Agent", "Mine/1.0");
+                                        configuredClient.Timeout = TimeSpan.FromSeconds(3);
+                                    });
+            services.AddDaleHttpSdk();
+            services.AddHttpClient(HttpRequestExecutor.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => handler);
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Act
+            await serviceProvider.GetRequiredService<IHttpRequestExecutor>().ExecuteRequestAsync(new RecordingDispatcher(), Url, HttpMethod.Get, () => { });
+
+            // Assert — the header off the wire, the timeout off the client the factory hands out
+            Assert.IsNotNull(handler.LastRequest);
+            Assert.AreEqual("Mine/1.0", handler.LastRequest.Headers.UserAgent.ToString());
+            Assert.AreEqual(TimeSpan.FromSeconds(3), serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient(HttpRequestExecutor.HttpClientName).Timeout);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-001.3")]
         [DataRow(1, DisplayName = "registered once")]
         [DataRow(2, DisplayName = "registered twice")]

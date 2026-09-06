@@ -42,7 +42,7 @@ not reference this package; and the development host's HTTP server, which is
   one named `HttpClient` the package resolves per request under a name no public member exposes.
 - `AC-HTTP-001.2` (Ubiquitous): THE SYSTEM SHALL configure that client with a thirty-second timeout
   and a Vion `User-Agent` before running the caller's `configureClient`, so a caller's own timeout or
-  `User-Agent` wins.
+  `User-Agent` wins and a later registration does not undo it.
 - `AC-HTTP-001.3` (Event-driven): WHEN `AddDaleHttpSdk` is called more than once THE SYSTEM SHALL
   still send exactly one Vion `User-Agent` on the wire.
 - `AC-HTTP-001.4` (Event-driven): WHEN the caller's `configureClient` throws THE SYSTEM SHALL deliver
@@ -56,7 +56,11 @@ underneath, which is `AC-HTTP-002.1`'s subject.
 
 `AC-HTTP-001.3` exists because `AddHttpClient` keeps one configuration action per call and runs them
 all against the same client. A plugin composed from two libraries that each register the SDK would
-otherwise send the header twice, which a strict server rejects.
+otherwise send the header twice, which a strict server rejects. Each default is therefore applied
+only where the client still lacks it — no `User-Agent` at all, and the platform's own starting
+timeout — which is also what keeps `AC-HTTP-001.2`'s promise across more than one registration: the
+second registration's defaults do not run over a value the first registration's `configureClient`
+chose, and the last `configureClient` still wins for whatever it sets itself.
 
 `AC-HTTP-001.4` is the one registration mistake with no registration-time symptom: `configureClient`
 runs when the client is first created, inside the request, so a broken one is met once per request
