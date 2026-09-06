@@ -372,7 +372,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-004.3")]
+        [TestProperty("spec", "AC-SCEN-004.2")]
         public void RejectStructOrArrayComparandWhileAcceptingNull()
         {
             // Arrange / Act
@@ -397,7 +397,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-004.4")]
+        [TestProperty("spec", "AC-SCEN-004.2")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": [] } }""", "must be a non-empty array", DisplayName = "empty")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": 5 } }""", "must be an array of scalars", DisplayName = "not an array")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": [{ "a": 1 }] } }""", "elements must be scalars", DisplayName = "object element")]
