@@ -22,4 +22,22 @@
         <ProjectReference Include="..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
     </ItemGroup>
 
+
+    <!-- The Dale analyzers, run over this kit's own declarations. Compile-time only. Without it the
+         [assembly: PublicApiNamespace] above has no reader, so DALE014 never asks a kit for a surface
+         mark and the API manifest diff is the only gate on a quarter of it. -->
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+    </ItemGroup>
+
+    <!-- The analyzer-wiring probe: a public type carrying neither surface mark, which DALE014 must
+         reject. NOT a source file of this project - it lives with the test that owns it and is linked
+         in only under `dotnet build -p:DaleTestKitAnalyzerWiringProbe=true` (its own property, so it does not
+         also switch on the I/O projects' DALE046 probe further down the reference graph), where the build MUST fail. That is
+         the standing proof the analyzer reference above is live and not merely present; nothing about it
+         reaches an ordinary build, the compiled assembly or the package. AnalyzerWiringShould runs it. -->
+    <ItemGroup Condition="'$(DaleTestKitAnalyzerWiringProbe)' == 'true'">
+        <Compile Include="..\Vion.Dale.Sdk.Generators.Test\AnalyzerWiring\ModbusRtuTestKitPublicApiWiringProbe.cs"
+                 Link="AnalyzerWiring\ModbusRtuTestKitPublicApiWiringProbe.cs"/>
+    </ItemGroup>
 </Project>

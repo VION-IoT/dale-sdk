@@ -45,6 +45,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
     {
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.1")]
+        [TestProperty("spec", "AC-TKIT-003.2")]
         public void ApplyParameterValueThroughConfigurationPath()
         {
             // Setting the property directly would skip the decode the configuration channel performs, so the

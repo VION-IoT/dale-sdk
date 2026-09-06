@@ -5,13 +5,18 @@ using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 {
+    /// <summary>
+    ///     The consumer-side fixture: it doubles what its input reports onto its output, and records what
+    ///     its output's own change event carried. The mirror of the digital kit's fixture.
+    /// </summary>
     public class SampleLogicBlock : LogicBlockBase
     {
-        private double _lastAnalogValue;
-
         public IAnalogInput AnalogInput { get; set; } = null!;
 
         public IAnalogOutput AnalogOutput { get; set; } = null!;
+
+        /// <summary>The last value the output's own change event carried, so a raise on it is observable.</summary>
+        public double LastOutputConfirmation { get; private set; }
 
         public SampleLogicBlock(ILogger logger) : base(logger)
         {
@@ -19,11 +24,8 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         protected override void Ready()
         {
-            AnalogInput.InputChanged += (_, value) =>
-                                        {
-                                            _lastAnalogValue = value;
-                                            AnalogOutput.Set(value * 2);
-                                        };
+            AnalogOutput.OutputChanged += (_, value) => LastOutputConfirmation = value;
+            AnalogInput.InputChanged += (_, value) => AnalogOutput.Set(value * 2);
         }
     }
 }

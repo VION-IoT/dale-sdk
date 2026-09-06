@@ -53,6 +53,20 @@ namespace Vion.Dale.Sdk.Generators.Test
 
         private static readonly string[] ProbedProjects = ["Vion.Dale.Sdk.DigitalIo", "Vion.Dale.Sdk.AnalogIo"];
 
+        /// <summary>
+        ///     The five test kits and the published namespace each declares. Every one of them declares
+        ///     <c>[assembly: PublicApiNamespace]</c>, and until the analyzer reference landed beside it none
+        ///     of those declarations had a reader.
+        /// </summary>
+        private static readonly (string Project, string Namespace)[] ProbedKits =
+        [
+            ("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.TestKit"),
+            ("Vion.Dale.Sdk.DigitalIo.TestKit", "Vion.Dale.Sdk.DigitalIo.TestKit"),
+            ("Vion.Dale.Sdk.AnalogIo.TestKit", "Vion.Dale.Sdk.AnalogIo.TestKit"),
+            ("Vion.Dale.Sdk.Modbus.Rtu.TestKit", "Vion.Dale.Sdk.Modbus.Rtu.TestKit"),
+            ("Vion.Dale.Sdk.Modbus.Tcp.TestKit", "Vion.Dale.Sdk.Modbus.Tcp.TestKit"),
+        ];
+
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-017.4")]
         [DataRow("Vion.Dale.Sdk.DigitalIo")]
@@ -81,6 +95,50 @@ namespace Vion.Dale.Sdk.Generators.Test
             var (exitCode, output) = Build(ProjectFile(projectName), false);
 
             Assert.AreEqual(0, exitCode, $"An ordinary build of {projectName} must not compile the analyzer-wiring probe.\n{output}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-013.2")]
+        [DataRow("Vion.Dale.Sdk.TestKit")]
+        [DataRow("Vion.Dale.Sdk.DigitalIo.TestKit")]
+        [DataRow("Vion.Dale.Sdk.AnalogIo.TestKit")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Rtu.TestKit")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Tcp.TestKit")]
+        public void RunDaleAnalyzersOverTestKits(string projectName)
+        {
+            // Arrange
+            // DALE014 is a warning, not an error, so unlike the I/O probe above this build SUCCEEDS and the
+            // proof is the diagnostic it emitted — asserting a non-zero exit code here would pass on any
+            // broken build and fail on a working analyzer.
+            var declaredNamespace = ProbedKits.Single(kit => kit.Project == projectName).Namespace;
+            var project = ProjectFile(projectName);
+            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
+
+            // Act
+            var (_, output) = Build(project, probeProperty: "DaleTestKitAnalyzerWiringProbe");
+
+            // Assert
+            Assert.Contains("DALE014", output, $"The probe build of {projectName} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{output}");
+            Assert.Contains($"in namespace '{declaredNamespace}'",
+                            output,
+                            $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{output}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-013.2")]
+        [DataRow("Vion.Dale.Sdk.TestKit")]
+        [DataRow("Vion.Dale.Sdk.DigitalIo.TestKit")]
+        [DataRow("Vion.Dale.Sdk.AnalogIo.TestKit")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Rtu.TestKit")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Tcp.TestKit")]
+        public void KeepTestKitProbeOutOfOrdinaryBuild(string projectName)
+        {
+            // Arrange / Act
+            var (exitCode, output) = Build(ProjectFile(projectName), false, probeProperty: "DaleTestKitAnalyzerWiringProbe");
+
+            // Assert — the probe is only a gate as long as it is invisible the rest of the time
+            Assert.AreEqual(0, exitCode, $"An ordinary build of {projectName} must succeed.{Environment.NewLine}{output}");
+            Assert.DoesNotContain("DALE014", output, $"An ordinary build of {projectName} must not compile the analyzer-wiring probe.{Environment.NewLine}{output}");
         }
 
         [TestMethod]
@@ -124,7 +182,7 @@ namespace Vion.Dale.Sdk.Generators.Test
                            $"child build somewhere disposable instead.\n{string.Join("\n", disturbed)}");
         }
 
-        private static (int ExitCode, string Output) Build(string projectPath, bool withProbe = true, string? version = null)
+        private static (int ExitCode, string Output) Build(string projectPath, bool withProbe = true, string? version = null, string probeProperty = "DaleAnalyzerWiringProbe")
         {
             var configuration = typeof(AnalyzerWiringShould).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration ?? "Debug";
 
@@ -143,7 +201,7 @@ namespace Vion.Dale.Sdk.Generators.Test
 
             if (withProbe)
             {
-                arguments.Add("-p:DaleAnalyzerWiringProbe=true");
+                arguments.Add($"-p:{probeProperty}=true");
             }
 
             if (version is not null)

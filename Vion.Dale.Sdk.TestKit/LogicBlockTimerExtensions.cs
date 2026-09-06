@@ -22,12 +22,7 @@ namespace Vion.Dale.Sdk.TestKit
         {
             var callbacks = GetTimerCallbacks(logicBlock);
 
-            if (!callbacks.TryGetValue(identifier, out var timer))
-            {
-                var available = callbacks.Count > 0 ? string.Join(", ", callbacks.Keys.Select(k => $"'{k}'")) : "(none)";
-
-                throw new TestKitVerificationException($"No timer registered with identifier '{identifier}'. Available timers: {available}.");
-            }
+            var timer = RequireTimer(callbacks, identifier);
 
             timer.callback();
         }
@@ -51,12 +46,7 @@ namespace Vion.Dale.Sdk.TestKit
         {
             var callbacks = GetTimerCallbacks(logicBlock);
 
-            if (!callbacks.TryGetValue(identifier, out var timer))
-            {
-                throw new TestKitVerificationException($"No timer registered with identifier '{identifier}'.");
-            }
-
-            return timer.interval;
+            return RequireTimer(callbacks, identifier).interval;
         }
 
         /// <summary>
@@ -68,6 +58,23 @@ namespace Vion.Dale.Sdk.TestKit
         {
             var methodName = GetMethodName(timerMethodSelector);
             return logicBlock.GetTimerInterval(methodName);
+        }
+
+        /// <summary>
+        ///     The one refusal both queries give. Naming the registered identifiers is most of the message's
+        ///     value — the mistake behind an unknown identifier is almost always a typo or a renamed method,
+        ///     and the answer is in the list — so neither query may give the short form.
+        /// </summary>
+        private static (TimeSpan interval, Action callback) RequireTimer(Dictionary<string, (TimeSpan interval, Action callback)> callbacks, string identifier)
+        {
+            if (callbacks.TryGetValue(identifier, out var timer))
+            {
+                return timer;
+            }
+
+            var available = callbacks.Count > 0 ? string.Join(", ", callbacks.Keys.Select(k => $"'{k}'")) : "(none)";
+
+            throw new TestKitVerificationException($"No timer registered with identifier '{identifier}'. Available timers: {available}.");
         }
 
         private static Dictionary<string, (TimeSpan interval, Action callback)> GetTimerCallbacks(LogicBlockBase logicBlock)

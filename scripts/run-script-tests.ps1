@@ -33,7 +33,6 @@ $ErrorActionPreference = 'Stop'
 $exempt = @{
     'run-script-tests.ps1'                 = 'the runner itself (a self-test would be circular)'
     'cleanup-code.ps1'                     = 'wrapper around `dotnet jb cleanupcode`; the logic under test is the external tool, not runnable in a fast self-test (needs the pinned tool + a built solution)'
-    'set-version.ps1'                      = 'on-demand version-bump tool, not a CI gate'
     'pack-examples.ps1'                    = 'on-demand pack helper; needs a full dotnet build + feeds, not a fast self-test'
     'smoke-modbus.ps1'                     = 'driver for the modbus-smoke skill; needs a live DevHost on a real socket pair, not a CI gate'
     'stage-xml-docs.ps1'                   = 'CI staging helper over packed .nupkg artifacts; its input is the publish job''s output, not reproducible in a fast fixture'

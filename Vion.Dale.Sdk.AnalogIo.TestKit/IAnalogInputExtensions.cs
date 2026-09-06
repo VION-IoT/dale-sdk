@@ -2,6 +2,7 @@ using System;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit
@@ -29,7 +30,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 throw new InvalidOperationException("Unable to raise InputChanged on provided IAnalogInput instance");
             }
 
-            var logicBlockContractId = new LogicBlockContractId("", analogInputImplementation.Identifier);
+            var logicBlockContractId = new LogicBlockContractId(Constants.LogicBlockId, analogInputImplementation.Identifier);
             analogInputImplementation.HandleContractMessage(new ContractMessage<AnalogInputChanged>(logicBlockContractId, new AnalogInputChanged(value)));
         }
     }

@@ -293,8 +293,13 @@ namespace Vion.Dale.Sdk.TestKit
             services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
 
             // Inject the test context's virtual clock so logic blocks that depend on TimeProvider
-            // see the same UtcNow that AdvanceTime advances. Tests can still override by adding a
-            // different registration via WithServices, in which case the last registration wins.
+            // see the same UtcNow that AdvanceTime advances.
+            //
+            // A test can register a different clock through WithServices — last registration wins — but
+            // that reaches the block ONLY: the context keeps driving its own deadlines, so AdvanceTime and
+            // VirtualNow move a clock the block is no longer reading and every deadline assertion silently
+            // misses. WithTimeProvider is the knob that binds both, and it exists for exactly this. Rebinding
+            // here instead would give WithServices two jobs, one of them invisible at the call site.
             services.AddSingleton<TimeProvider>(_logicBlockTestContext.TimeProvider);
 
             // when the test opts into the emission policy under the fake clock, register

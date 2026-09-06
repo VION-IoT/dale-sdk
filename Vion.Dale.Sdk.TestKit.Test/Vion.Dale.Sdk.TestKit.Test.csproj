@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -23,6 +23,12 @@
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
+        <!-- The other four kits, so TestKitSurfaceShould can read the surface all five ship rather than
+             this one's alone. Nothing else in this project uses them. -->
+        <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo.TestKit\Vion.Dale.Sdk.DigitalIo.TestKit.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.AnalogIo.TestKit\Vion.Dale.Sdk.AnalogIo.TestKit.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Rtu.TestKit\Vion.Dale.Sdk.Modbus.Rtu.TestKit.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Tcp.TestKit\Vion.Dale.Sdk.Modbus.Tcp.TestKit.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

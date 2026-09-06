@@ -2,6 +2,7 @@ using System;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit
@@ -29,7 +30,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 throw new InvalidOperationException("Unable to raise OutputChanged on provided IAnalogOutput instance");
             }
 
-            var logicBlockContractId = new LogicBlockContractId("", analogOutputImplementation.Identifier);
+            var logicBlockContractId = new LogicBlockContractId(Constants.LogicBlockId, analogOutputImplementation.Identifier);
             analogOutputImplementation.HandleContractMessage(new ContractMessage<AnalogOutputChanged>(logicBlockContractId, new AnalogOutputChanged(value)));
         }
     }

@@ -2,10 +2,16 @@ using System;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 {
+    /// <summary>
+    ///     The response bytes a test hands a simulated read. Every encoding is asserted against bytes the
+    ///     test builds itself rather than against the builder's own output, so a byte-order bug cannot
+    ///     cancel itself out.
+    /// </summary>
     [TestClass]
     public class ModbusResponseBuilderShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void EncodeSingleFloatAsFourBigEndianBytes()
         {
             // Act
@@ -17,6 +23,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void EncodeMultipleFloatsInOrder()
         {
             // Act
@@ -30,6 +37,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void EncodeShortAsTwoBigEndianBytes()
         {
             // Act
@@ -40,6 +48,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void EncodeUShortAsTwoBigEndianBytes()
         {
             // Act
@@ -50,6 +59,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void EncodeIntAsFourBigEndianBytes()
         {
             // Act
@@ -60,6 +70,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void EncodeDoubleAsEightBigEndianBytes()
         {
             // Act
@@ -71,6 +82,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void PackBoolsLsbFirstWithinEachByte()
         {
             // Act
@@ -93,6 +105,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         [DataRow(1, 1)]
         [DataRow(7, 1)]
         [DataRow(8, 1)]
@@ -109,6 +122,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.5")]
         public void ReturnEmptyArrayForEmptyInput()
         {
             // Act / Assert

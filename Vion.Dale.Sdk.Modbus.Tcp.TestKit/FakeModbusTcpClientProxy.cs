@@ -43,6 +43,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         private readonly List<WriteEvent> _writeHistory = new();
 
+        private TimeSpan _connectDelay;
+
+        private TimeSpan _responseDelay;
+
         /// <summary>Ordered log of every <c>ConnectAsync</c> / <c>Disconnect</c> the fake observed.</summary>
         public IReadOnlyList<ConnectionEvent> ConnectionHistory
         {
@@ -69,15 +73,37 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         /// <summary>
         ///     Virtual time every read and write consumes before answering. Default is zero. Makes the receipt's
-        ///     <c>RoundTrip</c> and the link summary's round-trip extremes assertable; requires <see cref="Clock" />.
+        ///     <c>RoundTrip</c> and the link summary's round-trip extremes assertable; a delay greater than zero
+        ///     requires <see cref="Clock" />.
         /// </summary>
-        public TimeSpan ResponseDelay { get; set; }
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a negative duration.</exception>
+        public TimeSpan ResponseDelay
+        {
+            get => _responseDelay;
+
+            set
+            {
+                EnsureDelayIsNotNegative(value, nameof(ResponseDelay));
+                _responseDelay = value;
+            }
+        }
 
         /// <summary>
         ///     Virtual time every connection attempt consumes. Default is zero. Makes
-        ///     <c>Connection.LastConnectDuration</c> assertable; requires <see cref="Clock" />.
+        ///     <c>Connection.LastConnectDuration</c> assertable; a delay greater than zero requires
+        ///     <see cref="Clock" />.
         /// </summary>
-        public TimeSpan ConnectDelay { get; set; }
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a negative duration.</exception>
+        public TimeSpan ConnectDelay
+        {
+            get => _connectDelay;
+
+            set
+            {
+                EnsureDelayIsNotNegative(value, nameof(ConnectDelay));
+                _connectDelay = value;
+            }
+        }
 
         /// <summary>
         ///     True after <c>ConnectAsync</c> has been called and before <c>Disconnect</c>.
@@ -359,6 +385,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             }
         }
 
+        // A delay is a duration of virtual time to consume, so it is never negative. Left unguarded it was
+        // silently ignored — the operation answered instantly and the round-trip the delay was set for read
+        // zero — which is the same shape as not setting it at all.
+        private static void EnsureDelayIsNotNegative(TimeSpan value, string propertyName)
+        {
+            if (value < TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(propertyName, value, $"{propertyName} must not be negative.");
+            }
+        }
+
         private void AdvanceClock(TimeSpan delay, string propertyName)
         {
             if (delay <= TimeSpan.Zero)
@@ -474,8 +511,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     public sealed record ReadEvent(ReadEventKind Kind, int UnitId, ushort Address, ushort Quantity);
 
     /// <summary>
-    ///     A single write operation observed by the fake proxy. <c>Bytes</c> is the raw wire-format payload (MSB-first
-    ///     per register).
+    ///     A single write operation observed by the fake proxy. <c>Bytes</c> is the register payload in wire
+    ///     order, MSB-first per register — except for a multiple-coil write, which is recorded as one byte
+    ///     per coil (<c>0x01</c> / <c>0x00</c>) rather than the wire's bit packing, because one byte per coil
+    ///     is what makes an expected-bytes argument legible. A single-coil write records the wire's own
+    ///     <c>0xFF</c> / <c>0x00</c>. The read direction is not affected: a coil read answers the wire's bit
+    ///     packing.
     /// </summary>
     [PublicApi]
     public sealed record WriteEvent(WriteEventKind Kind, int UnitId, ushort Address, byte[] Bytes);

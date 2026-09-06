@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
@@ -34,7 +34,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit
         {
             var modbusRtuImpl = CastToImplementation(modbusRtu);
             var request = FindLastReadRequest(testContext, modbusRtuImpl, startingAddress);
-            var contractId = new LogicBlockContractId("", modbusRtuImpl.Identifier);
+            var contractId = new LogicBlockContractId(Constants.LogicBlockId, modbusRtuImpl.Identifier);
             var response = new ReadModbusRtuResponse(responseData,
                                                      null,
                                                      request.Callback,
@@ -64,7 +64,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit
         {
             var modbusRtuImpl = CastToImplementation(modbusRtu);
             var request = FindLastReadRequest(testContext, modbusRtuImpl, startingAddress);
-            var contractId = new LogicBlockContractId("", modbusRtuImpl.Identifier);
+            var contractId = new LogicBlockContractId(Constants.LogicBlockId, modbusRtuImpl.Identifier);
             var effectiveOutcome = outcome ?? Classify(exception);
             var response = new ReadModbusRtuResponse(null,
                                                      exception,
@@ -89,7 +89,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit
         {
             var modbusRtuImpl = CastToImplementation(modbusRtu);
             var request = FindLastWriteRequest(testContext, modbusRtuImpl, address);
-            var contractId = new LogicBlockContractId("", modbusRtuImpl.Identifier);
+            var contractId = new LogicBlockContractId(Constants.LogicBlockId, modbusRtuImpl.Identifier);
             var response = new WriteModbusRtuResponse(null,
                                                       request.Callback,
                                                       request.CorrelationId,
@@ -118,7 +118,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit
         {
             var modbusRtuImpl = CastToImplementation(modbusRtu);
             var request = FindLastWriteRequest(testContext, modbusRtuImpl, address);
-            var contractId = new LogicBlockContractId("", modbusRtuImpl.Identifier);
+            var contractId = new LogicBlockContractId(Constants.LogicBlockId, modbusRtuImpl.Identifier);
             var effectiveOutcome = outcome ?? Classify(exception);
             var response = new WriteModbusRtuResponse(exception,
                                                       request.Callback,
