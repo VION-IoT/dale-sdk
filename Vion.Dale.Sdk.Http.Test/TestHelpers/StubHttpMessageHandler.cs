@@ -23,16 +23,19 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     {
         private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _respond;
 
+        /// <summary>Every request the package sent through this handler, in the order it sent them.</summary>
+        public List<HttpRequestMessage> Requests { get; } = new();
+
+        /// <summary>The request the package sent last, or <c>null</c> when it sent none.</summary>
+        public HttpRequestMessage? LastRequest
+        {
+            get => Requests.Count == 0 ? null : Requests[Requests.Count - 1];
+        }
+
         private StubHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond)
         {
             _respond = respond;
         }
-
-        /// <summary>Every request the package sent through this handler, in the order it sent them.</summary>
-        public List<HttpRequestMessage> Requests { get; } = new List<HttpRequestMessage>();
-
-        /// <summary>The request the package sent last, or <c>null</c> when it sent none.</summary>
-        public HttpRequestMessage? LastRequest => Requests.Count == 0 ? null : Requests[Requests.Count - 1];
 
         /// <summary>Answers every request with <paramref name="statusCode" /> and an optional JSON body.</summary>
         public static StubHttpMessageHandler Answering(HttpStatusCode statusCode, string? jsonBody = null)
@@ -78,7 +81,8 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
         {
             return new HttpResponseMessage(statusCode)
                    {
-                       Content = jsonBody == null ? new StringContent(string.Empty) : new StringContent(jsonBody, Encoding.UTF8, "application/json"),
+                       Content = jsonBody == null ? new StringContent(string.Empty) :
+                                     new StringContent(jsonBody, Encoding.UTF8, "application/json"),
                    };
         }
 

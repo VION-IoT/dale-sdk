@@ -12,12 +12,12 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     /// <summary>An <see cref="HttpResponseMessage" /> that counts how often it was disposed.</summary>
     internal sealed class CountingHttpResponse : HttpResponseMessage
     {
+        public int Disposals { get; private set; }
+
         public CountingHttpResponse(HttpStatusCode statusCode, string jsonBody) : base(statusCode)
         {
             Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
         }
-
-        public int Disposals { get; private set; }
 
         protected override void Dispose(bool disposing)
         {
@@ -36,7 +36,7 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     {
         private readonly byte[] _body;
 
-        private readonly TaskCompletionSource<bool> _released = new TaskCompletionSource<bool>();
+        private readonly TaskCompletionSource<bool> _released = new();
 
         public GatedHttpContent(string jsonBody)
         {
@@ -81,7 +81,8 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     }
 
     /// <summary>
-    ///     Composes the package the way a consumer does — through the real <see cref="ServiceCollectionExtensions.AddDaleHttpSdk" />
+    ///     Composes the package the way a consumer does — through the real
+    ///     <see cref="ServiceCollectionExtensions.AddDaleHttpSdk" />
     ///     and the real named client — with only the innermost handler replaced. Everything the registration
     ///     configures (the timeout, the User-Agent, the three lifetimes, the handler chain) is therefore under
     ///     test rather than reconstructed by the test.

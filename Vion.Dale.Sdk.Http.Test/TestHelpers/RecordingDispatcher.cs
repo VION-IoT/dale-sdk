@@ -12,10 +12,13 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     /// </summary>
     internal sealed class RecordingDispatcher : IActorDispatcher
     {
-        private readonly List<Action> _queued = new List<Action>();
+        private readonly List<Action> _queued = new();
 
         /// <summary>How many actions the package has scheduled and the test has not yet drained.</summary>
-        public int QueuedCount => _queued.Count;
+        public int QueuedCount
+        {
+            get => _queued.Count;
+        }
 
         /// <summary>What escaped the last drain, or <c>null</c> when nothing did.</summary>
         public Exception? DrainFailure { get; private set; }
@@ -63,9 +66,8 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     /// </summary>
     internal sealed class UnstartedBlockDispatcher : IActorDispatcher
     {
-        internal const string RefusalMessage =
-            "InvokeSynchronized was called before the logic block received its first message, so there is no actor to schedule the action on. " +
-            "Schedule from Ready() or Starting() instead of from the constructor.";
+        internal const string RefusalMessage = "InvokeSynchronized was called before the logic block received its first message, so there is no actor to schedule the action on. " +
+                                               "Schedule from Ready() or Starting() instead of from the constructor.";
 
         public void InvokeSynchronized(Action action)
         {

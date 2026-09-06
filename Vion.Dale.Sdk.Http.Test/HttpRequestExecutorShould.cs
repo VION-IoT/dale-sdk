@@ -45,9 +45,62 @@ namespace Vion.Dale.Sdk.Http.Test
         /// </summary>
         private static readonly TimeSpan SettlementTimeout = TimeSpan.FromSeconds(10);
 
+        /// <summary>The failures the error model names, one per row of `AC-HTTP-006.1`.</summary>
+        public enum Failure
+        {
+            NonSuccessStatus,
+
+            RelativeUrl,
+
+            EmptyBody,
+
+            MalformedBody,
+
+            NullBody,
+
+            DisposedClient,
+
+            TransportSocketFailure,
+
+            TransportStreamFailure,
+        }
+
+        /// <summary>The three executor overloads, as the rows of the families above.</summary>
+        public enum Overload
+        {
+            ResponseContent,
+
+            NoResponse,
+
+            ResponseMessage,
+        }
+
         private readonly Mock<ILogger<HttpRequestExecutor>> _loggerMock = new();
 
         private RecordingDispatcher _dispatcher = null!;
+
+        /// <summary>Values beyond the edges of the band the runtime's cancellation source accepts.</summary>
+        public static IEnumerable<object[]> TimeoutsOutsideBand
+        {
+            get =>
+            [
+                [HttpRequestExecutor.MaxRequestTimeout + TimeSpan.FromMilliseconds(1)],
+                [TimeSpan.MaxValue],
+                [TimeSpan.FromMilliseconds(-2)],
+                [TimeSpan.MinValue],
+            ];
+        }
+
+        /// <summary>Values at or inside those edges, the infinite sentinel included.</summary>
+        public static IEnumerable<object[]> TimeoutsInsideBand
+        {
+            get =>
+            [
+                [HttpRequestExecutor.MaxRequestTimeout],
+                [HttpRequestExecutor.MaxRequestTimeout - TimeSpan.FromMilliseconds(1)],
+                [Timeout.InfiniteTimeSpan],
+            ];
+        }
 
         [TestInitialize]
         public void TestInitialize()
@@ -69,7 +122,7 @@ namespace Vion.Dale.Sdk.Http.Test
             var ranInline = false;
 
             // Act
-            await Execute(sut, overload, onSuccess: () => ranInline = true);
+            await Execute(sut, overload, () => ranInline = true);
 
             // Assert — the callback is queued for the block's actor and has not run yet
             Assert.IsFalse(ranInline);
@@ -185,7 +238,12 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            await sut.ExecuteRequestAsync<TestObject>(_dispatcher, url, HttpMethod.Get, ReadBody, _ => { }, exception => received = exception);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          _ => { },
+                                          exception => received = exception);
             _dispatcher.Drain();
 
             // Assert — a transport failure arrives as the handler threw it: the package wraps nothing
@@ -262,7 +320,14 @@ namespace Vion.Dale.Sdk.Http.Test
             var sut = Executor(handler);
 
             // Act / Assert
-            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, null, null, null, timeout));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher,
+                                                                                            Url,
+                                                                                            HttpMethod.Get,
+                                                                                            () => { },
+                                                                                            null,
+                                                                                            null,
+                                                                                            null,
+                                                                                            timeout));
             Assert.IsEmpty(handler.Requests);
         }
 
@@ -277,7 +342,14 @@ namespace Vion.Dale.Sdk.Http.Test
             var sut = Executor(handler);
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, null, null, null, timeout);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          null,
+                                          null,
+                                          null,
+                                          timeout);
 
             // Assert
             Assert.HasCount(1, handler.Requests);
@@ -296,7 +368,14 @@ namespace Vion.Dale.Sdk.Http.Test
             var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
 
             // Act / Assert
-            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, null, null, null, TimeSpan.MaxValue));
+            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher,
+                                                                                                          Url,
+                                                                                                          HttpMethod.Get,
+                                                                                                          () => { },
+                                                                                                          null,
+                                                                                                          null,
+                                                                                                          null,
+                                                                                                          TimeSpan.MaxValue));
             CultureInfo.CurrentCulture = previousCulture;
             Assert.Contains("A request timeout is -00:00:00.0010000 for no bound, or from 00:00:00 to 49.17:02:47.2940000.", refusal.Message);
         }
@@ -324,7 +403,7 @@ namespace Vion.Dale.Sdk.Http.Test
             // Arrange — the same exchange with a callback schedules exactly one action, which is what makes
             // this negative meaningful; without the guard the queued action throws inside the block's actor
             var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
-            await Execute(sut, overload, onSuccess: () => { });
+            await Execute(sut, overload, () => { });
             Assert.AreEqual(1, _dispatcher.QueuedCount);
             _dispatcher.Drain();
 
@@ -372,7 +451,12 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception, timeout: TimeSpan.FromMilliseconds(50));
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          exception => received = exception,
+                                          timeout: TimeSpan.FromMilliseconds(50));
             _dispatcher.Drain();
             CultureInfo.CurrentCulture = previousCulture;
 
@@ -390,7 +474,12 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception, timeout: TimeSpan.Zero);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          exception => received = exception,
+                                          timeout: TimeSpan.Zero);
             _dispatcher.Drain();
 
             // Assert
@@ -417,7 +506,12 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            var request = sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => succeeded = true, exception => received = exception, timeout: Timeout.InfiniteTimeSpan);
+            var request = sut.ExecuteRequestAsync(_dispatcher,
+                                                  Url,
+                                                  HttpMethod.Get,
+                                                  () => succeeded = true,
+                                                  exception => received = exception,
+                                                  timeout: Timeout.InfiniteTimeSpan);
             released.SetResult(true);
             await request;
             _dispatcher.Drain();
@@ -455,7 +549,12 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception, timeout: TimeSpan.FromMinutes(1));
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          exception => received = exception,
+                                          timeout: TimeSpan.FromMinutes(1));
             _dispatcher.Drain();
 
             // Assert
@@ -475,7 +574,13 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            await sut.ExecuteRequestAsync<TestObject>(_dispatcher, Url, HttpMethod.Get, ReadBody, _ => { }, exception => received = exception).WaitAsync(SettlementTimeout);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          _ => { },
+                                          exception => received = exception)
+                     .WaitAsync(SettlementTimeout);
             _dispatcher.Drain();
 
             // Assert
@@ -533,7 +638,12 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            await sut.ExecuteRequestAsync<TestObject>(_dispatcher, Url, HttpMethod.Get, _ => throw new InvalidOperationException("body unreadable"), _ => { }, exception => received = exception);
+            await sut.ExecuteRequestAsync<TestObject>(_dispatcher,
+                                                      Url,
+                                                      HttpMethod.Get,
+                                                      _ => throw new InvalidOperationException("body unreadable"),
+                                                      _ => { },
+                                                      exception => received = exception);
             _dispatcher.Drain();
 
             // Assert
@@ -551,7 +661,7 @@ namespace Vion.Dale.Sdk.Http.Test
             TestObject? deserialized = null;
 
             // Act
-            await sut.ExecuteRequestAsync<TestObject>(_dispatcher, Url, HttpMethod.Get, ReadBody, value => deserialized = value);
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, ReadBody, value => deserialized = value);
             _dispatcher.Drain();
 
             // Assert — the value was read out of the response before it went, so the callback loses nothing
@@ -594,7 +704,12 @@ namespace Vion.Dale.Sdk.Http.Test
             var headers = new Dictionary<string, string> { { "Authorization", "Bearer token" }, { "X-Trace", "42" } };
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, null, headers);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => { },
+                                          null,
+                                          headers);
 
             // Assert
             Assert.IsNotNull(handler.LastRequest);
@@ -616,7 +731,12 @@ namespace Vion.Dale.Sdk.Http.Test
             var succeeded = false;
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => succeeded = true, null, headers);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          () => succeeded = true,
+                                          null,
+                                          headers);
             _dispatcher.Drain();
 
             // Assert — the request goes, without the header and without telling the caller
@@ -670,9 +790,20 @@ namespace Vion.Dale.Sdk.Http.Test
             switch (overload)
             {
                 case Overload.ResponseContent:
-                    return sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, ReadBody, onSuccess == null ? null! : _ => onSuccess(), onError, timeout: timeout);
+                    return sut.ExecuteRequestAsync(_dispatcher,
+                                                   Url,
+                                                   HttpMethod.Get,
+                                                   ReadBody,
+                                                   onSuccess == null ? null! : _ => onSuccess(),
+                                                   onError,
+                                                   timeout: timeout);
                 case Overload.NoResponse:
-                    return sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, onSuccess, onError, timeout: timeout);
+                    return sut.ExecuteRequestAsync(_dispatcher,
+                                                   Url,
+                                                   HttpMethod.Get,
+                                                   onSuccess,
+                                                   onError,
+                                                   timeout: timeout);
                 case Overload.ResponseMessage:
                     return sut.ExecuteRequestAsync(_dispatcher, new HttpRequestMessage(HttpMethod.Get, Url), onSuccess == null ? null : _ => onSuccess(), onError, timeout);
                 default: throw new ArgumentOutOfRangeException(nameof(overload), overload, null);
@@ -693,53 +824,6 @@ namespace Vion.Dale.Sdk.Http.Test
             gated.Release();
 
             return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>Values beyond the edges of the band the runtime's cancellation source accepts.</summary>
-        public static IEnumerable<object[]> TimeoutsOutsideBand =>
-        [
-            [HttpRequestExecutor.MaxRequestTimeout + TimeSpan.FromMilliseconds(1)],
-            [TimeSpan.MaxValue],
-            [TimeSpan.FromMilliseconds(-2)],
-            [TimeSpan.MinValue],
-        ];
-
-        /// <summary>Values at or inside those edges, the infinite sentinel included.</summary>
-        public static IEnumerable<object[]> TimeoutsInsideBand =>
-        [
-            [HttpRequestExecutor.MaxRequestTimeout],
-            [HttpRequestExecutor.MaxRequestTimeout - TimeSpan.FromMilliseconds(1)],
-            [Timeout.InfiniteTimeSpan],
-        ];
-
-        /// <summary>The three executor overloads, as the rows of the families above.</summary>
-        public enum Overload
-        {
-            ResponseContent,
-
-            NoResponse,
-
-            ResponseMessage,
-        }
-
-        /// <summary>The failures the error model names, one per row of `AC-HTTP-006.1`.</summary>
-        public enum Failure
-        {
-            NonSuccessStatus,
-
-            RelativeUrl,
-
-            EmptyBody,
-
-            MalformedBody,
-
-            NullBody,
-
-            DisposedClient,
-
-            TransportSocketFailure,
-
-            TransportStreamFailure,
         }
     }
 }

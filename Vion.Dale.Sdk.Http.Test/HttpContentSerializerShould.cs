@@ -16,9 +16,9 @@ namespace Vion.Dale.Sdk.Http.Test
     [TestClass]
     public class HttpContentSerializerShould
     {
-        private readonly TestObject _testObject = new() { StringValue = "pinned", IntValue = 42 };
-
         private readonly HttpContentSerializer _sut = new(Options.Create(new JsonSerializerOptions()));
+
+        private readonly TestObject _testObject = new() { StringValue = "pinned", IntValue = 42 };
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-011.1")]

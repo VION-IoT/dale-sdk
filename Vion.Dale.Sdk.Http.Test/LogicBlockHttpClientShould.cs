@@ -25,6 +25,26 @@ namespace Vion.Dale.Sdk.Http.Test
     {
         private const string Url = "http://vion.test/resource";
 
+        /// <summary>The eight members of the client, as the rows of the families above.</summary>
+        public enum Member
+        {
+            GetJson,
+
+            PostJson,
+
+            PostJsonWithoutResponse,
+
+            PutJson,
+
+            PutJsonWithoutResponse,
+
+            DeleteJson,
+
+            Delete,
+
+            SendRequest,
+        }
+
         private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 
         private readonly Action<Exception> _errorCallback = _ => { };
@@ -277,7 +297,8 @@ namespace Vion.Dale.Sdk.Http.Test
                                                                                                  Dispatcher = (IActorDispatcher)invocation.Arguments[0],
                                                                                                  Url = (string)invocation.Arguments[1],
                                                                                                  HttpMethod = (HttpMethod)invocation.Arguments[2],
-                                                                                                 Deserializer = (Func<HttpResponseMessage, Task<TestObject>>)invocation.Arguments[3],
+                                                                                                 Deserializer =
+                                                                                                     (Func<HttpResponseMessage, Task<TestObject>>)invocation.Arguments[3],
                                                                                                  ErrorCallback = (Action<Exception>?)invocation.Arguments[5],
                                                                                                  Headers = (Dictionary<string, string>?)invocation.Arguments[6],
                                                                                                  RequestContent = (HttpContent?)invocation.Arguments[7],
@@ -322,51 +343,70 @@ namespace Vion.Dale.Sdk.Http.Test
             switch (member)
             {
                 case Member.GetJson:
-                    _sut.GetJson<TestObject>(_dispatcherMock.Object, Url, _ => { }, _errorCallback, _headers, _timeout);
+                    _sut.GetJson<TestObject>(_dispatcherMock.Object,
+                                             Url,
+                                             _ => { },
+                                             _errorCallback,
+                                             _headers,
+                                             _timeout);
                     break;
                 case Member.PostJson:
-                    _sut.PostJson<TestObject, TestObject>(_dispatcherMock.Object, Url, _requestBody, _ => { }, _errorCallback, _headers, _timeout);
+                    _sut.PostJson<TestObject, TestObject>(_dispatcherMock.Object,
+                                                          Url,
+                                                          _requestBody,
+                                                          _ => { },
+                                                          _errorCallback,
+                                                          _headers,
+                                                          _timeout);
                     break;
                 case Member.PostJsonWithoutResponse:
-                    _sut.PostJson(_dispatcherMock.Object, Url, _requestBody, () => { }, _errorCallback, _headers, _timeout);
+                    _sut.PostJson(_dispatcherMock.Object,
+                                  Url,
+                                  _requestBody,
+                                  () => { },
+                                  _errorCallback,
+                                  _headers,
+                                  _timeout);
                     break;
                 case Member.PutJson:
-                    _sut.PutJson<TestObject, TestObject>(_dispatcherMock.Object, Url, _requestBody, _ => { }, _errorCallback, _headers, _timeout);
+                    _sut.PutJson<TestObject, TestObject>(_dispatcherMock.Object,
+                                                         Url,
+                                                         _requestBody,
+                                                         _ => { },
+                                                         _errorCallback,
+                                                         _headers,
+                                                         _timeout);
                     break;
                 case Member.PutJsonWithoutResponse:
-                    _sut.PutJson(_dispatcherMock.Object, Url, _requestBody, () => { }, _errorCallback, _headers, _timeout);
+                    _sut.PutJson(_dispatcherMock.Object,
+                                 Url,
+                                 _requestBody,
+                                 () => { },
+                                 _errorCallback,
+                                 _headers,
+                                 _timeout);
                     break;
                 case Member.DeleteJson:
-                    _sut.DeleteJson<TestObject>(_dispatcherMock.Object, Url, _ => { }, _errorCallback, _headers, _timeout);
+                    _sut.DeleteJson<TestObject>(_dispatcherMock.Object,
+                                                Url,
+                                                _ => { },
+                                                _errorCallback,
+                                                _headers,
+                                                _timeout);
                     break;
                 case Member.Delete:
-                    _sut.Delete(_dispatcherMock.Object, Url, () => { }, _errorCallback, _headers, _timeout);
+                    _sut.Delete(_dispatcherMock.Object,
+                                Url,
+                                () => { },
+                                _errorCallback,
+                                _headers,
+                                _timeout);
                     break;
                 case Member.SendRequest:
                     _sut.SendRequest(_dispatcherMock.Object, new HttpRequestMessage(HttpMethod.Patch, Url), _ => { }, _errorCallback, _timeout);
                     break;
                 default: throw new ArgumentOutOfRangeException(nameof(member), member, null);
             }
-        }
-
-        /// <summary>The eight members of the client, as the rows of the families above.</summary>
-        public enum Member
-        {
-            GetJson,
-
-            PostJson,
-
-            PostJsonWithoutResponse,
-
-            PutJson,
-
-            PutJsonWithoutResponse,
-
-            DeleteJson,
-
-            Delete,
-
-            SendRequest,
         }
 
         /// <summary>What one member handed the executor, read back without knowing which overload it used.</summary>

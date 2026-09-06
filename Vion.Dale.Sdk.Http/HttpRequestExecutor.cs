@@ -16,6 +16,12 @@ namespace Vion.Dale.Sdk.Http
         internal const string HttpClientName = "LogicBlockHttpClient";
 
         /// <summary>
+        ///     Names the caller a block author knows. The third overload is reached from
+        ///     <c>ILogicBlockHttpClient.SendRequest</c> and from nothing else, so its refusals can say so.
+        /// </summary>
+        private const string SendRequestOrigin = "Check the request passed to SendRequest.";
+
+        /// <summary>
         ///     The longest per-request timeout the runtime's cancellation source will take. It is that
         ///     source's own bound rather than a policy of ours, and it is restated here because the source
         ///     announces it only by throwing from its constructor. The dispatcher's delay bound
@@ -23,12 +29,6 @@ namespace Vion.Dale.Sdk.Http
         ///     milliseconds truncated to whole seconds; neither is derived from the other.
         /// </summary>
         internal static readonly TimeSpan MaxRequestTimeout = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
-
-        /// <summary>
-        ///     Names the caller a block author knows. The third overload is reached from
-        ///     <c>ILogicBlockHttpClient.SendRequest</c> and from nothing else, so its refusals can say so.
-        /// </summary>
-        private const string SendRequestOrigin = "Check the request passed to SendRequest.";
 
         private readonly IHttpClientFactory _httpClientFactory;
 
@@ -59,7 +59,61 @@ namespace Vion.Dale.Sdk.Http
         {
             RefuseUnusableRequest(dispatcher, timeout, httpMethod, url);
 
-            return SendRequestAsync(dispatcher, url, httpMethod, getResponseContent, successCallback, errorCallback, headers, requestContent, timeout);
+            return SendRequestAsync(dispatcher,
+                                    url,
+                                    httpMethod,
+                                    getResponseContent,
+                                    successCallback,
+                                    errorCallback,
+                                    headers,
+                                    requestContent,
+                                    timeout);
+        }
+
+        /// <inheritdoc />
+        public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
+                                        string url,
+                                        HttpMethod httpMethod,
+                                        Action? successCallback = null,
+                                        Action<Exception>? errorCallback = null,
+                                        Dictionary<string, string>? headers = null,
+                                        HttpContent? requestContent = null,
+                                        TimeSpan? timeout = null)
+        {
+            RefuseUnusableRequest(dispatcher, timeout, httpMethod, url);
+
+            return SendRequestAsync(dispatcher,
+                                    url,
+                                    httpMethod,
+                                    successCallback,
+                                    errorCallback,
+                                    headers,
+                                    requestContent,
+                                    timeout);
+        }
+
+        /// <inheritdoc />
+        public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
+                                        HttpRequestMessage request,
+                                        Action<HttpResponseMessage>? successCallback = null,
+                                        Action<Exception>? errorCallback = null,
+                                        TimeSpan? timeout = null)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request), $"{nameof(ExecuteRequestAsync)} was given no request to send. {SendRequestOrigin}");
+            }
+
+            if (request.RequestUri == null)
+            {
+                throw new
+                    ArgumentException($"{nameof(ExecuteRequestAsync)} was given a {request.Method} request with no {nameof(HttpRequestMessage.RequestUri)}, so there is nowhere to send it. {SendRequestOrigin}",
+                                      nameof(request));
+            }
+
+            RefuseUnusableRequest(dispatcher, timeout, request.Method, request.RequestUri.ToString());
+
+            return SendRequestAsync(dispatcher, request, successCallback, errorCallback, timeout);
         }
 
         private async Task SendRequestAsync<TContent>(IActorDispatcher dispatcher,
@@ -106,21 +160,6 @@ namespace Vion.Dale.Sdk.Http
             }
         }
 
-        /// <inheritdoc />
-        public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
-                                        string url,
-                                        HttpMethod httpMethod,
-                                        Action? successCallback = null,
-                                        Action<Exception>? errorCallback = null,
-                                        Dictionary<string, string>? headers = null,
-                                        HttpContent? requestContent = null,
-                                        TimeSpan? timeout = null)
-        {
-            RefuseUnusableRequest(dispatcher, timeout, httpMethod, url);
-
-            return SendRequestAsync(dispatcher, url, httpMethod, successCallback, errorCallback, headers, requestContent, timeout);
-        }
-
         private async Task SendRequestAsync(IActorDispatcher dispatcher,
                                             string url,
                                             HttpMethod httpMethod,
@@ -160,29 +199,6 @@ namespace Vion.Dale.Sdk.Http
                 response?.Dispose();
                 request?.Dispose();
             }
-        }
-
-        /// <inheritdoc />
-        public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
-                                        HttpRequestMessage request,
-                                        Action<HttpResponseMessage>? successCallback = null,
-                                        Action<Exception>? errorCallback = null,
-                                        TimeSpan? timeout = null)
-        {
-            if (request == null)
-            {
-                throw new ArgumentNullException(nameof(request), $"{nameof(ExecuteRequestAsync)} was given no request to send. {SendRequestOrigin}");
-            }
-
-            if (request.RequestUri == null)
-            {
-                throw new ArgumentException($"{nameof(ExecuteRequestAsync)} was given a {request.Method} request with no {nameof(HttpRequestMessage.RequestUri)}, so there is nowhere to send it. {SendRequestOrigin}",
-                                            nameof(request));
-            }
-
-            RefuseUnusableRequest(dispatcher, timeout, request.Method, request.RequestUri.ToString());
-
-            return SendRequestAsync(dispatcher, request, successCallback, errorCallback, timeout);
         }
 
         private async Task SendRequestAsync(IActorDispatcher dispatcher,
@@ -344,7 +360,8 @@ namespace Vion.Dale.Sdk.Http
         // has not yet received its first message, and that refusal - which says so, and says where to
         // schedule from instead - is the inner exception here far more often than a disposal is.
         [LoggerMessage(Level = LogLevel.Error,
-                       Message = "Could not hand the callback for the {HttpMethod} request to {Url} to the block - it may not have received its first message yet, or may already have stopped. The request's outcome reached nobody")]
+                       Message =
+                           "Could not hand the callback for the {HttpMethod} request to {Url} to the block - it may not have received its first message yet, or may already have stopped. The request's outcome reached nobody")]
         private partial void LogCallbackFailed(Exception exception, HttpMethod httpMethod, string url);
     }
 }

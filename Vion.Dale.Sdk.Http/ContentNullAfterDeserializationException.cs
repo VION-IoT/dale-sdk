@@ -16,6 +16,11 @@ namespace Vion.Dale.Sdk.Http
     public class ContentNullAfterDeserializationException : Exception
     {
         /// <summary>
+        ///     Gets the type the response body could not be deserialized into.
+        /// </summary>
+        public Type Type { get; }
+
+        /// <summary>
         ///     Initializes a new instance of the <see cref="ContentNullAfterDeserializationException" /> class.
         /// </summary>
         /// <param name="type">The type the response body could not be deserialized into.</param>
@@ -23,10 +28,5 @@ namespace Vion.Dale.Sdk.Http
         {
             Type = type;
         }
-
-        /// <summary>
-        ///     Gets the type the response body could not be deserialized into.
-        /// </summary>
-        public Type Type { get; }
     }
 }
