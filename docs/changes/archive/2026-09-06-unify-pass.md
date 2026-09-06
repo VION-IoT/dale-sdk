@@ -1,6 +1,6 @@
 ---
 slug: unify-pass
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: ANLZ,EMIT,BIND,GATE,INTRO,SCEN,CTRL,PLUG,CLI,LIFE,MODB,IO,TKIT
 author: unify-pass session (Opus)
@@ -187,7 +187,7 @@ docs/testing-conventions.md § N forbids` or `; the same <path> as <id>`. Thirte
 
 | # | id | page | before (first 50 chars) | after |
 |---|---|---|---|---|
-| 1 | `AC-ANLZ-002.4` | analyzers.md | GAP: [`../sdk-surface-conventions.md`](../sdk-surf… | GAP: flipping the generated-code flag changes no diagnostic in this repository, so there is no observable to assert. |
+| 1 | `AC-ANLZ-002.4` | analyzers.md | GAP: [`../sdk-surface-conventions.md`](../../sdk-surf… | GAP: flipping the generated-code flag changes no diagnostic in this repository, so there is no observable to assert. |
 | 2 | `AC-CLI-005.2` | cli.md | GAP: same spawned-process path as `AC-CLI-005.1`. | GAP: the same spawned-process path as `AC-CLI-005.1`. |
 | 3 | `AC-CLI-005.4` | cli.md | GAP: same spawned-process path as `AC-CLI-005.1`. | GAP: the same spawned-process path as `AC-CLI-005.1`. |
 | 4 | `AC-CLI-011.2` | cli.md | GAP: same path as `AC-CLI-011.1`. | GAP: the same pack-and-upload path as `AC-CLI-011.1`. |
