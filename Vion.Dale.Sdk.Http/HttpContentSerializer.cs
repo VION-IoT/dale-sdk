@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Mime;
@@ -41,13 +40,6 @@ namespace Vion.Dale.Sdk.Http
             httpContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
             return httpContent;
-        }
-    }
-
-    internal class ContentNullAfterDeserializationException : Exception
-    {
-        public ContentNullAfterDeserializationException(Type type) : base($"Content was as null after deserialization to type '{type.Name}'.")
-        {
         }
     }
 }

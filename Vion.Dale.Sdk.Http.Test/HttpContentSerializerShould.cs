@@ -113,6 +113,19 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-006.1")]
+        public async Task NameFullTypeItCouldNotFillWhenBodyIsNull()
+        {
+            // Arrange — the block author receives this in the error callback, so the type it names has to be
+            // the one they declared: two DTOs sharing a short name are indistinguishable otherwise
+            var httpContent = new StringContent("null");
+
+            // Act / Assert
+            var failure = await Assert.ThrowsAsync<ContentNullAfterDeserializationException>(() => _sut.DeserializeJsonAsync<TestObject>(httpContent));
+            Assert.AreEqual($"Content was null after deserialization to type '{typeof(TestObject).FullName}'.", failure.Message);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-011.3")]
         public async Task SerializeNullBodyAsJsonNull()
         {
