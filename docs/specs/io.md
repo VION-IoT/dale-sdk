@@ -331,9 +331,11 @@ restating.
 
 ## The mirror
 
-- `AC-IO-010.1` (Ubiquitous): THE SYSTEM SHALL ship the digital and analog packages as one design, each file's counterpart differing only in the value type it carries and in what that value type implies. GAP: by convention a package's test project references only its own package, so no test compares the two; each pass diffs them file by file.
-
-The mirror is a contract on every change, not an observation about today: a fix applied to one package
+The two packages ship one design twice, each file's counterpart differing only in the value type it
+carries and in what that value type implies. That is a rule about how the packages are *changed*, not
+something a consumer can observe of either one, so it mints no criterion
+([`../spec-process.md`](../spec-process.md) § IDs & EARS) — and it is a contract on every change, not
+an observation about today: a fix applied to one package
 is applied to the other in the same commit, or the change doc says why not. What the diff legitimately
 still shows, after normalising `Digital`/`Analog` and the payload type names, is exactly five things:
 the value type itself, `bool` against `double`; the English article each package's noun takes; each

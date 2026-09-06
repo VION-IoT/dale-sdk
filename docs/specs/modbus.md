@@ -534,8 +534,11 @@ actor by activation rather than resolution.
 
 ## Test discipline
 
-- `AC-MODB-019.1` (Ubiquitous): THE SYSTEM SHALL keep the hosted server's real-socket integration
-  tests passing unchanged as the acceptance bar for the server surface.
+The hosted server's real-socket integration suite is the acceptance bar for the server surface. It
+is discipline rather than a consumer observable, so it mints no criterion here
+([`../spec-process.md`](../spec-process.md) § IDs & EARS); what the suite proves is cited to the
+criteria it proves, and the seam choice behind it is
+[`../testing-conventions.md`](../testing-conventions.md) § 3's.
 
 The link policy is provable two ways and both are used. The TestKit's fake proxy substitutes the
 **proxy**, so the wrapper's real policy runs above it and a virtual clock elapses a backoff in

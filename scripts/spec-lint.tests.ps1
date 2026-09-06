@@ -92,6 +92,20 @@ trace: enforced
 '@
     if ((Invoke-Lint) -ne 0) { throw "Case 8b (the five labels) expected 0" }
 
+    # Case 9: the label and SHALL checks reach a SYS- declaration too (_invariants.md declares
+    # its rules as bullets in the same shape, and they drifted the same way)
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `SYS-REL-001` (Conditional): THE SYSTEM SHALL name every packable project in the roster.
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 9 (SYS- unknown label) expected 1" }
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `SYS-REL-001` (Ubiquitous): the system names every packable project in the roster.
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 9b (SYS- without SHALL) expected 1" }
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+- `SYS-REL-001` (Ubiquitous): THE SYSTEM SHALL name every packable project in the roster.
+'@
+    if ((Invoke-Lint) -ne 0) { throw "Case 9c (well-formed SYS-) expected 0" }
     Write-Host 'spec-lint.tests: PASS'
     exit 0
 }

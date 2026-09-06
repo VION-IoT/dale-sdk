@@ -74,7 +74,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-019.1")]
+        [TestProperty("spec", "AC-MODB-005.1")]
         public void PublishInputRegistersToWire()
         {
             // Arrange
@@ -113,7 +113,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-019.1")]
+        [TestProperty("spec", "AC-MODB-013.1")]
         public void RoundTripVgtShapedCycle()
         {
             // Arrange

@@ -449,11 +449,10 @@ bytes reaches the caller before the complaint that the server is not listening.
   mark draws a diagnostic in that kit's build.
 - `AC-TKIT-013.3` (Ubiquitous): THE SYSTEM SHALL carry the mocking library and the controllable time
   provider in the published signature of the core kit.
-- `AC-TKIT-013.4` (Ubiquitous): THE SYSTEM SHALL name every package a release publishes in the
-  roster the version script clears from the local package cache.
 
-`AC-TKIT-013.4` states a repository-wide rule from a kit's side: the rule is `SYS-REL-*`
-([`_invariants.md`](_invariants.md)), and the five kits are five of the packages it names.
+The release roster is not this page's rule and is no longer stated here: it is `SYS-REL-001`
+([`_invariants.md`](_invariants.md)), a repository-wide release rule of which the five kits are five
+named packages.
 
 `AC-TKIT-013.2` is what makes `AC-TKIT-013.1` enforceable rather than aspirational. Each kit declares
 its own namespace as published surface, and until the analyzer reference landed beside that
@@ -483,11 +482,9 @@ shapes. Building one is a new published type family and a refactor of a publishe
 
 ## Test discipline
 
-- `AC-TKIT-014.1` (Ubiquitous): THE SYSTEM SHALL test each kit from its own test project, driving
-  the kit through a fixture logic block and reaching no runtime, broker, device or development host,
-  with the two I/O kits' suites proving the same rules over their own value type.
-- `AC-TKIT-014.2` (Ubiquitous): THE SYSTEM SHALL leave a suite that proves another area's criteria
-  cited to that area.
+This section states discipline, not a consumer observable, so it mints no criterion — the rule is
+[`../spec-process.md`](../spec-process.md) § IDs & EARS's, and the discipline itself is
+[`../testing-conventions.md`](../testing-conventions.md) § 3's.
 
 Each kit has its own MSTest project, mirroring the package it tests. The kit is the subject and a
 fixture logic block is how it is driven — the ideal-echo recipe of
@@ -498,7 +495,8 @@ The two I/O kits' suites are mirrors, as their packages are: one design over two
 the value type as the row of each rule. What legitimately differs is the tolerance family, which
 exists only on the analog side because a truth value has no near miss.
 
-`AC-TKIT-014.2` is why a third of the tests in these projects cite another page. The core kit's
+A suite that proves another area's criteria stays cited to that area, which is why a third of the
+tests in these projects cite another page. The core kit's
 project is where emission, gating and lifecycle criteria are most cheaply driven — a block under a
 controllable clock is exactly what they need — and the Modbus TCP kit's project is where the link
 policy is. They stay where they are and keep citing the page that owns them; one suite there proves

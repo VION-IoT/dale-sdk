@@ -6,7 +6,7 @@
   plus the change-doc lifecycle checks (docs/changes/).
 
   Corpus (docs/specs/*.md):
-    - an AC declaration missing the EARS 'SHALL' predicate
+    - an AC or SYS declaration missing the EARS 'SHALL' predicate
     - an escape-hatch word (should/fast/performant) inside an AC block
     - a malformed declared id (shape: AC-<AREA>-NNN[.M] / SYS-<AREA>-NNN, uppercase)
     - an EARS label outside the five (Ubiquitous/Event-driven/State-driven/Unwanted/Optional)
@@ -34,9 +34,10 @@ if (-not $RepoRoot) {
 $specsDir = Join-Path $RepoRoot 'docs/specs'
 $changesDir = Join-Path $RepoRoot 'docs/changes'
 
-# Identifies an AC *declaration* bullet: id followed by an EARS `(label):`. The
-# `(label):` is what separates a declaration from a prose cross-reference.
-$acStartRx   = '^\s*-\s+`?(AC-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*\(([^)]+)\):'
+# Identifies an AC or SYS *declaration* bullet: id followed by an EARS `(label):`. The
+# `(label):` is what separates a declaration from a prose cross-reference. SYS- is in scope
+# because `_invariants.md` declares its rules the same way and they drift the same way.
+$acStartRx   = '^\s*-\s+`?((?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*\(([^)]+)\):'
 # Loose: captures the id-ish token at a declaration site so a MALFORMED id is
 # still seen (and then fails $wellFormed).
 $declLooseRx = '^\s*-\s+`?((?:AC|SYS)-[A-Za-z0-9.\-]+)`?\s*\([^)]+\):'
