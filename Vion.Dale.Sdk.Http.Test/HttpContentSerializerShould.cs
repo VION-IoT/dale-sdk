@@ -114,7 +114,7 @@ namespace Vion.Dale.Sdk.Http.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-006.1")]
-        public async Task NameFullTypeItCouldNotFillWhenBodyIsNull()
+        public async Task NameFullTypeItCouldNotFillOnNullBody()
         {
             // Arrange — the block author receives this in the error callback, so the type it names has to be
             // the one they declared: two DTOs sharing a short name are indistinguishable otherwise
