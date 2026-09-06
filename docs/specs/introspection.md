@@ -391,7 +391,7 @@ the implementing property is the binding target, so its accessors decide.
   without excluding itself, and SHALL report no runtime document where there is nothing to report.
 
 The document's other two runtime concerns are stated elsewhere and cited here rather than re-minted: a
-member's emission policy is `AC-EMIT-013.1`–`AC-EMIT-013.6`, and an instantiation parameter's marker
+member's emission policy is `AC-EMIT-013.*`, and an instantiation parameter's marker
 and default are `AC-GATE-010.4` and `AC-GATE-010.5`.
 
 ## Endpoint identifiers

@@ -728,7 +728,7 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-PLUG-008.2")]
+        [TestProperty("spec", "AC-PLUG-008.1")]
         public void IgnoreSubdirectoriesDuringEagerLoad()
         {
             // Arrange
@@ -744,7 +744,7 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-PLUG-008.3")]
+        [TestProperty("spec", "AC-PLUG-008.1")]
         public void TreatAssemblyOnlyInSubdirectoryAsAbsent()
         {
             // Arrange

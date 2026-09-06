@@ -259,7 +259,6 @@ exists because the failure is invisible in the running system.
   see THE SYSTEM SHALL report `DALE026`.
 - `AC-ANLZ-010.2` (Ubiquitous): THE SYSTEM SHALL accept a symbolic constant reference as a `Group`
   key without judging its value.
-- `AC-ANLZ-010.3` (Ubiquitous): THE SYSTEM SHALL treat `DALE026` as suppressible for a deliberate one-off key, the group vocabulary being open. GAP: the mechanism is `AC-ANLZ-020.1`'s; this line records that this rule in particular is designed to be suppressed rather than obeyed.
 - `AC-ANLZ-010.4` (Ubiquitous): THE SYSTEM SHALL collect group-key constants from the compilation's
   own assembly and from its references.
 - `AC-ANLZ-010.5` (Ubiquitous): THE SYSTEM SHALL collect them only from a static class named exactly

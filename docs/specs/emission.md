@@ -311,17 +311,16 @@ which is what a dashboard renders as the member's throttle badge.
 - `AC-EMIT-013.1` (Ubiquitous): THE SYSTEM SHALL report a member's effective emission policy for a
   stream in the introspection document as that stream's `runtime.throttle` carrying `minInterval`,
   `minChange` and `immediate`.
-- `AC-EMIT-013.2` (Optional): WHERE a stream's emission policy is the default THE SYSTEM SHALL omit
-  its `runtime.throttle` entirely, comparing the declared `MinInterval` as a duration rather than as a
-  spelling.
+- `AC-EMIT-013.2` (Optional): WHERE part of a stream's emission policy is the default THE SYSTEM
+  SHALL omit that part from the report — the whole `runtime.throttle` entry where the policy is
+  default throughout, `minChange` where the member declares no deadband, and `immediate` where it is
+  false — comparing the declared `MinInterval` as a duration rather than as a spelling.
 - `AC-EMIT-013.3` (Optional): WHERE a stream's emission policy is reported THE SYSTEM SHALL carry its
   effective `minInterval` even when that is the default.
 - `AC-EMIT-013.4` (Ubiquitous): THE SYSTEM SHALL report each stream's policy from the same attribute
   the gate reads it from, so a member declaring both attributes reports two independent policies.
 - `AC-EMIT-013.5` (Ubiquitous): THE SYSTEM SHALL treat an empty `MinChange` as unset, in the reported
   policy as in the gate.
-- `AC-EMIT-013.6` (Ubiquitous): THE SYSTEM SHALL omit `minChange` from a reported policy where the
-  member declares no deadband, and `immediate` where it is false.
 
 Every member carries a policy, so a badge on all of them would say nothing — hence `AC-EMIT-013.2`.
 `AC-EMIT-013.3` is its complement: once a policy *is* reported, its interval is carried whole, so a

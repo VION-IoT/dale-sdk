@@ -163,12 +163,9 @@ their types are distinct.
 Nothing recurses. A subdirectory below the plugin directory is invisible to all three passes over
 it, which is what makes "publish, don't build" the rule for producing one.
 
-- `AC-PLUG-008.1` (Ubiquitous): THE SYSTEM SHALL restrict the SDK version check to the assemblies
-  directly in the plugin directory.
-- `AC-PLUG-008.2` (Ubiquitous): THE SYSTEM SHALL restrict eager loading of shared extensions to the
-  assemblies directly in the plugin directory.
-- `AC-PLUG-008.3` (Ubiquitous): THE SYSTEM SHALL look for a bound assembly only directly in the
-  plugin directory, and SHALL treat one that exists solely in a subdirectory as absent.
+- `AC-PLUG-008.1` (Ubiquitous): THE SYSTEM SHALL consider only the assemblies directly in the plugin
+  directory — for the SDK version check, for eager loading of shared extensions, and when looking for
+  a bound assembly — and SHALL treat an assembly that exists solely in a subdirectory as absent.
 
 ## Eager loading and the shared registry
 

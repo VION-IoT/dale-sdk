@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Net;
 using System.Threading;
@@ -473,7 +473,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-006.2")]
+        [TestProperty("spec", "AC-MODB-006.3")]
         public void ApplyDefaultPortOnConstruction()
         {
             // Arrange
