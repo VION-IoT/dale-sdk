@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -25,6 +26,13 @@ namespace Vion.Dale.Sdk.Http.Test
     public class LogicBlockHttpClientShould
     {
         private const string Url = "http://vion.test/resource";
+
+        /// <summary>
+        ///     The bound on a settlement this suite expects to be immediate. The one member proven through
+        ///     the real stack is <c>void</c>, so the handler's own signal is the only handle on the exchange;
+        ///     it is not a race, because the handler answers as soon as the request reaches it.
+        /// </summary>
+        private static readonly TimeSpan SettlementTimeout = TimeSpan.FromSeconds(10);
 
         /// <summary>The eight members of the client, as the rows of the families above.</summary>
         public enum Member
@@ -267,7 +275,7 @@ namespace Vion.Dale.Sdk.Http.Test
             // Arrange — the real executor, because the refusal has to reach the caller before this member
             // reads the request itself to build its logging continuation; a mocked executor would let that
             // read happen and the caller would get a bare null-reference exception instead
-            var handler = StubHttpMessageHandler.Answering(System.Net.HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
             var sut = new LogicBlockHttpClient(HttpSdk.Compose(handler).GetRequiredService<IHttpRequestExecutor>(), _serializerMock.Object, _loggerMock.Object);
             var request = hasRequest ? new HttpRequestMessage { Method = HttpMethod.Get, RequestUri = null } : null;
 
@@ -276,6 +284,31 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.AreEqual("request", refusal.ParamName);
             Assert.Contains("SendRequest", refusal.Message);
             Assert.IsEmpty(handler.Requests);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-011.3")]
+        public async Task SendNullBodyAsJsonNull()
+        {
+            // Arrange — the `notnull` constraint on the member is the compiler's and not the runtime's, so a
+            // call site with nullable reference types off reaches the wire. The whole stack is real, because
+            // the criterion is about what leaves rather than about what the serializer returned; the
+            // handler's own signal is what makes the assertion wait for the exchange this `void` member
+            // gave nobody a handle on.
+            var sent = new TaskCompletionSource<string>();
+            var handler = StubHttpMessageHandler.Responding(async (request, _) =>
+                                                            {
+                                                                sent.TrySetResult(request.Content == null ? "<no content>" : await request.Content.ReadAsStringAsync());
+
+                                                                return StubHttpMessageHandler.Respond(HttpStatusCode.OK, TestObject.PascalCaseJson);
+                                                            });
+            var sut = HttpSdk.ComposeClient(handler);
+
+            // Act
+            sut.PostJson<TestObject>(_dispatcherMock.Object, Url, null!);
+
+            // Assert
+            Assert.AreEqual("null", await sent.Task.WaitAsync(SettlementTimeout));
         }
 
         [TestMethod]
@@ -289,7 +322,7 @@ namespace Vion.Dale.Sdk.Http.Test
             // Arrange — the real stack, because the serialization runs on the caller's own thread before the
             // executor's task exists; a mocked serializer would prove only that this test can throw. The
             // converter is registered the way `AC-HTTP-011.1` lets a consumer register one.
-            var handler = StubHttpMessageHandler.Answering(System.Net.HttpStatusCode.OK, TestObject.PascalCaseJson);
+            var handler = StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson);
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddDaleHttpSdk();

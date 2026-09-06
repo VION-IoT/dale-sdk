@@ -365,14 +365,13 @@ namespace Vion.Dale.Sdk.Http.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-007.2")]
-        [DataRow("en-US")]
-        [DataRow("de-DE")]
-        public void NameBoundInInvariantCultureWhenRefusingTimeout(string culture)
+        public void NameParameterMemberAndBoundsWhenRefusingTimeout()
         {
-            // Arrange — the sibling of the timeout message: this refusal renders three durations, and a
-            // German-locale gateway must read the same string a Swiss support engineer greps for
-            var previousCulture = CultureInfo.CurrentCulture;
-            CultureInfo.CurrentCulture = new CultureInfo(culture);
+            // Arrange — a block author meeting this refusal has to learn three things from it: which
+            // argument was wrong, which of their own calls to edit, and what would have been taken instead.
+            // The bounds are asserted against the package's own constants, because what this criterion
+            // claims is that the message names them — the value of the band itself is pinned separately,
+            // against the cancellation source, by `RefuseExactlyWhatCancellationSourceRefuses`.
             var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
 
             // Act / Assert
@@ -384,8 +383,9 @@ namespace Vion.Dale.Sdk.Http.Test
                                                                                                           null,
                                                                                                           null,
                                                                                                           TimeSpan.MaxValue));
-            CultureInfo.CurrentCulture = previousCulture;
-            Assert.Contains("A request timeout is -00:00:00.0010000 for no bound, or from 00:00:00 to 49.17:02:47.2940000.", refusal.Message);
+            Assert.AreEqual("timeout", refusal.ParamName);
+            Assert.Contains(nameof(IHttpRequestExecutor.ExecuteRequestAsync), refusal.Message);
+            Assert.Contains($"A request timeout is {Timeout.InfiniteTimeSpan} for no bound, or from {TimeSpan.Zero} to {HttpRequestExecutor.MaxRequestTimeout}.", refusal.Message);
         }
 
         [TestMethod]
@@ -452,25 +452,33 @@ namespace Vion.Dale.Sdk.Http.Test
         public async Task NameTimeoutInInvariantCultureWhateverMachineRunsIt(string culture)
         {
             // Arrange — the gateways this runs on are German-locale machines, where a message rendering the
-            // number in the current culture reads 0,05 and no support query for 0.05 finds it
+            // number in the current culture reads 0,05 and no support query for 0.05 finds it. The restore
+            // is in a finally because a failing assert would otherwise leave the locale set for every test
+            // the assembly runs after this one.
             var previousCulture = CultureInfo.CurrentCulture;
             CultureInfo.CurrentCulture = new CultureInfo(culture);
             var sut = Executor(StubHttpMessageHandler.NeverCompleting());
             Exception? received = null;
 
-            // Act
-            await sut.ExecuteRequestAsync(_dispatcher,
-                                          Url,
-                                          HttpMethod.Get,
-                                          () => { },
-                                          exception => received = exception,
-                                          timeout: TimeSpan.FromMilliseconds(50));
-            _dispatcher.Drain();
-            CultureInfo.CurrentCulture = previousCulture;
+            try
+            {
+                // Act
+                await sut.ExecuteRequestAsync(_dispatcher,
+                                              Url,
+                                              HttpMethod.Get,
+                                              () => { },
+                                              exception => received = exception,
+                                              timeout: TimeSpan.FromMilliseconds(50));
+                _dispatcher.Drain();
 
-            // Assert
-            Assert.IsNotNull(received);
-            Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
+                // Assert
+                Assert.IsNotNull(received);
+                Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
         }
 
         [TestMethod]

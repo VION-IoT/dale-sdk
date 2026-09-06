@@ -22,6 +22,27 @@ namespace Vion.Dale.Sdk.Http.Test
         private static readonly Assembly Package = typeof(ILogicBlockHttpClient).Assembly;
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-001.1")]
+        public void ExposeNamedClientOnNoPublicMember()
+        {
+            // Arrange — the negative half of "under a name no public member exposes". Resolving under the
+            // name is proven at the registration; this is the claim that a consumer cannot reach the name
+            // from the published surface and must go through `configureClient` instead. The test reads the
+            // name through InternalsVisibleTo, which is exactly the access a consumer does not have.
+
+            // Act
+            var exposing = Package.GetExportedTypes()
+                                  .SelectMany(type => type.GetMembers(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                                  .Where(member => member.Name == HttpRequestExecutor.HttpClientName || ConstantValueOf(member) == HttpRequestExecutor.HttpClientName)
+                                  .Select(member => $"{member.DeclaringType?.FullName}.{member.Name}")
+                                  .OrderBy(name => name, StringComparer.Ordinal)
+                                  .ToList();
+
+            // Assert
+            Assert.IsEmpty(exposing, $"No published member may name or hand out the client name: {string.Join(", ", exposing)}");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-013.1")]
         public void ClassifyEveryPublicTypeAsSurfaceOrPlumbing()
         {
@@ -103,6 +124,12 @@ namespace Vion.Dale.Sdk.Http.Test
 
             // Assert — netstandard, so a plugin built against any supported runtime can load it
             Assert.AreEqual(".NETStandard,Version=v2.1", targetFramework);
+        }
+
+        /// <summary>The literal a <c>const</c> field hands out, or <c>null</c> for every other member.</summary>
+        private static string? ConstantValueOf(MemberInfo member)
+        {
+            return member is FieldInfo { IsLiteral: true } field ? field.GetRawConstantValue() as string : null;
         }
     }
 }

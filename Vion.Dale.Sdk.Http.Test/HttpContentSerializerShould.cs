@@ -124,19 +124,5 @@ namespace Vion.Dale.Sdk.Http.Test
             var failure = await Assert.ThrowsAsync<ContentNullAfterDeserializationException>(() => _sut.DeserializeJsonAsync<TestObject>(httpContent));
             Assert.AreEqual($"Content was null after deserialization to type '{typeof(TestObject).FullName}'.", failure.Message);
         }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-HTTP-011.3")]
-        public async Task SerializeNullBodyAsJsonNull()
-        {
-            // Arrange — the notnull constraint on the member is compile-time only, so a call site with
-            // nullable reference types off reaches here with null
-
-            // Act
-            var httpContent = _sut.SerializeJson<TestObject>(null!);
-
-            // Assert
-            Assert.AreEqual("null", await httpContent.ReadAsStringAsync(CancellationToken.None));
-        }
     }
 }
