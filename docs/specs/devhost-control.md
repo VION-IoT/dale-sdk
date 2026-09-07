@@ -366,14 +366,22 @@ the runner reads the refusal it produces instead of racing it with a stopwatch.
   embedded in the assembly, with revalidation forced on every file.
 - `AC-CTRL-014.5` (Ubiquitous): THE SYSTEM SHALL emit a duration as an ISO-8601 duration and an enum
   as its member name on both the request-response and the push wire.
-- `AC-CTRL-014.6` (Event-driven): WHEN a duration on either wire is neither an ISO-8601 duration nor
-  the .NET form THE SYSTEM SHALL refuse the payload as malformed, naming the text it was offered,
-  rather than let the decode escape as a server fault.
+- `AC-CTRL-014.6` (Ubiquitous): THE SYSTEM SHALL decode a duration written in either the ISO-8601 or
+  the .NET form, and SHALL decode an absent one as zero.
+- `AC-CTRL-014.7` (Event-driven): WHEN a duration is present and is neither form, or names a span that
+  cannot be represented, THE SYSTEM SHALL refuse the payload as malformed, naming the text it was
+  offered, rather than let the decode escape as a fault.
 
-`AC-CTRL-014.6` is the read half of `AC-CTRL-014.5`, and it is stated for the converter rather than
-for its two registrations because the class the decode raises is the whole of it: on the
-request-response wire a malformed payload is the `400` of § Refusal shapes, on the push wire there is
-no status code to answer with, and an escaping parse exception is a server fault on both.
+`AC-CTRL-014.6` and `AC-CTRL-014.7` are the read half of `AC-CTRL-014.5`, split because they hold
+under different failures: dropping either accepted form loses a payload the wire is allowed to
+carry, while raising the wrong class on a bad one loses the refusal. Both are stated for the decode
+rather than for a wire, because that is what a caller reaches: the same decoder is registered on the
+request-response and the push wire, and no route binds a typed duration today, so the class it raises
+is the whole of the observable. On the request-response wire that class is the `400` of § Refusal
+shapes; on the push wire there is no status code to answer with, and an escaping parse exception is a
+fault on both. "Cannot be represented" is in `AC-CTRL-014.7` because a duration can be well formed in
+either spelling and still name a span too large to hold — the two decoders answer that with different
+exception classes, and both are the caller's error rather than the host's.
 
 `AC-CTRL-014.2` is the local-tool posture: the server binds loopback, but a hostile page in the
 developer's own browser can still fire cross-origin requests at it, and cross-origin resource sharing
