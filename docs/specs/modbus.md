@@ -549,11 +549,29 @@ parameter list, because the only caller that ever passes one is the client this 
 What that leaves published is, per package: Core's registration, the data converter, the client
 surface and its receipt, the server's accessors, extents and limits, and every exception an error
 callback receives by name; RTU's contract interface, its two exceptions, and the `IConfigureServices`
-implementation the SDK's own DevHost example constructs by hand; TCP's client and server surfaces,
-its registration, the queue policy and drop reason, the connection diagnostics and its four
-exceptions. The eleven exception types Core and TCP had left unmarked were the accidental half of the
-unmarked set — the deliberate half is the seams the TestKits substitute, which stay plumbing because
-the kits hand out their own concrete fakes rather than these interfaces.
+implementation a development host constructs by hand; TCP's client and server surfaces, its
+registration, the queue policy and drop reason, the connection diagnostics and its four exceptions.
+The eleven exception types Core and TCP had left unmarked were the accidental half of the unmarked
+set — the deliberate half is the seams the TestKits substitute, which stay plumbing because the kits
+hand out their own concrete fakes rather than these interfaces. Five of those eleven are named in
+criteria above; the other six — the timeout and the four unsupported-order/encoding refusals, and
+TCP's connect timeout — are published because an error callback receives them, which
+`AC-MODB-004.*` and `AC-MODB-008.*` describe as a class without naming each member.
+
+Two of the sixteen are judgments rather than readings, and are stated because a later reader will
+ask. **`Vion.Dale.Sdk.Modbus.Core.ServiceCollectionExtensions` is the one published type no
+consumer's source names today** — every caller of `AddDaleModbusCoreSdk` is inside this build, because
+`AddDaleModbusTcpSdk` and RTU's `DependencyInjection` both call it for their consumers. It is published
+anyway: it is the sole registration entry point of a package on the release roster, and marking it
+plumbing would leave that package with no published way to register `IModbusDataConverter`, which it
+does publish and which a consumer does inject. That is the mark most open to being overturned.
+**`Vion.Dale.Sdk.Modbus.Rtu.DependencyInjection` is published while the identical class in
+`Vion.Dale.Sdk.DigitalIo` and `.AnalogIo` is `[InternalApi]`**, and the difference is real rather than
+an oversight: this package ships no `AddDaleModbusRtuSdk` extension, so a development host — which has
+no plugin loader to discover an `IConfigureServices` — has no other way in, and the SDK's own example
+constructs one by hand (`examples/Vion.Examples.ModbusRtu/Vion.Examples.ModbusRtu.DevHost/Program.cs:27`).
+Whether RTU should ship the extension its two siblings do, and make that hand-call unnecessary, is a
+surface question in the finding ledger rather than one this page answers.
 
 `AC-MODB-019.2` is what makes `AC-MODB-019.1` enforceable rather than aspirational, and this area is
 where the gap was widest: no `DALE` diagnostic judged any declaration in these three projects at all.

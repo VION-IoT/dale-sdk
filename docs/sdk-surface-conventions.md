@@ -244,8 +244,10 @@ decision and the catch logs a warning.
   assembly's namespaces at once. Twelve assemblies declare it and the same twelve are in the manifest —
   which they had not been: the count here read "twelve declare it" while eleven did, and the odd one
   out was `Vion.Dale.Sdk.Modbus.Core`, in the manifest on its marks while declaring nothing. The two
-  sets coinciding is not a rule, only where the ratchet has reached: the seven shipped packages outside
-  it declare nothing and mark nothing, so they are absent from both.
+  sets coinciding is not a rule, only where the ratchet has reached: the **six** shipped packages
+  outside it — the three DevHost ones, `Vion.Dale.ProtoActor`, `Vion.Dale.Plugin` and `Vion.Dale.Cli` —
+  declare nothing and mark nothing, so they are absent from both. (`Vion.Dale.LogicBlockParser` is
+  `IsPackable=false` and ships bundled inside `Vion.Dale.Sdk` as a tool, so it is not a seventh.)
 - **So the question "can this change move the snapshot?" is answered by grepping for `[PublicApi]`,**
   not by looking for an opt-in. `Vion.Dale.DevHost`, `Vion.Dale.DevHost.Web`, `Vion.Dale.DevHost.Xunit`,
   `Vion.Dale.Cli`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor` and `Vion.Dale.LogicBlockParser` are
@@ -286,14 +288,18 @@ Named rather than excused; the conventions above stand.
   `Emission`, `Gating`, `ModbusRtu`, `ModbusTcp` and `ToggleLight` carry it in three;
   `libraries/Vion.Diagnostics` and `templates/vion-iot-library` carry it in none. The working-tree
   build path is therefore not uniformly available (see [`devhost-conventions.md`](devhost-conventions.md) § 2).
-- **The analyzer pack does not run over every SDK project.** Eight projects reference
+- **The analyzer pack does not run over every SDK project.** **Eighteen** projects reference
   `Vion.Dale.Sdk.Generators` as an `OutputItemType="Analyzer"` project reference unconditionally —
-  `Vion.Dale.Sdk`, `.DigitalIo`, `.AnalogIo`, `Vion.Dale.Sdk.Test`, `DevHost.Test`, `DevHost.SmokeHost`
+  `Vion.Dale.Sdk`, `.DigitalIo`, `.AnalogIo`, `.Http`, `.Modbus.Core`, `.Modbus.Rtu`, `.Modbus.Tcp`, the
+  five TestKits, `Vion.Dale.Sdk.Test`, `Vion.Dale.Sdk.TestKit.Test`, `DevHost.Test`, `DevHost.SmokeHost`
   and the two `LogicBlockParser.Test.*Plugin`s — and the nine examples do so only under
-  `-p:DaleLocalSource=true`, judging against the **published** analyzers otherwise.
-  `Vion.Dale.Sdk.Http`, `.Modbus.Core`, `.Modbus.Tcp` and `.Modbus.Rtu` reference it not at all, so
-  DALE014 and its siblings never judge their declarations — the § 5 blind spot, one level out. Adding the
-  reference is three lines and surfaces whatever those projects have accumulated; do it when next working
-  in one of them, not as a drive-by. `Vion.Dale.Sdk.Generators.Test` references the project as a plain
-  library, so the deliberately illegal fixtures in it are judged by nothing, which is why none needs a
-  suppression.
+  `-p:DaleLocalSource=true`, judging against the **published** analyzers otherwise. (This bullet counted
+  eight and named the four Modbus and HTTP packages as referencing it "not at all"; the HTTP pass armed
+  HTTP and `T-008` armed the three Modbus packages. `grep -rl 'OutputItemType="Analyzer"' --include=*.csproj`
+  is the enumeration, minus the nine conditional examples.) What is still outside: the DevHost packages,
+  `Vion.Dale.ProtoActor`, `Vion.Dale.Plugin` and `Vion.Dale.Cli` — decision
+  [`0145`](../../architecture/decisions/0145-public-api-ratchet-covers-every-shipped-package.md) says
+  the shipped ones belong inside, and the finding ledger carries what is left. Arming a package surfaces
+  whatever it has accumulated, so arm and classify it in one change; do not do either as a drive-by.
+  `Vion.Dale.Sdk.Generators.Test` references the project as a plain library, so the deliberately illegal
+  fixtures in it are judged by nothing, which is why none needs a suppression.

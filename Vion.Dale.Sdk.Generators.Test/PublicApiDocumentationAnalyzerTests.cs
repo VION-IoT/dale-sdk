@@ -285,7 +285,8 @@ namespace Api.Sub
             // A public delegate is a public type, so DALE014 asks it for a mark like any other. It could
             // not carry one until the marks accepted AttributeTargets.Delegate: following the diagnostic
             // produced CS0592, which is a compilation error this test would surface as an unexpected
-            // diagnostic. The pair below is the unmarked delegate, which must still be reported.
+            // diagnostic. Both marks are declared here because DALE014 accepts either, so a delegate that
+            // one of them refused would still leave the rule unanswerable.
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -304,10 +305,13 @@ namespace TestNs
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-ANLZ-012.7")]
+        [TestProperty("spec", "AC-ANLZ-012.2")]
         public async Task ReportUnmarkedDelegateInApiNamespace()
         {
             // Arrange / Act / Assert
+            // The antecedent AC-ANLZ-012.7 rests on: the mark rule really does reach a delegate, so a
+            // delegate that cannot carry a mark is a diagnostic with no answer. What this asserts is
+            // AC-ANLZ-012.2's own sentence, which is the id it cites.
             var source = @"
 using Vion.Dale.Sdk.Core;
 

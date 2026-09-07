@@ -6,9 +6,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 {
     /// <summary>
     ///     Registers the Modbus RTU factory and its Modbus Core dependencies with the Dale runtime's service container.
-    ///     Discovered by the runtime via reflection at plugin load time. A development host has no plugin loader to
-    ///     discover it, so it is constructed and called by hand there — which is what the SDK's own Modbus RTU
-    ///     example does, and why this type is published surface rather than plumbing.
+    ///     Discovered by the runtime via reflection at plugin load time. A development host has no plugin
+    ///     loader, so construct one and call it: this package ships no <c>AddDaleModbusRtuSdk</c> extension,
+    ///     and nothing else registers the RTU request factory.
     /// </summary>
     [PublicApi]
     public class DependencyInjection : IConfigureServices
