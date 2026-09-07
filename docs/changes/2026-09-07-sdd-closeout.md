@@ -338,7 +338,7 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-004` | done | `sdk: sdd closeout T-004` | #194 |
 | `T-005` | done | `sdk: sdd closeout T-005` | #195 |
 | `T-006` | done — buckets ruled by the operator | `sdk: sdd closeout T-006` | #196 |
-| `T-007` | in PR — the three `fix-now` rows the ruling leaves this task | `sdk: sdd closeout T-007` | #PR |
+| `T-007` | in PR — the three `fix-now` rows the ruling leaves this task | `sdk: sdd closeout T-007` | #197 |
 | `T-008` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
