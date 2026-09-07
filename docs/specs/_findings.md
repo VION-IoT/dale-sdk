@@ -357,10 +357,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   (`scripts/verify-packed-assembly-versions.ps1`, `.github/workflows/publish.yml:72-93`), which was
   minted for this class of silent-bad-package failure. *(ANLZ pass row 152 — the release process,
   [`../releasing.md`](../releasing.md); the operator promotes.)*
-- **Nothing requires a `#pragma warning disable DALE*` to say why.** Twenty-three of the thirty
-  suppressions in this repository carry no reason comment, and a suppression is a claim that the shape
-  is intended — the one kind of claim that ages worst. A lint would be a new gate script and a
-  twenty-three-site edit across five other areas' fixtures. *(ANLZ pass row 167 — the retro.)*
 - **The generator's `Contract`-substring predicate runs on every class in every compilation.**
   `Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:36-40` matches any class carrying an attribute whose
   name *contains* `Contract`, and the semantic pass afterwards makes the output correct — so there is

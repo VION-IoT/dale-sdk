@@ -117,7 +117,8 @@ the fix-now batch lands and the Jira-filed entries are struck with their keys.
 8. *(b — decided under `D4`, raised by `T-002`)* `_findings.md`'s header now says any lane adds to
    it — is the widened scope wanted? OUTCOME: **yes** (operator, 2026-09-07). Engineering findings
    from any lane go to the ledger, no Jira unless scheduled; `T-006` buckets the ledger's entries as
-   planned (77 at the time of the ruling; 76 once `T-003` deleted the one it fixed).
+   planned (77 at the time of the ruling; 76 once `T-003` deleted the one it fixed, 75 after
+   `T-004`).
 
 ---
 
@@ -322,8 +323,9 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 |---|---|---|---|
 | `T-001` | done | `sdk: sdd big picture` | #191 |
 | `T-002` | done | `sdk: sdd closeout T-002` | #192 |
-| `T-003` | in PR | `sdk: sdd closeout T-003` | #193 |
-| `T-004` … `T-019` | to come | — | — |
+| `T-003` | done | `sdk: sdd closeout T-003` | #193 |
+| `T-004` | in PR | `sdk: sdd closeout T-004` | #194 |
+| `T-005` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -512,6 +514,78 @@ names the file and section that states the rule now, and *lane 3 § N* is
   because `Get-ChildItem -Path @()` enumerates the process working directory rather than nothing
   (cases 11, 11b). `spec-trace`'s equivalent empty-roots path is left alone: it already fails, on the
   orphans that follow from it, and only its message misleads.
+
+- **`T-004`: twenty-three bare sites were four.** The task line and the ledger entry it closes both
+  say twenty-three of thirty suppressions carry no reason. Measured on the tree this landed on: 32
+  `#pragma warning disable` lines naming a `DALE` id, across 14 files, of which 5 have neither a
+  comment after the directive nor a `//` line above it — and 4 under the rule as landed, the fifth
+  being `GatingBlocks.cs:364`, whose reason is the doc comment of the class below and names
+  `DALE044`. The same grep at `2902b93`, the ANLZ pass that wrote the entry, returns the same 32
+  lines, so the count was never true of a different tree: it was measured under a rule the entry does
+  not state. The gate is the same gate either way; what shrank is the edit beside it, from five other
+  areas' fixtures to one file.
+- **`T-004` reads the whole comment run above the directive, not the one line the task names.** 21
+  of the 32 reasons are wrapped over two or more lines, and three of them end on `// is suppressed.`
+  — the tail of a reason, made of nothing but the directive's own words
+  (`DeclarativeTimerBinderShould.cs:229`, `:249`, `:269`). Reading one line reddens those three and
+  admits any tail that happens to carry a noun; the run is the unit the author wrote. The narrowing
+  the task asks for survives intact: the run has to *reach* the directive, so a blank line or any
+  code between ends it (self-test case 5), which is the defect the four bare sites had. A `/* */`
+  block above counts too — `comment-conventions.md` § *Form* names that form first for anything
+  longer than a line, and a gate failing from its first landing may not fail a blessed form.
+- **`T-004`'s gate also fails a comment built from nothing but the directive's own words**, which
+  the task line does not ask for but the operator's constraint does. The check strikes every
+  `DALE####` token, XML doc tags, words of three letters or fewer and a closed list of the
+  directive's vocabulary, then asks that **one** word remain. One, not a prose-quality floor: the
+  first version asked for three, which rejected `// Bug in the tool; see VION-133.` — the one
+  citation form `comment-conventions.md` blesses — while still admitting any non-reason padded with
+  adverbs, and reported it under a message about restating the diagnostic that was not true of it.
+  What a lint can judge is whether the comment says anything the directive does not, and that is now
+  the whole of the rule and the whole of the message.
+- **`T-004`: a `///` run above counts only where it names an id being disabled.**
+  `GatingBlocks.cs:364` carries its reason in the doc comment of the class below the directive, which
+  names `DALE044` and says why the combination is declared anyway. A doc comment documents its
+  member, so accepting one unconditionally would let every documented member pass on prose that never
+  mentions the suppression (self-test case 6b); naming the id is the author connecting the two on
+  purpose. The alternative — a `//` line duplicating the doc comment two lines above it — is the
+  noise `comment-conventions.md` § *Terse* refuses.
+- **`T-004` armed the DALE analyzer in `Vion.Dale.Sdk.TestKit.Test`, because its five suppressions
+  suppressed nothing.** The project referenced `Vion.Dale.Sdk` but never the generator assembly as an
+  analyzer, so by `AC-ANLZ-018.2` no DALE diagnostic was ever judged there and all five directives
+  were decorative — which makes any reason written beside one a claim about a mechanism the project
+  does not have. Measured before deciding: with the analyzer armed and every directive in place, zero
+  DALE diagnostics; with the analyzer armed and the five directives removed, exactly five, one per
+  directive, each an **error** — `DALE034` at `CustomThresholdEmissionPolicyShould.cs:68`, `DALE035`
+  three times and `DALE036` once in `EmissionPolicyShould.cs`. So the one-line `ProjectReference`
+  costs no new suppression and turns five inert claims load-bearing. Writing the reasons without it
+  was the alternative, and it means writing four comments whose subject is a directive that does
+  nothing.
+- **`T-004`'s reasons went onto the directive line, and the two group comments stayed.** The first
+  attempt deleted both group comments and gave each directive a three-line reason, which stated the
+  shared half three times in identical words — `comment-conventions.md` § *Terse* cuts whole points
+  that don't need making, and the grouping ("each of the three below") is the one thing a per-site
+  comment cannot say. What each directive owed was the half its siblings do not share: the literal it
+  exempts. Four trailing comments, and the file is otherwise untouched.
+- **`T-004`'s first self-test read exit codes only, and three of ten mutations survived it.** The
+  gate reports two defects — nothing written, and something written that says nothing — and both exit
+  1, so an exit-code case cannot tell them apart: collapsing the two branches survived, and so did
+  dropping the four-letter rule and the substance floor itself, because the one case aiming at the
+  floor was in fact landing on the empty-reason branch. Cases now assert the message, and case 8
+  asserts the site *count*, because every non-site in it would pass as a site — the exit code cannot
+  see an over-count. Sixteen single-rule mutants, each killed by a named case; the run and its table
+  are in the PR body, which is where `testing-conventions.md` § 16 puts a mutation record.
+- **`T-004` swept the three suppression channels beside the one it gates.** `AC-ANLZ-020.1` names
+  four — `#pragma warning disable`, `[SuppressMessage]`, `NoWarn` and an `.editorconfig` severity
+  entry — and this gate reads only the first. The other three are empty of DALE today: every `NoWarn`
+  in the tree names `1591`, `RS2008` or `CS8669`; no `.editorconfig` carries a `dotnet_diagnostic.DALE`
+  entry; the three `[SuppressMessage]` attributes name `MSTEST0049`. So nothing is being routed
+  around the gate now, and a future `[SuppressMessage("Dale", …)]` would be — recorded here rather
+  than widened into, because a gate reading attribute arguments is a different scanner.
+- **`T-004` deleted the ledger entry for the defect it fixes, 76 → 75.** `_findings.md`'s header
+  obliges the fixing PR to delete the entry; the entry (`ANLZ` pass row 167, "Nothing requires a
+  `#pragma warning disable DALE*` to say why") is the one whose count this doc's first checkpoint
+  corrects. Nothing links it. Reviewer's question 8's parenthetical, which carried the ledger's size
+  forward from `T-003`, is updated with it.
 
 ---
 
