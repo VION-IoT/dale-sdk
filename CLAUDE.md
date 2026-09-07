@@ -19,7 +19,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | --- | --- |
 | adding or changing an attribute, a public type or member, an analyzer, or anything reaching the introspection JSON | [`docs/sdk-surface-conventions.md`](docs/sdk-surface-conventions.md) — surface minimalism, XML-doc style, delete-don't-deprecate, the analyzer obligation and the **Metalama blind spot**, PublicApi snapshots |
 | writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) — MSTest inside / xunit.v3 outside, analyzer tests vs the real compilation, packed-artifact verification, determinism, and the authoring discipline (§9–17: behavior tables, prove-red, naming, Moq, async) |
-| changing specified behavior, running an area pass, or dispatching an implementing session | [`docs/spec-process.md`](docs/spec-process.md) — the spec corpus (`docs/specs/`), the change-doc lane (`docs/changes/`), area passes, the launcher recipe, the gates |
+| changing specified behavior, or dispatching an implementing session | [`docs/spec-process.md`](docs/spec-process.md) — the spec corpus (`docs/specs/`), the change-doc lane (`docs/changes/`), the three lanes work runs in and lane 3's recipe, the launcher recipe, the gates |
 | writing or reworking an inline comment | [`docs/comment-conventions.md`](docs/comment-conventions.md) — why not what, a comment is a claim, no history/tickets, name the concrete failure |
 | touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/specs/devhost-control.md`](docs/specs/devhost-control.md) — what the host guarantees in process, over HTTP and on stdout; and [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md) |
 | writing a simulator block or a provider face (the peer a bench needs on the far side of a contract) | [`docs/simulator-authoring.md`](docs/simulator-authoring.md) — provider faces, the ideal-I/O echo recipe, when to model the device instead |
@@ -66,12 +66,11 @@ live in `../architecture/specs/`, never here.
    a DevHost change is shown working, not asserted.
 9. **After a release, bump the examples, template and libraries** ([`docs/releasing.md`](docs/releasing.md)).
    A release without its bump leaves the next commit shipping inconsistent references.
-10. **A change to specified behavior carries its spec.** Fix-sized: update the touched
+10. **A change to specified behavior carries its spec, in the lane its size names**
+    ([`docs/spec-process.md`](docs/spec-process.md) § Lanes). Fix-sized: update the touched
     [`docs/specs/`](docs/specs/) page in the same PR. Feature-sized: the full change-doc cycle —
-    scaffold, implement with tests citing the delta's ids, distill, archive
-    ([`docs/spec-process.md`](docs/spec-process.md)) — in **every** area, passed or not; in an
-    un-passed area the distill creates a partial spec page (no `trace: enforced` until the area's
-    pass). Only the trace gate waits for the pass; the lane applies from day one.
+    scaffold, implement with tests citing the delta's ids, distill, archive. Every area of the
+    roster carries a traced page today, so there is no lane in which a page edit is optional.
 
 ## Repository Structure
 

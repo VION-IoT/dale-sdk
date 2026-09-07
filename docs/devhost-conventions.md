@@ -24,7 +24,11 @@ The order that works:
    nothing else covers it. A subagent can run this. Drive it through the UI's own controls — click
    the option, type in the box — never a scripted DOM write: a value set from a script reaches the
    DOM and not the component's model, so the verdict read back describes the row that was still
-   there. Open the raw view and read the model back before believing an observation.
+   there. Open the raw view and read the model back before believing an observation. **What you
+   record is a paste** — the page text or the described screenshot the browser tool returned — never
+   a sentence composed from what the code should do. One session recorded an observation that could
+   not have occurred, because the export that produces the string was imported by nothing, and the
+   row read as evidence for a whole round.
 3. **A realistic library, not only the fixture.** The SmokeHost's synthetic blocks cover every value
    shape, but they are not a realistic topology. Before handing the change over, boot it against
    `examples/Vion.Examples.Energy` — *"better run it gains the energy examples (with project
