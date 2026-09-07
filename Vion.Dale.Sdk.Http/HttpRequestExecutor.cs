@@ -302,12 +302,12 @@ namespace Vion.Dale.Sdk.Http
             }
             catch (OperationCanceledException exception) when (!cts.IsCancellationRequested && exception.InnerException is TimeoutException)
             {
-                /* The client's own bound elapsed, and both clauses are needed to know that. Every
-                 * cancellation of this call arrives as the same class, whatever raised it: the per-request
-                 * source, a handler in the named client's pipeline cancelling on a token of its own, or the
-                 * client's timeout. The first is what the per-request source's own flag excludes; the other
-                 * two are told apart by the inner exception, which the client sets to a TimeoutException
-                 * only for its own bound. Reading the flag alone hands a handler's cancellation to the block
+                /* The client's own bound elapsed, and both clauses are needed to know that. Three things
+                 * can cancel this call — the per-request source, a handler in the named client's pipeline
+                 * cancelling on a token of its own, and the client's timeout — and all three arrive as an
+                 * OperationCanceledException, so the class caught says only that one of them happened. The
+                 * first is what the per-request source's own flag excludes; the other two are told apart by
+                 * the inner exception, which the client sets to a TimeoutException only for its own bound. Reading the flag alone hands a handler's cancellation to the block
                  * as a timeout naming the client's bound, for an exchange that never reached it — wrapping a
                  * transport failure `AC-HTTP-006.1` says arrives as the handler threw it.
                  *

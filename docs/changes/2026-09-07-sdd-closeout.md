@@ -880,7 +880,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   task line reads "54: the decline stated on the page and the ledger line closed". `_findings.md`
   has never carried a `DaleSharedAssembly` entry — the HTTP pass's own record says only 28n left one
   ([`archive/2026-09-06-http-pass.md:757`](archive/2026-09-06-http-pass.md)) — and the decline is
-  already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:340`, its rationale at `:356`), landed
+  already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:346`, its rationale at `:362`), landed
   by that pass. So `T-010` is row 28n plus a re-read of a criterion that already says what the task
   asks to be said, not two halves. This is the same shape as `T-005`'s missing entry: the second
   task line in three to name a ledger entry that does not exist, both times for a question a pass
@@ -1344,8 +1344,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `catch` names `httpClient.Timeout` with no threading and no second `CreateClient`. So the scope
   guard's out (an unnamed bound) was not needed, and `AC-HTTP-008.2` states the number.
 - **`T-010`: row 54 confirmed, as `T-006` recorded.** No `DaleSharedAssembly` entry has ever been in
-  `_findings.md` (`grep -c` → 0 at `fe83284` and here), and `AC-HTTP-013.3` (`docs/specs/http.md:340`,
-  rationale at `:356` — `:330` and `:346` before this PR's own edits moved them) already states the decline the task line asks for. Nothing changed for this
+  `_findings.md` (`grep -c` → 0 at `fe83284` and here), and `AC-HTTP-013.3` (`docs/specs/http.md:346`,
+  rationale at `:362` — `:330` and `:346` on `fe83284`, before this PR's own edits moved them) already states the decline the task line asks for. Nothing changed for this
   half. The one page pointer this fix *did* owe was the other half's: the `AC-HTTP-008` prose ended
   "the finding ledger carries the ask to normalise the two", and that sentence went with the entry.
 - **`T-010`: the ledger is 68 entries, 12 rows resolved.** `T-009` left 69 and 11; deleting row 28n
@@ -1358,9 +1358,12 @@ names the file and section that states the rule now, and *lane 3 § N* is
   were not the ceiling.** `!cts.IsCancellationRequested` alone reads as "the only other cancellation
   left is the client's", and that inference is wrong: a `DelegatingHandler` in the named client's
   pipeline can cancel on a token of its own, and the runtime can add one by name. Measured through the
-  real executor rather than argued — a stub handler throwing an `OperationCanceledException` under a
-  30 s client bound reached the block as `"Timed out after 30 seconds"` for an exchange that took no
-  time, wrapping a transport failure `AC-HTTP-006.1` says arrives as the handler threw it. The filter
+  real executor rather than argued — a throwaway probe with a stub handler throwing an
+  `OperationCanceledException` under an explicit 30 s client bound reached the block as
+  `"Timed out after 30 seconds"` for an exchange that took no time, wrapping a transport failure
+  `AC-HTTP-006.1` says arrives as the handler threw it. (The permanent row sets no bound, so it runs
+  against `HttpClient`'s own 100 s default; the number in the message was the probe's, and nothing in
+  the suite produces it.) The filter
   now also requires `exception.InnerException is TimeoutException`, which the client sets for its own
   bound and nothing else, and `DeliverOneExceptionClassPerFailure` gained a `TransportCancellation`
   row that reddens without it. One caveat stated rather than hidden: that inner exception is .NET 5+

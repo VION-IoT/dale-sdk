@@ -254,6 +254,12 @@ sources: the per-request bound by the state of the source this package armed, th
 `TimeoutException` the client puts inside the cancellation it raises for its own bound and for
 nothing else.
 
+That inner exception is the platform's, not this package's, and it is the reason the ceiling can be
+named at all: it has been set since .NET 5, which every runtime this SDK's plugins load into is past,
+so the class is the same wherever the block runs. On a host older than that the client's bound would
+arrive as the cancellation it raises and nothing would relabel it — the behaviour this criterion
+replaced, never a message naming a bound that did not elapse.
+
 The number in the message is rendered invariantly, so the string reads the same on every machine —
 the gateways this runs on are German-locale, where a culture-rendered `0.05` reads `0,05` and no
 support query finds it. Both bounds are named through one rendering, so the two messages cannot

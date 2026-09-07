@@ -942,10 +942,10 @@ namespace Vion.Dale.Sdk.Http.Test
                 case Failure.TransportStreamFailure:
                     return (Executor(StubHttpMessageHandler.Throwing(new IOException("the connection was reset"))), Url);
                 case Failure.TransportCancellation:
-                    // The one class the client mints for itself. Neither bound elapses here, so this row is
-                    // what separates "a cancellation" from "the client's bound elapsed" — a relabel that
-                    // reads only the per-request source's flag hands this to the block as a timeout, naming
-                    // a bound the exchange never reached.
+                    // A cancellation the handler raised, under a client bound this fixture leaves at
+                    // HttpClient's own default and never comes near. It is what separates "a cancellation"
+                    // from "the client's bound elapsed" — a relabel that reads only the per-request source's
+                    // flag hands this to the block as a timeout, naming a bound the exchange never reached.
                     return (Executor(StubHttpMessageHandler.Throwing(new OperationCanceledException())), Url);
                 default: throw new ArgumentOutOfRangeException(nameof(failure), failure, null);
             }
