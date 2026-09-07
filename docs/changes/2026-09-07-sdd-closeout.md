@@ -1138,7 +1138,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `Vion.Dale.DevHost.Xunit` and `Vion.Dale.Plugin`, both on `set-version.ps1`'s release roster.
 - **`T-008`: `DALE014` matches a declaration as a prefix, so the `IO` row is not separable from the
   `BIND` row and four of `Modbus.Tcp`'s five declarations are inert.**
-  `PublicApiDocumentationAnalyzer.cs:76` skips a type only when `ns != configured && !ns.StartsWith(configured + ".")`.
+  `PublicApiDocumentationAnalyzer.cs:80` skips a type only when `ns != configured && !ns.StartsWith(configured + ".")`.
   So declaring `Vion.Dale.Sdk` — which is what the `IO` entry's "undeclared root namespace" asks for,
   for three types — arms all twenty of that assembly's namespaces and all 221 unmarked types at once;
   and `Vion.Dale.Sdk.Modbus.Tcp`'s four sub-namespace declarations add no rule its root declaration had

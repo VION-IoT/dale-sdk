@@ -85,11 +85,13 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   key on, which is a wire decision rather than an amendment's. *(CTRL pass amendment 2, item 3 —
   `CTRL`.)*
 - **Three shipped packages are outside the public-API snapshot.** `Vion.Dale.DevHost` and
-  `Vion.Dale.DevHost.Web` are `IsPackable` (`Vion.Dale.DevHost.csproj:9-10`,
-  `Vion.Dale.DevHost.Web.csproj:36-37`) and absent from `docs/snapshots/publicapi-manifest.json`'s 12
+  `Vion.Dale.DevHost.Web` are `IsPackable` (`Vion.Dale.DevHost.csproj:10`,
+  `Vion.Dale.DevHost.Web.csproj:39` — the `:9-10` and `:36-37` this entry cited are the package-metadata
+  comment above each) and absent from `docs/snapshots/publicapi-manifest.json`'s 12
   assemblies, so a member removed from `IDevHostControl` moves no snapshot and a consumer's build is the
-  first thing that notices. **`Vion.Dale.DevHost.Xunit` is the third**, on the release roster
-  (`scripts/set-version.ps1:266`) and named by neither this entry nor reviewer's question 2.
+  first thing that notices. **`Vion.Dale.DevHost.Xunit` is the third**, `IsPackable` at
+  `Vion.Dale.DevHost.Xunit.csproj:11`, on the release roster (`scripts/set-version.ps1:266`) and named
+  by neither this entry nor reviewer's question 2.
   **Decided** — decision 0145 puts all three inside the ratchet. What is left is the classification,
   measured off the built assemblies at `bf6c939`: `Vion.Dale.DevHost` 98 unmarked public types across
   5 namespaces, `.Web` 14 across 6, `.Xunit` 3 across 1, none of the three declaring a published
@@ -185,7 +187,7 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   snapshot.** The manifest covers 12 assemblies and `Vion.Dale.ProtoActor` is not among them although it
   is a shipped package a consumer's block depends on; `PublicApiConfig.cs` declares only `Core`,
   `Emission` and `Utils` as public namespaces, so the 28 message types, the 7 diagnostics types and the
-  12 unmarked actor abstractions this page specifies move no snapshot when they change. The same shape
+  8 actor abstractions this page specifies move no snapshot when they change. The same shape
   as the development-host packages above, and `Vion.Dale.Plugin`'s 2 public types are in it too.
   **Decided** — decision 0145 puts them inside the ratchet. Measured at `bf6c939`: `Vion.Dale.ProtoActor`
   10 unmarked across 2 namespaces, `Vion.Dale.Plugin` 2 across 1; the three SDK namespaces are 47 of the
