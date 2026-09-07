@@ -1071,6 +1071,18 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `AC-ANLZ-018.3`'s "rather than leave a consumer's build to report the missing file" — which
   overclaims, since `verify-packages` needs `publish` and so runs after both pushes — is reworded to
   what `analyzers.md`'s prose already said honestly.
+- **`T-007`: the case built to be platform-neutral was the one CI failed on.** The repository-reading
+  case compared each rule's required entry against the `.csproj` through `Split-Path`, and passed at
+  the desk. On the Linux runner it reported `FAIL rule 'Vion.Dale.Sdk -> analyzers/dotnet/cs/…' is not
+  content Vion.Dale.Sdk.csproj packs` — the gate's first CI run, red, on the case whose whole purpose
+  is to hold wherever it runs. Which of `Split-Path`'s two uses diverged is not recorded: the fix is
+  not to find out. A required entry is a **zip** path, always forward-slashed, so it is parsed as one
+  and the `.csproj` text is normalised to `/` — both sides platform-neutral by construction, nothing
+  asking the platform. (`Split-Path` does answer in backslashes on Windows whatever separator it is
+  given; measured. That is enough to know a comparison built on it is not neutral by accident.) The
+  `FAIL` branch also prints what it looked for, because a bare verdict on a case that only fails
+  somewhere else is a second round of guessing. Third platform trap in this task, after `T-005`'s
+  hidden-directory walk and this round's own `Test-Path`.
 - **`T-006`: the review subagent's own round is why five of these checkpoints read as they do.** It
   refuted the Modbus premise, turned "four of six misroute" into all six at a uniform +3, found the
   duplicate-lead hole in the script, and showed that the self-test's repo-facing case had quietly

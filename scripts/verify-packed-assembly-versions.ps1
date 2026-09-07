@@ -534,17 +534,27 @@ function Invoke-SelfTest
                 continue
             }
 
+            # A required entry is a ZIP path, always forward-slashed, and the csproj writes the same
+            # place with backslashes. Both sides are normalised to '/' here and nothing asks the
+            # platform: the first version of this case went through Split-Path, passed on Windows and
+            # failed on the Linux runner. Which of its two uses diverged is not recorded, because the
+            # fix is not to find out -- a zip path is not a filesystem path and never needed a
+            # filesystem API. Split-Path does answer in backslashes on Windows whatever separator it
+            # is given (measured), so a comparison built on it cannot be platform-neutral by accident.
+            $packed = $text -replace '\\', '/'
             foreach ($entry in $requiredPackageContent[$id])
             {
-                $file = Split-Path $entry -Leaf
-                $folder = (Split-Path $entry -Parent) -replace '/', '\\'
-                if ($text -match [regex]::Escape($file) -and $text -match [regex]::Escape($folder))
+                $cut = $entry.LastIndexOf('/')
+                $file = $entry.Substring($cut + 1)
+                $folder = $entry.Substring(0, $cut)
+                if ($packed -match [regex]::Escape($file) -and $packed -match [regex]::Escape($folder))
                 {
                     Write-Host "ok   rule '$id -> $entry' is content $id.csproj packs"
                 }
                 else
                 {
                     Write-Host "FAIL rule '$id -> $entry' is not content $id.csproj packs"
+                    Write-Host "       looked for '$file' and '$folder' in $id.csproj, slashes normalised"
                     $failures += "rule '$id -> $entry' is unpacked"
                 }
             }
