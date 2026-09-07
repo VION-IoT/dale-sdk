@@ -389,17 +389,21 @@ raised them.
 
 ## Test discipline
 
-The suite drives the real executor over a stub innermost handler, behind one of two client seams. The
-executor and error-model rows take a stub factory's client, so a fixture meets the bounds it sets
-itself rather than the registration's. The registration and client-family rows compose the package
-the way a consumer does — the real `AddDaleHttpSdk` and the real named client, only the innermost
-handler replaced — so the timeout, the `User-Agent` and the handler chain are under test rather than
-reconstructed. Both **await the executor's own task** before asserting; callbacks are then drained
-from a dispatcher stub that queues them the way a real actor does. Nothing waits on the wall clock.
-The discriminator for every timeout claim is a handler that never answers and honours cancellation —
-never a delay raced against a shorter bound
-([`../testing-conventions.md`](../testing-conventions.md) § 16), and never a handler that ignores the
-token, which reads the opposite of a real one on a zero bound.
+The suite reaches the wire through two client seams, and every row that issues a request takes one of
+them: a stub factory's client, where a fixture meets the bounds it sets itself rather than the
+registration's, or the composed package — the real `AddDaleHttpSdk` and the real named client, only
+the innermost handler replaced — where the timeout, the `User-Agent` and the handler chain are under
+test rather than reconstructed. Rows that issue nothing take neither seam: the client's
+member-mapping family stands on a mocked executor, because mapping a member to an executor call is
+all those members do; the surface family reads the assembly; the serializer family reads content
+alone.
+
+The executor's own rows drive the real executor over a stub innermost handler and **await the
+executor's own task** before asserting; callbacks are then drained from a dispatcher stub that queues
+them the way a real actor does. Nothing waits on the wall clock. The discriminator for every timeout
+claim is a handler that never answers and honours cancellation — never a delay raced against a
+shorter bound ([`../testing-conventions.md`](../testing-conventions.md) § 16), and never a handler
+that ignores the token, which reads the opposite of a real one on a zero bound.
 
 Three limits of that seam are contract rather than accident, because the stub replaces the very
 handler the platform composes:
