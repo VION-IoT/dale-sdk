@@ -1348,7 +1348,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
 - **`T-010`: the ledger is 68 entries, 12 rows resolved.** `T-009` left 69 and 11; deleting row 28n
   as fixed moves both by one (`fix-now 5, decision 6, Jira 6, leave 63` unchanged — the buckets
   count rows, and 28n's row now reads *resolved*). Row 45's entry cites the same file: its
-  `:329` and `:297` are `:343` and `:301` after the fix, corrected in place, and its claim — that the
+  `:329` and `:297` are `:344` and `:301` after the fix, corrected in place, and its claim — that the
   relabel asks what failed rather than only whether the source fired — is untouched, the new
   `catch` taking only `OperationCanceledException` and only around the header exchange.
 
