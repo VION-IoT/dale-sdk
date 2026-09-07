@@ -6,6 +6,15 @@ past the area that found them. The fourteen area passes filled it; any lane adds
 the retro ([`../retro/`](../retro/)) — an entry that gets scheduled becomes a Jira item and is struck
 here with its key; an entry that is fixed is deleted with the PR that fixes it.
 
+**"Struck" means removed, not left behind as a stub.** Both dispositions take the line out of this
+file, and the difference is only where the record goes: a scheduled entry's **Jira key** is recorded
+in the filing PR and in whatever table triaged it, a fixed one's record is the fix. Two consequences
+worth stating, because `T-009` had to decide both from this paragraph alone. A stub would keep
+`scripts/ledger-buckets.ps1`'s entry count from ever falling and its rows from ever reading
+*resolved*, which is what makes a triage table readable at a glance. And a page that points here for
+an entry being removed must be edited in the same PR to name the key instead — the pointer is the
+task's to fix, not the next reader's.
+
 Not for: a small area-local defect (the round that finds it fixes it), a stated behavior that merely
 surprises (the spec page states it), or a missing test (that is a `GAP` marker on the page).
 
@@ -316,17 +325,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   registration handshake (`Dale/Mqtt/Handlers/RegistrationHandler.cs:27`). It lives under `Mqtt/`
   because that is where the handshake's topics are, not because it is part of any contract this page
   specifies. *(BIND pass row 197 — the retro.)*
-- **A handler that survives a reconfiguration with no contract mappings keeps a stale map.** The
-  runtime sends `LinkLogicBlockContractActors` only when there is at least one mapping
-  (`LogicSystemConfigurationInitializer.cs:626-645`), while handler actors are root actors that
-  outlive the logic-block actors a reconfiguration stops and recreates — so a handler whose mappings
-  went to zero keeps references to actors that no longer exist, and has no way to be told "none". No
-  SDK change can cure it: the message that would say so is one the runtime does not send.
-  *(BIND pass, second opinion's unrowed observable 5 — the runtime, promoted by the operator.)*
-  **Runtime review (2026-09-06):** verified on the runtime at
-  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:629` — `if
-  (allMappings.Count > 0)` guards the only send, and no message says "none". Escalated to the
-  operator as a Jira candidate (runtime; VION-16 with the `dale-sdk` label).
 - **`Vion.Dale.Sdk.Reflection.AssemblyExtensions.GetConcreteType` now has no caller.** The singular
   entry was the contract factory's only use, and this pass moved that to the plural one so the factory
   can name every candidate. It stays because deleting a public method of a namespace outside the
@@ -386,20 +384,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   name *contains* `Contract`, and the semantic pass afterwards makes the output correct — so there is
   no functional observable, only the incremental generator's cache key being wider than it needs.
   Measuring the cost needs a build-time benchmark. *(BIND pass row 186, ANLZ pass row 176 — `ANLZ`.)*
-- **An inclusion gate on a property typed as a generated contract interface draws a false error.**
-  `IncludedWhenPredicateAnalyzer.cs:211` resolves `[LogicInterface]` through `AllInterfaces` — by
-  symbol only — and in a Metalama-hosted build a generated contract interface is an error type, so
-  `DALE043` reports a legitimately gated binding as ungateable. This is
-  [`../sdk-surface-conventions.md`](../sdk-surface-conventions.md) § 5's blind spot, live;
-  `AC-ANLZ-014.4` states it and
-  `UnresolvedContractInterfacePinTests.ReportGateOnPropertyWithUnresolvedInterface` pins the outcome.
-  The remedy an author would reach for, `[LogicBlockInterfaceBinding(typeof(…))]`, names the same
-  unresolved type. The fix is the by-name half of the two-way lookup `ServiceRelationAnalyzer.cs:236-293`
-  already carries, and the rule it would change is `AC-GATE-011.3`.
-  *(ANLZ pass row 185 — `GATE` + `ANLZ`.)*
-  **Runtime review (2026-09-06):** `DALE043` is an error, not a warning, and the first consumer
-  carries five gating suites over fielded blocks — so this fails a consumer's build rather than
-  nagging in it. Escalated to the operator as a Jira candidate (VION-62).
 - **`AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed.**
   `Vion.Dale.Sdk.Generators.csproj:19`. The rules ship to every consumer through
   `Vion.Dale.Sdk.csproj:92`, so the suppression's comment was corrected to say that adopting release
@@ -531,22 +515,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   `MODB`.)*
 ## `CLI` — the `dale` command-line tool (2026-09-05)
 
-- **The two upload conflicts are told apart by the endpoint's message text.** `dale upload
-  --skip-duplicate` treats a 409 as a skip only when the response message contains `version` and
-  `already exists` (`Vion.Dale.Cli/Commands/UploadCommand.cs:304-308`), because the API returns the same
-  status and the same `ConflictException` for a duplicate version and for a package-id conflict. Six
-  invocations ride on the match — both release workflows in the first consumer
-  (`release-test.yml:45`, `release-prod.yml:83`) and four in this repository
-  (`upload-libraries.yml:59`, `:90`, `examples.yml:61`, `:120`) — so a wording change at the endpoint
-  turns each of them into a hard failure, or turns a package-id conflict into a reported success. The
-  fix is a distinguishable field on the answer, which is the platform API's to add, not this tool's.
-  `AC-CLI-011.8` states the substring match as today's contract. *(CLI pass row 137 — the platform
-  API.)*
-  **Runtime review (2026-09-06):** re-verified on the consumer's release lane —
-  `release-prod.yml:90` and `release-test.yml:52` both pass `--skip-duplicate` — so the substring at
-  `Vion.Dale.Cli/Commands/UploadCommand.cs:307` sits between a wording change at the endpoint and
-  two fielded release workflows. Escalated to the operator as a Jira candidate (VION-62; the
-  distinguishable field is the platform API's).
 - **One thirty-second ceiling covers every cloud request, the package upload included.**
   `DaleHttpClient` sets `Timeout = 30 s` on the shared client (`:129`) and `dale upload` posts the
   whole `.nupkg` as a multipart body read into memory (`UploadCommand.cs:413-414`). None of the four
@@ -613,23 +581,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
 
 ## `IO` — the digital and analog I/O contract bindings (2026-09-05)
 
-- **A block cannot ask whether a face it holds is mapped.** `LogicBlockContractBase` drops a write on
-  an unmapped contract silently and exposes no mapping state, so a block whose own diagnostics depend
-  on knowing has no supported answer. The first consumer reads the protected `LogicBlockContractId`
-  **by reflection** to get one — `logic-block-libraries` `Ecocoach.EnergyManagement/LogicBlocks/Shared/DigitalOutputWiringProbe.cs:21-27`,
-  registered at `Ecocoach.EnergyManagement/DependencyInjection.cs:93` and consumed by
-  `HeatPumpSgReady.cs:60,569` for its unwired-contact error state; the probe's own doc names the SDK
-  gap as VION-130. The fix is a member **added** to `LogicBlockContractBase`, never a promotion of
-  `LogicBlockContractId`: promoted, the consumer's `GetProperty(…, NonPublic)` returns null and every
-  output silently reports unmapped, so a correctly wired pump raises its fault. The area-local
-  alternative — an `IsMapped` on the four faces — changes a face's members, which is a wire-surface
-  change with its own readers. *(IO pass row 16 — `BIND`.)*
-  **Runtime review (2026-09-06):** re-verified in production —
-  `Ecocoach.EnergyManagement/LogicBlocks/Shared/DigitalOutputWiringProbe.cs:22-23` still reaches
-  `LogicBlockContractBase`'s `LogicBlockContractId` through `BindingFlags.NonPublic`, and the
-  runtime constructs the same identity at
-  `Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:437,615` — the value exists
-  on both sides of a member that does not. VION-130 is the item; this line tracks it.
 - **A state payload of the wrong schema decodes as a value nothing sent.** The IO pass added a
   schema-verifier guard on every inbound decode, which refuses an empty or truncated payload; it
   cannot refuse a *well-formed* payload of another type, because the layouts agree. The hole is
@@ -670,27 +621,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   a prefix, and declaring the root therefore arms all twenty of the assembly's namespaces. Three types
   sit in that root namespace and 217 are behind the same declaration, so this row lands with the `BIND`
   row above or not at all. *(Found while correcting IO pass row 50's Why — `BIND`; decision 0145.)*
-- **`Vion.Contracts`' generated payload verifiers are unusable as published.** Every
-  `Verify<Payload>Payload(ByteBuffer)` wrapper — all ten in 3.7.0 — passes an empty file identifier to
-  `Verifier.VerifyBuffer`, which rejects any identifier that is not four characters, so the wrapper
-  throws `ArgumentException: FlatBuffers: file identifier must be length4` on every non-empty buffer
-  including a valid one, and returns `false` only on an empty one. The generated
-  `<Payload>Verify.Verify` beneath it is public and correct, which is what the IO pass calls directly
-  with a `null` identifier. Anyone reaching for the documented wrapper gets an exception.
-  *(Found by the IO pass, probes P5 and V6 — `vion-contracts`.)*
-  **Runtime review (2026-09-06):** re-verified at the source —
-  `Vion.Contracts/FlatBuffers.Generated/Hw/Ai/AiStatePayload.cs:19` and its nine siblings all call
-  `verifier.VerifyBuffer("", false, …)`. Escalated to the operator as a Jira candidate
-  (`vion-contracts`; VION-16 with the `dale-sdk` label).
-- **`hal-sim` writes the two payload identity strings transposed.**
-  `HalSim/FlatBufferPayloadFactory.cs:33,47,61,75` calls
-  `Create*StatePayload(builder, endpointOffset, hwBlockOffset, value)` where the generated parameters
-  are `(builder, hardware_block_instance_idOffset, endpoint_identifierOffset, value)`;
-  `hal-raspberry` `Vion.Hal.Raspberry.dotnet/Handlers/DigitalInputHandler.cs:157` passes them the other
-  way round. Nothing has noticed because the Dale SDK reads neither field — it takes the contract
-  identity from the topic (`AC-IO-005.3`). *(Found by the IO pass's reader sweep — `hal-sim`.)*
-  **Runtime review (2026-09-06):** re-verified at `HalSim/FlatBufferPayloadFactory.cs:33,47,61,75`.
-  Escalated to the operator as a Jira candidate (`hal-sim`; VION-16 with the `dale-sdk` label).
 
 ## `HTTP` — the logic-block HTTP client (2026-09-06)
 

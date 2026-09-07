@@ -133,9 +133,9 @@ drop is `LogicBlockContractBase`'s (`contracts.md`, `AC-BIND-009.*`), the warnin
 unmapped is issued once at start-up, and after that a `Set` on an unwired output is indistinguishable
 from a `Set` on a wired one. **There is no way to ask.** A block whose own diagnostics depend on
 knowing — a heat pump that must report an unwired contact rather than pretend — has no supported
-answer today; the ledger carries what it would take
-([`_findings.md`](_findings.md)). A face that *is* mapped but not yet linked is the other case and is
-not silent: it refuses the write, naming the contract and when writing becomes legal (`AC-BIND-009.*`).
+answer today; VION-130 carries what it would take. A face that *is* mapped but not yet
+linked is the other case and is not silent: it refuses the write, naming the contract and
+when writing becomes legal (`AC-BIND-009.*`).
 
 `AC-IO-003.3` holds in all four quadrants. An input face given an output's message raises nothing and
 an output face given an input's does the same. An input's handler given any contract message publishes
