@@ -133,11 +133,16 @@ function Test-Package([string]$nupkgPath)
         $packageVersion = $metadata.version
         $expected = Get-ExpectedAssemblyVersion $packageVersion
 
-        # Entry names inside a .nupkg are zip paths, forward-slashed on every platform. The comparison
-        # is -cnotcontains because PowerShell's -contains is case-insensitive and the convention path
-        # is not: a package carrying Analyzers/Dotnet/Cs/... restores and loads no analyzer.
+        # Entry names inside a .nupkg are zip paths, forward-slashed on every platform -- but a
+        # PackagePath ending in a separator doubles it on the Linux runner, so the real artifact
+        # carries `analyzers/dotnet/cs//Vion.Dale.Sdk.Generators.dll` (and every tools/ entry the same
+        # way) while a package packed on Windows carries one slash. NuGet resolves either; this gate
+        # refused the real one until its first CI run said so. Repeated separators are collapsed here.
+        # The comparison is -cnotcontains because PowerShell's -contains is case-insensitive and the
+        # convention path is not: a package carrying Analyzers/Dotnet/Cs/... restores and loads no
+        # analyzer.
         $required = if ($requiredPackageContent.ContainsKey($packageId)) { @($requiredPackageContent[$packageId]) } else { @() }
-        $entryNames = @($zip.Entries | ForEach-Object { $_.FullName })
+        $entryNames = @($zip.Entries | ForEach-Object { $_.FullName -replace '/{2,}', '/' })
         $missing = @($required | Where-Object { $entryNames -cnotcontains $_ })
 
         foreach ($entry in $zip.Entries)
@@ -279,7 +284,7 @@ function Invoke-SelfTest
         # A package at a chosen id and version, carrying the sample assembly at each of the given zip
         # paths. Every copy answers to the sample's own AssemblyVersion, so a fixture built at
         # $matching is honest and one built at $stale is the 0.11.1 lie.
-        function New-Fixture([string]$name, [string]$id, [string]$version, [string[]]$entries, [string[]]$notAssemblies)
+        function New-Fixture([string]$name, [string]$id, [string]$version, [string[]]$entries, [string[]]$notAssemblies, [string[]]$literalEntries)
         {
             $directory = Join-Path $root $name
             $staging = Join-Path $directory 'staging'
@@ -314,6 +319,28 @@ function Invoke-SelfTest
             $nupkg = Join-Path $directory "$id.$version.nupkg"
             [System.IO.Compression.ZipFile]::CreateFromDirectory($staging, $nupkg)
             Remove-Item $staging -Recurse -Force
+
+            # Entry names written verbatim, because CreateFromDirectory normalises separators and the
+            # shape this gate meets in production does not: `dotnet pack` on Linux doubles the one a
+            # PackagePath ends with.
+            if ($literalEntries)
+            {
+                $archive = [System.IO.Compression.ZipFile]::Open($nupkg, [System.IO.Compression.ZipArchiveMode]::Update)
+                try
+                {
+                    $bytes = [System.IO.File]::ReadAllBytes($sample)
+                    foreach ($literal in $literalEntries)
+                    {
+                        $stream = $archive.CreateEntry($literal).Open()
+                        try { $stream.Write($bytes, 0, $bytes.Length) } finally { $stream.Dispose() }
+                    }
+                }
+                finally
+                {
+                    $archive.Dispose()
+                }
+            }
+
             return $directory
         }
 
@@ -404,6 +431,11 @@ function Invoke-SelfTest
                 Directory = (New-Fixture 'sdk-wrong-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll", "analyzers/dotnet/cs/$sdk.Other.dll"))
                 Expected = 1
                 Expect = @("${analyzer}: absent") }
+            @{ Name = 'the analyzer at the doubled separator dotnet pack writes on Linux'
+                Directory = (New-Fixture 'sdk-doubled-separator' $sdk $matching @("lib/netstandard2.1/$sdk.dll") @() `
+                        @("analyzers/dotnet/cs//$sdk.Generators.dll"))
+                Expected = 0
+                Expect = @('required content: 1 of 1 present (1 rule(s), 1 package(s) matched)') }
             @{ Name = 'a package whose analyzer path is spelled in the wrong case'
                 Directory = (New-Fixture 'sdk-cased-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll", "Analyzers/Dotnet/Cs/$sdk.Generators.dll"))
                 Expected = 1

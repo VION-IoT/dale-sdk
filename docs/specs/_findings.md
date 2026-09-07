@@ -343,6 +343,16 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   branches is skipped the second time. No shape I could construct makes the outcome differ — a type
   already judged representable is representable, and one already judged otherwise returned — so this
   is recorded rather than fixed. *(ANLZ pass row 150 — `ANLZ`.)*
+- **A `PackagePath` ending in a separator packs two different artifacts by runner.**
+  `Vion.Dale.Sdk.csproj:92` (`analyzers\dotnet\cs\`) and `:87` (`tools\net10.0\`) end in a
+  separator, which `dotnet pack` doubles on Linux and not on Windows: the CI artifact carries
+  `analyzers/dotnet/cs//Vion.Dale.Sdk.Generators.dll` and 43 `tools/net10.0//` entries, a locally
+  packed one carries a single slash. NuGet resolves both, so nothing is broken — but the two
+  artifacts are not byte comparable, and any tool reading entry names exactly has to know
+  (`scripts/verify-packed-assembly-versions.ps1` collapses repeated separators for that reason).
+  Dropping the trailing separator changes a released package's layout, which is
+  [`../releasing.md`](../releasing.md)'s. *(Found by `T-007`'s artifact gate on its first real run —
+  the release process.)*
 - **The generator's `Contract`-substring predicate runs on every class in every compilation.**
   `Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:36-40` matches any class carrying an attribute whose
   name *contains* `Contract`, and the semantic pass afterwards makes the output correct — so there is

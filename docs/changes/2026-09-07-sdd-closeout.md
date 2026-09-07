@@ -347,8 +347,9 @@ _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-0
 
 **75 entries, recounted at `6d19f75`** — reviewer's question 8's arithmetic holds (77 at the ruling,
 76 after `T-003`, 75 after `T-004`, untouched by `T-005`; **72 after `T-007` deleted the three rows
-it fixed**, which the checker reports as `72 entry(ies) … 75 row(s), 3 resolved`). Every entry is
-below exactly once, keyed
+it fixed, then 73 when its own gate found one on its first CI run** — the checker reports
+`73 entry(ies) … 76 row(s), 3 resolved`). The new row is marked as having entered after the ruling:
+the operator has not bucketed it, `T-007` has. Every entry is below exactly once, keyed
 on its bold lead rather than its position, because a triage outlives the deletions it causes.
 `pwsh -File scripts/ledger-buckets.ps1` checks the table against `_findings.md` and prints the
 tallies; `-List` re-seeds it. A row whose entry is gone reads as *resolved*, not as an error — that
@@ -405,6 +406,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `ANLZ` | A `MinInterval` at the tick-representation boundary configures a negative interval, unreported. | fix-now | One comparison, in the analyzer and the runtime, that must move together; a token drawing no diagnostic and making the emission gate unconditionally true is a red-first test. |
 | `ANLZ` | `DALE046` judges a struct type only on its first occurrence in a wire graph. | leave | No shape makes the outcome differ, so there is nothing to prove red. |
 | `ANLZ` | A package packed without the analyzer assembly loses all forty-six diagnostics in silence. | fix-now | The entry names the gate and the assertion: one check in `verify-packed-assembly-versions.ps1`, which was minted for this failure class. **`T-007`: the lead is refuted — such a package fails every consumer's build with `CS0006`, it is not silent; the check landed anyway and the entry is resolved. See *Drift checkpoints*.** |
+| `ANLZ` | A `PackagePath` ending in a separator packs two different artifacts by runner. | leave | **Entered the ledger after the ruling**, found by `T-007`'s own gate on its first real CI run — so it is bucketed here rather than ruled on. Dropping the trailing separator changes a released package's layout, which is `releasing.md`'s subject and not fix-sized; nothing is broken today, since NuGet resolves both forms. |
 | `ANLZ` | The generator's `Contract`-substring predicate runs on every class in every compilation. | leave | No functional observable; measuring the cache cost needs a build-time benchmark. |
 | `ANLZ` | An inclusion gate on a property typed as a generated contract interface draws a false error. | Jira | `D7`'s VION-62 candidate: `DALE043` is an error, so it fails a consumer's build rather than nagging in it. |
 | `ANLZ` | `AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed. | leave | Adopting release tracking is an open decision the surface conventions deliberately do not take. |
@@ -441,7 +443,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `HTTP` | The package ships no HTTP test kit. | leave | A sixth kit is its own change doc; raised by the first consumer, not found here. |
 | `HTTP` | The package surfaces no link or connection diagnostics. | leave | A feature band that would need the package to own the primary handler. |
 
-**Five `fix-now`, six `decision`, six `Jira`, fifty-eight `leave`.** Three of the five `fix-now` rows
+**Five `fix-now`, six `decision`, six `Jira`, fifty-eight `leave`** — fifty-nine once `T-007` added its own. Three of the five `fix-now` rows
 — `ANLZ`'s packed-analyzer assertion, `CLI`'s `login` help default, `CTRL`'s duration converter — pass
 every test above. **Two do not**, and both are here for a stated reason rather than a clean fit; they
 are the rows to rule on first:
@@ -1083,6 +1085,27 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `FAIL` branch also prints what it looked for, because a bare verdict on a case that only fails
   somewhere else is a second round of guessing. Third platform trap in this task, after `T-005`'s
   hidden-directory walk and this round's own `Test-Path`.
+- **`T-007`: the gate's second CI run failed on the real artifact, and the gate was wrong, not the
+  artifact.** `verify-packages` reported `Vion.Dale.Sdk 0.0.0-ci.622 -> analyzers/dotnet/cs/…: absent`.
+  The package carries it: the entry is `analyzers/dotnet/cs//Vion.Dale.Sdk.Generators.dll`, with a
+  **doubled** separator. Measured across the whole downloaded artifact set — every entry produced by a
+  `PackagePath` ending in a separator has it (`analyzers/dotnet/cs//` and all 43 `tools/net10.0//`
+  entries), while the `lib/` entries, which no `PackagePath` places, are clean. NuGet resolves either
+  form, and the published packages install and judge correctly; the strict match was the defect. Entry
+  names are now compared with repeated separators collapsed, and the fixture that proves it writes its
+  entry name **verbatim** into the zip, because `ZipFile.CreateFromDirectory` normalises separators —
+  which is exactly why eleven fixtures agreed with each other and none of them with the tree. The
+  carry-over asks for "a fixture shaped like the one production runs on"; a fixture built by a
+  different tool than production's is not one, and no amount of mutation testing inside that suite
+  could have shown it. The gate now runs clean over the artifact set that failed it
+  (`clean (18 assemblies across 18 packages)`, `required content: 1 of 1 present`).
+- **`T-007` did not fix the doubled separator, and it is a ledger candidate rather than this task's.**
+  `PackagePath="analyzers\dotnet\cs\"` and `PackagePath="tools\net10.0\"` in
+  `Vion.Dale.Sdk.csproj` end in a separator, which `dotnet pack` doubles on Linux and not on Windows,
+  so the same source produces two different artifacts by runner. Benign today — NuGet resolves both —
+  but it means any tool that reads entry names exactly must know, and the two artifacts are not byte
+  comparable. Dropping the trailing separator is a packaging change to a released package's layout,
+  which is `releasing.md`'s subject and not a fix-sized repair. Recorded, not absorbed.
 - **`T-006`: the review subagent's own round is why five of these checkpoints read as they do.** It
   refuted the Modbus premise, turned "four of six misroute" into all six at a uniform +3, found the
   duplicate-lead hole in the script, and showed that the self-test's repo-facing case had quietly
