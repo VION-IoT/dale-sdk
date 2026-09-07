@@ -276,5 +276,53 @@ namespace Api.Sub
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.7")]
+        public async Task StaySilentOnMarkedDelegate()
+        {
+            // Arrange / Act / Assert
+            // A public delegate is a public type, so DALE014 asks it for a mark like any other. It could
+            // not carry one until the marks accepted AttributeTargets.Delegate: following the diagnostic
+            // produced CS0592, which is a compilation error this test would surface as an unexpected
+            // diagnostic. Both marks are declared here because DALE014 accepts either, so a delegate that
+            // one of them refused would still leave the rule unanswerable.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""TestNs"")]
+
+namespace TestNs
+{
+    /// <summary>Documented.</summary>
+    [PublicApi]
+    public delegate int Published(string name);
+
+    [InternalApi]
+    public delegate int Plumbing(string name);
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task ReportUnmarkedDelegateInApiNamespace()
+        {
+            // Arrange / Act / Assert
+            // The antecedent AC-ANLZ-012.7 rests on: the mark rule really does reach a delegate, so a
+            // delegate that cannot carry a mark is a diagnostic with no answer. What this asserts is
+            // AC-ANLZ-012.2's own sentence, which is the id it cites.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""TestNs"")]
+
+namespace TestNs
+{
+    public delegate int {|#0:Unmarked|}(string name);
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE014_UnmarkedPublicType).WithLocation(0).WithArguments("Unmarked", "TestNs");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
+        }
     }
 }

@@ -1,8 +1,11 @@
+using Vion.Dale.Sdk.Core;
+
 namespace Vion.Dale.Sdk.Modbus.Core.Server
 {
     /// <summary>
     ///     <see cref="IModbusServerSnapshot" /> composing one accessor per register area.
     /// </summary>
+    [InternalApi]
     public sealed class ModbusServerSnapshot : IModbusServerSnapshot
     {
         /// <summary>

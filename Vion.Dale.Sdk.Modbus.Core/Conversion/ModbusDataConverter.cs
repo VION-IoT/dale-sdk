@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Conversion
@@ -9,6 +10,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
     ///     Provides methods for converting between Modbus register byte representations and .NET types, handling byte/word
     ///     ordering, text encoding, and bit-level operations.
     /// </summary>
+    [InternalApi]
     public class ModbusDataConverter : IModbusDataConverter
     {
         private readonly IBitConverterProxy _bitConverter;

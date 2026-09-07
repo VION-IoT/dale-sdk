@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
@@ -8,6 +9,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
     /// <summary>
     ///     Represents a request that can be executed asynchronously.
     /// </summary>
+    [InternalApi]
     public interface IRequest
     {
         /// <summary>

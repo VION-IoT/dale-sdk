@@ -1,9 +1,11 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 {
     /// <inheritdoc />
+    [InternalApi]
     public class LogicBlockModbusTcpServerFactory : ILogicBlockModbusTcpServerFactory
     {
         private readonly IServiceProvider _serviceProvider;

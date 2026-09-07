@@ -6,6 +6,7 @@ using Vion.Contracts.Constants;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
@@ -17,6 +18,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// <summary>
     ///     Handles communication between logic block Modbus RTU and the HAL via MQTT.
     /// </summary>
+    [InternalApi]
     public partial class ModbusRtuHandler : ServiceProviderHandlerBase
     {
         /// <summary>
@@ -661,6 +663,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// <summary>
     ///     The exception that is thrown when the pending requests limit has been reached.
     /// </summary>
+    [PublicApi]
     public class PendingRequestsLimitReachedException : InvalidOperationException
     {
         /// <summary>
@@ -677,6 +680,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// <summary>
     ///     The exception that is thrown when no service provider contract mapping is found for a contract.
     /// </summary>
+    [PublicApi]
     public class ServiceProviderContractMappingNotFoundException : KeyNotFoundException
     {
         /// <summary>

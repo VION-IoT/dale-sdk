@@ -294,7 +294,13 @@ found in one more place; `AC-ANLZ-011.3` is the target nothing reached — the k
 ## Public-API documentation
 
 - `AC-ANLZ-012.1` (Event-driven): WHEN a `[PublicApi]` type has no `<summary>` documentation THE
-  SYSTEM SHALL report `DALE013`.
+  SYSTEM SHALL report `DALE013`. **What the rule reads is the compiler's documentation XML**
+  (`GetDocumentationCommentXml`), which is empty for every type in a project that sets no
+  `GenerateDocumentationFile` — so in such a project the diagnostic fires on a documented type too, and
+  the only answer is a suppression. Measured on `Vion.Dale.Sdk.Test`, the first analyzer-armed project
+  to declare a `[PublicApi]`: 1 occurrence, 0 under `-p:GenerateDocumentationFile=true`. Nothing published
+  today is affected — every package inside the ratchet sets the property. Which packages do not, and what
+  that means for the passes still to come, is in the ledger.
 - `AC-ANLZ-012.2` (Event-driven): WHEN a public type in a declared public-API namespace carries
   neither `[PublicApi]` nor `[InternalApi]` THE SYSTEM SHALL report `DALE014`.
 - `AC-ANLZ-012.3` (Event-driven): WHEN a declared public-API namespace matches no public type THE
@@ -307,6 +313,29 @@ found in one more place; `AC-ANLZ-011.3` is the target nothing reached — the k
   documentation whatever encloses it.
 - `AC-ANLZ-012.6` (Ubiquitous): THE SYSTEM SHALL credit every declared namespace a type's own
   namespace matches, not one of them.
+- `AC-ANLZ-012.7` (Ubiquitous): THE SYSTEM SHALL accept both surface marks on every declaration kind
+  the mark rule judges, so a type `DALE014` asks for a mark can carry one.
+- `AC-ANLZ-012.8` (Ubiquitous): THE SYSTEM SHALL confine a surface mark to the declaration carrying
+  it, so a subclass of a marked type is unmarked until it declares its own.
+
+`AC-ANLZ-012.8` is the same rule read from the other side, and its cost was a disagreement rather
+than an error. The mark rule reads declared attributes — `ISymbol.GetAttributes` in the analyzer, a
+source scan in the manifest generator — while reflection's default walks base types, so a subclass of
+a `[PublicApi]` type read as *marked* to every package-surface test in this repository and as
+*unmarked* to the build that judges it. Measured: `Vion.Dale.Sdk.Modbus.Rtu.ModbusRtu` is plumbing
+deriving from the published `LogicBlockContractBase`, and its package's surface test called it
+published while `DALE014` reported it. Declaring both marks `Inherited = false` makes the three
+readers one reader; no other package had a public subclass of a marked type, so nothing else moved.
+
+`AC-ANLZ-012.7` is a rule about the attributes rather than the analyzer, and it is stated here
+because `DALE014` is what made it observable. A public `delegate` is a public type, so the mark rule
+asks it for a mark — and neither attribute's `AttributeUsage` listed `Delegate`, so following the
+diagnostic produced `CS0592` and there was no way to answer it. It surfaced the first time the
+analyzer was armed over a package that ships one (`Vion.Dale.Sdk.Modbus.Core`'s
+`ModbusServerBufferAccessor`), which is what arming a ratchet over new ground is for. A `[PublicApi]`
+delegate still does not reach the manifest — `generate-api-reference.cjs` scans for the type keywords
+and `delegate` is not among them — and nothing declares one today; that gap is in the finding ledger
+rather than fixed here, because closing it is a change to the generator and its first test harness.
 
 `AC-ANLZ-012.6` had a sharper edge than "the wrong one": the declarations are held in an unordered
 set, so which of two overlapping ones was credited — and which was then reported stale — was not
@@ -421,7 +450,7 @@ An analyzer that is referenced is not necessarily running, and
 [`../testing-conventions.md`](../testing-conventions.md) § 3 is why that has its own standing gate.
 
 - `AC-ANLZ-018.1` (Ubiquitous): THE SYSTEM SHALL ship the analyzer assembly inside the `Vion.Dale.Sdk` package under `analyzers/dotnet/cs`, so a consumer referencing the package receives every diagnostic. GAP: observable only from a packed artifact — asserted by `scripts/verify-packed-assembly-versions.ps1`, whose own fixtures are packages rather than compilations, so no in-process test can carry the id.
-- `AC-ANLZ-018.2` (Ubiquitous): THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; `AC-ANLZ-018.4` proves the mechanism on two of them.
+- `AC-ANLZ-018.2` (Ubiquitous): THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; eleven of them carry a committed wiring probe that proves the mechanism, under the id of whichever page owns the package — `AC-INTRO-017.4` for the two I/O packages, `AC-TKIT-013.2` for the five kits, `AC-HTTP-013.2` for HTTP, `AC-MODB-019.2` for the three Modbus packages; `AC-ANLZ-018.4` is the rule that the probe stays out of an ordinary build.
 - `AC-ANLZ-018.3` (Event-driven): WHEN the analyzer assembly is absent at pack time THE SYSTEM SHALL produce a package whose build targets still reference it, and SHALL fail the release run naming that package, which is sooner than the consumer's build that reports the missing file but not before it. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`.
 - `AC-ANLZ-018.4` (Ubiquitous): THE SYSTEM SHALL fail a build of a probed project when the
   analyzer-wiring probe is linked in, and SHALL keep the probe out of an ordinary build.

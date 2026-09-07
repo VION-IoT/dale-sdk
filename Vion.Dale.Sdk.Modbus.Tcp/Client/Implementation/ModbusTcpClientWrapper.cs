@@ -3,6 +3,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
@@ -1249,6 +1250,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
     /// <summary>
     ///     Exception thrown when attempting to connect without setting an IP address.
     /// </summary>
+    [PublicApi]
     public class IpAddressNotSetException : Exception
     {
         /// <summary>

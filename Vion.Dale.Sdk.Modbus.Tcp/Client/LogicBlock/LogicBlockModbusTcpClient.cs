@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Client;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
@@ -14,6 +15,7 @@ using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 {
     /// <inheritdoc />
+    [InternalApi]
     public partial class LogicBlockModbusTcpClient : ILogicBlockModbusTcpClient
     {
         // IPEndPoint.MinPort is 0, which is the "let the OS choose" sentinel rather than an addressable port.

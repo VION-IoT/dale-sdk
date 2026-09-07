@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
 
@@ -7,6 +8,7 @@ namespace Vion.Dale.Sdk.Modbus.Core
     /// <summary>
     ///     Extension methods for setting up Modbus core services in an <see cref="IServiceCollection" />.
     /// </summary>
+    [PublicApi]
     public static class ServiceCollectionExtensions
     {
         /// <summary>

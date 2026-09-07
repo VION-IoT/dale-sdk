@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Server;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
@@ -18,6 +19,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
     ///         these buffers on background threads.
     ///     </para>
     /// </remarks>
+    [InternalApi]
     public interface IModbusTcpServerProxy : IDisposable
     {
         /// <summary>

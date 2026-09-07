@@ -1,4 +1,5 @@
 using System.Globalization;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Validation
@@ -6,6 +7,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Validation
     /// <summary>
     ///     Provides validation for Modbus protocol parameters and responses.
     /// </summary>
+    [InternalApi]
     public class ModbusValidator : IModbusValidator
     {
         /// <inheritdoc />

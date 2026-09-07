@@ -1,10 +1,12 @@
 using System;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
 {
     /// <summary>
     ///     Exception thrown when an invalid unit identifier is provided.
     /// </summary>
+    [PublicApi]
     public class InvalidUnitIdentifierException : Exception
     {
         /// <summary>

@@ -30,12 +30,11 @@ protocol link diagnostics) and
 rides in the callback signature) are the design authority for the diagnostics and the callback shape
 and are cited, never re-argued.
 
-**No `DALE` diagnostic judges any declaration in these three projects.** None of
-`Vion.Dale.Sdk.Modbus.Core`, `.Tcp` or `.Rtu` carries the analyzer `ProjectReference` that
-`Vion.Dale.Sdk.DigitalIo` and `.AnalogIo` do, so `AC-ANLZ-018.*` puts every type, mark and XML doc
-here outside the pack. The `[PublicApi]` marks and the documentation below are author discipline with
-no gate behind them; only the PublicApi manifest snapshot notices when the marked set changes, and
-the manifest rule is `SYS-API-*` ([`_invariants.md`](_invariants.md)).
+All three projects now carry the analyzer `ProjectReference` that `Vion.Dale.Sdk.DigitalIo` and
+`.AnalogIo` do, so `DALE014` asks every public type here for a surface mark — see *The published
+surface* below for what the marks mean and what proves the reference is live. Which `[PublicApi]`
+types reach the manifest snapshot is still `SYS-API-*` ([`_invariants.md`](_invariants.md)), which
+the snapshot bot regenerates rather than gates.
 
 ## The shared client surface
 
@@ -531,6 +530,57 @@ RTU actor messages carry their types across the plugin boundary; `Vion.Dale.Sdk.
 deliberately unmarked. What the marker does is [`plugin-loading.md`](plugin-loading.md)'s. The RTU
 assembly registers no handler of its own, and does not need to: the runtime constructs a handler
 actor by activation rather than resolution.
+
+## The published surface
+
+- `AC-MODB-019.1` (Ubiquitous): THE SYSTEM SHALL classify every public type each of its three
+  packages ships as either published surface or internal plumbing.
+- `AC-MODB-019.2` (Ubiquitous): THE SYSTEM SHALL judge each of the three packages' own declarations
+  with the Dale analyzers, so a public type in its declared published namespace carrying neither
+  surface mark draws a diagnostic in its build.
+
+The rule the marks apply is *who names the type*. A type is published when a block author's own
+source names it — they inject it, catch it, declare it, or construct it — and it is plumbing when it
+is public only so another assembly of this build can reach it: the TestKit's fakes, the container's
+activator, the runtime's actor routing. The rule is not a transitive closure over signatures, and the
+tree says so: `ModbusLinkAccumulator` is `[InternalApi]` and appears in `IRequestQueue.Initialize`'s
+parameter list, because the only caller that ever passes one is the client this SDK ships.
+
+What that leaves published is, per package: Core's registration, the data converter, the client
+surface and its receipt, the server's accessors, extents and limits, and every exception an error
+callback receives by name; RTU's contract interface, its two exceptions, and the `IConfigureServices`
+implementation a development host constructs by hand; TCP's client and server surfaces, its
+registration, the queue policy and drop reason, the connection diagnostics and its four exceptions.
+The eleven exception types Core and TCP had left unmarked were the accidental half of the unmarked
+set — the deliberate half is the seams the TestKits substitute, which stay plumbing because the kits
+hand out their own concrete fakes rather than these interfaces. Five of those eleven are named in
+criteria above; the other six — the timeout and the four unsupported-order/encoding refusals, and
+TCP's connect timeout — are published because an error callback receives them, which
+`AC-MODB-004.*` and `AC-MODB-008.*` describe as a class without naming each member.
+
+Two of the sixteen are judgments rather than readings, and are stated because a later reader will
+ask. **`Vion.Dale.Sdk.Modbus.Core.ServiceCollectionExtensions` is the one published type with no
+caller outside this build** — every call to `AddDaleModbusCoreSdk` in this repository is the SDK's own
+or a test's, because `AddDaleModbusTcpSdk` and RTU's `DependencyInjection` both call it for their
+consumers. What a consumer repository does cannot be read from here, so the claim is about this tree. It is published
+anyway: it is the sole registration entry point of a package on the release roster, and marking it
+plumbing would leave that package with no published way to register `IModbusDataConverter`, which it
+does publish and which a consumer does inject. That is the mark most open to being overturned.
+**`Vion.Dale.Sdk.Modbus.Rtu.DependencyInjection` is published while the identical class in
+`Vion.Dale.Sdk.DigitalIo` and `.AnalogIo` is `[InternalApi]`**, and the difference is real rather than
+an oversight: this package ships no `AddDaleModbusRtuSdk` extension, so a development host — which has
+no plugin loader to discover an `IConfigureServices` — has no other way in, and the SDK's own example
+constructs one by hand (`examples/Vion.Examples.ModbusRtu/Vion.Examples.ModbusRtu.DevHost/Program.cs:27`).
+Whether RTU should ship the extension its two siblings do, and make that hand-call unnecessary, is a
+surface question in the finding ledger rather than one this page answers.
+
+`AC-MODB-019.2` is what makes `AC-MODB-019.1` enforceable rather than aspirational, and this area is
+where the gap was widest: no `DALE` diagnostic judged any declaration in these three projects at all.
+`Vion.Dale.Sdk.Modbus.Core` declared no published namespace either, so arming the analyzer there
+without adding the declaration would have asked about nothing. It declares its root namespace, which
+`DALE014` matches as a prefix, so the six namespaces beneath it are asked by that one declaration.
+The proof is `AC-HTTP-013.2`'s shape: a deliberately unmarked type linked into each package's own
+build under a property, where the diagnostic must appear, and must not appear without it.
 
 ## Test discipline
 

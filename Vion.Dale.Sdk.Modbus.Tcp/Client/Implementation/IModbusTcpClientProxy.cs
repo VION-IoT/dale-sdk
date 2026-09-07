@@ -2,12 +2,14 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 {
     /// <summary>
     ///     Provides an abstraction for Modbus TCP client operations for testability.
     /// </summary>
+    [InternalApi]
     public interface IModbusTcpClientProxy : IDisposable
     {
         /// <summary>

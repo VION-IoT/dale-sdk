@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
@@ -8,6 +9,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
     ///     <see cref="IModbusRegisterAccessor" /> over a live server register buffer in wire order
     ///     (big-endian per 16-bit word), with all typed conversion delegated to <see cref="IModbusDataConverter" />.
     /// </summary>
+    [InternalApi]
     public class ModbusRegisterAccessor : IModbusRegisterAccessor
     {
         private const int BytesPer16BitValue = 2;

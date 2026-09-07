@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
@@ -9,6 +10,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
     /// <summary>
     ///     Manages a queue of asynchronous requests, processing them sequentially in the order they are enqueued.
     /// </summary>
+    [InternalApi]
     public interface IRequestQueue : IDisposable
     {
         /// <summary>

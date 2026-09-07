@@ -1,10 +1,12 @@
 using System;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
 {
     /// <summary>
     ///     Exception thrown when a Modbus read or write operation does not complete within the specified timeout period.
     /// </summary>
+    [PublicApi]
     public class OperationTimeoutException : Exception
     {
         /// <summary>
