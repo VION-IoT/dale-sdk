@@ -254,11 +254,12 @@ sources: the per-request bound by the state of the source this package armed, th
 `TimeoutException` the client puts inside the cancellation it raises for its own bound and for
 nothing else.
 
-That inner exception is the platform's, not this package's, and it is the reason the ceiling can be
-named at all: it has been set since .NET 5, which every runtime this SDK's plugins load into is past,
-so the class is the same wherever the block runs. On a host older than that the client's bound would
-arrive as the cancellation it raises and nothing would relabel it — the behaviour this criterion
-replaced, never a message naming a bound that did not elapse.
+That inner exception is the platform's, not this package's, and it is what tells the ceiling apart
+from any other cancellation rather than leaving it guessed at: the client has set it since .NET 5.
+The runtime this SDK's plugins load into is past that, and it is the host `AC-HTTP-008.2` is stated
+for. The `netstandard2.1` target reaches further back, and on a host that predates .NET 5 the
+client's bound arrives as the cancellation it raises with nothing to relabel it — the behaviour this
+criterion replaced, never a message naming a bound that did not elapse.
 
 The number in the message is rendered invariantly, so the string reads the same on every machine —
 the gateways this runs on are German-locale, where a culture-rendered `0.05` reads `0,05` and no
@@ -388,12 +389,14 @@ raised them.
 
 ## Test discipline
 
-The suite drives the real executor over a stub innermost handler, behind the real named client, and
-**awaits the executor's own task** before asserting; callbacks are then drained from a dispatcher
-stub that queues them the way a real actor does. Nothing waits on the wall clock. The discriminator
-for every timeout claim is a handler that never answers and honours cancellation — never a delay
-raced against a shorter bound ([`../testing-conventions.md`](../testing-conventions.md) § 16), and
-never a handler that ignores the token, which reads the opposite of a real one on a zero bound.
+The suite drives the real executor over a stub innermost handler, behind a stub factory's client
+rather than the registered one — so a fixture meets the bounds it sets itself, not the
+registration's — and **awaits the executor's own task** before asserting; callbacks are then drained
+from a dispatcher stub that queues them the way a real actor does. Nothing waits on the wall clock.
+The discriminator for every timeout claim is a handler that never answers and honours cancellation —
+never a delay raced against a shorter bound
+([`../testing-conventions.md`](../testing-conventions.md) § 16), and never a handler that ignores the
+token, which reads the opposite of a real one on a zero bound.
 
 Three limits of that seam are contract rather than accident, because the stub replaces the very
 handler the platform composes:

@@ -307,9 +307,10 @@ namespace Vion.Dale.Sdk.Http
                  * cancelling on a token of its own, and the client's timeout — and all three arrive as an
                  * OperationCanceledException, so the class caught says only that one of them happened. The
                  * first is what the per-request source's own flag excludes; the other two are told apart by
-                 * the inner exception, which the client sets to a TimeoutException only for its own bound. Reading the flag alone hands a handler's cancellation to the block
-                 * as a timeout naming the client's bound, for an exchange that never reached it — wrapping a
-                 * transport failure `AC-HTTP-006.1` says arrives as the handler threw it.
+                 * the inner exception, which the client sets to a TimeoutException only for its own bound.
+                 * Reading the flag alone hands a handler's cancellation to the block as a timeout naming the
+                 * client's bound, for an exchange that never reached it — wrapping a transport failure
+                 * `AC-HTTP-006.1` says arrives as the handler threw it.
                  *
                  * The relabel is here rather than beside the per-request one in HandleException so that the
                  * bound can be named from the client that imposed it, which is a local of this method; the

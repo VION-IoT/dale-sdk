@@ -880,7 +880,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   task line reads "54: the decline stated on the page and the ledger line closed". `_findings.md`
   has never carried a `DaleSharedAssembly` entry — the HTTP pass's own record says only 28n left one
   ([`archive/2026-09-06-http-pass.md:757`](archive/2026-09-06-http-pass.md)) — and the decline is
-  already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:346`, its rationale at `:362`), landed
+  already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:347`, its rationale at `:363`), landed
   by that pass. So `T-010` is row 28n plus a re-read of a criterion that already says what the task
   asks to be said, not two halves. This is the same shape as `T-005`'s missing entry: the second
   task line in three to name a ledger entry that does not exist, both times for a question a pass
@@ -1344,8 +1344,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `catch` names `httpClient.Timeout` with no threading and no second `CreateClient`. So the scope
   guard's out (an unnamed bound) was not needed, and `AC-HTTP-008.2` states the number.
 - **`T-010`: row 54 confirmed, as `T-006` recorded.** No `DaleSharedAssembly` entry has ever been in
-  `_findings.md` (`grep -c` → 0 at `fe83284` and here), and `AC-HTTP-013.3` (`docs/specs/http.md:346`,
-  rationale at `:362` — `:330` and `:346` on `fe83284`, before this PR's own edits moved them) already states the decline the task line asks for. Nothing changed for this
+  `_findings.md` (`grep -c` → 0 at `fe83284` and here), and `AC-HTTP-013.3` (`docs/specs/http.md:347`,
+  rationale at `:363` — `:330` and `:346` on `fe83284`, before this PR's own edits moved them) already states the decline the task line asks for. Nothing changed for this
   half. The one page pointer this fix *did* owe was the other half's: the `AC-HTTP-008` prose ended
   "the finding ledger carries the ask to normalise the two", and that sentence went with the entry.
 - **`T-010`: the ledger is 68 entries, 12 rows resolved.** `T-009` left 69 and 11; deleting row 28n

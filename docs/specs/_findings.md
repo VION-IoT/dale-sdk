@@ -634,7 +634,7 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   threading the token changes the exception class on that path — a stalled body would start arriving
   as a cancellation rather than as whatever the stream raises — which is a change to what a callback
   receives today, not an area-local repair. A failure raised on that unbounded stretch does at least
-  keep its own class: the relabel predicate (`HttpRequestExecutor.cs:350`) asks whether what failed
+  keep its own class: the relabel predicate (`HttpRequestExecutor.cs:351`) asks whether what failed
   was a cancellation, not only whether the source had fired, so a body that will not parse after the
   bound elapsed still arrives as a `JsonException` (`AC-HTTP-006.1`). *(HTTP pass row 45 — `HTTP`;
   the clause added by the fix-up round.)*
