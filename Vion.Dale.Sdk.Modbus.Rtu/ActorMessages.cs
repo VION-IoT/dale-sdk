@@ -1,5 +1,6 @@
 using System;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu
@@ -19,6 +20,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// </param>
     /// <param name="CorrelationId">The correlation ID used to match requests with responses.</param>
     /// <param name="Callback">The callback for the logic block I/O to invoke with the response data.</param>
+    [InternalApi]
     public readonly record struct ReadModbusRtuRequest(
         ModbusFunctionCode FunctionCode,
         byte UnitId,
@@ -42,6 +44,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// <param name="ReceivedAt">The UTC time the response or failure was observed by the handler.</param>
     /// <param name="ReceivedTimestamp">The same instant on the monotonic timestamp scale.</param>
     /// <param name="Outcome">How the operation ended, as classified by the handler.</param>
+    [InternalApi]
     public readonly record struct ReadModbusRtuResponse(
         byte[]? Data,
         Exception? Exception,
@@ -75,6 +78,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// </param>
     /// <param name="CorrelationId">The correlation ID used to match requests with responses.</param>
     /// <param name="Callback">The callback for the logic block I/O to invoke with the response.</param>
+    [InternalApi]
     public readonly record struct WriteModbusRtuRequest(
         ModbusFunctionCode FunctionCode,
         byte UnitId,
@@ -97,6 +101,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// <param name="ReceivedAt">The UTC time the response or failure was observed by the handler.</param>
     /// <param name="ReceivedTimestamp">The same instant on the monotonic timestamp scale.</param>
     /// <param name="Outcome">How the operation ended, as classified by the handler.</param>
+    [InternalApi]
     public readonly record struct WriteModbusRtuResponse(
         Exception? Exception,
         Action<Exception?, ModbusReceipt> Callback,
@@ -117,6 +122,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// <summary>
     ///     Represents a message to trigger checking of expired requests.
     /// </summary>
+    [InternalApi]
     public readonly record struct CheckExpiredRequests;
 
     /// <summary>

@@ -1,3 +1,4 @@
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Server
@@ -6,6 +7,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
     ///     <see cref="IModbusBitAccessor" /> over a live bit-packed server buffer
     ///     (Modbus packs bits starting at the least significant bit of each byte).
     /// </summary>
+    [InternalApi]
     public class ModbusBitAccessor : IModbusBitAccessor
     {
         private readonly ModbusServerArea _area;

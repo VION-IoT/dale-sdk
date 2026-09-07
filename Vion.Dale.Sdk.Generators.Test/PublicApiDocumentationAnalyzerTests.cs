@@ -276,5 +276,49 @@ namespace Api.Sub
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.7")]
+        public async Task StaySilentOnMarkedDelegate()
+        {
+            // Arrange / Act / Assert
+            // A public delegate is a public type, so DALE014 asks it for a mark like any other. It could
+            // not carry one until the marks accepted AttributeTargets.Delegate: following the diagnostic
+            // produced CS0592, which is a compilation error this test would surface as an unexpected
+            // diagnostic. The pair below is the unmarked delegate, which must still be reported.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""TestNs"")]
+
+namespace TestNs
+{
+    /// <summary>Documented.</summary>
+    [PublicApi]
+    public delegate int Published(string name);
+
+    [InternalApi]
+    public delegate int Plumbing(string name);
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.7")]
+        public async Task ReportUnmarkedDelegateInApiNamespace()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""TestNs"")]
+
+namespace TestNs
+{
+    public delegate int {|#0:Unmarked|}(string name);
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE014_UnmarkedPublicType).WithLocation(0).WithArguments("Unmarked", "TestNs");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
+        }
     }
 }

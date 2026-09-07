@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using ModbusException = Vion.Dale.Sdk.Modbus.Core.Exceptions.ModbusException;
 using ModbusExceptionCode = Vion.Dale.Sdk.Modbus.Core.Exceptions.ModbusExceptionCode;
 using ModbusFunctionCode = Vion.Contracts.FlatBuffers.Hw.Modbus.ModbusFunctionCode;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 {
@@ -266,6 +267,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
     /// <summary>
     ///     Exception thrown when a connection attempt does not complete within the specified timeout period.
     /// </summary>
+    [PublicApi]
     public class ConnectionTimeoutException : Exception
     {
         /// <summary>

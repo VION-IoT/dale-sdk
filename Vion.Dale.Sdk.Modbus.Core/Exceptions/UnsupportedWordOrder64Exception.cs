@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
@@ -6,6 +7,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
     /// <summary>
     ///     Exception thrown when an unsupported 64-bit word order value is specified.
     /// </summary>
+    [PublicApi]
     public class UnsupportedWordOrder64Exception : Exception
     {
         /// <summary>

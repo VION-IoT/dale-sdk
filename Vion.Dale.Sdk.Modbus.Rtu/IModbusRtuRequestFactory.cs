@@ -1,6 +1,7 @@
 using System;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu
@@ -8,6 +9,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// <summary>
     ///     Factory for creating Modbus RTU read and write requests.
     /// </summary>
+    [InternalApi]
     public interface IModbusRtuRequestFactory
     {
         /// <summary>

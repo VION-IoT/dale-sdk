@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
 {
@@ -8,6 +9,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
     /// <remarks>
     ///     This occurs when fewer coils or discrete inputs are returned by the Modbus device than were requested.
     /// </remarks>
+    [PublicApi]
     public class InvalidBitQuantityException : Exception
     {
         /// <summary>

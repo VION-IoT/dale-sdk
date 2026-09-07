@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
@@ -10,6 +11,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
     /// <summary>
     ///     Factory for creating request objects.
     /// </summary>
+    [InternalApi]
     public interface IRequestFactory
     {
         /// <summary>

@@ -44,6 +44,21 @@ namespace Vion.Dale.Sdk.Generators.Test
 
         private const string HttpProbeProperty = "DaleHttpAnalyzerWiringProbe";
 
+        private const string ModbusProbeProperty = "DaleModbusAnalyzerWiringProbe";
+
+        /// <summary>
+        ///     The three Modbus packages and the published namespace each declares. Until the analyzer
+        ///     reference landed beside it, none of the three was judged by any DALE diagnostic at all, and
+        ///     <c>Vion.Dale.Sdk.Modbus.Core</c> declared no published namespace either — so arming it without
+        ///     a declaration would have asked about nothing.
+        /// </summary>
+        private static readonly (string Project, string Namespace)[] ProbedModbusPackages =
+        [
+            ("Vion.Dale.Sdk.Modbus.Core", "Vion.Dale.Sdk.Modbus.Core"),
+            ("Vion.Dale.Sdk.Modbus.Rtu", "Vion.Dale.Sdk.Modbus.Rtu"),
+            ("Vion.Dale.Sdk.Modbus.Tcp", "Vion.Dale.Sdk.Modbus.Tcp"),
+        ];
+
         /// <summary>
         ///     Every project the probe builds reach: the two under test, plus what they pull in by
         ///     <c>ProjectReference</c>. That set is exactly the blast radius of the 0.11.1 clobber.
@@ -158,6 +173,49 @@ namespace Vion.Dale.Sdk.Generators.Test
             // Assert — the probe is only a gate as long as it is invisible the rest of the time
             Assert.AreEqual(0, exitCode, $"An ordinary build of {HttpPackage} must succeed.{Environment.NewLine}{output}");
             Assert.DoesNotContain("DALE014", output, $"An ordinary build of {HttpPackage} must not compile the analyzer-wiring probe.{Environment.NewLine}{output}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-019.2")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Core")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Rtu")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Tcp")]
+        public void RunDaleAnalyzersOverModbusPackages(string projectName)
+        {
+            // Arrange
+            // Like the kits and the HTTP package and unlike the I/O probe, DALE014 is a warning, so this
+            // build SUCCEEDS and the proof is the diagnostic it emitted. The namespace assertion is what
+            // separates "the analyzer ran" from "the analyzer ran and this package's own declaration was
+            // the reason": Core declared none at all, so an armed analyzer there judged nothing.
+            var declaredNamespace = ProbedModbusPackages.Single(package => package.Project == projectName).Namespace;
+            var project = ProjectFile(projectName);
+            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
+
+            // Act
+            var (_, output) = Build(project, probeProperty: ModbusProbeProperty);
+
+            // Assert
+            Assert.Contains("DALE014", output, $"The probe build of {projectName} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{output}");
+            Assert.Contains($"in namespace '{declaredNamespace}'",
+                            output,
+                            $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{output}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-019.2")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Core")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Rtu")]
+        [DataRow("Vion.Dale.Sdk.Modbus.Tcp")]
+        public void KeepModbusProbeOutOfOrdinaryBuild(string projectName)
+        {
+            // Arrange / Act
+            var (exitCode, output) = Build(ProjectFile(projectName), false, probeProperty: ModbusProbeProperty);
+
+            // Assert - the probe is only a gate as long as it is invisible the rest of the time, and an
+            // ordinary build of these three carries no DALE014 of its own now that every public type of all
+            // three is marked. Both halves matter: a leaked probe and an unmarked type look the same here.
+            Assert.AreEqual(0, exitCode, $"An ordinary build of {projectName} must succeed.{Environment.NewLine}{output}");
+            Assert.DoesNotContain("DALE014", output, $"An ordinary build of {projectName} must not compile the analyzer-wiring probe.{Environment.NewLine}{output}");
         }
 
         [TestMethod]

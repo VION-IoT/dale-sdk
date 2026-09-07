@@ -223,18 +223,36 @@ decision and the catch logs a warning.
 
 - **A `[PublicApi]`-marked type is the gate.** `generate-api-reference.cjs` source-scans each project's
   `.cs`; an assembly with zero `[PublicApi]` types is skipped outright, and any assembly with at least
-  one is in. There is no curated list and no opt-in file — `Vion.Dale.Sdk.Modbus.Core` is in the
-  manifest on the strength of its 12 marked types alone, and declares no assembly-level attribute at
-  all (its `PublicApiConfig.cs` is a local shim defining the attribute, because that project
-  deliberately does not reference `Vion.Dale.Sdk`).
+  one is in. There is no curated list and no opt-in file — `Vion.Dale.Sdk.Modbus.Core` was in the
+  manifest on the strength of its marked types alone for as long as it declared no published namespace
+  at all. (Until `T-008` this bullet said that project "deliberately does not reference
+  `Vion.Dale.Sdk`" and that its `PublicApiConfig.cs` was a local attribute shim. It references the SDK
+  by `ProjectReference` and had no `PublicApiConfig.cs`; its one assembly attribute was
+  `[DaleSharedAssembly]`. It now declares its root namespace like its siblings.)
+- **The scan reads a declaration, never a base type.** Both marks are `Inherited = false`, so a
+  subclass of a published type is unmarked until it declares its own. That is what the analyzer and the
+  generator have always read; reflection's default disagreed until the attributes said so, and a
+  package-surface test written with `GetCustomAttribute<PublicApiAttribute>()` was reading a base
+  type's mark. A `[PublicApi]` `delegate` is a further edge: the marks accept one, the generator's type
+  scan does not see it, and nothing declares one today.
 - **`[assembly: PublicApiNamespace]` does not gate anything.** It drives namespace grouping in the
   generated reference, and it is what `DALE014` (a public type in a declared namespace must be marked
   `[PublicApi]` or `[InternalApi]`) and `DALE015` (a declared namespace with no public types) key off.
-  Twelve assemblies declare it; twelve are in the manifest; **the two sets are not the same twelve.**
+  A declaration is matched **as a prefix**: declaring a root namespace asks every namespace beneath it,
+  which is why `Vion.Dale.Sdk.Modbus.Tcp`'s four sub-namespace declarations add no rule its root
+  declaration did not already make, and why declaring `Vion.Dale.Sdk` would arm all twenty of that
+  assembly's namespaces at once. Twelve assemblies declare it and the same twelve are in the manifest —
+  which they had not been: the count here read "twelve declare it" while eleven did, and the odd one
+  out was `Vion.Dale.Sdk.Modbus.Core`, in the manifest on its marks while declaring nothing. The two
+  sets coinciding is not a rule, only where the ratchet has reached: the seven shipped packages outside
+  it declare nothing and mark nothing, so they are absent from both.
 - **So the question "can this change move the snapshot?" is answered by grepping for `[PublicApi]`,**
-  not by looking for an opt-in. `Vion.Dale.DevHost`, `Vion.Dale.Cli`, `Vion.Dale.Plugin`,
-  `Vion.Dale.ProtoActor` and `Vion.Dale.LogicBlockParser` are absent today because they contain **zero**
-  marked types — not because they lack an opt-in. Mark one type in any of them and the manifest moves.
+  not by looking for an opt-in. `Vion.Dale.DevHost`, `Vion.Dale.DevHost.Web`, `Vion.Dale.DevHost.Xunit`,
+  `Vion.Dale.Cli`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor` and `Vion.Dale.LogicBlockParser` are
+  absent today because they contain **zero** marked types — not because they lack an opt-in. Mark one
+  type in any of them and the manifest moves. Decision
+  [`0145`](../../architecture/decisions/0145-public-api-ratchet-covers-every-shipped-package.md) says
+  every one of them belongs inside the ratchet; the finding ledger carries what is left to do.
   (`IDevHostControl` has been described in briefs as `[PublicApi]`; it carries no such attribute, which
   is the only reason DevHost changes have not moved the snapshot.)
 - **Where a package's public types split into surface and plumbing, the wire structs are the surface.**

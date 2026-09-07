@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
@@ -37,6 +38,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
     ///         Operations are never retried automatically.
     ///     </para>
     /// </remarks>
+    [InternalApi]
     public interface IModbusTcpClientWrapper : IDisposable
     {
         #region Connection

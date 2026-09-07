@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
 {
@@ -9,6 +10,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
     ///     This occurs when the requested count of values results in a register quantity that is 0 or exceeds the
     ///     maximum of 65535 registers. For example, requesting 17000 64-bit values requires 68000 registers.
     /// </remarks>
+    [PublicApi]
     public class InvalidCountException : Exception
     {
         /// <summary>

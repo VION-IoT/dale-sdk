@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
 {
@@ -10,6 +11,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
     ///     This occurs when the number of bytes received does not match the expected amount for the requested registers.
     ///     For example, reading 2 registers expects 4 bytes; if 5 bytes are returned, this exception is thrown.
     /// </remarks>
+    [PublicApi]
     public class ModbusResponseAlignmentException : Exception
     {
         /// <summary>

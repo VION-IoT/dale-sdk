@@ -307,6 +307,29 @@ found in one more place; `AC-ANLZ-011.3` is the target nothing reached — the k
   documentation whatever encloses it.
 - `AC-ANLZ-012.6` (Ubiquitous): THE SYSTEM SHALL credit every declared namespace a type's own
   namespace matches, not one of them.
+- `AC-ANLZ-012.7` (Ubiquitous): THE SYSTEM SHALL accept both surface marks on every declaration kind
+  the mark rule judges, so a type `DALE014` asks for a mark can carry one.
+- `AC-ANLZ-012.8` (Ubiquitous): THE SYSTEM SHALL confine a surface mark to the declaration carrying
+  it, so a subclass of a marked type is unmarked until it declares its own.
+
+`AC-ANLZ-012.8` is the same rule read from the other side, and its cost was a disagreement rather
+than an error. The mark rule reads declared attributes — `ISymbol.GetAttributes` in the analyzer, a
+source scan in the manifest generator — while reflection's default walks base types, so a subclass of
+a `[PublicApi]` type read as *marked* to every package-surface test in this repository and as
+*unmarked* to the build that judges it. Measured: `Vion.Dale.Sdk.Modbus.Rtu.ModbusRtu` is plumbing
+deriving from the published `LogicBlockContractBase`, and its package's surface test called it
+published while `DALE014` reported it. Declaring both marks `Inherited = false` makes the three
+readers one reader; no other package had a public subclass of a marked type, so nothing else moved.
+
+`AC-ANLZ-012.7` is a rule about the attributes rather than the analyzer, and it is stated here
+because `DALE014` is what made it observable. A public `delegate` is a public type, so the mark rule
+asks it for a mark — and neither attribute's `AttributeUsage` listed `Delegate`, so following the
+diagnostic produced `CS0592` and there was no way to answer it. It surfaced the first time the
+analyzer was armed over a package that ships one (`Vion.Dale.Sdk.Modbus.Core`'s
+`ModbusServerBufferAccessor`), which is what arming a ratchet over new ground is for. A `[PublicApi]`
+delegate still does not reach the manifest — `generate-api-reference.cjs` scans for the type keywords
+and `delegate` is not among them — and nothing declares one today; that gap is in the finding ledger
+rather than fixed here, because closing it is a change to the generator and its first test harness.
 
 `AC-ANLZ-012.6` had a sharper edge than "the wrong one": the declarations are held in an unordered
 set, so which of two overlapping ones was credited — and which was then reported stale — was not

@@ -1,8 +1,11 @@
+using Vion.Dale.Sdk.Core;
+
 namespace Vion.Dale.Sdk.Modbus.Core.Conversion
 {
     /// <summary>
     ///     Provides an abstraction over <see cref="System.BitConverter" /> for testability.
     /// </summary>
+    [InternalApi]
     public interface IBitConverterProxy
     {
         /// <summary>

@@ -84,12 +84,17 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   refusals that do carry one; extending it over these adds a token family the Explorer's client would
   key on, which is a wire decision rather than an amendment's. *(CTRL pass amendment 2, item 3 —
   `CTRL`.)*
-- **Two shipped packages are outside the public-API snapshot.** `Vion.Dale.DevHost` and
+- **Three shipped packages are outside the public-API snapshot.** `Vion.Dale.DevHost` and
   `Vion.Dale.DevHost.Web` are `IsPackable` (`Vion.Dale.DevHost.csproj:9-10`,
   `Vion.Dale.DevHost.Web.csproj:36-37`) and absent from `docs/snapshots/publicapi-manifest.json`'s 12
   assemblies, so a member removed from `IDevHostControl` moves no snapshot and a consumer's build is the
-  first thing that notices. Whether the DevHost belongs in that manifest is a corpus decision, not this
-  area's. *(CTRL pass row 201 — the retro.)*
+  first thing that notices. **`Vion.Dale.DevHost.Xunit` is the third**, on the release roster
+  (`scripts/set-version.ps1:266`) and named by neither this entry nor reviewer's question 2.
+  **Decided** — decision 0145 puts all three inside the ratchet. What is left is the classification,
+  measured off the built assemblies at `bf6c939`: `Vion.Dale.DevHost` 98 unmarked public types across
+  5 namespaces, `.Web` 14 across 6, `.Xunit` 3 across 1, none of the three declaring a published
+  namespace or referencing the analyzer. That is package-sized, not fix-sized: `T-008` did the Modbus
+  half and left this one here with its number. *(CTRL pass row 201 — a change doc; decision 0145.)*
 
 ## `LIFE` — the block's life inside its actor, and the pipeline that carries it (2026-09-04)
 
@@ -180,8 +185,13 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   snapshot.** The manifest covers 12 assemblies and `Vion.Dale.ProtoActor` is not among them although it
   is a shipped package a consumer's block depends on; `PublicApiConfig.cs` declares only `Core`,
   `Emission` and `Utils` as public namespaces, so the 28 message types, the 7 diagnostics types and the
-  8 actor abstractions this page specifies move no snapshot when they change. The same shape as the two
-  development-host packages above. *(LIFE pass row 217 — the retro.)*
+  12 unmarked actor abstractions this page specifies move no snapshot when they change. The same shape
+  as the development-host packages above, and `Vion.Dale.Plugin`'s 2 public types are in it too.
+  **Decided** — decision 0145 puts them inside the ratchet. Measured at `bf6c939`: `Vion.Dale.ProtoActor`
+  10 unmarked across 2 namespaces, `Vion.Dale.Plugin` 2 across 1; the three SDK namespaces are 47 of the
+  221 the `BIND` entry below counts, and are declared individually rather than through the SDK root,
+  which `DALE014` matches as a prefix and which would arm all twenty at once.
+  *(LIFE pass row 217 — a change doc; decision 0145.)*
 
 ## `BIND` — contracts, endpoints and the provider face (2026-09-04)
 
@@ -270,13 +280,21 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   is live for the first consumer, which gates fielded blocks and proves the gating with this kit in
   the room
   (`Ecocoach.EnergyManagement.Test/LogicBlocks/ChargingStationEvtec/ChargingStationEvtecGatingShould.cs`).
-- **Every namespace of this area but two is outside the public-API ratchet.**
-  `Vion.Dale.Sdk/PublicApiConfig.cs:6-8` declares only `Core`, `Emission` and `Utils`, so `DALE014`
-  never asks for a mark in `Configuration.Contract`, `Configuration.Interfaces`, `CodeGeneration`,
-  `Abstractions`, `Mqtt`, `Messages` or `Reflection`. The sharpest case is
+- **Seventeen namespaces of `Vion.Dale.Sdk` are outside the public-API ratchet, not four.**
+  `Vion.Dale.Sdk/PublicApiConfig.cs:6-8` declares only `Core`, `Emission` and `Utils` of the assembly's
+  twenty, so `DALE014` never asks for a mark in the other seventeen — `Configuration.Contract`,
+  `Configuration.Interfaces`, `Configuration.Services`, `Configuration.Timers`, `CodeGeneration`,
+  `Abstractions`, `Mqtt`, `Messages`, `Diagnostics`, `Reflection`, `Introspection`, `Persistence`,
+  `Configuration`, the root namespace and the three under `Examples`. The sharpest case is
   `ServiceProviderContractTypeAttribute`, an attribute every consumer authors that is on no manifest
-  while its sibling `LogicBlockContractBase` in the same namespace is. Same shape as the `CTRL` and
-  `LIFE` findings above. *(BIND pass row 195 — the retro.)*
+  while its sibling `LogicBlockContractBase` in the same namespace is. **Decided** — decision 0145 puts
+  them inside the ratchet, and 221 unmarked public types measured at `bf6c939` is why that is a change
+  doc rather than a fix: `Messages` 28, `Mqtt` 26, `Configuration.Interfaces` 15, `Abstractions` 12,
+  `Configuration.Services` 12. Two shapes govern the sequencing. Declaring the **root** namespace arms
+  all twenty at once, because `DALE014` matches a declaration as a prefix — so the `IO` row below is
+  not separable from this one. And the 97 types under `Examples.*` are **out of scope by that
+  decision**: they are the packaging question the next row raises, not the ratchet's.
+  *(BIND pass row 195 — a change doc; decision 0145.)*
 - **Eight example contract files and one example logic block ship inside the SDK assembly.**
   `Vion.Dale.Sdk/Examples/FunctionInterfaces/` holds four plus four under `V1/`, and
   `Examples/LogicBlocks/ChargingStationMultiPointSimulation.cs` one block, all outside every
@@ -384,6 +402,15 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   four call sites all fire on a missing or broken embedded template — a build of the SDK itself going
   wrong, not an authoring mistake — which is why this is a question about the surface rather than a
   defect. *(ANLZ pass, reviewer's question 3 — the retro.)*
+- **The manifest generator's type scan does not see a `delegate`.**
+  `scripts/generate-api-reference.cjs:122` matches `class|interface|enum|struct|record …|extension`,
+  so a `[PublicApi]` delegate carries a mark that reaches neither the manifest nor the generated
+  reference — silence of the kind `sdk-surface-conventions.md` § 7 names. It costs nothing today:
+  the repository declares two public delegates (`ModbusServerBufferAccessor`,
+  `DevTopologyLoader.TopologyHostCheck`) and neither is published. Not fixed with the marks that
+  found it because a delegate's declaration puts its return type where the pattern reads the name,
+  and this script has no test harness at all — it would be the first. *(Found by `T-008` while
+  arming `DALE014` over `Vion.Dale.Sdk.Modbus.Core`, after the operator's ruling — `ANLZ`.)*
 
 ## `MODB` — the Modbus protocol bindings (2026-09-05)
 
@@ -420,12 +447,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   through one path — so the cost is the consumer's alone: it re-declares the type verbatim
   (`SimulatorDeviceHost.cs:36-38`) and reads it at four block sites. Changing either is
   source-breaking on a published property type. *(MODB pass row 116 — `MODB`.)*
-- **Forty-three public types are outside the API manifest.** The three assemblies expose 73 public
-  types against 30 `[PublicApi]` marks, and the unmarked set is deliberate in part and accidental in
-  part: the TestKit substitutes `IRequestQueue` and `IModbusTcpClientProxy` and pins them as manifest
-  types of its own, the first consumer injects `IModbusDataConverter` in production, and eleven
-  exception types a block's error callback receives carry no mark at all. Sorting which is which is a
-  release-note surface review. *(MODB pass row 156 — the retro's surface review.)*
 - **Two consumer-facing exceptions live in an implementation namespace.** `IpAddressNotSetException`
   (`ModbusTcpClientWrapper.cs:1216`) and `ConnectionTimeoutException` (`ModbusTcpClientProxy.cs:265`)
   are public, unmarked, and declared inside files named for internal classes in
@@ -514,18 +535,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   and the test asserts against a default it believes it set. Catching it needs the binder's own view
   of which properties persist, which is `BIND`'s surface rather than a line here — the same reason
   the inclusion-gate entry above is parked. *(TKIT pass row 20 — `BIND`.)*
-- **~~Four~~ Three shipped SDK packages carry no analyzer reference.** `Vion.Dale.Sdk.Modbus.Core`,
-  `Vion.Dale.Sdk.Modbus.Rtu` and `Vion.Dale.Sdk.Modbus.Tcp` each declare
-  `[assembly: PublicApiNamespace]` and none of them references `Vion.Dale.Sdk.Generators`, so
-  `DALE014` never asks them for a surface mark and the API manifest's diff — auto-committed on a
-  pull request, not failed — is the only gate on their public types. The fix is the one
-  `ProjectReference` element this pass added to the five kits
-  (`Vion.Dale.Sdk.DigitalIo.csproj:43` is the shape), plus a wiring probe per package so the
-  reference is proven live rather than merely present. Not fixed here because they are their own
-  pages' packages. **`Vion.Dale.Sdk.Http` is done** — the HTTP pass armed it (`AC-HTTP-013.2`), and
-  the diagnostic it had been blind to was real: three of that package's five public types carried no
-  surface mark. The three Modbus packages remain, and are `MODB`'s.
-  *(TKIT pass row 171's sweep — `ANLZ` with `MODB`; `HTTP` closed by the HTTP pass, 2026-09-06.)*
 - **Two downstream test projects cannot be proven against a same-PR kit change.**
   `templates/vion-iot-library/VionIotLibraryTemplate.Test` and
   `libraries/Vion.Diagnostics/Vion.Diagnostics.Test` carry no `DaleLocalSource` switch, where 9 test
@@ -613,7 +622,11 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   `Vion.Dale.Sdk/ServiceCollectionExtensions.cs:8-10` is public, carries neither `[PublicApi]` nor
   `[InternalApi]`, and sits in the undeclared root namespace — so `DALE014` never asks, exactly as it
   never asked about the two `DependencyInjection` classes. `Vion.Dale.Sdk` is packable and carries the
-  analyzer, so the rule is live there too. *(Found while correcting IO pass row 50's Why — `BIND`.)*
+  analyzer, so the rule is live there too. **Decided** — decision 0145 — but not separately fixable:
+  the root namespace is the only declaration that reaches this type, `DALE014` matches a declaration as
+  a prefix, and declaring the root therefore arms all twenty of the assembly's namespaces. Three types
+  sit in that root namespace and 221 are behind the same declaration, so this row lands with the `BIND`
+  row above or not at all. *(Found while correcting IO pass row 50's Why — `BIND`; decision 0145.)*
 - **`Vion.Contracts`' generated payload verifiers are unusable as published.** Every
   `Verify<Payload>Payload(ByteBuffer)` wrapper — all ten in 3.7.0 — passes an empty file identifier to
   `Verifier.VerifyBuffer`, which rejects any identifier that is not four characters, so the wrapper

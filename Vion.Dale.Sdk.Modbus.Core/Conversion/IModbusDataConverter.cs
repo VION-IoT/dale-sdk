@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Conversion
@@ -6,6 +7,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
     /// <summary>
     ///     Provides data conversion operations for Modbus register and coil data.
     /// </summary>
+    [PublicApi]
     public interface IModbusDataConverter
     {
         /// <summary>
