@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Proto.DependencyInjection;
 using Vion.Dale.Sdk.Abstractions;
 

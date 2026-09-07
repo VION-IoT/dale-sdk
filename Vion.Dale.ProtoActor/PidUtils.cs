@@ -1,4 +1,4 @@
-﻿using Proto;
+using Proto;
 
 namespace Vion.Dale.ProtoActor
 {

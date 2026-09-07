@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 

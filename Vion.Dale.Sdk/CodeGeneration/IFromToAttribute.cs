@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.CodeGeneration
+namespace Vion.Dale.Sdk.CodeGeneration
 {
     public interface IFromToAttribute
     {

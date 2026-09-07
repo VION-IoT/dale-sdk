@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers.Text;
 
 namespace Vion.Dale.Sdk.Mqtt

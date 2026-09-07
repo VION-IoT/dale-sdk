@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Configuration.Interfaces
+namespace Vion.Dale.Sdk.Configuration.Interfaces
 {
     /// <summary>
     ///     Sends a state update message to all linked logic blocks.

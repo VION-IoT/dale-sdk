@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.DigitalIo.TestKit;
 using Vion.Dale.Sdk.TestKit;

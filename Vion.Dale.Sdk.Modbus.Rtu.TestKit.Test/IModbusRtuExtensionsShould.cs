@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.TestKit;

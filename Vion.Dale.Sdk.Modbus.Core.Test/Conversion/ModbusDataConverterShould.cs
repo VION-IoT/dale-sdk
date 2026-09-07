@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;

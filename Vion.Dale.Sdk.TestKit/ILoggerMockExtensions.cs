@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Core;

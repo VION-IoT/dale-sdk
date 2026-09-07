@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Modbus.Core.Conversion
+namespace Vion.Dale.Sdk.Modbus.Core.Conversion
 {
     /// <summary>
     ///     Provides an abstraction over <see cref="System.BitConverter" /> for testability.

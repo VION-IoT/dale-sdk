@@ -98,6 +98,9 @@ the fix-now batch lands and the Jira-filed entries are struck with their keys.
 3. *(c — propose-and-wait, `T-005`)* BOM policy for C#: 199 of 941 `.cs` files carry one and
    `bom-lint` skips `.cs`. Recommendation: normalise once and gate. OUTCOME: **normalise** once
    and gate `.cs` (operator, 2026-09-07); `T-005` has no STOP.
+   **Corrected by `T-005`:** the pair was 195 of 946 at the commit this doc cites and was never
+   true as written — see *Drift checkpoints*, which also records that the ledger entry the task
+   line asks to close does not exist.
 4. *(b — decide-and-document, `T-002`)* Where lane 3's check prompts live as tracked files.
    OUTCOME: the operator cannot decide yet (2026-09-07). `T-002` lands the two shapes as an
    appendix of the Lanes section — the cheapest place to move them from — and names the
@@ -199,6 +202,7 @@ operator decides; a task with none is reviewed on its PR.
 - `T-005` *(Sonnet, medium)* — **BOM normalisation for C#** (question 3: decided). Probe three
   files through `cleanup-code.ps1` to confirm cleanupcode leaves a BOM-less file alone, then one PR:
   the 199 files normalised, `bom-lint` extended to `.cs`, the ledger entry closed.
+  *(Landed as 195 files, and there was no ledger entry — see *Drift checkpoints*.)*
 - `T-006` *(Opus, medium)* — **ledger buckets.** A script over `_findings.md` lists every entry
   with a bucket and a one-line reason: *fix-now* (small, area-local, no decision), *decision*
   (`T-008`'s five), *Jira* (`D7`'s five, already decided), *leave*. The table goes into this doc's
@@ -324,8 +328,9 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-001` | done | `sdk: sdd big picture` | #191 |
 | `T-002` | done | `sdk: sdd closeout T-002` | #192 |
 | `T-003` | done | `sdk: sdd closeout T-003` | #193 |
-| `T-004` | in PR | `sdk: sdd closeout T-004` | #194 |
-| `T-005` … `T-019` | to come | — | — |
+| `T-004` | done | `sdk: sdd closeout T-004` | #194 |
+| `T-005` | in PR | `sdk: sdd closeout T-005` | #195 |
+| `T-006` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -586,6 +591,84 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `#pragma warning disable DALE*` to say why") is the one whose count this doc's first checkpoint
   corrects. Nothing links it. Reviewer's question 8's parenthetical, which carried the ledger's size
   forward from `T-003`, is updated with it.
+- **`T-005`: the BOM count was wrong when this doc was written, not stale — 195 of 946, not 199 of
+  941.** Reviewer's question 3 and `T-005`'s task line both carry the same pair. Counted at
+  `66dc32c`, the exact main the *Where the migration stands* section cites, the tree already held
+  946 tracked `.cs` of which 195 carried a mark; the count is unchanged at `814b4e9`, so neither
+  number drifted between the drafting and the work. The nearest true figure in the record is the
+  `ANLZ` pass's **200 of 884** (2026-09-04); between that count and this one `.cs` grew by 62 and
+  marked files fell by 5. 195 is the number this PR normalises and the number the gate now reports.
+- **`T-005`: there was no ledger entry to close.** The task line ends "the ledger entry closed", and
+  `_findings.md` has no entry about byte-order marks — 75 before this PR and 75 after. The question
+  was never routed to the ledger: the `ANLZ` pass left it under *Seen and left* as "a retro
+  question" (`docs/changes/archive/2026-09-04-anlz-pass.md:224-227`), the `MODB` pass carried it
+  forward unchanged in its own *Seen and left*, and the journal recorded it on 2026-09-04. Those are
+  where the answer lands, and nothing was deleted. The entry `T-006` will bucket does not exist.
+- **`T-005` strengthened the probe past its task line, because the line as written cannot fail.**
+  "Probe three files through `cleanup-code.ps1` to confirm cleanupcode leaves a BOM-less file alone"
+  is satisfied by stripping three marks and seeing them stay stripped — but the tree is style-clean,
+  so cleanupcode had no edit to make in those files and may never have written them at all. A probe
+  that passes whether or not the tool ran is the same shape as the vacuous gate `T-003` and `T-004`
+  each closed. So a fourth step was added: a real formatting violation was introduced into one of the
+  three, cleanupcode repaired it — proving it rewrote the file — and wrote it back with no mark, byte
+  identical to the stripped original. That run is the evidence in the PR body; the three-file form
+  alone is not. The three were also chosen for shape, not convenience: one per target framework
+  (`net10.0`, `netstandard2.1`, `netstandard2.0`) and each with non-ASCII content, since a BOM-less
+  file with non-ASCII bytes is the only shape where a tool's encoding *detection* can go wrong. 68
+  of the 195 are of that shape.
+- **`T-005`'s widened gate carries two anti-vacuous floors, where the carry-over asked for one.** A
+  floor on the total (`$checked -eq 0`) is `pragma-reason-lint`'s shape and catches a scan that
+  reaches nothing, but it cannot defend *this* change: dropping `.cs` from the kind list leaves 167
+  files of the other kinds still checked, so the total stays healthy and the gate reports OK while
+  the 946 files it was widened for go unread. But a floor only catches a count reaching *zero*, and
+  a scan narrows partially: a pathspec still returning C# but no longer `.json` holds both floors up
+  while four kinds go uncovered. So the report prints the file, kind and `.cs` tallies
+  (`1113 file(s) across 11 of the 12 BOM-free kinds (946 .cs)`), and the cases pin all three. The
+  mutation table is in the PR body, where `testing-conventions.md` § 16 puts one.
+- **`T-005` gated `.cs` and stopped there; four kinds stay mixed, not two.** Measured over every
+  tracked file, what still carries a mark is `.csproj` 10 of 75, `.sln` 10 of 10, `.DotSettings` 3
+  and `.scriban` 1. Question 3 decided "gate `.cs`", and an IDE rewrites the first three on its own
+  terms — gating them would fail an author for Visual Studio or ReSharper, not for an edit. The
+  fourth is not an IDE artefact and the reason differs: `LogicClassTemplate.scriban` is hand-written
+  text the generator renders into every generated logic class, and its mark is inert only because
+  `LogicClassGenerator.cs:667` reads it through a `StreamReader`, which strips one by default. That
+  is a property of the reader, not a policy. Named here rather than widened into, so the choice is
+  the operator's and not this task's.
+- **`T-005` measured `.ps1` and left it out.** The gate's own criterion is "a kind this repo never
+  writes with a mark", and `.ps1` qualifies today at 0 of 26 — it is also the language every gate in
+  the suite is written in, so the `utf-8-sig` helper the docstring names would hit it as readily as a
+  `.cs`. Adding it would normalise nothing and lock in the current state. It is outside question 3's
+  "gate `.cs`", so it is recorded as a free candidate rather than taken.
+- **`T-005` corrected two lists beside its own edit in `spec-process.md`.** The gate table's kind
+  list omitted `.yaml`, which `bom-lint` has always checked, and the lane-3 *Gates, all of them*
+  paste list omitted `scripts/pragma-reason-lint.ps1` — `T-004` added its row to the gate table but
+  not to that list, so a REPORT following it verbatim would paste eight of the nine gates
+  `spec-gates.yml` runs. Both are one-line corrections to text this PR was already editing.
+- **`T-005`'s review round found five mutants the first suite did not kill, three of them in the
+  lines this task added.** Twelve cases and eleven killed mutants were not enough, and the pattern
+  was the same each time: a number that only ever has one value in the fixture is indistinguishable
+  from a constant. Both cases reading the `.cs` tally expected `2`, so printing the literal `2`
+  survived; no case read the FAIL header at all, so its tallies were unwatched; no case produced
+  more than one problem, so printing `1` survived; case 4 pinned only the short side of the
+  three-byte length test, so demanding a fourth byte survived — and a file that *is* a mark and
+  nothing else is what `utf-8-sig` writes for an empty file. The fifth was structural: every case
+  ran against a temp fixture, which is not a git repo, so all twelve exercised the directory walk
+  and none exercised `git ls-files` — the only branch `spec-gates.yml` ever takes. Cases 2b, 4b, 10b
+  and 13a–c close them; the suite is 19 cases and 17 killed mutants, no survivors. **The lesson
+  `T-004` drew — assert the message, not the exit code — is necessary and not sufficient: a tally is
+  pinned only by two cases that disagree about it, and a branch is covered only by a fixture shaped
+  like the one production runs on.**
+- **`T-005`'s new count assertion failed in CI and had found a real defect: the walk is OS-dependent
+  without `-Force`.** Case 1 passed at the desk and reported `6 file(s) across 5 of the 12` on the
+  Linux runner. The missing one is `.github/workflows/ci.yml`: on Unix a dot-prefixed entry is
+  hidden, and `Get-ChildItem -Recurse` omits hidden entries unless told otherwise, so the walk
+  scanned `.github` on Windows and skipped it on Linux — a kind this gate covers, silently unscanned
+  on the platform CI runs. Twelve exit-code cases had not seen it, and neither had the message-only
+  assertions that preceded this round; the tally is what made it visible. `-Force` is added, and the
+  case is made to fail on Windows too by setting the Hidden attribute on the fixture's `.github`,
+  because a guard that holds only on the runner passes at every desk. The gate's production path is
+  `git ls-files` and was never affected — the defect was in the fallback the self-tests themselves
+  run on, which is the part of a gate nothing else exercises.
 
 ---
 

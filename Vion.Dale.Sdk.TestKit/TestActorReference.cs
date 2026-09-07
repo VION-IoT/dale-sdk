@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.TestKit

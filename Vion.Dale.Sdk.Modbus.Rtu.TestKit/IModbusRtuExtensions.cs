@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;

@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Configuration.Interfaces
+namespace Vion.Dale.Sdk.Configuration.Interfaces
 {
     public interface IInterfaceFactory
     {
