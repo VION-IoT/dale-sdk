@@ -219,6 +219,10 @@ The area pass generalised: a coordinator, a brief checked before dispatch, one i
 two fresh-context checks, and a **fresh** session for the fix-up. What follows is what each role
 owes.
 
+A round the operator discards is **rerun, never hand-patched**: the correction goes into this section
+and the branch dies with the attempt. Hand-fixing a discarded round's output leaves the next round to
+repay the same debt.
+
 #### 1. The brief
 
 Written to `C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md` — the gitignored home the
@@ -547,8 +551,11 @@ retiring at the REPORT costs one session's ramp-up and saves a further round. Th
 the round with targeted reads of every item at its call site, and dispatches a further Opus check
 only when a targeted read finds a blocker.
 
-**The relay.** The amend file is the artifact, written first; the cross-session message pointing at
-it is only a notification, and it reaches the session only when **both** sessions run in bypass mode.
+**The relay.** A REPORT may arrive as a cross-session message rather than as the session's last
+transcript text: the coordinator saves it from the message and says so, because the transcript's last
+text may be a one-word answer. Outbound, the amend file is the artifact, written first; the
+cross-session message pointing at it is only a notification, and it reaches the session only when
+**both** sessions run in bypass mode.
 The sender checks its own mode before sending, then verifies within a minute in the recipient's
 transcript — a `<cross-session-message from-name=…>` entry is delivery, a `Held peer message` entry
 is not. Held, or nothing after two minutes: the operator pastes the file into the tab, or — tab

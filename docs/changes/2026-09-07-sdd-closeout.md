@@ -379,7 +379,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
 | The checks run after the session's own sibling sweep, never instead of it; a REPORT's numbers are read against the head they were taken at | lane 3 § 7 |
 | A finding is a hypothesis until the tree confirms it; the mechanism is verified at the call site; an amendment's count carries its command; a two-clause item owes two proofs | lane 3 § 7; `vion-code-review.md` § 4 |
 | One numbered amendment per round, worked by a **fresh** session; the coordinator's targeted reads close it | lane 3 § 7 |
-| The relay: the amend file is the artifact, bypass mode at both ends, delivery verified in the transcript, the two watch signals | lane 3 § 7 |
+| The relay, both directions: a REPORT that arrives as a message is saved from the message and said so; outbound, the amend file is the artifact, bypass mode at both ends, delivery verified in the transcript, the two watch signals | lane 3 § 7 |
 | The scorecard | lane 3 § 8 |
 | The critic and review prompt shapes (kit `critic-v10.md` / `review-v10.md`) | lane 3 → *Appendix — the two check prompts* (question 4) |
 
@@ -388,8 +388,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
 | Rule | Why it is dropped |
 |---|---|
 | The branch name `spec-pass/<code-lower>-a<N>`, and the attempt number in the brief | Migration-only: numbered attempts of a fourteen-area sequence. Lane 3 has no attempt counter. |
-| "Attempts are disposable — fix the skill, delete the branch, rerun" | Names the skill that no longer exists. A lane-3 round's process fix now lands in `spec-process.md`, which is the same act without the branch bookkeeping. |
-| "RFCs to absorb" in the brief, and the RFC deletion plus reference-sweep step | `docs/rfcs/` is gone — the `TKIT` pass absorbed the last two. The **sweep discipline** inside that step is kept in full; the RFC-specific sweep is not. |
+| "Attempts are disposable — **fix the skill**, delete the branch, rerun" | Only the skill half is dropped: there is no skill to fix, and a lane-3 round's process correction now lands in `spec-process.md`. The general half — a discarded round is rerun, never hand-patched — is kept in lane 3's opening. |
+| "RFCs to absorb" in the brief; the RFC deletion plus reference-sweep step; and its ledger clause (a line absorbing a deleted RFC's item names the deleted origin and points at the absorption heading, never a `§` anchor into the file that is gone) | `docs/rfcs/` is gone — the `TKIT` pass absorbed the last two. The **sweep discipline** inside that step is kept in full; the RFC-specific sweep is not, and the ledger clause has no RFC left to absorb. The general reading it rests on — a `§` pointing at a deleted file is residue no regex sees — survives in *Sweep discipline*. |
 | The pass order (fourteen areas, in sequence) and "un-passed areas live under the old rules until their pass" | The migration is complete: every roster area has a `trace: enforced` page. |
 | "In an area whose pass hasn't run yet, a feature-sized change's distill creates a partial page", and the same clause in `CLAUDE.md`'s working agreement 10 | Same reason: no un-passed area is left for the clause to fire in. |
 | "Learning between passes lands as skill diffs, never as longer briefs" | There is no skill to diff. `/vion-codify` plus the retro is the replacement loop (`T-015`). |
@@ -431,6 +431,11 @@ names the file and section that states the rule now, and *lane 3 § N* is
 - **`T-002` corrected two stale clauses beside its own edits.** `spec-process.md`'s Tier B sentence
   claimed two of four Tier B areas had passed, and `CLAUDE.md`'s working agreement 10 branched on
   un-passed areas. Both are dead facts post-migration; both are listed in the *Dropped* table above.
+- **`T-002`'s doc rewrite left two files disagreeing with it, and both were corrected here.**
+  `scripts/test-style-lint.ps1`'s header comment and `docs/specs/_findings.md`'s header both framed
+  their subject as something an *area pass* does "until their pass" — true when the doc said so, false
+  the moment it stopped. Comment and prose only; no gate behaviour moved (`T-003` and `T-004` own the
+  gate changes).
 - **`T-002` placed two rule groups outside the files the task line named.** The Tier 2 paste rule
   went to `devhost-conventions.md` § 1, which already owns the scripted-DOM-write rule beside it, and
   the four standing checks became `vion-code-review.md` § 6, numbered `P1`–`P4` so a finding can cite

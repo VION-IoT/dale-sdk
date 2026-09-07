@@ -6,8 +6,8 @@
 
   The rule ratchets on the citation: only a test method carrying a quoted
   "AC-…" / "SYS-…" literal in its attribute block is checked, because citing an
-  id is what an area pass does when it brings a suite to the settled style —
-  legacy suites that cite nothing are untouched until their pass.
+  id is what a suite does once it has been brought to the settled style — a
+  legacy suite that cites nothing stays untouched.
 
   Checks per cited test method:
     - the method name carries no article or filler token — A, An, The, Is —
@@ -23,7 +23,7 @@
 param(
     [string]$RepoRoot,
 
-    # Projects an area pass CITES from without owning. Overridable so the self-test can exercise the
+    # Projects a suite CITES from without owning. Overridable so the self-test can exercise the
     # mechanism when the built-in list is empty, which is the state it is designed to reach.
     [hashtable]$Exempt
 )
@@ -51,9 +51,9 @@ $markerRx = '//\s*(Arrange\s*/\s*Act|Act\s*/\s*Assert|Act)\b'
 $testRoots = @(Get-ChildItem -LiteralPath $RepoRoot -Recurse -Directory -Filter '*.Test' -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -notmatch '[\\/](bin|obj|\.git|node_modules)[\\/]' } | ForEach-Object { $_.FullName })
 
-# Projects an area pass CITES from without owning — a cross-area anchor (the pilot's D3 shape:
-# an analyzer registry is one area's, the ids it proves are another's). Each entry names the pass
-# that retires it; the list only shrinks. A repo-root-relative directory prefix, forward slashes.
+# Projects a suite CITES from without owning — a cross-area anchor (the pilot's D3 shape:
+# an analyzer registry is one area's, the ids it proves are another's). Each entry names what
+# retires it; the list only shrinks. A repo-root-relative directory prefix, forward slashes.
 #
 # Empty since the ANLZ pass retired the last entry: every cited test in the repository is now gated.
 $exempt = if ($PSBoundParameters.ContainsKey('Exempt')) { $Exempt } else { @{
