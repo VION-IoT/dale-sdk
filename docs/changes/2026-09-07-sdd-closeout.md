@@ -330,15 +330,18 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-003` | done | `sdk: sdd closeout T-003` | #193 |
 | `T-004` | done | `sdk: sdd closeout T-004` | #194 |
 | `T-005` | done | `sdk: sdd closeout T-005` | #195 |
-| `T-006` | in PR — STOP: the operator rules on the buckets | `sdk: sdd closeout T-006` | #196 |
-| `T-007` … `T-019` | to come | — | — |
+| `T-006` | done — buckets ruled by the operator | `sdk: sdd closeout T-006` | #196 |
+| `T-007` | in PR — the three `fix-now` rows the ruling leaves this task | `sdk: sdd closeout T-007` | #PR |
+| `T-008` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
 _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-009`._
 
 **75 entries, recounted at `6d19f75`** — reviewer's question 8's arithmetic holds (77 at the ruling,
-76 after `T-003`, 75 after `T-004`, untouched by `T-005`). Every entry is below exactly once, keyed
+76 after `T-003`, 75 after `T-004`, untouched by `T-005`; **72 after `T-007` deleted the three rows
+it fixed**, which the checker reports as `72 entry(ies) … 75 row(s), 3 resolved`). Every entry is
+below exactly once, keyed
 on its bold lead rather than its position, because a triage outlives the deletions it causes.
 `pwsh -File scripts/ledger-buckets.ps1` checks the table against `_findings.md` and prints the
 tallies; `-List` re-seeds it. A row whose entry is gone reads as *resolved*, not as an error — that
@@ -864,6 +867,84 @@ names the file and section that states the rule now, and *lane 3 § N* is
   the ledger was read for what each entry *says*, not re-probed — so `T-007` and `T-008` re-resolve
   before they act, and `docs/spec-process.md` § Lanes' "a finding is a hypothesis until the tree
   confirms it" is the rule that says so.
+- **`T-007`: the `CTRL` entry names one escaping exception class and the tree has two.** The entry
+  says `Iso8601TimeSpanConverter.Read` lets `TimeSpan.Parse`'s `FormatException` escape. Measured on
+  the tree this landed on, `"nope"` and `"PT"` escape as `FormatException` and
+  `"10675200.00:00:00"` — a duration past `TimeSpan`'s range — escapes as `OverflowException`, which
+  the entry does not name and which a `catch (FormatException)` would have left standing. The fix is
+  `TimeSpan.TryParse` plus one `throw new JsonException(…)`, so both go the same way, and the third
+  `[DataRow]` is there for the class the entry missed rather than for a second spelling of the one it
+  names.
+- **`T-007`: a non-string token was never the 500 the `CTRL` entry describes, and the fix is narrower
+  for it.** `reader.GetString()` on a number token throws `InvalidOperationException`, which looks
+  like the same escape — but `System.Text.Json` converts it itself: probed before deciding, `5`
+  deserialized as a `TimeSpan` yields `JsonException: The JSON value could not be converted to
+  System.TimeSpan`, path appended, with no converter change at all. So the malformed-body family has
+  exactly one hole and it is the parse fallback; widening the fix to the token check would have been
+  a guard against a defect the framework does not have.
+- **`T-007`: `AC-CTRL-014.6` is minted for the converter, not for a route, because the entry's
+  "unreachable today" is still true.** Re-resolved: the two `[FromBody]` actions in the whole web
+  surface take `SetValueInput<JsonElement>` and `SetValueInput<object>`
+  (`DevHostController.cs:52`, `:68`), so no request body binds a typed duration and no end-to-end
+  `400` can be asserted. The criterion therefore states the *class* the decode raises over both
+  wires, and the `400` is in the prose beneath it, where § Refusal shapes already owns it. Both
+  registration sites (`WebHostService.cs:87` MVC, `:104` SignalR) share the one converter instance
+  type, so the fix reaches the site the `T-006` note called the observable and the site it called
+  answerless, in one edit.
+- **`T-007`: the `CLI` entry proposes two fixes and only one of them is needed.** The entry asks for
+  the help to describe the resolution rule *and* for "the snapshot regeneration to run against an
+  explicitly empty store root". Once the option carries no `DefaultValueFactory` the help does not
+  read the store at all, so the second half guards nothing: `publish.yml`'s snapshot step is
+  untouched, and the committed snapshot line is regenerated from the built tool and committed here
+  rather than left to the bot. The entry's aside about `Environment.SpecialFolder.UserProfile`
+  ignoring `USERPROFILE` on Windows is confirmed and now moot for this option — `TokenStore.UseRoot`
+  is the seam the test uses, and the test's three rows differ only in what the store holds.
+- **`T-007`: one mutant of the `CLI` fix survives, and it is the browser-bound boundary again.**
+  Replacing `CommandContext.ResolveLocal(flag).Environment` in the action with `flag ?? "production"`
+  — dropping the stored-second step — is killed by no test in the 395 the suite runs. The observable
+  is past `AuthService.AcquireInteractiveAsync`, which opens a browser and binds a loopback listener,
+  and this area's suite reaches neither ([`cli.md`](../specs/cli.md) § Test discipline); it is the
+  same boundary `AC-CLI-018.4` and `.7` are `GAP` for. What the fix does about it is structural
+  rather than test-shaped: the rule now has one implementation, `ResolveLocal`, whose three branches
+  are proven at `CommandContextShould` against `AC-CLI-013.3`, and login's duplicate of it is gone.
+- **`T-007`: the packed-artifact gate's new real-tree case held only on the CI runner, which is the
+  carry-over's own failure shape.** The case checks that each required-content rule's package id
+  names a project in the repository — the one mutation no fixture catches, because a mis-typed id
+  matches no package and every fixture still reports OK. Written with `Test-Path`, it caught
+  `Vion.Dale.SDK` on Linux and passed at the desk, because a Windows file system answers `Test-Path`
+  for either spelling. The case now compares directory and file names with `-ceq`, and the mutation
+  is killed on Windows. Two `-ceq` comparisons stand behind it, so the single-rule mutant that
+  relaxes one is still caught by the other; the table below records the double mutant instead.
+- **`T-007`: the same gate's entry match was case-insensitive, and the convention path is not.**
+  PowerShell's `-contains` ignores case, so a package carrying `Analyzers/Dotnet/Cs/…` — which NuGet
+  does not load as an analyzer — satisfied the required-content rule. The comparison is
+  `-cnotcontains` and a fixture spelling the path in the wrong case is case 8. Found by the mutation
+  table, not by the fixtures: the first `-inotcontains` mutant survived because it was equivalent to
+  what the code already did.
+- **`T-007`: the packed-artifact gate's self-test now runs the script the way CI runs it, and still
+  runs only where CI runs it.** Its four cases called `Invoke-Verify` in process, so neither the
+  parameter binding, the exit code nor the printed report was under test — the shape `T-005` closed
+  for `bom-lint` by discovering that twelve cases had never touched the production branch. All cases
+  are now a `pwsh -File … -PackagesDir` child process and every one asserts report text beside its
+  exit code. Where they run is unchanged and is the honest limit: `-SelfTest` is called from
+  `publish.yml`'s `verify-packages` job, not from `run-script-tests.ps1`
+  (`scripts/run-script-tests.ps1`'s `$exempt` says so with that reason), and `publish.yml` ignores
+  `docs/**` and `examples/**` — so a docs-only PR runs none of it. This PR touches `scripts/` and
+  `.cs`, so it runs here.
+- **`T-007`: the gate's floor and its tallies are proven by two script variants, because a fixture
+  cannot vary module state.** The rule table is a module-level hashtable, so no directory of
+  packages can empty it or add to it. Two cases write a copy of the script with the table rewritten:
+  emptied — which must fail on the floor rather than report clean — and given a second rule, which
+  must print `2 rule(s)`. Without the second, the rule tally has one value across the whole suite and
+  a mutant printing the literal `1` survives; it did, until that case was added.
+- **`T-007`: `AC-ANLZ-018.3` said what the tree did, and now says what it does.** The criterion
+  stated the defect — "a package carrying no analyzers and no warning" — with the fix routed to the
+  ledger in its own `GAP` reason. It now states the pack condition's outcome *and* the release run
+  failing on it, and the `GAP` stands for the reason `AC-ANLZ-018.1`'s does: the observable is a
+  packed artifact, and this gate's fixtures are packages rather than compilations, so no test
+  artifact `spec-trace` scans can carry either id. The ledger entry's "forty-six diagnostics" is the
+  count in the tree today (46 distinct `DALE###` ids in `Vion.Dale.Sdk.Generators`); the `ANLZ` pass
+  archive's 44 was true at its own date and is not corrected here.
 - **`T-006`: the review subagent's own round is why five of these checkpoints read as they do.** It
   refuted the Modbus premise, turned "four of six misroute" into all six at a uniform +3, found the
   duplicate-lead hole in the script, and showed that the self-test's repo-facing case had quietly
