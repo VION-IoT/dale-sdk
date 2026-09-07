@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Abstractions
+namespace Vion.Dale.Sdk.Abstractions
 {
     public interface IActorReference
     {

@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.Modbus.Core.Exceptions;
+using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Test.Validation

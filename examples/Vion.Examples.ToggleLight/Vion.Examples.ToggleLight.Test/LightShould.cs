@@ -1,4 +1,4 @@
-﻿using Moq;
+using Moq;
 using Vion.Dale.Sdk.DigitalIo.TestKit;
 using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;

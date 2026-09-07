@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.CodeGeneration;
+using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 
 // ReSharper disable MemberCanBePrivate.Global

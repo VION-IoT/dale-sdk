@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;

@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Configuration.Interfaces
+namespace Vion.Dale.Sdk.Configuration.Interfaces
 {
     /// <summary>
     ///     Receives a request message from another logic block function and returns a response message.

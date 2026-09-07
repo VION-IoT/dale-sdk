@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Configuration.Services
+namespace Vion.Dale.Sdk.Configuration.Services
 {
     internal interface IServiceFactory
     {

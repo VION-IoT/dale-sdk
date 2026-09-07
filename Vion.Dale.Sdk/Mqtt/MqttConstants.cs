@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Mqtt
+namespace Vion.Dale.Sdk.Mqtt
 {
     public static class MqttConstants
     {

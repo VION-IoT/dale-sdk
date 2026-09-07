@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using Moq;
 using Vion.Dale.Sdk.AnalogIo.Input;

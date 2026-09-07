@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
 namespace Vion.Dale.Sdk.Modbus.Core.Validation

@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.Utils;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.Configuration.Interfaces
 {

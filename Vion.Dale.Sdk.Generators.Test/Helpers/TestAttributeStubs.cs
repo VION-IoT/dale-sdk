@@ -1,4 +1,4 @@
-﻿// Minimal attribute stubs for analyzer test compilations.
+// Minimal attribute stubs for analyzer test compilations.
 // These mirror the real Vion.Dale.Sdk attributes' shapes so that test source code compiles
 // and the analyzers can match them by fully-qualified name.
 

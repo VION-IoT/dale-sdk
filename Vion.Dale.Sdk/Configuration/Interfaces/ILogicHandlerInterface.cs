@@ -1,4 +1,4 @@
-﻿namespace Vion.Dale.Sdk.Configuration.Interfaces
+namespace Vion.Dale.Sdk.Configuration.Interfaces
 {
     /// <summary>
     ///     Marker interface for logic handler interfaces

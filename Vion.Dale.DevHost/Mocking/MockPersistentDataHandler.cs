@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;

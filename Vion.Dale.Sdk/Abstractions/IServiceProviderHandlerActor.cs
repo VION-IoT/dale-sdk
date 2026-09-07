@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.Mqtt;
+using Vion.Dale.Sdk.Mqtt;
 
 namespace Vion.Dale.Sdk.Abstractions
 {

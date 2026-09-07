@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 
