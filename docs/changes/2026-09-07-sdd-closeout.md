@@ -359,8 +359,9 @@ _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-0
 76 after `T-003`, 75 after `T-004`, untouched by `T-005`; **72 after `T-007` deleted the three rows
 it fixed, then 73 when its own gate found one on its first CI run**; **71 after `T-008` deleted the two
 the Modbus half resolved, then 72 when arming the analyzer found one and 75 when its review round found
-three more** — the checker reports `75 entry(ies) … 80 row(s), 5 resolved`). Both new rows are marked as having entered after the
-ruling: the operator has not bucketed them, `T-007` and `T-008` have. Every entry is below exactly
+three more** — the checker reports `75 entry(ies) … 80 row(s), 5 resolved`). All five rows added since
+the ruling are marked as having entered after it: the operator has not bucketed them, `T-007` and
+`T-008` have. Every entry is below exactly
 once, keyed on its bold lead rather than its position, because a triage outlives the deletions it
 causes — and a **renamed** lead orphans its row exactly as a deleted one does, which is how `T-008`'s
 two recounted leads announced themselves. Both rows carry the new lead.
@@ -1132,7 +1133,11 @@ names the file and section that states the rule now, and *lane 3 § N* is
   disagree by tens: `Vion.Dale.Sdk` **217** across 17 undeclared namespaces (97 of them `Examples.*`),
   `Vion.Dale.DevHost` **101** across 5, `Vion.Dale.DevHost.Web` **14** across 6, Modbus Core/Rtu/Tcp
   **41** across 15, `Vion.Dale.ProtoActor` **10** across 2, `Vion.Dale.DevHost.Xunit` **3**,
-  `Vion.Dale.Plugin` **2** — 47 namespaces in all. Every one of the 388 is a per-type judgment, and
+  `Vion.Dale.Plugin` **2** — **43 namespaces** in all, counting those that hold an unmarked type. (The
+  basis matters, and the first draft of this line mixed three: it added the SDK's 17 *undeclared*
+  namespaces to Modbus's 15 *total* ones and reached 47. Every namespace of the nine assemblies is 50;
+  every undeclared one is 39; every one holding an unmarked type is 43, and only that one is the size
+  of the work.) Every one of the 388 is a per-type judgment, and
   each one answered `[PublicApi]` also owes a docs-site XML summary, because a `[PublicApi]` type's
   docs are a shipping surface. That is seven package-sized passes (the three Modbus ones being one),
   not one task. The ruling does not move — decision **0145** records it for the whole roster — and
@@ -1157,7 +1162,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
   and `Vion.Dale.Sdk.Modbus.Tcp`'s four sub-namespace declarations add no rule its root declaration had
   not already made, which is why `DALE014` fired in `…Client.Implementation` and `…Server.Implementation`,
   namespaces nothing declares. Measured, not read: arming the analyzer over `Modbus.Tcp` reported 11
-  types across seven namespaces where five are declared. The consequence for `Modbus.Core`'s scope
+  types living in **five of its seven** namespaces, two of which nothing declares — which is the point:
+  the root declaration reached them anyway. The consequence for `Modbus.Core`'s scope
   question — which of its seven namespaces are published — is that the answer is *the root*, one
   declaration, matching what both siblings already do. Recorded in `sdk-surface-conventions.md` § 8,
   which had none of this.
@@ -1187,16 +1193,20 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `DALE014` reported it — `ISymbol.GetAttributes()` returns declared attributes only — while
   `Type.GetCustomAttribute<PublicApiAttribute>()`, whose `inherit` defaults to `true`, returned the
   base's mark. The package-surface test written to the `Vion.Dale.Sdk.Http.Test` precedent failed on
-  it: expected four published types, got six. **Six test files across five areas read the marks that
-  way**, so the fix is `Inherited = false` on both attributes rather than an `inherit: false` argument
+  it: expected four published types, got six. **Four pre-existing test files across three areas read
+  the marks that way** — `AnalogIo`, `DigitalIo`, `Http` and `TestKit`; this checkpoint said six across
+  five until the review round counted them, the fifth candidate already passing `inherit: false`. So the
+  fix is `Inherited = false` on both attributes rather than an `inherit: false` argument
   at each call site — one change that makes the analyzer, the manifest generator's source scan and
   reflection one reader. Every existing package-surface suite stayed green: no other package has a
   public subclass of a marked type, which is why this had never shown. `AC-ANLZ-012.8`.
 - **`T-008`: the Modbus classification is 16 published and 25 plumbing, and the rule it applies is
   *who names the type*.** The `MODB` entry counted 43 unmarked; the assembly walk found **41**, and the
   entry's own reading of the set held: the eleven exception types Core and TCP leave unmarked were the
-  accidental half (they are what a block's error callback catches, and seven of them are named in
-  criteria on `modbus.md` already), the TestKit-substituted seams were the deliberate half. Two
+  accidental half (they are what a block's error callback catches, and **five** of them are named in
+  criteria on `modbus.md` already — this checkpoint said seven until the review round counted them, and
+  the other six are on the page as a failure *class* rather than by name), the TestKit-substituted seams
+  were the deliberate half. Two
   judgments went against a signature-closure reading and are stated on the page rather than assumed:
   `IRequestFactory` appears in the **public constructor** of the TestKit's published
   `SynchronousRequestQueue` and is still plumbing, and `ModbusLinkAccumulator` was already
@@ -1216,10 +1226,11 @@ names the file and section that states the rule now, and *lane 3 § N* is
   correction was noticed leaves every other section that made the same claim. The rest: the `LIFE`
   entry's 28 + 7 + 8 did not reach the 47 the same sentence claimed, because the 8 is what that page
   *specifies* and 12 is what the namespace *holds* — both now stated; "seven exceptions are named in
-  criteria on `modbus.md`" is five, and the other six are on the page as a class rather than by name;
-  "six test files across five areas" read the marks through reflection's inheriting default when it is
-  four across three, the fifth candidate passing `inherit: false` already. Every one is a claim that
-  would have shipped as prose nobody could check without re-deriving it.
+  criteria on `modbus.md`" is five; "six test files across five areas" read the marks through
+  reflection's inheriting default when it is four across three, the fifth candidate passing
+  `inherit: false` already. Each is corrected where it was written as well as here, because a number
+  refuted thirty lines below where it is asserted is still asserted. Every one is a claim that would
+  have shipped as prose nobody could check without re-deriving it.
 - **`T-008`: the change that minted "a diagnostic no author can satisfy" introduced one.** The
   `[PublicApi]` fixture for `AC-ANLZ-012.8` drew `DALE013` in every build of `Vion.Dale.Sdk.Test` —
   and the type carries a `<summary>`. `DALE013` reads `GetDocumentationCommentXml`, which is empty for

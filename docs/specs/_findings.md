@@ -416,14 +416,10 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   The rule reads `GetDocumentationCommentXml`, which is empty for every type in a project without
   `<GenerateDocumentationFile>` — so the diagnostic asks for a summary that is already there and the
   only answer is a suppression. Measured on `Vion.Dale.Sdk.Test`, the first analyzer-armed project to
-  declare a `[PublicApi]`: 1 occurrence, 0 under `-p:GenerateDocumentationFile=true`. Thirteen of the
-  eighteen roster packages set the property, and they are the twelve inside the ratchet plus
-  `Vion.Dale.DevHost.Xunit` — so **the five that do not are exactly the five the ratchet has yet to
-  reach** (`Vion.Dale.DevHost`, `.Web`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor`, `Vion.Dale.Cli`),
-  and each will hit this the moment it is armed and its first type is marked. Setting the property on
-  a project changes what that whole project warns about (CS1591 on every undocumented public member),
-  so it belongs to the pass that arms the package, not to a one-liner here. Third
-  unsatisfiable-diagnostic shape in this family, after the delegate below.
+  declare a `[PublicApi]`: 1 occurrence, 0 under `-p:GenerateDocumentationFile=true`. Thirteen of the eighteen roster packages set `<GenerateDocumentationFile>`, and they are the twelve inside the ratchet plus `Vion.Dale.DevHost.Xunit`. So the five that do **not** — `Vion.Dale.DevHost`, `.Web`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor` and `Vion.Dale.Cli` — are five of the **six** packages outside the ratchet, `DevHost.Xunit` being the sixth and the exception. Four of the five are packages a later pass will arm, and each meets this on its first mark; `Vion.Dale.Cli` is out of the ratchet's scope by decision 0145 and meets it never.
+  Setting the property on a project changes what that whole project warns about (CS1591 on every
+  undocumented public member), so it belongs to the pass that arms the package, not to a one-liner here.
+  Third unsatisfiable-diagnostic shape in this family, after the delegate below.
   *(Found by `T-008`'s review round, after the operator's ruling — `ANLZ`.)*
 - **The manifest generator's type scan does not see a `delegate`.**
   `scripts/generate-api-reference.cjs:122` matches `class|interface|enum|struct|record …|extension`,
@@ -436,10 +432,11 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   arming `DALE014` over `Vion.Dale.Sdk.Modbus.Core`, after the operator's ruling — `ANLZ`.)*
 - **An analyzer `ProjectReference` flipped to `ReferenceOutputAssembly="true"` is caught by nothing.**
   Twelve shipped packages now carry the analyzer that way — the seven SDK/IO/protocol ones and the five
-  kits — and the only guard on the flag is
-  `AnalyzerWiringShould.LeaveBuildOutputsOfDependencyGraphUntouched`, whose `ProbeBuildGraph` is the
-  four projects the I/O probes build (`AnalyzerWiringShould.cs:66-72`). Nothing inspects the packed
-  artifacts for a `Vion.Dale.Sdk.Generators.dll` that should not be in `lib/`, and
+  kits — and **nothing guards the flag at all**. The nearest thing,
+  `AnalyzerWiringShould.LeaveBuildOutputsOfDependencyGraphUntouched`, fingerprints `bin`/`obj` across
+  `ProbeBuildGraph` (`AnalyzerWiringShould.cs:66-72`) before and after the probe builds, so a flipped
+  flag leaves both fingerprints carrying the same wrong content and the test green. Nothing inspects the
+  packed artifacts for a `Vion.Dale.Sdk.Generators.dll` that should not be in `lib/`, and
   `verify-packed-assembly-versions.ps1` *lists* a foreign assembly as unchecked rather than failing on
   it. That is the 0.11.1 shape one attribute away, on twelve packages. Pre-existing — the HTTP pass and
   the `TKIT` pass added the same reference without extending the graph either — and the honest fix is a

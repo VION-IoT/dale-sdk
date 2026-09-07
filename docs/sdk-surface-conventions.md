@@ -253,8 +253,11 @@ decision and the catch logs a warning.
   `Vion.Dale.Cli`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor` and `Vion.Dale.LogicBlockParser` are
   absent today because they contain **zero** marked types — not because they lack an opt-in. Mark one
   type in any of them and the manifest moves. Decision
-  [`0145`](../../architecture/decisions/0145-public-api-ratchet-covers-every-shipped-package.md) says
-  every one of them belongs inside the ratchet; the finding ledger carries what is left to do.
+  [`0145`](../../architecture/decisions/0145-public-api-ratchet-covers-every-shipped-package.md) puts
+  the shipped **library** packages of that list inside the ratchet — the three DevHost ones,
+  `Vion.Dale.ProtoActor` and `Vion.Dale.Plugin`. `Vion.Dale.Cli` is on the release roster and out of
+  scope (a `dotnet tool`; nothing compiles against it), and `Vion.Dale.LogicBlockParser` is
+  `IsPackable=false`, so neither is. The finding ledger carries what is left to do.
   (`IDevHostControl` has been described in briefs as `[PublicApi]`; it carries no such attribute, which
   is the only reason DevHost changes have not moved the snapshot.)
 - **Where a package's public types split into surface and plumbing, the wire structs are the surface.**
@@ -294,8 +297,8 @@ Named rather than excused; the conventions above stand.
   five TestKits, `Vion.Dale.Sdk.Test`, `Vion.Dale.Sdk.TestKit.Test`, `DevHost.Test`, `DevHost.SmokeHost`
   and the two `LogicBlockParser.Test.*Plugin`s — and the nine examples do so only under
   `-p:DaleLocalSource=true`, judging against the **published** analyzers otherwise. (This bullet counted
-  eight and named the four Modbus and HTTP packages as referencing it "not at all"; the HTTP pass armed
-  HTTP and `T-008` armed the three Modbus packages. `grep -rl 'OutputItemType="Analyzer"' --include=*.csproj`
+  eight and named HTTP and the three Modbus packages as referencing it "not at all"; the HTTP pass armed
+  HTTP and `T-008` armed the other three. `grep -rl 'OutputItemType="Analyzer"' --include=*.csproj`
   is the enumeration, minus the nine conditional examples.) What is still outside: the DevHost packages,
   `Vion.Dale.ProtoActor`, `Vion.Dale.Plugin` and `Vion.Dale.Cli` — decision
   [`0145`](../../architecture/decisions/0145-public-api-ratchet-covers-every-shipped-package.md) says

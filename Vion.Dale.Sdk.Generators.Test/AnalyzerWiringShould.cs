@@ -60,8 +60,11 @@ namespace Vion.Dale.Sdk.Generators.Test
         ];
 
         /// <summary>
-        ///     Every project the probe builds reach: the two under test, plus what they pull in by
-        ///     <c>ProjectReference</c>. That set is exactly the blast radius of the 0.11.1 clobber.
+        ///     Every project <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" />'s own builds reach:
+        ///     the two I/O projects it probes, plus what they pull in by <c>ProjectReference</c>. That set is
+        ///     exactly the blast radius of the 0.11.1 clobber. The other nine probed packages are not in it —
+        ///     they run through the same <see cref="Build" /> helper and its scratch redirect, which is what
+        ///     the guard proves; nothing here fingerprints their outputs.
         /// </summary>
         private static readonly string[] ProbeBuildGraph =
         [

@@ -298,11 +298,9 @@ found in one more place; `AC-ANLZ-011.3` is the target nothing reached — the k
   (`GetDocumentationCommentXml`), which is empty for every type in a project that sets no
   `GenerateDocumentationFile` — so in such a project the diagnostic fires on a documented type too, and
   the only answer is a suppression. Measured on `Vion.Dale.Sdk.Test`, the first analyzer-armed project
-  to declare a `[PublicApi]`: 1 occurrence, 0 under `-p:GenerateDocumentationFile=true`. Thirteen of the
-  eighteen packages on the release roster set the property, and they are exactly the twelve the ratchet
-  has reached plus `Vion.Dale.DevHost.Xunit` — so nothing published today is affected, and the five that
-  do not set it (`Vion.Dale.DevHost`, `.Web`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor`,
-  `Vion.Dale.Cli`) are exactly the ones still outside it. The ledger carries it.
+  to declare a `[PublicApi]`: 1 occurrence, 0 under `-p:GenerateDocumentationFile=true`. Nothing published
+  today is affected — every package inside the ratchet sets the property. Which packages do not, and what
+  that means for the passes still to come, is in the ledger.
 - `AC-ANLZ-012.2` (Event-driven): WHEN a public type in a declared public-API namespace carries
   neither `[PublicApi]` nor `[InternalApi]` THE SYSTEM SHALL report `DALE014`.
 - `AC-ANLZ-012.3` (Event-driven): WHEN a declared public-API namespace matches no public type THE
@@ -452,7 +450,7 @@ An analyzer that is referenced is not necessarily running, and
 [`../testing-conventions.md`](../testing-conventions.md) § 3 is why that has its own standing gate.
 
 - `AC-ANLZ-018.1` (Ubiquitous): THE SYSTEM SHALL ship the analyzer assembly inside the `Vion.Dale.Sdk` package under `analyzers/dotnet/cs`, so a consumer referencing the package receives every diagnostic. GAP: observable only from a packed artifact — asserted by `scripts/verify-packed-assembly-versions.ps1`, whose own fixtures are packages rather than compilations, so no in-process test can carry the id.
-- `AC-ANLZ-018.2` (Ubiquitous): THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; `AC-ANLZ-018.4` and `AC-MODB-019.2` prove the mechanism on eleven of them (the two I/O packages, the five kits, HTTP and the three Modbus packages).
+- `AC-ANLZ-018.2` (Ubiquitous): THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; eleven of them carry a committed wiring probe that proves the mechanism, under the id of whichever page owns the package — `AC-INTRO-017.4` for the two I/O packages, `AC-TKIT-013.2` for the five kits, `AC-HTTP-013.2` for HTTP, `AC-MODB-019.2` for the three Modbus packages; `AC-ANLZ-018.4` is the rule that the probe stays out of an ordinary build.
 - `AC-ANLZ-018.3` (Event-driven): WHEN the analyzer assembly is absent at pack time THE SYSTEM SHALL produce a package whose build targets still reference it, and SHALL fail the release run naming that package, which is sooner than the consumer's build that reports the missing file but not before it. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`.
 - `AC-ANLZ-018.4` (Ubiquitous): THE SYSTEM SHALL fail a build of a probed project when the
   analyzer-wiring probe is linked in, and SHALL keep the probe out of an ordinary build.

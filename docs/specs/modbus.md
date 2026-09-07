@@ -559,9 +559,10 @@ TCP's connect timeout — are published because an error callback receives them,
 `AC-MODB-004.*` and `AC-MODB-008.*` describe as a class without naming each member.
 
 Two of the sixteen are judgments rather than readings, and are stated because a later reader will
-ask. **`Vion.Dale.Sdk.Modbus.Core.ServiceCollectionExtensions` is the one published type no
-consumer's source names today** — every caller of `AddDaleModbusCoreSdk` is inside this build, because
-`AddDaleModbusTcpSdk` and RTU's `DependencyInjection` both call it for their consumers. It is published
+ask. **`Vion.Dale.Sdk.Modbus.Core.ServiceCollectionExtensions` is the one published type with no
+caller outside this build** — every call to `AddDaleModbusCoreSdk` in this repository is the SDK's own
+or a test's, because `AddDaleModbusTcpSdk` and RTU's `DependencyInjection` both call it for their
+consumers. What a consumer repository does cannot be read from here, so the claim is about this tree. It is published
 anyway: it is the sole registration entry point of a package on the release roster, and marking it
 plumbing would leave that package with no published way to register `IModbusDataConverter`, which it
 does publish and which a consumer does inject. That is the mark most open to being overturned.
