@@ -64,6 +64,8 @@ namespace Vion.Dale.Sdk.Http.Test
             TransportSocketFailure,
 
             TransportStreamFailure,
+
+            TransportCancellation,
         }
 
         /// <summary>The three executor overloads, as the rows of the families above.</summary>
@@ -256,6 +258,7 @@ namespace Vion.Dale.Sdk.Http.Test
         [DataRow(Failure.DisposedClient, typeof(ObjectDisposedException))]
         [DataRow(Failure.TransportSocketFailure, typeof(System.Net.Sockets.SocketException))]
         [DataRow(Failure.TransportStreamFailure, typeof(IOException))]
+        [DataRow(Failure.TransportCancellation, typeof(OperationCanceledException))]
         public async Task DeliverOneExceptionClassPerFailure(Failure failure, Type expectedExceptionType)
         {
             // Arrange
@@ -938,6 +941,12 @@ namespace Vion.Dale.Sdk.Http.Test
                     return (Executor(StubHttpMessageHandler.Throwing(new System.Net.Sockets.SocketException(10061))), Url);
                 case Failure.TransportStreamFailure:
                     return (Executor(StubHttpMessageHandler.Throwing(new IOException("the connection was reset"))), Url);
+                case Failure.TransportCancellation:
+                    // The one class the client mints for itself. Neither bound elapses here, so this row is
+                    // what separates "a cancellation" from "the client's bound elapsed" — a relabel that
+                    // reads only the per-request source's flag hands this to the block as a timeout, naming
+                    // a bound the exchange never reached.
+                    return (Executor(StubHttpMessageHandler.Throwing(new OperationCanceledException())), Url);
                 default: throw new ArgumentOutOfRangeException(nameof(failure), failure, null);
             }
         }

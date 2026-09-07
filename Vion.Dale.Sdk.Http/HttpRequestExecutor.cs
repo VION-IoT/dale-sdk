@@ -300,14 +300,20 @@ namespace Vion.Dale.Sdk.Http
             {
                 response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (!cts.IsCancellationRequested)
+            catch (OperationCanceledException exception) when (!cts.IsCancellationRequested && exception.InnerException is TimeoutException)
             {
-                /* The client's own bound elapsed. No member takes a CancellationToken, so the per-request
-                 * source is the only other holder of the token this call was given, and it has not fired —
-                 * which leaves the client's timeout as the only cancellation there is. The relabel is here
-                 * rather than beside the per-request one in HandleException because this is the only place
-                 * the client exists: the failure path holds the factory, and a bound it cannot read is a
-                 * bound it cannot name. */
+                /* The client's own bound elapsed, and both clauses are needed to know that. Every
+                 * cancellation of this call arrives as the same class, whatever raised it: the per-request
+                 * source, a handler in the named client's pipeline cancelling on a token of its own, or the
+                 * client's timeout. The first is what the per-request source's own flag excludes; the other
+                 * two are told apart by the inner exception, which the client sets to a TimeoutException
+                 * only for its own bound. Reading the flag alone hands a handler's cancellation to the block
+                 * as "Timed out after 30 seconds" for an exchange that never reached a bound, and wraps a
+                 * transport failure `AC-HTTP-006.1` says arrives as the handler threw it.
+                 *
+                 * The relabel is here rather than beside the per-request one in HandleException so that the
+                 * bound can be named from the client that imposed it, which is a local of this method; the
+                 * failure path holds only the factory, and would have to build a second client to read it. */
                 throw TimedOut(httpClient.Timeout);
             }
 

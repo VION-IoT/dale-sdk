@@ -247,6 +247,13 @@ per-request timeout at all, where the client's is the only bound there is. What 
 is the number, which is always the bound that actually elapsed: a per-request value the request never
 reached is never the one named.
 
+Not every cancellation is one of the two, and the package does not treat it as one. A handler in the
+composed pipeline can cancel on a token of its own, and that reaches the block as what it is
+(`AC-HTTP-006.1`'s last row) rather than as a bound expiring. The two are told apart at their
+sources: the per-request bound by the state of the source this package armed, the client's by the
+`TimeoutException` the client puts inside the cancellation it raises for its own bound and for
+nothing else.
+
 The number in the message is rendered invariantly, so the string reads the same on every machine —
 the gateways this runs on are German-locale, where a culture-rendered `0.05` reads `0,05` and no
 support query finds it. Both bounds are named through one rendering, so the two messages cannot
