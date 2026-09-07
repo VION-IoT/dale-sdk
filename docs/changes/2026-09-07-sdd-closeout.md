@@ -424,7 +424,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `ANLZ` | A package packed without the analyzer assembly loses all forty-six diagnostics in silence. | fix-now | The entry names the gate and the assertion: one check in `verify-packed-assembly-versions.ps1`, which was minted for this failure class. **`T-007`: the lead is refuted — such a package fails every consumer's build with `CS0006`, it is not silent; the check landed anyway and the entry is resolved. See *Drift checkpoints*.** |
 | `ANLZ` | A `PackagePath` ending in a separator packs two different artifacts by runner. | leave | **Entered the ledger after the ruling**, found by `T-007`'s own gate on its first real CI run — so it is bucketed here rather than ruled on. Dropping the trailing separator changes a released package's layout, which is `releasing.md`'s subject and not fix-sized; nothing is broken today, since NuGet resolves both forms. |
 | `ANLZ` | The generator's `Contract`-substring predicate runs on every class in every compilation. | leave | No functional observable; measuring the cache cost needs a build-time benchmark. |
-| `ANLZ` | An inclusion gate on a property typed as a generated contract interface draws a false error. | Jira | `D7`'s VION-62 candidate: `DALE043` is an error, so it fails a consumer's build rather than nagging in it. **`T-009`: filed as VION-194; the ledger entry is struck. The escalation line's "five gating suites" is three, and no fielded gate is bitten today — all 29 are on component types. See *Drift checkpoints*.** |
+| `ANLZ` | An inclusion gate on a property typed as a generated contract interface draws a false error. | Jira | `D7`'s VION-62 candidate: `DALE043` is an error, so it fails a consumer's build rather than nagging in it. **`T-009`: filed as VION-194; the ledger entry is struck. The escalation line's "five gating suites" is three, and no fielded gate is bitten today — all 29 carry an explicit `[LogicBlockInterfaceBinding]`, which makes them gateable before the broken lookup runs. See *Drift checkpoints*.** |
 | `ANLZ` | `AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed. | leave | Adopting release tracking is an open decision the surface conventions deliberately do not take. |
 | `ANLZ` | `LogicClassGeneratorERR` has no registry id. | leave | A question about the diagnostic surface; its four sites all fire on the SDK's own build going wrong. |
 | `ANLZ` | `DALE013` fires on a documented `[PublicApi]` in a project that generates no documentation file. | leave | Entered after the operator's ruling: found by `T-008`'s review round. No shipped package is affected (all thirteen set the property); the cheap fix — setting it on the armed test projects — changes what those whole projects warn about. |
@@ -1280,15 +1280,19 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `MeasuringGroup` do bear services — which is exactly why the wrong reason looked right.
   **The consequence is not cosmetic:** if the attribute alone is what makes a property gateable, then
   the struck entry's claim that the remedy "names the same unresolved type" is probably false, and
-  `[LogicBlockInterfaceBinding(typeof(…))]` is a live workaround. VION-194's Origin already says so
-  and marks it untested; nothing here upgrades it, because the pin's proxy still cannot exercise it.
-- **`T-009`: the ledger's "all ten" verifier wrappers are eleven, and it was a miscount rather than a
-  version difference.** `vion-contracts@a23623a` carries ten `Verify<X>Payload` wrappers plus
-  `VerifyRemoteFunctionInterfaceMessage`, all eleven passing the empty identifier. The struck entry
-  said "all ten **in 3.7.0**" and the recount is at `v10.3.0`, so the two could have differed by
-  version — they do not: reflecting over the **shipped 3.7.0 assembly** for public static
-  `Verify*(ByteBuffer)` returns the same eleven. Counted three ways (a per-file grep, the extracted
-  method names, and the reflection walk over 3.7.0). VION-197 states eleven.
+  `[LogicBlockInterfaceBinding(typeof(…))]` is probably a live workaround. Nothing here executes it —
+  the pin's proxy cannot — so it stays a hypothesis with a mechanism behind it. VION-194's Origin
+  carried it as "may suppress it" when the item was filed and says "is likely a workaround" after the
+  correction below; both are hedged, and neither is a tested claim.
+- **`T-009`: the ledger's "all ten" verifier wrappers are eleven — by widening the predicate, not by
+  correcting a count.** The struck entry said "Every `Verify<Payload>Payload(ByteBuffer)` wrapper —
+  all ten **in 3.7.0**". Of that exact shape there are **ten**, in 3.7.0 and at `v10.3.0` alike, so the
+  entry was right on its own terms; the eleventh, `VerifyRemoteFunctionInterfaceMessage`, has the
+  identical defect but is not a `Verify<Payload>Payload`. Two things were checked and neither is the
+  explanation: it is **not** a version difference (reflecting over the **shipped 3.7.0 assembly** for
+  public static `Verify*(ByteBuffer)` returns the same eleven as `a23623a`), and it is **not** a
+  miscount — an earlier draft of this checkpoint said "miscount" and the second review round refuted
+  it. What changed is the question asked. VION-197 states eleven and names the split.
 - **`T-009`: VION-132's evidence carries a false bullet, and it is the one the coordinator's review
   marked "not re-read".** The bullet claims `ChangeThresholdRegistry.cs:157` "does skip dynamic
   assemblies". It does not: `:145-158` is a `try`/`catch` around `GetReferencedAssemblies()` whose
