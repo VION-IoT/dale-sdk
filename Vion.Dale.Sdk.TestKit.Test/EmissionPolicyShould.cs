@@ -501,7 +501,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         // start-time backstop, which is what a member gets when the compile-time gate was bypassed.
         private sealed class UnreadableDeadbandBlock : LogicBlockBase
         {
-#pragma warning disable DALE035
+#pragma warning disable DALE035 // MinChange = "loads" does not read as a number.
             [ServiceProperty(MinChange = "loads")]
             public double Voltage { get; set; }
 #pragma warning restore DALE035
@@ -517,7 +517,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         private sealed class NegativeDeadbandBlock : LogicBlockBase
         {
-#pragma warning disable DALE035
+#pragma warning disable DALE035 // MinChange = "-1" is a negative deadband.
             [ServiceProperty(MinChange = "-1")]
             public double Voltage { get; set; }
 #pragma warning restore DALE035
@@ -533,7 +533,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         private sealed class NegativeDurationDeadbandBlock : LogicBlockBase
         {
-#pragma warning disable DALE035
+#pragma warning disable DALE035 // MinChange = "-1s" is a negative duration deadband.
             [ServiceProperty(MinChange = "-1s")]
             public TimeSpan Uptime { get; set; }
 #pragma warning restore DALE035
@@ -550,7 +550,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         // DALE036 rejects this at compile time; suppressed here to reach the start-time backstop.
         private sealed class UnparseableIntervalBlock : LogicBlockBase
         {
-#pragma warning disable DALE036
+#pragma warning disable DALE036 // MinInterval = "soon" does not parse as a duration.
             [ServiceProperty(MinInterval = "soon")]
             public double Voltage { get; set; }
 #pragma warning restore DALE036
