@@ -237,17 +237,20 @@ either, which is why a block that cares passes a callback.
   zero SHALL fail the request at once, and the infinite timeout SHALL apply no per-request bound.
 - `AC-HTTP-008.2` (Ubiquitous): THE SYSTEM SHALL bound every request by the client's own timeout as
   well, a per-request timeout never raising it, and SHALL deliver that bound's expiry as a
-  `TaskCanceledException`.
+  `TimeoutException` naming the client's timeout in seconds, rendered in the invariant culture.
 
-**Two bounds, two classes, and the smaller bound wins.** A per-request timeout is applied *in
-addition to* the client's, not in place of it: a value longer than the client's does not extend
-anything, and the request then ends at the client's bound and arrives as the platform's cancellation
-rather than as this package's `TimeoutException`. A block that catches only `TimeoutException` will
-miss every expiry of the ceiling, and the finding ledger carries the ask to normalise the two.
+**Two bounds, one class, and the smaller bound wins.** A per-request timeout is applied *in addition
+to* the client's, not in place of it: a value longer than the client's does not extend anything, and
+the request then ends at the client's bound. Both expiries arrive as the same `TimeoutException`, so
+a block that catches it catches every timeout it can have — including every request that set no
+per-request timeout at all, where the client's is the only bound there is. What tells the two apart
+is the number, which is always the bound that actually elapsed: a per-request value the request never
+reached is never the one named.
 
 The number in the message is rendered invariantly, so the string reads the same on every machine —
 the gateways this runs on are German-locale, where a culture-rendered `0.05` reads `0,05` and no
-support query finds it.
+support query finds it. Both bounds are named through one rendering, so the two messages cannot
+drift apart.
 
 A timeout of zero is not "no timeout": the cancellation source it builds is already expired, so the
 request fails immediately against any handler that honours cancellation. The value that means no

@@ -28,8 +28,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception cref="ArgumentNullException">
@@ -64,8 +64,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception cref="ArgumentNullException">
@@ -95,8 +95,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception cref="ArgumentNullException">

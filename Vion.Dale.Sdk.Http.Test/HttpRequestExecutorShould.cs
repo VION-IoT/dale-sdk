@@ -583,10 +583,10 @@ namespace Vion.Dale.Sdk.Http.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-008.2")]
-        public async Task DeliverTaskCanceledExceptionWhenClientTimeoutElapses()
+        public async Task DeliverTimeoutExceptionWhenClientBoundElapses()
         {
-            // Arrange — no per-request bound, so the client's own is the only one; the exception class is
-            // the platform's cancellation rather than the package's TimeoutException
+            // Arrange — no per-request bound, so the client's own is the only one that can end the
+            // exchange, and it is the bound the message has to name
             var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
             Exception? received = null;
 
@@ -595,16 +595,17 @@ namespace Vion.Dale.Sdk.Http.Test
             _dispatcher.Drain();
 
             // Assert
-            Assert.IsInstanceOfType<TaskCanceledException>(received);
-            Assert.IsInstanceOfType<TimeoutException>(received.InnerException);
+            Assert.IsInstanceOfType<TimeoutException>(received);
+            Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-008.2")]
-        public async Task BoundRequestByClientTimeoutUnderLongerPerRequestTimeout()
+        public async Task NameClientBoundUnderLongerPerRequestBound()
         {
             // Arrange — the per-request bound is three orders of magnitude larger than the client's, so a
-            // request that ends at all ended at the client's
+            // request that ends at all ended at the client's. The number is what discriminates: a message
+            // built from the per-request value would read 60 seconds for an exchange that ran 50 ms.
             var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
             Exception? received = null;
 
@@ -618,7 +619,8 @@ namespace Vion.Dale.Sdk.Http.Test
             _dispatcher.Drain();
 
             // Assert
-            Assert.IsInstanceOfType<TaskCanceledException>(received);
+            Assert.IsInstanceOfType<TimeoutException>(received);
+            Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
         }
 
         // ---- lifetime and disposal ---------------------------------------
