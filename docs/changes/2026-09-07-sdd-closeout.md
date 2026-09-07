@@ -311,12 +311,90 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 
 | Task | Status | Session | PR |
 |---|---|---|---|
-| `T-001` | in PR | `sdk: sdd big picture` | this PR |
-| `T-002` … `T-019` | to come | — | — |
+| `T-001` | done | `sdk: sdd big picture` | #191 |
+| `T-002` | in PR | `sdk: sdd closeout T-002` | #192 |
+| `T-003` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
 _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-009`._
+
+### Skill retirement — where every rule went (`T-002`)
+
+`.claude/skills/spec-pass/SKILL.md` is deleted. Every rule it carried is below with its new owner, or
+named as dropped with the reason. The groups follow the skill's own structure; the *Owner* column
+names the file and section that states the rule now, and *lane 3 § N* is
+`spec-process.md` § Lanes → *Lane 3*, step N.
+
+**Phase A — extraction.**
+
+| Rule | Owner |
+|---|---|
+| The brief is a pointer; scope and test scope as folders and projects the session enumerates itself; a Drift checkpoint where the brief differs; an empty anchor kind is a checkpoint, not a row | lane 3 § 1 |
+| A brief's counts are hypotheses — a fresh-context `Explore` subagent checks the brief before dispatch | lane 3 § 1 |
+| A hedge in a brief (*"appears to … — verify"*) is a STOP | lane 3 § 1 |
+| The launcher recipe, the model rubric, the per-process permission mode, `-AmendFile` round-trips | lane 3 § 2 |
+| Scaffold with `spec-change.ps1 new`; the change doc is implementer-owned | § Change docs; § Lanes → lane 2 |
+| Anchor inventory first; `AttributeTargets` read against the targets its readers walk | lane 3 § 3 |
+| The statement, consumer, edge-value and state-interaction sweeps, with the symmetric-mechanism prompt and the fail-closed walk | lane 3 § 3 |
+| The six-column table; Behavior altitude; Evidence and the probe rule; the five `Rec` values; `⚠` plus failure sketch; a harm names its consumer; recency is not a reason; the code is evidence of behavior, not of intent | lane 3 § 3 |
+| Map every existing test in scope; the unmapped list | lane 3 § 3 |
+| The self-check against the inventory and the PublicApi manifest; the reverse question per anchor, and of the doc's own reviewer's questions | lane 3 § 3; `vion-code-review.md` § 6 `P2` |
+| The extraction STOP's report shape | lane 3 § 3 |
+| The operator gate; the second opinion that opens the readers' repositories; the test for a `propose` row | lane 3 § 4; `vion-code-review.md` § 6 `P4` |
+
+**Phase B — implementation.**
+
+| Rule | Owner |
+|---|---|
+| Minting is a consolidation; the consolidation map; a park is never folded into a criterion | § IDs & EARS |
+| `GAP` binds on the declaring line; an unmarked id is a declaration; a criterion the suite cannot reach stays `GAP`; "no observable" means drop the row, not mark it | § IDs & EARS |
+| A citation is for the criterion's text; an instruction to cite is not evidence; a claim naming a test is read from that test's call sites | § IDs & EARS; `testing-conventions.md` §17; `vion-code-review.md` § 2 |
+| Page text and delta line are one text; the archive commit is the last touch; id holes renumbered before publication, named after it | § Change docs |
+| The mutation is written with the test; no mutation, no criterion; over-determined criteria say so; a behaviour true by accident of structure gets its line first | lane 3 § 5 |
+| A surviving mutation indicts the fixture; a `[DataRow]` merge re-derives it; a test pinning an ordering, a bound or an edge runs its own mutation before it is cited | `testing-conventions.md` §11 |
+| A window no seam constructs is reported as a surviving mutation, with the observable that is carried | lane 3 § 5 |
+| Fix rows red-first; the four disciplines a fix owes — every validator, the shape not the symbol, every `switch` arm, every property of the rule | lane 3 § 5; `vion-code-review.md` § 6 `P3` |
+| A fix's siblings are swept before the REPORT; a behaviour the classification adds was never swept | lane 3 § 5; `P3` |
+| The fixture carries the observable; a generated seam can exist on one half of a contract only | `testing-conventions.md` §11 |
+| The size guard; a deviation checkpointed with the criterion it rests on and the test that carries it | lane 3 § 5 |
+| The page states rules, never rosters | lane 3 § 5 |
+| The suite comes to §9–17; `test-style-lint` before the REPORT; the exemption list, and a file you author inside an exempt project | lane 3 § 5; `testing-conventions.md` §12 |
+| The rename round invalidates every test name the doc carries; resolve both token shapes with a script and paste the counts | lane 3 § 5 |
+| A scripted fixture edit asserts its match count | lane 3 § 5 |
+| A test deleted because another gate covers it names the gate and its failure mode | `testing-conventions.md` §9 |
+| A fixture inserted above an attribute block steals the doc comment above the anchor | lane 3 § 5 (`doc-comment-lint`) |
+| A DevHost change is demonstrated; a Tier 2 row is a paste, made through the UI's own controls | `devhost-conventions.md` § 1; lane 3 § 5; `vion-code-review.md` § 6 `P4` |
+| Sweep discipline: matched spans only, the file's own line endings, no whole-file tidy-up, `sweep-residue-lint` and then re-read; binary-looking files; vendored files; the mirror diff covers the files the change itself created | lane 3 § 5 → *Sweep discipline* |
+| Gates pasted verbatim, every line, every time; the CI-shape run; zero `DALE` warnings; five runs for a new real-clock interaction; Stryker optional | lane 3 § 6; `testing-conventions.md` § 8 and §16 |
+| Distill, then `spec-change.ps1 archive` | § Change docs; lane 3 § 5 |
+| The REPORT's seven-item self-check preamble, and the REPORT's contents | lane 3 § 6 |
+| Every count is pasted with the command that produced it | lane 3 § 6; `vion-code-review.md` § 6 `P1` |
+
+**After the REPORT.**
+
+| Rule | Owner |
+|---|---|
+| Two fresh-context Opus checks, run concurrently; both read the citations, the self-check preamble, the `OUTCOME` lines, the rename markers and the relay-notes section | lane 3 § 7 |
+| The checks run after the session's own sibling sweep, never instead of it; a REPORT's numbers are read against the head they were taken at | lane 3 § 7 |
+| A finding is a hypothesis until the tree confirms it; the mechanism is verified at the call site; an amendment's count carries its command; a two-clause item owes two proofs | lane 3 § 7; `vion-code-review.md` § 4 |
+| One numbered amendment per round, worked by a **fresh** session; the coordinator's targeted reads close it | lane 3 § 7 |
+| The relay, both directions: a REPORT that arrives as a message is saved from the message and said so; outbound, the amend file is the artifact, bypass mode at both ends, delivery verified in the transcript, the two watch signals | lane 3 § 7 |
+| The scorecard | lane 3 § 8 |
+| The critic and review prompt shapes (kit `critic-v10.md` / `review-v10.md`) | lane 3 → *Appendix — the two check prompts* (question 4) |
+
+**Dropped, with the reason.**
+
+| Rule | Why it is dropped |
+|---|---|
+| The branch name `spec-pass/<code-lower>-a<N>`, and the attempt number in the brief | Migration-only: numbered attempts of a fourteen-area sequence. Lane 3 has no attempt counter. |
+| "Attempts are disposable — **fix the skill**, delete the branch, rerun" | Only the skill half is dropped: there is no skill to fix, and a lane-3 round's process correction now lands in `spec-process.md`. The general half — a discarded round is rerun, never hand-patched — is kept in lane 3's opening. |
+| "RFCs to absorb" in the brief; the RFC deletion plus reference-sweep step; and its ledger clause (a line absorbing a deleted RFC's item names the deleted origin and points at the absorption heading, never a `§` anchor into the file that is gone) | `docs/rfcs/` is gone — the `TKIT` pass absorbed the last two. The **sweep discipline** inside that step is kept in full; the RFC-specific sweep is not, and the ledger clause has no RFC left to absorb. The general reading it rests on — a `§` pointing at a deleted file is residue no regex sees — survives in *Sweep discipline*. |
+| The pass order (fourteen areas, in sequence) and "un-passed areas live under the old rules until their pass" | The migration is complete: every roster area has a `trace: enforced` page. |
+| "In an area whose pass hasn't run yet, a feature-sized change's distill creates a partial page", and the same clause in `CLAUDE.md`'s working agreement 10 | Same reason: no un-passed area is left for the clause to fire in. |
+| "Learning between passes lands as skill diffs, never as longer briefs" | There is no skill to diff. `/vion-codify` plus the retro is the replacement loop (`T-015`). |
+| Stryker's "two of fourteen areas" count | The rule is kept; the migration-era count is not a standing fact. |
+| The Tier B wording "both passed so far (`CLI`, `IO`)" | Stale — all four Tier B areas passed. Replaced by what the tier means now. |
 
 ### Retro-1's questions
 
@@ -341,7 +419,28 @@ _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-0
 
 ## Drift checkpoints
 
-- _(none yet — append as implementation diverges from Full design)_
+- **`T-002`: `CLAUDE.md` had no spec-pass row to drop.** The task line says "drop the spec-pass row;
+  the spec-process row names lanes, not passes". The read-before-write table carries only the
+  spec-process row, which named area passes; that row now names the lanes, and nothing was removed
+  from the table.
+- **`T-002`: the `spec-pass` grep is clean except in this doc.** The done-criterion excludes
+  `docs/changes/archive/`, `docs/retro/` and the journal. This change doc is the one remaining match
+  — it names the skill it retires in `T-002`'s task line, in `D9`, and in the record above — and it
+  moves under `archive/` when `T-019` closes the effort, at which point the criterion reads clean as
+  written.
+- **`T-002` corrected two stale clauses beside its own edits.** `spec-process.md`'s Tier B sentence
+  claimed two of four Tier B areas had passed, and `CLAUDE.md`'s working agreement 10 branched on
+  un-passed areas. Both are dead facts post-migration; both are listed in the *Dropped* table above.
+- **`T-002`'s doc rewrite left two files disagreeing with it, and both were corrected here.**
+  `scripts/test-style-lint.ps1`'s header comment and `docs/specs/_findings.md`'s header both framed
+  their subject as something an *area pass* does "until their pass" — true when the doc said so, false
+  the moment it stopped. Comment and prose only; no gate behaviour moved (`T-003` and `T-004` own the
+  gate changes).
+- **`T-002` placed two rule groups outside the files the task line named.** The Tier 2 paste rule
+  went to `devhost-conventions.md` § 1, which already owns the scripted-DOM-write rule beside it, and
+  the four standing checks became `vion-code-review.md` § 6, numbered `P1`–`P4` so a finding can cite
+  one the way it cites a `D`-number rather than being appended to the lead's mined taxonomy, whose
+  provenance is a dated mining round.
 
 ---
 

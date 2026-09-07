@@ -2,7 +2,7 @@
 
 Read this before writing or changing a test. §1–8 are this repo's specific traps; §9–17 are the
 authoring discipline (adapted from mesh's testing conventions), applied in full whenever a test is
-written or rewritten — area passes ([`spec-process.md`](spec-process.md)) bring whole suites to it.
+written or rewritten — a lane-3 round ([`spec-process.md`](spec-process.md)) brings whole suites to it.
 
 ## 1. Which framework — it depends which side of the package boundary you are on
 
@@ -165,6 +165,14 @@ pwsh scripts/cleanup-code.ps1 -Changed
 
 Do not spend review effort on anything these three would catch.
 
+The SDK's own build carries **zero `DALE` warnings**. A deliberately illegal fixture gets a
+`#pragma warning disable` with its reason, so the count stays a signal rather than a background
+level.
+
+**CI runs the suite in a shape a local run does not.** Where a fixture asserts a build-time literal,
+run it CI's way once — `dotnet test <project> -p:Version=0.0.0-ci.1` — because CI passes `Version` as
+a global property and a project's own `<Version>` loses to it.
+
 A proof about what the build decides — which projects pack, which assemblies carry an attribute,
 what a property evaluates to — is taken from the build system's evaluation (`dotnet msbuild <csproj>
 -getProperty:<name>`, the generated `AssemblyInfo.cs` under `obj/`, a full `--no-incremental` build's
@@ -205,6 +213,10 @@ Don't chase line or branch percentages, and don't assert negatives the language 
 (exception unwinding reaching the next statement). A deliberate *decision* not to catch earns an
 explicit throws-test exactly when "just catch and ignore it" is a plausible future fix.
 
+**A test deleted because "another gate already covers this" names the gate and its failure mode** in
+the commit. A snapshot that is regenerated and auto-committed gates nothing, and a warning-level
+diagnostic fails no build — two suites lost a test to that sentence and had to restore it.
+
 ## 10. Enumerate the behaviors before writing the tests
 
 Read the SUT and produce a table of its observable behaviors and the test that will cover each —
@@ -222,9 +234,9 @@ SUT and the spec page, never from the tests already written. Produce it whenever
 about *coverage* (a new `…Should` class, "write tests for this", a rewrite); skip it when the
 request names the behavior ("add a test for the timeout path").
 
-This is the same artifact an area pass's extraction step produces
-([`spec-process.md`](spec-process.md)) — there each row additionally carries `file:line` evidence
-and, on Tier A pages, its AC id.
+This is the same artifact a lane-3 extraction produces
+([`spec-process.md`](spec-process.md)) — there each row additionally carries `file:line` evidence,
+its recommended disposition, and the AC id it is minted into.
 
 ## 11. A test must be able to fail — the vacuous-test catalogue
 
@@ -244,6 +256,11 @@ The recurring shapes:
 - **The assertion is whatever would actually fail.** Where the outcome is only observable as "it
   reached a terminal state", the awaited signal *is* the assert — put it under `// Assert` and do
   not follow it with a `Verify` the await already guarantees.
+- **The fixture has to be able to carry the observable.** A block with no service members cannot
+  show "the interface did not bind" through the service map, whatever the assertion says. Find the
+  seam or the fixture that shows it *before* writing the test — and know that a generated seam can
+  exist on one half of a contract only (the sender side, not the sink side), so a fixture on the
+  quiet half tests the guard and not the path.
 
 **Prove every new behavioral test red** (§2 states it for fixes): revert the fix or delete the
 branch, watch it fail, restore — and **name the mutation in the PR** ("made the replay conditional →
@@ -252,6 +269,19 @@ re-prove after rewriting it. This repo has paid for the alternative twice in one
 late-subscriber test green against the pre-fix code because the drive's own event satisfied the
 waiter, and an `AdvanceTime` regression row that was a slower copy of the flush row — both exposed
 only by the revert.
+
+**A test that pins an ordering, a bound or an edge value runs its own mutation once before it is
+cited.** A flush-ordering test survived its mutation for a whole round, because the put-back landed
+in a queue the snapshot had just emptied — where inserting at the head and appending coincide. A test
+that survives its mutation pins nothing.
+
+**A `[DataRow]` merge is a rewrite of the assertion**: re-derive the mutation after it, or the merge
+is a deletion. One merge dropped a criterion's own sentence and nothing noticed until the review.
+
+**A mutation that survives is a hypothesis about the test as much as about the mutation.** When
+another mechanism produces the same observable — a stop's drain republished the value the hook wrote,
+so a test about the started flag read green with the flag already down — remove *that mechanism* from
+the fixture (a controllable clock turns the emission policy off) rather than strengthen the mutation.
 
 **Settle step-versus-field with the mutation.** Fields are the arguments of one call; steps are
 calls in a sequence. Mutate once per candidate assertion: assertions that redden under *different*
@@ -264,10 +294,10 @@ Form a sentence with the class name — `[Sut]Should` + `[ExpectedResult][Condit
 `DeliverWriteIssuedFromStopping`, `ThrowWhenPayloadEmpty`, `RefuseDriveWhenUnmapped`.
 
 The no-articles rule below and §13's marker rule are **gated** for every test that cites a spec id
-(`scripts/test-style-lint.ps1`, in `spec-gates.yml`): citing an id is what an area pass does when it
-brings a suite to this style, so the gate ratchets with the passes and never sweeps a legacy suite
-early. Projects a pass cites from without owning (the analyzer registry) are exempt in the script
-until their own pass, each entry with its reason.
+(`scripts/test-style-lint.ps1`, in `spec-gates.yml`): citing an id is what a suite does once it has
+been brought to this style, so the gate ratchets with the corpus and never sweeps a legacy suite
+early. Projects a suite cites from without owning are exempt in the script, each entry with its
+reason.
 
 - **Name the behavior, not the collaborator** — `ReturnStoredTopology` ✓, `ReturnTopologyFromRepositoryProvider` ✗.
   Exception: routing SUTs, where the destination *is* the behavior.
@@ -390,6 +420,11 @@ remainder:
 - No `Interlocked`/`lock` for ordinary test state — awaiting the SUT serializes its work onto the
   test's flow; reach for synchronisation only when the test itself starts concurrent work.
 
+**A suite that gains a real-clock interaction** — a runner loop, a captured console, a background
+host — **runs five times in a row**, every result line pasted, before it is handed over. A pasted run
+count is not itself a proof against load: one suite passed three runs and failed a reviewer's first.
+The race is fixed, never outrun.
+
 ## 17. Citing spec ids
 
 On a Tier A area ([`spec-process.md`](spec-process.md)), a test that proves an acceptance criterion
@@ -401,3 +436,15 @@ string — an assert message or an expectation array (a `CollectionAssert` over 
 would bind by accident; read the ids off the artifact under test instead. An id proven by **both** a unit
 test and a scenario states which half each tier owns in the test class summary (a "Cross-tier"
 clause; `spec-trace` warn-notes files missing it).
+
+**A premise test cites no id, by design.** A test that pins an implementation *premise* rather than a
+criterion — two parsers agreeing on every conformance vector, two code paths a design relies on
+staying in step — has no consumer-observable requirement to hang itself on, and minting one would
+mint a criterion no mutation reddens. Its class summary says so, the PR that writes it lists it, and
+`spec-trace` never sees it. Never mint a criterion to hold a premise test.
+
+**Citing is not proving.** `spec-trace` checks that a cited id exists, not that its sentence states
+what the test asserts — read the criterion's text against the assertion before adding the tag,
+whoever asked for it ([`spec-process.md`](spec-process.md) § IDs & EARS). And because the gate un-GAPs
+an id the moment any test carries it, a criterion the suite cannot actually reach stays `GAP` however
+many tests name it.

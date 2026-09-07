@@ -1,12 +1,13 @@
 # Finding ledger
 
-Defects an area pass found and deliberately did **not** fix: too big for the pass, or reaching past the
-area that found them. One line each, newest area last. Triaged in bulk at the retro
-([`../retro/`](../retro/)) — an entry that gets scheduled becomes a Jira item and is struck here with its
-key; an entry that is fixed is deleted with the PR that fixes it.
+Defects found and deliberately **not** fixed where they were found: too big for the round, or reaching
+past the area that found them. The fourteen area passes filled it; any lane adds to it the same way
+([`../spec-process.md`](../spec-process.md) § Routing). One line each, newest last. Triaged in bulk at
+the retro ([`../retro/`](../retro/)) — an entry that gets scheduled becomes a Jira item and is struck
+here with its key; an entry that is fixed is deleted with the PR that fixes it.
 
-Not for: a small area-local defect (the pass fixes it), a stated behavior that merely surprises (the spec
-page states it), or a missing test (that is a `GAP` marker on the page).
+Not for: a small area-local defect (the round that finds it fixes it), a stated behavior that merely
+surprises (the spec page states it), or a missing test (that is a `GAP` marker on the page).
 
 ## `INTRO` — the introspection document and identifier stability (2026-09-02)
 

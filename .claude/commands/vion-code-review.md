@@ -76,6 +76,16 @@ and let the user decide.
 Prefer three real findings over fifteen speculative ones. Ignore anything on lines the change didn't touch.
 If there are no material issues, say so plainly. Do not edit anything — hand the findings back.
 
+**State the mechanism you verified at the call site** — the line that makes the failure happen,
+quoted — or mark the finding `(inferred)`. **A finding is a hypothesis until the tree confirms it:** a
+review reading a branch at one commit gets the shape right and the constants wrong. Premises refuted
+at the call site have included an "empty schedule" that was the framework's 60 s periodic event, a
+"CRLF file" that was LF, a setter called mutable that is write-once, and a criterion said to exist on
+no page — each cost its finding the first paragraph, and each finding was still worth raising once
+the premise was corrected. A premise about what the **build** decides — which projects pack, what an
+assembly carries, what a property evaluates to — comes from `dotnet msbuild -getProperty` or the
+generated `AssemblyInfo.cs`, never from a regex over the csprojs.
+
 **The user's reply choosing which findings to apply is itself a correction** (`CLAUDE.md` working
 agreement #7): whoever applies them appends a one-line `review` entry to
 [`docs/process-journal.md`](../../docs/process-journal.md) in the commit that carries the fix. Having run
@@ -162,3 +172,37 @@ Run each as a named adversarial check; cite the D-number in findings.
 
 **Blind spot to state, not to hide:** D2's stale-doc check and D10's correction check can only fire on a
 re-review or where the branch already answers feedback. On a first pass, § 4 is what covers them.
+
+## 6. Standing checks from the spec corpus
+
+Four more named checks, paid for by the fourteen area passes that seeded `docs/specs/`
+([`spec-process.md`](../../docs/spec-process.md) § Lanes). Run each the way you run a D-number, and
+cite the P-number in the finding.
+
+- **P1 — Every count is pasted with its command.** A number in a change doc, a REPORT or a PR body
+  that was *re-read* rather than *recounted* is stale by default; a composed one is the same defect.
+  Recount the numbers the change turns on, one grep each — that is how 106 criteria against 105 on
+  the page, and 466 cited tests against 452, were both caught. A count carried from an earlier run
+  does not announce itself as stale; it announces itself as an interesting difference, and one round
+  went into explaining a three-test gap that was three tests added in the last commit.
+
+- **P2 — The reverse question, per anchor.** Counting rows against criteria asks whether every row
+  landed; it never asks *which observable behaviours have neither a row nor a criterion*. Ask that of
+  each anchor instance — each attribute, descriptor range, schema field, manifest entry the change
+  touches. Two behaviours reached a page only when someone did: a lifecycle entry point, and a silent
+  success. Ask it of the change doc's own reviewer's questions too — a question that describes an
+  observable and recommends its disposition is an observable someone noticed and nobody tabled.
+
+- **P3 — The fix's siblings.** A fix closes one path and opens its neighbour: the restart beside the
+  double start, the second map beside the first, the other output mode of a path the change just
+  added. Did the change sweep them? Three checks: a fix that names a defect *shape* sweeps the shape
+  and not the one symbol it noticed; a guard added to a `switch` reaches **every** arm; a fix that
+  makes previously inert inputs live re-checks every validator over those inputs.
+
+- **P4 — Evidence is for the shape it ran.** A probe proves the fixture shape it ran against and the
+  surface it read — `get;` is not `get; init;`, and the definition view is not the live view. A claim
+  about a reader in another repository that is on this machine is read there, not recalled: one
+  second opinion found five such claims wrong, three of them changing a decision. A demonstrated
+  observation (a DevHost Tier 2 row) is a **paste**, made through the UI's own controls; a row whose
+  paste shows a scripted DOM write is not an observation
+  ([`devhost-conventions.md`](../../docs/devhost-conventions.md) § 1).
