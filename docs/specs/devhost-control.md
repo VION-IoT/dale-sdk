@@ -366,6 +366,14 @@ the runner reads the refusal it produces instead of racing it with a stopwatch.
   embedded in the assembly, with revalidation forced on every file.
 - `AC-CTRL-014.5` (Ubiquitous): THE SYSTEM SHALL emit a duration as an ISO-8601 duration and an enum
   as its member name on both the request-response and the push wire.
+- `AC-CTRL-014.6` (Event-driven): WHEN a duration on either wire is neither an ISO-8601 duration nor
+  the .NET form THE SYSTEM SHALL refuse the payload as malformed, naming the text it was offered,
+  rather than let the decode escape as a server fault.
+
+`AC-CTRL-014.6` is the read half of `AC-CTRL-014.5`, and it is stated for the converter rather than
+for its two registrations because the class the decode raises is the whole of it: on the
+request-response wire a malformed payload is the `400` of § Refusal shapes, on the push wire there is
+no status code to answer with, and an escaping parse exception is a server fault on both.
 
 `AC-CTRL-014.2` is the local-tool posture: the server binds loopback, but a hostile page in the
 developer's own browser can still fire cross-origin requests at it, and cross-origin resource sharing
