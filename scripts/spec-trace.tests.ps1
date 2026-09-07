@@ -132,13 +132,78 @@ status: in-flight
     if ((Invoke-Trace) -ne 0) { throw "Case 11 (GAP on an in-flight delta) expected 0" }
     Remove-Item (Join-Path $tmp 'docs/changes/2026-01-02-y.md')
 
-    # Case 12: an id-sequence hole (009.1 and 009.3 declared, 009.2 absent) with no archived record
-    # -> 1; once an archived change doc names the missing id -> 0
+    # Case 12: an id-sequence hole (009.1 and 009.3 declared, 009.2 absent) with no archived record -> 1
     Add-Content -LiteralPath $page -Value "`n- ``AC-PLUG-009.1`` (Event-driven): WHEN p THE SYSTEM SHALL q.`n- ``AC-PLUG-009.3`` (Event-driven): WHEN r THE SYSTEM SHALL s."
     Add-Content -LiteralPath $test -Value "`nclass H { void I() { var a = `"AC-PLUG-009.1`"; var b = `"AC-PLUG-009.3`"; } }"
     if ((Invoke-Trace) -ne 1) { throw "Case 12 (unexplained id hole) expected 1" }
-    New-File 'docs/changes/archive/2026-01-03-z.md' "---`nslug: z`nstatus: archived`n---`n- 2026-01-03: ``AC-PLUG-009.2`` was withdrawn: no mutation reddens it alone." | Out-Null
-    if ((Invoke-Trace) -ne 0) { throw "Case 12b (hole named in an archived change doc) expected 0" }
+
+    # Case 12b: neither prose naming the id nor the ADDED line of the pass that minted it explains the
+    # hole -> still 1. Any archive mention used to satisfy the check, and the pass that mints an id
+    # always mentions it in its own delta, so every hole was self-explaining.
+    $arch = New-File 'docs/changes/archive/2026-01-03-z.md' @'
+---
+slug: z
+status: archived
+---
+- 2026-01-03: `AC-PLUG-009.2` was withdrawn: no mutation reddens it alone.
+- ADDED AC-PLUG-009.2 -> docs/specs/plugin.md : WHEN v THE SYSTEM SHALL w.
+'@
+    if ((Invoke-Trace) -ne 1) { throw "Case 12b (prose plus the minting ADDED line) expected 1" }
+
+    # Case 12c: a REMOVED delta line naming the id explains it -> 0
+    Add-Content -LiteralPath $arch -Value "`n- REMOVED AC-PLUG-009.2 -> docs/specs/plugin.md : merged into ``AC-PLUG-009.1``."
+    if ((Invoke-Trace) -ne 0) { throw "Case 12c (REMOVED line explains the hole) expected 0" }
+
+    # Case 12d: a REMOVED line for a NEIGHBOURING id does not explain this hole - the id boundary holds
+    # against a longer leaf (`009.2` is not explained by `009.20`)
+    Set-Content -LiteralPath $arch -NoNewline -Value @'
+---
+slug: z
+status: archived
+---
+- REMOVED AC-PLUG-009.20 -> docs/specs/plugin.md : a different leaf.
+'@
+    if ((Invoke-Trace) -ne 1) { throw "Case 12d (REMOVED line for a longer leaf) expected 1" }
+
+    # Case 12e: the REMOVED line of the IN-FLIGHT doc doing the withdrawing explains the hole too ->
+    # 0. Without this, a change that retires a leaf reddens its own PR from the moment it edits the
+    # page until the doc archives, which for a multi-PR change doc is every PR it has.
+    New-File 'docs/changes/2026-01-04-w.md' @'
+---
+slug: w
+status: in-flight
+---
+- REMOVED AC-PLUG-009.2 -> docs/specs/plugin.md : merged into `AC-PLUG-009.1`.
+'@ | Out-Null
+    if ((Invoke-Trace) -ne 0) { throw "Case 12e (in-flight REMOVED line) expected 0" }
+    Remove-Item (Join-Path $tmp 'docs/changes/2026-01-04-w.md')
+
+    # Case 12f: a `proposed` doc explains nothing - it is reviewed-but-not-started (spec-process.md
+    # § Change docs), so it cannot have opened the hole its line claims to close
+    New-File 'docs/changes/2026-01-05-v.md' @'
+---
+slug: v
+status: proposed
+---
+- REMOVED AC-PLUG-009.2 -> docs/specs/plugin.md : planned, not done.
+'@ | Out-Null
+    if ((Invoke-Trace) -ne 1) { throw "Case 12f (a proposed doc's REMOVED line) expected 1" }
+    Remove-Item (Join-Path $tmp 'docs/changes/2026-01-05-v.md')
+
+    # Case 12g: a REMOVED line inside a fenced code block is an example of the grammar, not a record
+    New-File 'docs/changes/2026-01-06-u.md' @'
+---
+slug: u
+status: in-flight
+---
+The delta grammar:
+
+```
+- REMOVED AC-PLUG-009.2 -> docs/specs/plugin.md : the reason goes here.
+```
+'@ | Out-Null
+    if ((Invoke-Trace) -ne 1) { throw "Case 12g (a REMOVED line inside a fence) expected 1" }
+    Remove-Item (Join-Path $tmp 'docs/changes/2026-01-06-u.md')
 
     Write-Host 'spec-trace.tests: PASS'
     exit 0
