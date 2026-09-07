@@ -385,7 +385,7 @@ Metalama-hosted build a generated contract interface is not in `AllInterfaces`, 
 gated binding draws an error saying it cannot be gated. The remedy an author would reach for —
 naming the interface in `[LogicBlockInterfaceBinding(typeof(…))]` — is written in terms of the same
 unresolved type. The fix is the by-name half of the two-way lookup `ServiceRelationAnalyzer` already
-carries; it is recorded in [`_findings.md`](_findings.md).
+carries; it is tracked as VION-194.
 
 ## Service relations
 

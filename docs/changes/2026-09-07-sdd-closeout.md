@@ -356,11 +356,12 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 
 _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-009`._
 
-**75 entries, recounted at `6d19f75`** — reviewer's question 8's arithmetic holds (77 at the ruling,
-76 after `T-003`, 75 after `T-004`, untouched by `T-005`; **72 after `T-007` deleted the three rows
+**69 entries at `4641b6f`; 75 when this table was recounted at `6d19f75`** — reviewer's question 8's
+arithmetic holds (77 at the ruling, 76 after `T-003`, 75 after `T-004`, untouched by `T-005`; **72 after `T-007` deleted the three rows
 it fixed, then 73 when its own gate found one on its first CI run**; **71 after `T-008` deleted the two
 the Modbus half resolved, then 72 when arming the analyzer found one and 75 when its review round found
-three more** — the checker reports `75 entry(ies) … 80 row(s), 5 resolved`). All five rows added since
+three more**; **69 after `T-009` struck the six `Jira` rows' entries** — the checker reports
+`69 entry(ies) … 80 row(s), 11 resolved`). All five rows added since
 the ruling are marked as having entered after it: the operator has not bucketed them, `T-007` and
 `T-008` have. Every entry is below exactly
 once, keyed on its bold lead rather than its position, because a triage outlives the deletions it
@@ -368,7 +369,7 @@ causes — and a **renamed** lead orphans its row exactly as a deleted one does,
 two recounted leads announced themselves. Both rows carry the new lead.
 `pwsh -File scripts/ledger-buckets.ps1` checks the table against `_findings.md` and prints the
 tallies; `-List` re-seeds it. A row whose entry is gone reads as *resolved*, not as an error — that
-is `T-007`'s and `T-008`'s progress through this table.
+is `T-007`'s, `T-008`'s and `T-009`'s progress through this table.
 
 **What each bucket means, and what it does not.** `fix-now` is the task line's *small, area-local, no
 decision*, read against `spec-process.md` § Lanes' three questions — does it change specified
@@ -1263,15 +1264,31 @@ names the file and section that states the rule now, and *lane 3 § N* is
 - **`T-009`: the `DALE043` escalation line overstated who is bitten, twice.** It reads "the first
   consumer carries five gating suites over fielded blocks — so this fails a consumer's build".
   Measured at `logic-block-libraries@7fba0e04`: **three** suites named `*GatingShould`, and **29**
-  `[IncludedWhen]` declarations across three blocks — all of them on `ChargePoint` / `MeasuringGroup`,
-  which are service-bearing components and satisfy `IsGateable`'s **third** branch, never reaching the
-  symbol-only `AllInterfaces` lookup. So no fielded gate draws the false error today. The defect is
-  real and error-severity; the filing (VION-194) says both, because "fails a consumer's build" as an
-  unqualified present tense is a claim an external reader would check and find false.
-- **`T-009`: the ledger's "all ten" verifier wrappers are eleven.** `vion-contracts@a23623a` carries
-  ten `Verify<X>Payload` wrappers plus `VerifyRemoteFunctionInterfaceMessage`, all eleven passing the
-  empty identifier. Counted twice, by two different greps (`VerifyBuffer("", ` per file, then the
-  method names extracted). VION-197 states eleven.
+  `[IncludedWhen]` declarations across three blocks. So no fielded gate draws the false error today.
+  The defect is real and error-severity; the filing (VION-194) says both, because "fails a consumer's
+  build" as an unqualified present tense is a claim an external reader would check and find false.
+- **`T-009`: the review round found the escape mechanism named backwards, and it was the correction's
+  own claim.** The first version of the checkpoint above said the 29 gates "are all on
+  `ChargePoint` / `MeasuringGroup`, which are service-bearing components and satisfy `IsGateable`'s
+  **third** branch, never reaching the symbol-only `AllInterfaces` lookup". That is causally
+  impossible: the lookup lives **inside** branch 2
+  (`IncludedWhenPredicateAnalyzer.cs:211` calls `TypeImplementsLogicInterface`, whose `AllInterfaces`
+  test is `:222`), and branch 3 is `:217`, evaluated only after it. What actually saves all 29 is
+  branch 2's **first disjunct**: every one of them carries an explicit
+  `[LogicBlockInterfaceBinding(typeof(…))]` (verified on all 29, not sampled), and `HasAttribute`
+  reads the attribute's presence, never its argument. Branch 3 would also be true — `ChargePoint` and
+  `MeasuringGroup` do bear services — which is exactly why the wrong reason looked right.
+  **The consequence is not cosmetic:** if the attribute alone is what makes a property gateable, then
+  the struck entry's claim that the remedy "names the same unresolved type" is probably false, and
+  `[LogicBlockInterfaceBinding(typeof(…))]` is a live workaround. VION-194's Origin already says so
+  and marks it untested; nothing here upgrades it, because the pin's proxy still cannot exercise it.
+- **`T-009`: the ledger's "all ten" verifier wrappers are eleven, and it was a miscount rather than a
+  version difference.** `vion-contracts@a23623a` carries ten `Verify<X>Payload` wrappers plus
+  `VerifyRemoteFunctionInterfaceMessage`, all eleven passing the empty identifier. The struck entry
+  said "all ten **in 3.7.0**" and the recount is at `v10.3.0`, so the two could have differed by
+  version — they do not: reflecting over the **shipped 3.7.0 assembly** for public static
+  `Verify*(ByteBuffer)` returns the same eleven. Counted three ways (a per-file grep, the extracted
+  method names, and the reflection walk over 3.7.0). VION-197 states eleven.
 - **`T-009`: VION-132's evidence carries a false bullet, and it is the one the coordinator's review
   marked "not re-read".** The bullet claims `ChangeThresholdRegistry.cs:157` "does skip dynamic
   assemblies". It does not: `:145-158` is a `try`/`catch` around `GetReferencedAssemblies()` whose
