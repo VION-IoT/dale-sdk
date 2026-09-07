@@ -43,23 +43,41 @@ namespace Vion.Dale.Cli.Test.Commands.Auth
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-019.3")]
-        [DataRow(null, DisplayName = "nothing stored")]
-        [DataRow("test", DisplayName = "logged into test")]
-        [DataRow("production", DisplayName = "logged into production")]
-        public async Task DescribeEnvironmentDefaultWhateverStoreHolds(string? storedEnvironment)
+
+        // Never "production": DaleConfig.Environment defaults to it, so that row reads the same on an
+        // empty store and cannot tell a loaded fixture from no fixture at all. The empty store is the
+        // test below.
+        [DataRow("test")]
+        [DataRow("staging")]
+        public async Task DescribeEnvironmentDefaultWhateverStoreHolds(string storedEnvironment)
         {
             // Arrange
-            if (storedEnvironment != null)
-            {
-                TokenStore.SaveConfig(new DaleConfig { Environment = storedEnvironment });
-            }
+            TokenStore.SaveConfig(new DaleConfig { Environment = storedEnvironment });
 
             // Act
             await Program.BuildRootCommand().Parse(new[] { "login", "--help" }).InvokeAsync();
 
             // Assert
-            var rendered = _standardOutput.ToString().Split('\n').Select(line => line.Trim()).Single(line => line.StartsWith("-e, --environment", StringComparison.Ordinal));
-            Assert.AreEqual(ExpectedHelpLine, rendered);
+            Assert.AreEqual(storedEnvironment,
+                            TokenStore.LoadConfig().Environment,
+                            "The store has to hold the row's value, or the row proves nothing about a help text that ignores it.");
+            Assert.AreEqual(ExpectedHelpLine, EnvironmentHelpLine());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-019.3")]
+        public async Task DescribeEnvironmentDefaultWithEmptyStore()
+        {
+            // Arrange / Act
+            await Program.BuildRootCommand().Parse(new[] { "login", "--help" }).InvokeAsync();
+
+            // Assert
+            Assert.AreEqual(ExpectedHelpLine, EnvironmentHelpLine());
+        }
+
+        private string EnvironmentHelpLine()
+        {
+            return _standardOutput.ToString().Split('\n').Select(line => line.Trim()).Single(line => line.StartsWith("-e, --environment", StringComparison.Ordinal));
         }
     }
 }
