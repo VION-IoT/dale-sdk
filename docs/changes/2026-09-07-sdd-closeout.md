@@ -102,6 +102,11 @@ the fix-now batch lands and the Jira-filed entries are struck with their keys.
    OUTCOME: the operator cannot decide yet (2026-09-07). `T-002` lands the two shapes as an
    appendix of the Lanes section — the cheapest place to move them from — and names the
    command-file option in its PR; decided there or later, never blocking `T-002`.
+   **Unchanged after `T-002` (operator, 2026-09-07): still open.** The shapes stay in the Lanes
+   appendix; the alternative named in PR #192's body — two tracked commands,
+   `.claude/commands/spec-critic.md` and `.claude/commands/spec-review.md`, taking the `<…>` parts
+   as arguments — is the operator's to decide at `T-014` at the latest, which touches the review
+   command anyway.
 5. *(b — decide-and-document, `T-004`)* Whether the pragma-reason lint fails or warns on first
    landing. OUTCOME: **fails** from the first landing (the operator leans yes, 2026-09-07).
 6. *(b — decide-and-document, `T-016`)* Whether `/vion-commit` is imported or only its subject rule.
@@ -109,6 +114,10 @@ the fix-now batch lands and the Jira-filed entries are struck with their keys.
    (operator, 2026-09-07).
 7. *(c — propose-and-wait, `T-019`)* The release version and its moment. Recommendation: `0.12.0`
    after retro-1. OUTCOME: agreed (operator, 2026-09-07); the tag itself stays the operator's.
+8. *(b — decided under `D4`, raised by `T-002`)* `_findings.md`'s header now says any lane adds to
+   it — is the widened scope wanted? OUTCOME: **yes** (operator, 2026-09-07). Engineering findings
+   from any lane go to the ledger, no Jira unless scheduled; `T-006` buckets the ledger's entries as
+   planned (77 at the time of the ruling; 76 once `T-003` deleted the one it fixed).
 
 ---
 
@@ -189,7 +198,7 @@ operator decides; a task with none is reviewed on its PR.
 - `T-005` *(Sonnet, medium)* — **BOM normalisation for C#** (question 3: decided). Probe three
   files through `cleanup-code.ps1` to confirm cleanupcode leaves a BOM-less file alone, then one PR:
   the 199 files normalised, `bom-lint` extended to `.cs`, the ledger entry closed.
-- `T-006` *(Opus, medium)* — **ledger buckets.** A script over `_findings.md` lists all 77 entries
+- `T-006` *(Opus, medium)* — **ledger buckets.** A script over `_findings.md` lists every entry
   with a bucket and a one-line reason: *fix-now* (small, area-local, no decision), *decision*
   (`T-008`'s five), *Jira* (`D7`'s five, already decided), *leave*. The table goes into this doc's
   *Ledger dispositions* section. STOP: the operator rules on the buckets, not the lines.
@@ -312,8 +321,9 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | Task | Status | Session | PR |
 |---|---|---|---|
 | `T-001` | done | `sdk: sdd big picture` | #191 |
-| `T-002` | in PR | `sdk: sdd closeout T-002` | #192 |
-| `T-003` … `T-019` | to come | — | — |
+| `T-002` | done | `sdk: sdd closeout T-002` | #192 |
+| `T-003` | in PR | `sdk: sdd closeout T-003` | — |
+| `T-004` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -441,6 +451,67 @@ names the file and section that states the rule now, and *lane 3 § N* is
   the four standing checks became `vion-code-review.md` § 6, numbered `P1`–`P4` so a finding can cite
   one the way it cites a `D`-number rather than being appended to the lead's mined taxonomy, whose
   provenance is a dated mining round.
+- **`T-003`: the narrowed hole check fails on two holes whose withdrawal was recorded only in prose,
+  and closing them meant writing into two archived docs.** `AC-GATE-007.1` (withdrawn in the GATE
+  pass's Phase B, merged into `AC-GATE-008.3`) and `AC-INTRO-002.2` (merged into `AC-INTRO-002.1`
+  before publication) are both recorded by their own passes, dated, with the reasoning — in prose,
+  under *Drift checkpoints* and *Amendment 2*, never as a `REMOVED` delta line. Under the old
+  any-mention rule that prose was indistinguishable from the `ADDED` line that minted the id; under
+  the new rule neither counts. Each archived doc gained one `REMOVED` line in a subsection that says
+  who added it and when, which is a touch after the archive commit (`spec-process.md` § Change docs
+  says that commit is the last one). Carrying the two lines in this in-flight doc would satisfy the
+  gate — the check reads in-flight docs too, below — but would date a 2026-09-02 withdrawal to
+  2026-09-07 and file it under the doc that changed no criterion. The record belongs to the pass that
+  withdrew the criterion.
+- **`T-003` widened the hole check past the task line, from archived change docs to every change
+  doc.** The task line says the check accepts a `REMOVED <id>` line "under `docs/changes/archive/`".
+  Read literally that reddens every future leaf retirement for the life of its own change: the doc
+  doing the withdrawing is in-flight from the page edit that opens the hole until the archive commit
+  that closes it, which for a multi-PR doc is every PR it has. Demonstrated on a minimal tree before
+  the widening (a page with `.1` and `.3`, an in-flight doc carrying the `REMOVED .2` line: FAIL) and
+  covered by self-test case 12e. The narrowing the task asks for is *prose and `ADDED` lines no longer
+  count*, and that is intact.
+- **`T-003`: the un-hidden tests carried three settled-style violations, and the renames touched two
+  more archived docs.** `ScenarioSteppingShould.FailSettleNamingTheStillChangingTarget`,
+  `ExpectStepShould.NameTheTargetTheBoundAndTheActualValueOnFailure` and
+  `InclusionGateShould.BindExactlyTheIncludedMembers` have each carried an article since their area's
+  pass with no gate able to see them. They are now `FailSettleNamingStillChangingTarget`,
+  `NameTargetBoundAndActualValueOnFailure` and `BindExactlyIncludedMembers`, and the SCEN and GATE
+  pass docs' tables that cite them by name — three rows — were swept with them; a rename invalidates
+  every test name a doc carries, wherever the doc lives.
+- **`T-003` swept the defect shape, not the symbol the task line names, and the regex became a
+  scanner.** The task line names one shape: a `]` inside a string
+  (`[DataRow("Mode in ['Eco', 'Fast']", …)]`). The defect is *the attribute block never reaches its
+  signature*, and it has two more instances the first fix left standing — a `]` closing a nested
+  bracket (`[DataRow(1, new[] { … })]`) and an attribute wrapped onto an indented line — found by the
+  review subagent, which enumerated the citations independently of the gate. Twenty-one cited methods
+  in all, three of them non-conforming. One regex covering all three needs an alternation that
+  backtracks exponentially on an attribute that never closes, which fails CI as a hang rather than a
+  failure, so the block is now read by a linear scan that states the C# rules it knows: a string
+  literal in every form, a char literal, and bracket depth. Verified against the shape it replaces —
+  the scan finds every one of the 2525 methods `origin/main` found and adds 21; no method's body
+  *start* moves, and eighteen body *ends* shrink, each by the hidden method the old regex had
+  swallowed into its predecessor's span. That span is what the Triple-A marker check reads, so a
+  predecessor missing its own marker used to pass on its hidden neighbour's.
+- **`T-003` deleted the ledger entry for the defect it fixed, and corrected the gate's row in
+  `spec-process.md`.** `_findings.md`'s header obliges the fixing PR to delete the entry; the entry
+  (`ANLZ` pass, "A `[DataRow]` containing a `]` hides a test") had also gone stale twice over — a
+  `file:line` anchor that had moved, and "one test in `Vion.Dale.Sdk.Generators.Test`" against the 21
+  the sweep found. `spec-process.md` § Gates owns what each gate fails on and still stated the
+  any-mention rule this change deleted; the two are now one text. 76 entries.
+- **`T-003`'s second review round closed three holes the first fix opened or left.** The scan read
+  `@"…"` and `$@"…"` as verbatim but not `@$"…"`, C#'s third spelling, and fell back to escape
+  handling that walks past the closing quote of a path ending in a backslash — the one shape where
+  the scan was *worse* than the regex, and in the under-reporting direction (no site in the tree
+  today; self-test cases 10 and 10b, one spelling per file because two hidden methods in one file let
+  either carry the case). Widening the hole check to every change doc had let a `proposed` doc — which
+  `spec-process.md` § Change docs says `spec-trace` ignores, and which by definition has not opened
+  the hole it claims to close — and a `REMOVED` line quoted inside a fence explain a hole (cases 12f,
+  12g). And `test-style-lint` had no anti-vacuous floor: it reported OK over the 21 methods it could
+  not see, and would have reported OK over zero, including where no `*.Test` directory exists at all,
+  because `Get-ChildItem -Path @()` enumerates the process working directory rather than nothing
+  (cases 11, 11b). `spec-trace`'s equivalent empty-roots path is left alone: it already fails, on the
+  orphans that follow from it, and only its message misleads.
 
 ---
 
