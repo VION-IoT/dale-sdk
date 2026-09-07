@@ -322,7 +322,7 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 |---|---|---|---|
 | `T-001` | done | `sdk: sdd big picture` | #191 |
 | `T-002` | done | `sdk: sdd closeout T-002` | #192 |
-| `T-003` | in PR | `sdk: sdd closeout T-003` | — |
+| `T-003` | in PR | `sdk: sdd closeout T-003` | #193 |
 | `T-004` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
