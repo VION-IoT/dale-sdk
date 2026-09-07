@@ -21,8 +21,10 @@ namespace Vion.Dale.Sdk.Http.Test
     ///     What a block sees once a request is on its way: which failure arrives as which exception, when a
     ///     callback runs and on what, what is disposed, and which timeout bound produced an expiry.
     ///     <para>
-    ///         Every test drives the real executor over a stub innermost handler and <b>awaits</b> the returned
-    ///         task, so nothing here waits on the clock and no assertion races the exchange. Callbacks are
+    ///         Every test that sends drives the real executor over a stub innermost handler and
+    ///         <b>awaits</b> the returned task, so nothing here waits on the clock and no assertion races the
+    ///         exchange — the refusals are answered at the caller before a request exists and are
+    ///         synchronous. Callbacks are
     ///         drained from a <c>RecordingDispatcher</c> afterwards, because that is what a real block's actor
     ///         does: the self-send runs the callback after the executor has already returned.
     ///     </para>

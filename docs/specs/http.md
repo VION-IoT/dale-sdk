@@ -393,14 +393,16 @@ The suite reaches the wire through two client seams, and every row that issues a
 them: a stub factory's client, where a fixture meets the bounds it sets itself rather than the
 registration's, or the composed package — the real `AddDaleHttpSdk` and the real named client, only
 the innermost handler replaced — where the timeout, the `User-Agent` and the handler chain are under
-test rather than reconstructed. Rows that issue nothing take neither seam: the client's
-member-mapping family stands on a mocked executor, because mapping a member to an executor call is
-all those members do; the surface family reads the assembly; the serializer family reads content
-alone.
+test rather than reconstructed. Holding a seam and issuing are separate things: a registration row
+composes the package and reads the client's own configuration without sending anything, and a
+refusal row is answered at the caller before a request exists. The rows on no seam at all stand where
+their claim lives — the client's member-mapping family on a mocked executor, because mapping a member
+to an executor call is all those members do; the surface family on the assembly; the serializer
+family on content alone.
 
-The executor's own rows drive the real executor over a stub innermost handler and **await the
-executor's own task** before asserting; callbacks are then drained from a dispatcher stub that queues
-them the way a real actor does. Nothing waits on the wall clock. The discriminator for every timeout
+The executor's rows that do issue drive the real executor over a stub innermost handler and **await
+the executor's own task** before asserting; callbacks are then drained from a dispatcher stub that
+queues them the way a real actor does. Nothing waits on the wall clock. The discriminator for every timeout
 claim is a handler that never answers and honours cancellation — never a delay raced against a
 shorter bound ([`../testing-conventions.md`](../testing-conventions.md) § 16), and never a handler
 that ignores the token, which reads the opposite of a real one on a zero bound.
