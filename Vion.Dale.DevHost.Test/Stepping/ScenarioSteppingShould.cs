@@ -259,7 +259,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         [TestProperty("spec", "AC-SCEN-011.8")]
         [DataRow("""{ "settle": { "maxSeconds": 3 } }""", DisplayName = "over the watch list")]
         [DataRow("""{ "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 3 } }""", DisplayName = "over a declared target")]
-        public async Task FailSettleNamingTheStillChangingTarget(string step)
+        public async Task FailSettleNamingStillChangingTarget(string step)
         {
             // Arrange — the ticker never stops, so the budget is exhausted whichever way the step is scoped.
             await using var host = BuildSettleHost(NewClock());

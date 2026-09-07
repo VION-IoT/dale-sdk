@@ -177,7 +177,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         [DataRow("""{ "expect": { "property": "Allocator.AllocatedCurrent.L1", "equals": 999 } }""",
                  "expected AllocatedCurrent to equal 999, but was 10",
                  DisplayName = "struct field leaf")]
-        public async Task NameTheTargetTheBoundAndTheActualValueOnFailure(string step, string expectedDetail)
+        public async Task NameTargetBoundAndActualValueOnFailure(string step, string expectedDetail)
         {
             // Arrange
             await using var host = BuildHost();

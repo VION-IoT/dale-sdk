@@ -1160,6 +1160,15 @@ heading** — every page edit below is prose or ordering.
 - ADDED AC-INTRO-016.8 -> docs/specs/introspection.md : WHEN a component property holds null THE SYSTEM SHALL report no relation half for its endpoints, having reported no service for it to hang on.
 - MODIFIED AC-INTRO-017.1 -> docs/specs/introspection.md : WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly supplying the project's package id and excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
 
+### Withdrawn, recorded 2026-09-07
+
+> One line added after this doc was archived, by `T-003` of `docs/changes/2026-09-07-sdd-closeout.md`,
+> which narrowed `spec-trace`'s id-sequence-hole check to `REMOVED` lines. The merge itself is recorded
+> in prose under *Amendment 2* above and dated 2026-09-03; it was never written in the delta grammar,
+> so the hole it leaves in `AC-INTRO-002` was explained to a reader and to nothing else.
+
+- REMOVED AC-INTRO-002.2 -> docs/specs/introspection.md : merged into `AC-INTRO-002.1` before publication — it would have said "a refused run writes no document", and the same mutation, the `return 1` removed, reddens both halves, so it was not a second requirement.
+
 ---
 
 ## Tasks

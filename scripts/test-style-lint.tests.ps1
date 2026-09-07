@@ -154,6 +154,177 @@ public class SomeAnalyzerTests
     if ((Invoke-LintExempting 'Other.Area.Test/') -ne 0) { throw "Case 6 (exempt project) expected 0" }
     if ((Invoke-Lint) -ne 1) { throw "Case 6 (the same file, unexempted) expected 1" }
 
+    Remove-Item (Join-Path $tmp 'Other.Area.Test/SomeAnalyzerTests.cs')
+
+    # Case 7: a `]` inside a string in the attribute block must not hide the method. Both string forms
+    # the suite uses carry one: a quoted literal with escaped quotes
+    # (`[DataRow("[ServiceProperty(Title = \"Power\")]")]`) and a raw string literal
+    # (`[DataRow("""{ "checks": [] }""")]`). The block regex stopped at the FIRST `]`, so the last
+    # attribute line never reached the signature and the whole method went unchecked -> the two
+    # violations below (an article, no markers) must be reported.
+    $br = New-File 'Fake.Sdk.Test/BracketShould.cs' @'
+public class BracketShould
+{
+    [TestMethod]
+    [TestProperty("spec", "AC-CLI-006.11")]
+    [DataRow("Mode in ['Eco', 'Fast']", 1)]
+    public void EmitTheAnnotation()
+    {
+        Assert.IsTrue(true);
+    }
+
+    [TestMethod]
+    [TestProperty("spec", "AC-SCEN-001.2")]
+    [DataRow("""{ "version": 1, "id": "x", "checks": [] }""", DisplayName = "unmapped property")]
+    public void RejectUnmappedProperty()
+    {
+        Assert.IsTrue(true);
+    }
+}
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 7 (a ] inside a string hides the method) expected 1" }
+
+    # Case 7b: the same two attribute blocks over conforming methods -> 0, so the un-hiding does not
+    # itself become a false report
+    Set-Content -LiteralPath $br -NoNewline -Value @'
+public class BracketShould
+{
+    [TestMethod]
+    [TestProperty("spec", "AC-CLI-006.11")]
+    [DataRow("Mode in ['Eco', 'Fast']", 1)]
+    public void EmitAnnotation()
+    {
+        // Arrange / Act
+        // Assert
+    }
+
+    [TestMethod]
+    [TestProperty("spec", "AC-SCEN-001.2")]
+    [DataRow("""{ "version": 1, "id": "x", "checks": [] }""", DisplayName = "unmapped property")]
+    public void RejectUnmappedProperty()
+    {
+        // Act
+    }
+}
+'@
+    if ((Invoke-Lint) -ne 0) { throw "Case 7b (the same blocks over conforming methods) expected 0" }
+
+    Remove-Item $br
+
+    # Case 8: the other two ways an attribute block fails to reach its signature - a `]` closing a
+    # NESTED bracket (`new[] { … }`, a collection expression) and an attribute WRAPPED onto an
+    # indented continuation line. Same defect as case 7, different symbol: the method is checked by
+    # nothing, so the article and the missing markers below must be reported.
+    $w = New-File 'Fake.Sdk.Test/WrapShould.cs' @'
+public class WrapShould
+{
+    [TestMethod]
+    [TestProperty("spec", "AC-GATE-006.3")]
+    [DataRow(1, new[] { "Point1" }, DisplayName = "one point")]
+    public void BindTheIncludedMembers(int count, string[] expected)
+    {
+        Assert.IsTrue(true);
+    }
+
+    [TestMethod]
+    [TestProperty("spec", "AC-SCEN-009.1")]
+    [DataRow("""{ "expect": { "equals": 7 } }""",
+             "expected 7, but was 42",
+             DisplayName = "equals")]
+    public void NameTheBoundOnFailure(string step, string detail)
+    {
+        Assert.IsTrue(true);
+    }
+}
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 8 (a nested bracket and a wrapped attribute hide the method) expected 1" }
+
+    # Case 8b: the same two blocks over conforming methods -> 0
+    Set-Content -LiteralPath $w -NoNewline -Value @'
+public class WrapShould
+{
+    [TestMethod]
+    [TestProperty("spec", "AC-GATE-006.3")]
+    [DataRow(1, new[] { "Point1" }, DisplayName = "one point")]
+    public void BindIncludedMembers(int count, string[] expected)
+    {
+        // Arrange / Act
+        // Assert
+    }
+
+    [TestMethod]
+    [TestProperty("spec", "AC-SCEN-009.1")]
+    [DataRow("""{ "expect": { "equals": 7 } }""",
+             "expected 7, but was 42",
+             DisplayName = "equals")]
+    public void NameBoundOnFailure(string step, string detail)
+    {
+        // Act
+    }
+}
+'@
+    if ((Invoke-Lint) -ne 0) { throw "Case 8b (the same blocks over conforming methods) expected 0" }
+
+    # Case 9: an attribute that never closes must not run away into the file below it, and must not
+    # cost more than the line it sits on - a block whose `[` has no `]` swallows the whole rest of a
+    # file once continuation lines are allowed, and the methods below it go unchecked.
+    New-File 'Fake.Sdk.Test/UnclosedShould.cs' @'
+public class UnclosedShould
+{
+    [DataRow("a", "b",
+
+    [TestMethod]
+    [TestProperty("spec", "AC-GATE-007.1")]
+    public void ReturnTheValue()
+    {
+        // Act
+    }
+}
+'@ | Out-Null
+    if ((Invoke-Lint) -ne 1) { throw "Case 9 (an unclosed attribute above a cited method) expected 1" }
+    Remove-Item (Join-Path $tmp 'Fake.Sdk.Test/UnclosedShould.cs')
+
+    # Case 10: C# spells a verbatim string two ways when it is also interpolated - `$@"…"` and
+    # `@$"…"`. Both hold a `]` and a backslash that is NOT an escape, so reading either as an
+    # ordinary quoted string walks past the closing quote and loses the method.
+    # One spelling per file: two hidden methods in one file would let either one carry the case.
+    $v = New-File 'Fake.Sdk.Test/VerbatimShould.cs' @'
+public class VerbatimShould
+{
+    [TestMethod]
+    [TestProperty("spec", "AC-CLI-001.1")]
+    [DataRow(@$"C:\out\[x]\", 1)]
+    public void ReturnThePath(string path, int n)
+    {
+        Assert.IsTrue(true);
+    }
+}
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 10 (@`$ verbatim spelling) expected 1" }
+    Set-Content -LiteralPath $v -NoNewline -Value @'
+public class VerbatimShould
+{
+    [TestMethod]
+    [TestProperty("spec", "AC-CLI-001.2")]
+    [DataRow($@"C:\out\[y]\", 2)]
+    public void ReturnThePath(string path, int n)
+    {
+        Assert.IsTrue(true);
+    }
+}
+'@
+    if ((Invoke-Lint) -ne 1) { throw "Case 10b (`$@ verbatim spelling) expected 1" }
+    Remove-Item $v
+
+    # Case 11: the anti-vacuous floor. A gate that can silently match nothing can silently die with
+    # nothing else in CI noticing - the shape this gate was in for a week while its block pattern
+    # skipped 21 cited methods. Test roots present but not one cited method parsed -> 1; and no
+    # *.Test root at all, where an empty root list makes Get-ChildItem enumerate the process cwd -> 1.
+    Get-ChildItem -LiteralPath $tmp -Recurse -Filter *.cs | Remove-Item -Force
+    if ((Invoke-Lint) -ne 1) { throw "Case 11 (roots present, zero cited tests) expected 1" }
+    Get-ChildItem -LiteralPath $tmp -Directory -Filter '*.Test' -Recurse | Remove-Item -Recurse -Force
+    if ((Invoke-Lint) -ne 1) { throw "Case 11b (no *.Test root at all) expected 1" }
+
     Write-Host 'test-style-lint.tests: PASS'
     exit 0
 }

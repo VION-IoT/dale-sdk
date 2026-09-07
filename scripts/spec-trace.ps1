@@ -16,9 +16,12 @@
   additionally covered by any of its leaves. An id declared on a line carrying
   the GAP marker is exempt-but-counted: reported as awaiting its test, never
   an orphan. A leaf missing below its umbrella's highest leaf (`AC-X-001.2` absent while
-  `.1` and `.3` exist) is a hole: fine when the pass's archived change doc names the id
-  (a criterion withdrawn or merged), a FAIL otherwise — an unexplained hole once hid a
-  classified row with no criterion behind it.
+  `.1` and `.3` exist) is a hole: fine when a change doc — in-flight or archived — carries a
+  `REMOVED <id> ->` delta line for it, the record of a criterion withdrawn or merged; a FAIL
+  otherwise. An unexplained hole once hid a classified row with no criterion behind it. Any
+  archive mention of the id used to satisfy this, which made the check nearly vacuous: the pass
+  that minted an id writes its `ADDED` line into the same archive, so every hole explained its
+  own absence.
 #>
 [CmdletBinding()]
 param(
@@ -34,6 +37,11 @@ if (-not $RepoRoot) {
 }
 $specsDir = Join-Path $RepoRoot 'docs/specs'
 $idRx = '\b(?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?\b'
+# The delta-line grammar of docs/spec-process.md § Change docs: `OP <id> -> <target> : <payload>`.
+# Both readers below parse it — the scan for the REMOVED lines that explain id-sequence holes, and
+# the in-flight scan that folds a change doc's own delta into the declared set. The
+# captured id runs to the arrow, so `AC-X-001.2` is not read out of `AC-X-001.20`.
+$deltaIdRx = '^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+`?((?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*->'
 
 $declared = [System.Collections.Generic.HashSet[string]]::new()
 # Ids declared on a line carrying the GAP marker: known-untested backlog rows
@@ -67,13 +75,34 @@ if (Test-Path $specsDir) {
 # exemption covers only ids that appear on GAP lines exclusively.
 $gapIds.ExceptWith($declared)
 
-# Id-sequence holes on the traced pages. Every hole must be named somewhere under
-# docs/changes/archive/ — that is where a pass records a criterion it withdrew or merged. A hole
-# nobody explained is the shape that hid a classified row with no criterion behind it.
-$archiveDir = Join-Path $RepoRoot 'docs/changes/archive'
-$archiveText = ''
-if (Test-Path $archiveDir) {
-    $archiveText = (Get-ChildItem -LiteralPath $archiveDir -Filter *.md -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+# Id-sequence holes on the traced pages. Every hole must carry a REMOVED delta line in a change
+# doc — that is how a doc records a criterion it withdrew or merged. Prose about the id is not that
+# record: it satisfied this check until 2026-09-07, and so did the ADDED line of the pass that
+# minted the id, which every withdrawn id has. A hole nobody recorded is the shape that hid a
+# classified row with no criterion behind it.
+#
+# Archived docs AND started ones, because the doc doing the withdrawing is in-flight for exactly as
+# long as its own PRs run: reading the archive alone reddens a leaf retirement from the edit that
+# opens the hole until the archive commit that closes the change. Not a `proposed` doc, which is
+# reviewed-but-not-started (§ Change docs) and so cannot have opened the hole its line closes, and
+# not a line inside a fence, which is the grammar quoted as an example rather than a record.
+$changesDir = Join-Path $RepoRoot 'docs/changes'
+$removedInChangeDocs = [System.Collections.Generic.HashSet[string]]::new()
+$deltaDocs = @()
+if (Test-Path $changesDir) { $deltaDocs += @(Get-ChildItem -LiteralPath $changesDir -Filter *.md -File) }
+$archiveDir = Join-Path $changesDir 'archive'
+if (Test-Path $archiveDir) { $deltaDocs += @(Get-ChildItem -LiteralPath $archiveDir -Filter *.md -File) }
+$deltaDocs = @($deltaDocs | Where-Object { $_.Name -notlike '_*' })   # scaffolding, never a change doc
+foreach ($f in $deltaDocs) {
+    $lines = @(Get-Content -LiteralPath $f.FullName)
+    if (($lines -join "`n") -match '(?m)^status:\s*proposed') { continue }
+    $inFence = $false
+    foreach ($line in $lines) {
+        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
+        if ($inFence) { continue }
+        $m = [regex]::Match($line, $deltaIdRx)
+        if ($m.Success -and $m.Groups[1].Value -eq 'REMOVED') { [void]$removedInChangeDocs.Add($m.Groups[2].Value) }
+    }
 }
 $leavesByUmbrella = @{}
 foreach ($id in @($declared) + @($gapIds)) {
@@ -89,12 +118,11 @@ foreach ($u in $leavesByUmbrella.Keys) {
     for ($k = 1; $k -le $max; $k++) {
         if ($leavesByUmbrella[$u].Contains($k)) { continue }
         $hole = "$u.$k"
-        # \b keeps `001.1` from matching inside `001.10`.
-        if ($archiveText -notmatch ('\b' + [regex]::Escape($hole) + '\b')) { $holes.Add($hole) }
+        if (-not $removedInChangeDocs.Contains($hole)) { $holes.Add($hole) }
     }
 }
 if ($holes.Count) {
-    Write-Host "spec-trace: FAIL - $($holes.Count) id-sequence hole(s) no archived change doc names (a withdrawn or merged criterion is recorded by id in its pass's change doc; an unexplained hole hid a classified row with no criterion):"
+    Write-Host "spec-trace: FAIL - $($holes.Count) id-sequence hole(s) with no ``REMOVED <id> -> <page> : <reason>`` line in any change doc (that line is how a withdrawn or merged criterion is recorded; an unexplained hole hid a classified row with no criterion):"
     $holes | Sort-Object | ForEach-Object { Write-Host "  $_" }
     exit 1
 }
@@ -103,8 +131,6 @@ if ($holes.Count) {
 # ADDED/MODIFIED ids must be test-referenced (they may not be in a page yet);
 # REMOVED ids are exempt (being deleted). Delta-line grammar only, so ids in prose
 # don't create false declarations.
-$changesDir = Join-Path $RepoRoot 'docs/changes'
-$deltaIdRx = '^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+`?((?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*->'
 if (Test-Path $changesDir) {
     foreach ($cd in (Get-ChildItem -LiteralPath $changesDir -Filter *.md -File)) {   # top-level only; archive/ excluded
         if ($cd.Name -like '_*') { continue }

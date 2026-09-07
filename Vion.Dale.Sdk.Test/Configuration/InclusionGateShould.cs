@@ -41,7 +41,7 @@ namespace Vion.Dale.Sdk.Test.Configuration
         [DataRow(1, new[] { nameof(GatedCountBlock), "Point1" }, DisplayName = "one point")]
         [DataRow(2, new[] { nameof(GatedCountBlock), "Point1", "Point2" }, DisplayName = "two points")]
         [DataRow(3, new[] { nameof(GatedCountBlock), "Point1", "Point2", "Point3" }, DisplayName = "three points")]
-        public void BindExactlyTheIncludedMembers(int pointCount, string[] expectedServices)
+        public void BindExactlyIncludedMembers(int pointCount, string[] expectedServices)
         {
             // Arrange
             var block = new GatedCountBlock();
