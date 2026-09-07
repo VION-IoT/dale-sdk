@@ -167,7 +167,10 @@ Do not spend review effort on anything these three would catch.
 
 The SDK's own build carries **zero `DALE` warnings**. A deliberately illegal fixture gets a
 `#pragma warning disable` with its reason, so the count stays a signal rather than a background
-level.
+level. The reason is **gated** (`scripts/pragma-reason-lint.ps1`, in `spec-gates.yml`): a directive
+with no comment reaching it, or one built from nothing but the directive's own words, fails. It
+belongs after the directive or directly above it, where the next reader is — not above the class,
+which is where four of them sat while the rule was prose.
 
 **CI runs the suite in a shape a local run does not.** Where a fixture asserts a build-time literal,
 run it CI's way once — `dotnet test <project> -p:Version=0.0.0-ci.1` — because CI passes `Version` as
