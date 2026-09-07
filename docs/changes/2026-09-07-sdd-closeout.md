@@ -654,10 +654,21 @@ names the file and section that states the rule now, and *lane 3 § N* is
   nothing else is what `utf-8-sig` writes for an empty file. The fifth was structural: every case
   ran against a temp fixture, which is not a git repo, so all twelve exercised the directory walk
   and none exercised `git ls-files` — the only branch `spec-gates.yml` ever takes. Cases 2b, 4b, 10b
-  and 13a–c close them; the suite is 19 cases and 16 killed mutants, no survivors. **The lesson
+  and 13a–c close them; the suite is 19 cases and 17 killed mutants, no survivors. **The lesson
   `T-004` drew — assert the message, not the exit code — is necessary and not sufficient: a tally is
   pinned only by two cases that disagree about it, and a branch is covered only by a fixture shaped
   like the one production runs on.**
+- **`T-005`'s new count assertion failed in CI and had found a real defect: the walk is OS-dependent
+  without `-Force`.** Case 1 passed at the desk and reported `6 file(s) across 5 of the 12` on the
+  Linux runner. The missing one is `.github/workflows/ci.yml`: on Unix a dot-prefixed entry is
+  hidden, and `Get-ChildItem -Recurse` omits hidden entries unless told otherwise, so the walk
+  scanned `.github` on Windows and skipped it on Linux — a kind this gate covers, silently unscanned
+  on the platform CI runs. Twelve exit-code cases had not seen it, and neither had the message-only
+  assertions that preceded this round; the tally is what made it visible. `-Force` is added, and the
+  case is made to fail on Windows too by setting the Hidden attribute on the fixture's `.github`,
+  because a guard that holds only on the runner passes at every desk. The gate's production path is
+  `git ls-files` and was never affected — the defect was in the fallback the self-tests themselves
+  run on, which is the part of a gate nothing else exercises.
 
 ---
 

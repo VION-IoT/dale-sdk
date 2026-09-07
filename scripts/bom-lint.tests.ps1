@@ -46,6 +46,15 @@ try {
     New-File 'Sdk/Core/Thing.cs' $text | Out-Null
     New-File 'Sdk/Sdk.csproj' ($bom + $text) | Out-Null
     New-File 'Sdk/Sdk.sln' ($bom + $text) | Out-Null
+
+    # The ci.yml above sits in a directory the OS may hide, which is why the tally below is worth
+    # reading: a walk without -Force returns no hidden entry, and .github/workflows/*.yml is a kind
+    # this gate covers. Unix hides it for the leading dot; Windows does not, so the attribute is set
+    # here - otherwise this guard holds only on the CI runner and passes at every desk.
+    if ($IsWindows) {
+        $dotDir = Get-Item -LiteralPath (Join-Path $tmp '.github') -Force
+        $dotDir.Attributes = $dotDir.Attributes -bor [System.IO.FileAttributes]::Hidden
+    }
     if ((Invoke-Lint) -ne 0) { throw "Case 1 (clean kinds; BOM on out-of-scope kinds) expected 0" }
     # Every number in the report is pinned, not just the total: the .cs tally is what separates a
     # gate checking C# from one that has quietly stopped, and the kind tally is what separates a scan

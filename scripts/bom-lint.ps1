@@ -55,7 +55,10 @@ try {
 }
 finally { Pop-Location }
 if (-not $inGit) {
-    $files = @(Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -ErrorAction SilentlyContinue |
+    # -Force, or the walk is quietly OS-dependent: on Unix a dot-prefixed entry is hidden, and
+    # Get-ChildItem omits hidden entries without it - so .github/workflows/*.yml, a kind this gate
+    # covers, was scanned on Windows and skipped on Linux. The exclusions below still drop .git/.
+    $files = @(Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -Force -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -notmatch '[\\/](bin|obj|node_modules|\.git)[\\/]' } | ForEach-Object { $_.FullName })
 }
 
