@@ -329,12 +329,139 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-002` | done | `sdk: sdd closeout T-002` | #192 |
 | `T-003` | done | `sdk: sdd closeout T-003` | #193 |
 | `T-004` | done | `sdk: sdd closeout T-004` | #194 |
-| `T-005` | in PR | `sdk: sdd closeout T-005` | #195 |
-| `T-006` … `T-019` | to come | — | — |
+| `T-005` | done | `sdk: sdd closeout T-005` | #195 |
+| `T-006` | in PR — STOP: the operator rules on the buckets | `sdk: sdd closeout T-006` | #196 |
+| `T-007` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
 _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-009`._
+
+**75 entries, recounted at `6d19f75`** — reviewer's question 8's arithmetic holds (77 at the ruling,
+76 after `T-003`, 75 after `T-004`, untouched by `T-005`). Every entry is below exactly once, keyed
+on its bold lead rather than its position, because a triage outlives the deletions it causes.
+`pwsh -File scripts/ledger-buckets.ps1` checks the table against `_findings.md` and prints the
+tallies; `-List` re-seeds it. A row whose entry is gone reads as *resolved*, not as an error — that
+is `T-007`'s progress through this table.
+
+**What each bucket means, and what it does not.** `fix-now` is the task line's *small, area-local, no
+decision*, read against `spec-process.md` § Lanes' three questions — does it change specified
+behaviour · **does it cross an area** · is a design point open — plus two tests `T-007`'s own recipe
+imposes: it must be **provable red-first**, and it must **add no published surface** (a new public
+member is a ratchet move, not a repair). `decision` is `T-008`'s public-API ratchet family and
+nothing else. `Jira` is `D7`'s routing. `leave` is everything else, and it does **not** mean "needs no
+ruling": most `leave` rows are open questions that stay in the ledger until a retro schedules one,
+which is the ledger header's own loop. Each reason names which test took the entry out of `fix-now`.
+
+| Area | Entry | Bucket | Why |
+|---|---|---|---|
+| `INTRO` | `dale list` cannot render a nested block's short name. | leave | The CLR-form identity is deliberate (`AC-INTRO-004.1`); what the table should print instead is a `dale list` output decision, not a repair. |
+| `INTRO` | Nothing warns when a library's `<PackageId>` and `<AssemblyName>` diverge after the identity change. | leave | A new `dale build` / `dale pack` warning is specified CLI behaviour that does not exist yet — feature-sized, and its reader is the platform's registration. |
+| `INTRO` | `dale list` runs the introspection without the development-only exclusion | leave | Filter or mark is a question about what `dale list` is for; the entry defers it to the CLI being specced. |
+| `INTRO` | A blank or a colliding endpoint `Identifier =` draws no compile-time diagnostic. | leave | A whole-type analysis across two attribute families that would fire on eight deliberate fixtures; it failed the size guard in two passes. |
+| `CTRL` | A clock-mode switch rebuilds the next generation by writing the process environment. | leave | Both alternatives are worse or bigger: a runner-held static is the same global renamed, a mode parameter is a surface change. |
+| `CTRL` | The duration converter's read half answers 500 where every other bad body answers 400. | fix-now | One `Read` body, one escaping exception class, `CTRL`-local and directly testable — but the entry's `:107-123` is stale (the file is 40 lines, `Read` is `:18-33`), the converter is registered twice (`WebHostService.cs:87` MVC, `:104` SignalR, where there is no 400 to answer with), and the 400 rule is prose today, so the page edit **mints** a criterion. |
+| `CTRL` | A topology's validation errors are served by splitting a joined message. | leave | The fix is a structured exception on the topology types, which are `SCEN`'s — a second area. |
+| `CTRL` | A client that connects before the first generation's actors exist is never primed. | leave | A readiness gate on the hub is new behaviour, not a repair. |
+| `CTRL` | The scenario and topology routes refuse without a reason token. | leave | Extending the token family is a wire decision the Explorer's client would key on. |
+| `CTRL` | Two shipped packages are outside the public-API snapshot. | decision | `T-008` — the two DevHost packages, named in reviewer's question 2. |
+| `LIFE` | Two published message types nothing in this repository sends or receives. | leave | Both ends are live in the private runtime; nothing here can change them or test one. |
+| `LIFE` | A contract handler's reference is minted whether or not the actor exists. | leave | A registry lookup at link time is a spawn-ordering contract shared with the runtime. |
+| `LIFE` | A `[Persistent]` property more than one level inside a block is silently not persisted. | leave | Recursing needs a cycle guard, a key grammar for arbitrary depth and a decision about collections — its own change doc. |
+| `LIFE` | A block's actor name is ambiguous when its name or identifier contains the separator. | leave | Every reader prefix-matches, the runtime included, so there is no observable to prove red. |
+| `LIFE` | The two dependency-injection registrations are independent, and one in-repo host uses only one. | leave | Whether an actor system without the SDK's registrations is a supported composition is a decision. |
+| `LIFE` | A bound service the configuration gives no identifier is dropped at six sites for the instance's life. | leave | Failing the configuration instead needs the cloud's allocation rule; `AC-LIFE-003.4` states today's behaviour. |
+| `LIFE` | A block whose configuration failed still starts, publishes and acknowledges. | leave | Three refusal shapes, each with a reader — one of them stalls the gateway's whole boot. |
+| `LIFE` | The development host restores nothing, so the start hook's persisted-value promise is one it cannot keep. | leave | Whether the host sends an empty restore for sequence parity is the host's decision. |
+| `LIFE` | `Vion.Dale.ProtoActor`, and three namespaces of `Vion.Dale.Sdk`, are outside the public-API snapshot. | decision | `T-008` — `Vion.Dale.ProtoActor` and the undeclared SDK namespaces. |
+| `BIND` | Two published code-generation attributes have no reader in any repository. | leave | A public-surface removal that also rewrites shipped example files, entangled with the `Examples/` packaging row below. |
+| `BIND` | The two discoveries of this area do not share a rule, and the contract side is the one out of step. | leave | Converging on the runtime's degrading scan reshapes a stated refusal across `BIND` and `PLUG`. |
+| `BIND` | The contract-message envelope takes any payload while the inter-block one takes a struct. | leave | Adding the constraint narrows a published generic, and nothing behind the laxity goes wrong today. |
+| `BIND` | A contract mapped to a handler class the host never spawned sends into nothing. | leave | The contract-side half of `LIFE`'s row 26 — one fix, and it is the runtime's. |
+| `BIND` | A second registration request registers again, while the client aborts the duplicate. | leave | Unreachable: the runtime sends the request exactly once, at boot. |
+| `BIND` | `RegisterServiceProvider` is a member-less published record with no reader anywhere. | leave | Deleting it is a public-surface removal, the same class as the code-generation attributes. |
+| `BIND` | A cast integer reaching the multiplicity token conversion fails a whole pack run. | leave | Two shapes (a guarded walk or a `DALE` rule), and what the introspection walk owes a member it cannot read is `INTRO`'s to state. |
+| `BIND` | A contract-type token has no uniqueness guard. | leave | `DALE043`-sized whole-compilation analysis, owing `CompilationEnd` and a referenced-assembly boundary decision. |
+| `BIND` | A block's interface endpoints come from public properties only, and the walk cannot be widened without moving every consumer's artifact. | leave | Widening mints endpoints into every consumer's uploaded document; `AC-BIND-001.3` refuses the declaration instead. |
+| `BIND` | The TestKit maps a contract an inclusion gate would have excluded. | leave | Reading a gate means running the binder's evaluator — `BIND`'s surface, parked twice already. |
+| `BIND` | Every namespace of this area but two is outside the public-API ratchet. | decision | `T-008` — the undeclared SDK namespaces, seven of them named here. |
+| `BIND` | Eight example contract files and one example logic block ship inside the SDK assembly. | leave | A packaging decision — whether they ship at all — which question 2's ruling on the ratchet does not settle. |
+| `BIND` | `RegistrationSecret` belongs to no roster area. | leave | A corpus-roster ownership question with no behaviour behind it. |
+| `BIND` | A handler that survives a reconfiguration with no contract mappings keeps a stale map. | Jira | `D7`'s runtime candidate (VION-16, `dale-sdk` label); no SDK change can cure it — the message that would is one the runtime does not send. |
+| `BIND` | `Vion.Dale.Sdk.Reflection.AssemblyExtensions.GetConcreteType` now has no caller. | leave | A surface removal in a namespace outside the ratchet today; `T-008` puts it inside one, which is when the deletion becomes askable. |
+| `ANLZ` | A preset attribute is judged by every rule but `DALE019`. | leave | Widening the match to the base chain re-aims all 36 analyzers at once, at every consumer with preset attributes. |
+| `ANLZ` | A relation-bearing component declared on a base block in a referenced assembly draws no warning. | leave | `AC-ANLZ-002.3`'s stated boundary, not a defect in the rule. |
+| `ANLZ` | `[StructField]` on a parameter other than a wire struct's constructor parameter is judged by nothing. | leave | Narrowing further is source-breaking on a published attribute — the shape `DALE047` was minted to avoid. |
+| `ANLZ` | A `MinInterval` at the tick-representation boundary configures a negative interval, unreported. | fix-now | One comparison, in the analyzer and the runtime, that must move together; a token drawing no diagnostic and making the emission gate unconditionally true is a red-first test. |
+| `ANLZ` | `DALE046` judges a struct type only on its first occurrence in a wire graph. | leave | No shape makes the outcome differ, so there is nothing to prove red. |
+| `ANLZ` | A package packed without the analyzer assembly loses all forty-six diagnostics in silence. | fix-now | The entry names the gate and the assertion: one check in `verify-packed-assembly-versions.ps1`, which was minted for this failure class. |
+| `ANLZ` | The generator's `Contract`-substring predicate runs on every class in every compilation. | leave | No functional observable; measuring the cache cost needs a build-time benchmark. |
+| `ANLZ` | An inclusion gate on a property typed as a generated contract interface draws a false error. | Jira | `D7`'s VION-62 candidate: `DALE043` is an error, so it fails a consumer's build rather than nagging in it. |
+| `ANLZ` | `AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed. | leave | Adopting release tracking is an open decision the surface conventions deliberately do not take. |
+| `ANLZ` | `LogicClassGeneratorERR` has no registry id. | leave | A question about the diagnostic surface; its four sites all fire on the SDK's own build going wrong. |
+| `MODB` | The default outcome for an unrecognised exception is `TransportError`. | leave | A reclassification flips every fielded block from its wire arm to its quiet one; the entry names a narrower question to answer first. |
+| `MODB` | The proxy seam takes two types for one protocol field. | leave | Four signatures on a published interface plus the TestKit fake — the surface review two rows below. |
+| `MODB` | A value width below two bytes divides by zero. | leave | Hardening a published type the consumer injects in production is a surface decision, not an area-local guard. |
+| `MODB` | One surface, two instant types. | leave | Changing either is source-breaking on a published property type the consumer re-declares verbatim. |
+| `MODB` | Forty-three public types are outside the API manifest. | decision | `T-008` — the 43 unmarked Modbus types named in reviewer's question 2. |
+| `MODB` | Two consumer-facing exceptions live in an implementation namespace. | leave | A namespace change on a public type is source-breaking, and neither type has a manifest row that would flag it — cheaper after `T-008`. |
+| `MODB` | A factory-created Modbus client or server is never reclaimed. | leave | A DI-lifetime change on a published registration with twelve fielded creation sites; `AC-MODB-018.3` states the lifetime as it is. |
+| `MODB` | The reuse-address knob has no same-version-redeploy repro. | leave | OS- and timing-dependent, which is why the regression was never written and no portable test can prove one red. |
+| `MODB` | Whether a newer FluentModbus makes the reuse-address provider unnecessary is unasked. | leave | A dependency question, answered by a version bump nobody has asked for. |
+| `MODB` | Three server features were deferred at design time and no consumer has asked since. | leave | Feature bands, each layering onto today's surface; no consumer has asked. |
+| `CLI` | The two upload conflicts are told apart by the endpoint's message text. | Jira | `D7`'s VION-62 candidate; the distinguishable field is the platform API's, and six fielded invocations ride the substring. |
+| `CLI` | One thirty-second ceiling covers every cloud request, the package upload included. | leave | Small, but with no observable a red-first test can stand on (`AC-CLI-017.6` is `GAP` for the same reason) — the fix-now lane's entry price. |
+| `CLI` | `dale dev` announces an address it never checked. | leave | Answering it needs `CTRL`'s readiness handshake, and changing the default is a surface change across five commands. |
+| `CLI` | The bundled template has no gate that runs `dale new`. | leave | The fixture, the cleanup and the failure modes are a change doc's worth of work. |
+| `CLI` | The `login` help's `--environment` default is whatever the developer's own store says. | fix-now | The entry says it: small, area-local, and one test pinning the help line under an empty store root. |
+| `TKIT` | A persistent value declared for a property the block does not persist is accepted silently. | leave | Catching it needs the binder's own view of what persists — `BIND`'s surface, parked beside the inclusion-gate row. |
+| `TKIT` | ~~Four~~ Three shipped SDK packages carry no analyzer reference. | decision | `T-008`'s sixth: `DALE014` cannot ask the three Modbus packages for a mark until they reference the generator, so the ratchet's Modbus half **is** this row. |
+| `TKIT` | Two downstream test projects cannot be proven against a same-PR kit change. | leave | It reaches the template's shipped content and the first-party library lane, which is `releasing.md`'s to decide. |
+| `TKIT` | The five kit test projects do not agree on their test-platform reference. | leave | A consistency question the entry states for the operator; nothing is red, so it waits on a ruling rather than a fix. |
+| `TKIT` | The SDK ships no test context for a service-provider handler. | leave | 350–450 lines of new published surface across three or four types — its own change doc. |
+| `IO` | A block cannot ask whether a face it holds is mapped. | Jira | `D7`: VION-130 exists — link only, no new item; the consumer's reflection probe names the same gap. |
+| `IO` | A state payload of the wrong schema decodes as a value nothing sent. | leave | The accessor is a public-surface addition on a `BIND`-owned `[PublicApi]` struct, and the refusal needs a rule for a payload carrying no `schema` at all. |
+| `IO` | A command that the far side refused is invisible to the block. | leave | Subscribing the response topic is new wire behaviour: a message type, an arm, and a decision about what a block observes. |
+| `IO` | The core SDK has the same unmarked public type the IO pass fixed in its own packages. | decision | `T-008` — the SDK's undeclared root namespace. |
+| `IO` | `Vion.Contracts`' generated payload verifiers are unusable as published. | Jira | `D7`'s `vion-contracts` candidate (VION-16, `dale-sdk` label); the defect is in another repo's generated code. |
+| `IO` | `hal-sim` writes the two payload identity strings transposed. | Jira | `D7`'s `hal-sim` candidate (VION-16, `dale-sdk` label); nothing here reads the transposed fields. |
+| `HTTP` | A per-request timeout does not bound the response body. | leave | Threading the token changes the exception class a callback receives — behaviour reshaped, not corrected. |
+| `HTTP` | A callback lost before the block's first message stays lost. | leave | Neither cure belongs to this package; `IActorDispatcher`'s two members cannot answer whether the block has an actor. |
+| `HTTP` | Two timeout bounds deliver two exception classes. | fix-now | `D6` already ruled *fix*, and it is **`T-010`'s, not `T-007`'s batch**: the predicate widens by one line, the message needs the executor to read `HttpClient.Timeout`. |
+| `HTTP` | The package ships no HTTP test kit. | leave | A sixth kit is its own change doc; raised by the first consumer, not found here. |
+| `HTTP` | The package surfaces no link or connection diagnostics. | leave | A feature band that would need the package to own the primary handler. |
+
+**Five `fix-now`, six `decision`, six `Jira`, fifty-eight `leave`.** Three of the five `fix-now` rows
+— `ANLZ`'s packed-analyzer assertion, `CLI`'s `login` help default, `CTRL`'s duration converter — pass
+every test above. **Two do not**, and both are here for a stated reason rather than a clean fit; they
+are the rows to rule on first:
+
+- **`ANLZ`'s `MinInterval` row fails "does it cross an area".** It is tagged `EMIT` + `ANLZ`, and the
+  fix moves `EmissionAttributeHelper.cs:267` and `DurationParser.cs:120-121` together — the analyzer
+  mirrors the runtime exactly, so a one-sided fix would reject a token the runtime accepts. Two
+  areas is lane 2 as `spec-process.md` writes it. Bucketed `fix-now` because it is **one rule stated
+  twice, not two decisions**, and because the defect is live: `MinInterval = "922337203685477.6"`
+  draws no diagnostic and makes the emission gate's elapsed test unconditionally true. If the area
+  question is read strictly, this row is `leave`.
+- **`HTTP`'s row 28n fails all three**, and is bucketed `fix-now` only because **`D6` already ruled
+  it a fix** — the bucket records a decision taken, not a judgment made here. It is also **`T-010`'s,
+  not `T-007`'s batch**, and the entry's own reason for parking it ("it changes an exception class a
+  callback receives today") is *behaviour reshaped rather than corrected*, which is lane 2's wording.
+  If the bucket is meant to read strictly as "`T-007` fixes this", this row is the one to move.
+
+Two `leave` rows are the nearest misses in the other direction, and both fail exactly one test:
+
+- **`IO`'s wrong-schema decode** — the fix is named down to the line count, but it adds a member to a
+  `[PublicApi]` struct (**adds published surface**) and needs a rule for a payload carrying no
+  `schema` at all (**a design point is open**).
+- **`CLI`'s upload ceiling** — small and area-local, refused only because **no test can stand on it**
+  (`AC-CLI-017.6` is `GAP` for the same reason), which is why the pass left it here.
+
+Four counts this recount moved are in *Drift checkpoints*: `T-008`'s five entries are six and its
+Modbus half is larger than the ledger says, `D7`'s five candidates are six rows, all six of `D7`'s
+`#nn` numbers misroute by a uniform **+3**, and reviewer's question 2's "four undeclared SDK
+namespaces" is seventeen. `T-009` goes by `D7`'s descriptions and by each entry's *Escalated to the
+operator as a Jira candidate* line — the ledger carries exactly five, and nothing else does.
 
 ### Skill retirement — where every rule went (`T-002`)
 
@@ -669,6 +796,79 @@ names the file and section that states the rule now, and *lane 3 § N* is
   because a guard that holds only on the runner passes at every desk. The gate's production path is
   `git ls-files` and was never affected — the defect was in the fallback the self-tests themselves
   run on, which is the part of a gate nothing else exercises.
+- **`T-006`: `T-008`'s five ledger entries are six, and its Modbus half is larger than the sixth
+  says.** Reviewer's question 2 counts five and `T-008`'s task line closes five; the ratchet family
+  in `_findings.md` is six. The sixth is `TKIT`'s "~~Four~~ Three shipped SDK packages carry no
+  analyzer reference" — none of `Vion.Dale.Sdk.Modbus.Core`, `.Rtu`, `.Tcp` references
+  `Vion.Dale.Sdk.Generators` (only their two TestKits do), so `DALE014` never asks them for a mark,
+  and "the 43 Modbus types all join the manifest" cannot be done without arming the analyzer there.
+  One row, not two pieces of work — which is why it is `decision` and not `fix-now`.
+  **But that entry's premise is wrong where it matters most**: it says all three "each declare
+  `[assembly: PublicApiNamespace]`", and `Vion.Dale.Sdk.Modbus.Core` declares **none** — its only
+  assembly attribute is `[DaleSharedAssembly]` (`AssemblyAttributes.cs:9`), and it has no
+  `PublicApiConfig.cs`. `DALE014` fires only inside a declared namespace
+  (`PublicApiDocumentationAnalyzer.cs:103`), so arming the analyzer in Core asks about **nothing**.
+  Counted: Core 40 public types / 20 marked / 7 namespaces / **0 declared**; Rtu 12 / 1 / 1 / 1;
+  Tcp 23 / 11 / 7 / 5 — 43 unmarked, as the ledger says, but only ~23 of them in a namespace the
+  ratchet can see. So `T-008` also has to decide **which of Core's seven namespaces are published**,
+  which is a scope question the ruling "include them all" does not answer for a package that
+  declares nothing. (The warnings are warnings, not errors: nothing in the tree sets
+  `TreatWarningsAsErrors`.)
+- **`T-006`: the `Jira` bucket is six rows, where `D7` names five candidates.** The sixth is `IO`'s
+  "A block cannot ask whether a face it holds is mapped" — `D7`'s `#70`, which it routes to VION-130
+  as a **link** rather than a new item, and which `T-009`'s task line acts on in the same breath as
+  the five ("link `#70` to VION-130"). Five filings plus one link; no entry is filed twice.
+- **`T-006`: `D7`'s `#nn` numbers are not positions in `_findings.md`, and all six are the true
+  position plus exactly three.** Counted at `66dc32c`, the exact main this doc cites (77 entries):
+  the runtime's stale handler map is #33 not `#36`, the `DALE043` false error #43 not `#46`, the
+  `dale upload` 409s #57 not `#60`, VION-130's face-mapped question #67 not `#70`, `Vion.Contracts`'
+  verifiers #71 not `#74`, `hal-sim`'s transposed strings #72 not `#75`. Read as positions, every
+  one lands on the wrong entry — `#46` on the `[DataRow]` row `T-003` has since deleted, `#70` on the
+  core SDK's unmarked type, which is `T-008`'s. The offset is uniform, so the numbering is
+  mechanically recoverable, but it is the coordinator's machine-local review's and `T-009`'s own task
+  line already expects that file to be gone. What identifies an entry is `D7`'s parenthetical
+  description, and each of the five matches exactly one entry carrying an *"Escalated to the operator
+  as a Jira candidate"* line — the ledger holds exactly five such lines, and the routing on each
+  agrees with `D7`'s. `T-009` goes by those, never by the number.
+- **`T-006`: reviewer's question 2's "four undeclared SDK namespaces" is seventeen.**
+  `PublicApiConfig.cs:6-8` declares 3 of `Vion.Dale.Sdk`'s 20 namespaces (`Core`, `Emission`,
+  `Utils`); the other 17 each hold at least one public type. The largest are `Core`'s neighbours in
+  everything but the ratchet: `Messages` (28), `Mqtt` (24), `Abstractions` (16),
+  `Configuration.Interfaces` (15), `Configuration.Services` (12). Those two figures check the method
+  — `LIFE`'s ledger row independently says 28 message types and 7 diagnostics types, and a metadata
+  walk of the built assembly gives 28 and 7. Three of the seventeen are `Examples.*`, whose contents
+  are the packaging question `BIND`'s example-files row raises rather than the ratchet's. No total is
+  quoted here on purpose: a source-declaration count and an assembly walk disagree by tens
+  (nested types, and what a `record` declaration emits), and `T-008` should take its number from the
+  manifest generator rather than from either. The ruling does not move — "include them all" — but
+  `T-008`'s size does, and the three ledger entries that name namespaces (`LIFE`, `BIND`, `IO`)
+  between them name eight of the seventeen.
+- **`T-006`: `T-010`'s row 54 has no ledger line either, and its page edit is already made.** The
+  task line reads "54: the decline stated on the page and the ledger line closed". `_findings.md`
+  has never carried a `DaleSharedAssembly` entry — the HTTP pass's own record says only 28n left one
+  ([`archive/2026-09-06-http-pass.md:757`](archive/2026-09-06-http-pass.md)) — and the decline is
+  already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:330`, its rationale at `:346`), landed
+  by that pass. So `T-010` is row 28n plus a re-read of a criterion that already says what the task
+  asks to be said, not two halves. This is the same shape as `T-005`'s missing entry: the second
+  task line in three to name a ledger entry that does not exist, both times for a question a pass
+  had already answered somewhere else.
+- **`T-006`: the one `fix-now` row whose citation was checked turned out to be stale, and it was the
+  only one checked.** `CTRL`'s duration-converter entry cites
+  `Iso8601TimeSpanConverter.cs:107-123`; the file is 40 lines and has been since `56bc40b`, with
+  `Read` at `:18-33`. The mechanism survives — `XmlConvert.ToTimeSpan` catch → `TimeSpan.Parse`,
+  whose `FormatException` escapes — so the finding holds and the bucket stands; the entry is
+  corrected in place, with the second registration site (`WebHostService.cs:104`, SignalR, where
+  there is no 400) added, because a fix aimed at one of two registrations is a fix that half works.
+  What this says about the round: a bucket is a claim about a fix's shape, and a shape read off a
+  citation nobody resolved is a hypothesis. The other 74 entries' citations are **unverified here** —
+  the ledger was read for what each entry *says*, not re-probed — so `T-007` and `T-008` re-resolve
+  before they act, and `docs/spec-process.md` § Lanes' "a finding is a hypothesis until the tree
+  confirms it" is the rule that says so.
+- **`T-006`: the review subagent's own round is why five of these checkpoints read as they do.** It
+  refuted the Modbus premise, turned "four of six misroute" into all six at a uniform +3, found the
+  duplicate-lead hole in the script, and showed that the self-test's repo-facing case had quietly
+  made this a gate on every PR in the repo. Each is recorded above with what was measured, not with
+  who found it; this line is the pointer for the retro, which counts review catches.
 
 ---
 

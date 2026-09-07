@@ -65,10 +65,14 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   and a factory that takes the mode is a surface change. *(CTRL pass row 40 — `CTRL`.)*
 - **The duration converter's read half answers 500 where every other bad body answers 400.**
   `Iso8601TimeSpanConverter.Read` lets `TimeSpan.Parse`'s `FormatException` escape
-  (`Vion.Dale.DevHost.Web/Api/Serialization/Iso8601TimeSpanConverter.cs:107-123`), which the input
+  (`Vion.Dale.DevHost.Web/Api/Serialization/Iso8601TimeSpanConverter.cs:18-33`), which the input
   pipeline does not translate. Unreachable today — every write body binds as `object` or `JsonElement`
   and is decoded by the control surface instead — and live the moment a typed duration reaches a
-  request body. *(CTRL pass row 141 — `CTRL`.)*
+  request body. *(CTRL pass row 141 — `CTRL`.)* **`T-006` (2026-09-07):** the citation was
+  `:107-123`, a range this 40-line file has never had; corrected while bucketing. The converter is
+  also registered twice — `Vion.Dale.DevHost.Web/Services/WebHostService.cs:87` (MVC) and `:104`
+  (SignalR `PayloadSerializerOptions`) — and the second has no 400 to answer with, so a fix's
+  observable is the MVC path.
 - **A topology's validation errors are served by splitting a joined message.**
   `TopologiesController.InvalidTopology` splits `InvalidDataException.Message` on `"; "`
   (`Vion.Dale.DevHost.Web/Api/Controllers/TopologiesController.cs:140-148`), so an error containing that
