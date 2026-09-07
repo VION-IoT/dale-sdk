@@ -389,9 +389,12 @@ raised them.
 
 ## Test discipline
 
-The suite drives the real executor over a stub innermost handler, behind a stub factory's client
-rather than the registered one — so a fixture meets the bounds it sets itself, not the
-registration's — and **awaits the executor's own task** before asserting; callbacks are then drained
+The suite drives the real executor over a stub innermost handler, behind one of two client seams. The
+executor and error-model rows take a stub factory's client, so a fixture meets the bounds it sets
+itself rather than the registration's. The registration and client-family rows compose the package
+the way a consumer does — the real `AddDaleHttpSdk` and the real named client, only the innermost
+handler replaced — so the timeout, the `User-Agent` and the handler chain are under test rather than
+reconstructed. Both **await the executor's own task** before asserting; callbacks are then drained
 from a dispatcher stub that queues them the way a real actor does. Nothing waits on the wall clock.
 The discriminator for every timeout claim is a handler that never answers and honours cancellation —
 never a delay raced against a shorter bound
