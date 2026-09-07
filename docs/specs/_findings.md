@@ -392,12 +392,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   four call sites all fire on a missing or broken embedded template — a build of the SDK itself going
   wrong, not an authoring mistake — which is why this is a question about the surface rather than a
   defect. *(ANLZ pass, reviewer's question 3 — the retro.)*
-- **A `[DataRow]` containing a `]` hides a test from `test-style-lint` and from any tool sharing its
-  regex.** `scripts/test-style-lint.ps1:38`'s attribute-block pattern is `\[[^\]\r\n]*\]`, so a row
-  such as `[DataRow("Mode in ['Eco', 'Fast']", …)]` breaks the run of attribute lines and the method
-  below it is neither checked nor counted. One test in `Vion.Dale.Sdk.Generators.Test` is in that
-  shape; its citation had to be added by hand. The gate under-reports rather than over-reports, which
-  is the worse direction for a ratchet. *(ANLZ pass — the retro.)*
 
 ## `MODB` — the Modbus protocol bindings (2026-09-05)
 
