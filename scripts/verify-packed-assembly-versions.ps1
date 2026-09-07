@@ -279,7 +279,7 @@ function Invoke-SelfTest
         # A package at a chosen id and version, carrying the sample assembly at each of the given zip
         # paths. Every copy answers to the sample's own AssemblyVersion, so a fixture built at
         # $matching is honest and one built at $stale is the 0.11.1 lie.
-        function New-Fixture([string]$name, [string]$id, [string]$version, [string[]]$entries)
+        function New-Fixture([string]$name, [string]$id, [string]$version, [string[]]$entries, [string[]]$notAssemblies)
         {
             $directory = Join-Path $root $name
             $staging = Join-Path $directory 'staging'
@@ -300,6 +300,15 @@ function Invoke-SelfTest
                 $target = Join-Path $staging $entry
                 New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
                 Copy-Item $sample $target
+            }
+
+            # Files that are named like assemblies and are not ones -- a native dll in lib/ is the real
+            # shape. They reach Get-PackedAssemblyVersion and come back $null.
+            foreach ($entry in $notAssemblies)
+            {
+                $target = Join-Path $staging $entry
+                New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
+                Set-Content -LiteralPath $target -Encoding UTF8 -Value 'not a PE image'
             }
 
             $nupkg = Join-Path $directory "$id.$version.nupkg"
@@ -333,6 +342,12 @@ function Invoke-SelfTest
         New-Fixture 'pair-with-analyzer' $sibling $matching @("lib/net10.0/$sibling.dll") | Out-Null
         $pairWithAnalyzer = New-Fixture 'pair-with-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll", $analyzer)
 
+        # A stale package that is NOT the last one judged. Every other fixture is honest about its
+        # versions, so the accumulator carrying the defect this whole script exists for -- the 0.11.1
+        # shape -- was the one still reading the last package's findings rather than the run's.
+        New-Fixture 'pair-stale-first' $sibling $matching @("lib/net10.0/$sibling.dll") | Out-Null
+        $pairStaleFirst = New-Fixture 'pair-stale-first' $sdk $stale @("lib/netstandard2.1/$sdk.dll", $analyzer)
+
         # Both packages under a rule, for the two-rule variant: with one, `$matchedPackages++` and
         # `$matchedPackages = 1` are the same number.
         New-Fixture 'pair-two-rules' $http $matching @("lib/netstandard2.1/$http.dll") | Out-Null
@@ -356,6 +371,21 @@ function Invoke-SelfTest
                 Directory = (New-Fixture 'empty' $sampleName $matching @())
                 Expected = 0
                 Expect = @('clean (0 assemblies across 1 packages)') }
+            # The docstring's "listed rather than trusted silently": two of them, because one foreign
+            # assembly cannot tell a list from a variable holding the last one.
+            @{ Name = 'foreign assemblies are listed, not judged'
+                Directory = (New-Fixture 'foreign' $sampleName $matching @('lib/net10.0/Foreign.One.dll', 'lib/net10.0/Foreign.Two.dll'))
+                Expected = 0
+                Expect = @('not checked: lib/net10.0/Foreign.One.dll (not an assembly of',
+                    'not checked: lib/net10.0/Foreign.Two.dll (not an assembly of',
+                    'clean (0 assemblies across 1 packages)') }
+            @{ Name = 'files that are named like assemblies and are not ones'
+                Directory = (New-Fixture 'native' $sampleName $matching @("lib/net10.0/$sampleName.dll") `
+                        @("lib/net10.0/$sampleName.Native.dll", "lib/net10.0/$sampleName.Other.dll"))
+                Expected = 0
+                Expect = @("not checked: lib/net10.0/$sampleName.Native.dll (not a managed assembly)",
+                    "not checked: lib/net10.0/$sampleName.Other.dll (not a managed assembly)",
+                    'clean (1 assemblies across 1 packages)') }
             @{ Name = 'an empty package directory'
                 Directory = (New-Item -ItemType Directory -Force -Path (Join-Path $root 'none')).FullName
                 Expected = 1
@@ -387,6 +417,12 @@ function Invoke-SelfTest
                 Expected = 1
                 Expect = @("$sdk $matching -> ${analyzer}: absent",
                     'required content: 0 of 1 present (1 rule(s), 1 package(s) matched)') }
+            @{ Name = 'a stale assembly survives the packages judged after it'
+                Directory = $pairStaleFirst
+                Expected = 1
+                Expect = @("$sdk $stale -> lib/netstandard2.1/$sdk.dll: AssemblyVersion",
+                    'do not carry their package',
+                    'required content: 1 of 1 present (1 rule(s), 1 package(s) matched)') }
             @{ Name = 'two packages, one of them carrying its required content'
                 Directory = $pairWithAnalyzer
                 Expected = 0
