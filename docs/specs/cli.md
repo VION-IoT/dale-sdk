@@ -451,10 +451,19 @@ stored.
 
 - `AC-CLI-019.1` (Ubiquitous): THE SYSTEM SHALL keep the committed help snapshot equal to the packed tool's own help over every command surface it publishes, its subcommands included. GAP: the observable is a diff between the committed file and the help of a *packed and installed* tool, which lives in `.github/workflows/publish.yml` and which no in-process test can construct.
 - `AC-CLI-019.2` (Ubiquitous): THE SYSTEM SHALL authenticate as the Keycloak public client `dale-cli`, and SHALL read and write only environment variables prefixed `DALE_`. GAP: both are constants of external identity — the client is provisioned outside this repository (`../../architecture/systems/keycloak.md`) and the prefix is a naming rule over seven variables; a test can only restate them.
+- `AC-CLI-019.3` (Ubiquitous): THE SYSTEM SHALL render every option's help from the tool's own
+  declarations alone, describing a default that resolves from stored state rather than resolving it,
+  so one build prints one help text whatever the store holds.
 
 The snapshot is regenerated from the **packed** tool and auto-committed onto the pull request's head;
 a change to it opens a drift issue on the architecture repository. A locally installed `dale` is not
 the packed one — regenerating against a stale global tool produces a snapshot of the wrong surface.
+
+`AC-CLI-019.3` is what makes the snapshot criterion above a gate rather than a race: a default computed from
+`~/.dale/config.json` renders one line on a developer's machine and another on a clean runner, so the
+committed snapshot records whichever regenerated it last. `login --environment` was the one such
+option, and its resolution rule — `AC-CLI-013.3`'s option, then stored, then `production` — is now
+described in its help and applied by the one member that owns it.
 
 ## Test discipline
 

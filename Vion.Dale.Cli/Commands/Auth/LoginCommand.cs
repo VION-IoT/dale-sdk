@@ -3,6 +3,7 @@ using System.CommandLine;
 using System.Linq;
 using Spectre.Console;
 using Vion.Dale.Cli.Auth;
+using Vion.Dale.Cli.Infrastructure;
 using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli.Commands.Auth
@@ -12,16 +13,20 @@ namespace Vion.Dale.Cli.Commands.Auth
         public static Command Create()
         {
             var command = new Command("login", "Authenticate with Vion Cloud");
-            var environmentOption = new Option<string>("--environment", "-e")
+
+            // The default is described, not resolved: a DefaultValueFactory reading the store renders
+            // `[default: test]` on a machine logged into test and `[default: production]` on a clean
+            // runner, so the committed help snapshot drifts with whoever regenerated it.
+            var environmentOption = new Option<string?>("--environment", "-e")
                                     {
-                                        Description = "Target environment (production, test)",
-                                        DefaultValueFactory = _ => TokenStore.LoadConfig().Environment ?? "production",
+                                        Description =
+                                            "Target environment (production, test); defaults to the stored one, else production",
                                     };
             command.Options.Add(environmentOption);
 
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
-                                  var environment = parseResult.GetValue(environmentOption)!;
+                                  var environment = CommandContext.ResolveLocal(parseResult.GetValue(environmentOption)).Environment;
 
                                   // Resolve URLs for the environment
                                   var authBaseUrl = TokenStore.ResolveAuthBaseUrl(environment);
