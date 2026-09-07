@@ -623,6 +623,38 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.2")]
+        [DataRow("en-US")]
+        [DataRow("de-DE")]
+        [DataRow("fr-FR")]
+        public async Task NameClientBoundInInvariantCultureWhateverMachineRunsIt(string culture)
+        {
+            // Arrange — the ceiling's message is minted on its own path, so the locale discipline the
+            // per-request row above pins has to be shown here too rather than inferred from the two sharing
+            // a renderer today. The restore is in a finally because a failing assert would otherwise leave
+            // the locale set for every test the assembly runs after this one.
+            var previousCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo(culture);
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
+            Exception? received = null;
+
+            try
+            {
+                // Act
+                await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception);
+                _dispatcher.Drain();
+
+                // Assert
+                Assert.IsNotNull(received);
+                Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
+        }
+
         // ---- lifetime and disposal ---------------------------------------
 
         [TestMethod]
