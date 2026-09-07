@@ -348,8 +348,9 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-005` | done | `sdk: sdd closeout T-005` | #195 |
 | `T-006` | done — buckets ruled by the operator | `sdk: sdd closeout T-006` | #196 |
 | `T-007` | done | `sdk: sdd closeout T-007` | #197 |
-| `T-008` | in PR — **partial by measurement**: decision 0145 recorded and the Modbus half landed; the four larger entries stay in the ledger with their counts | `sdk: sdd closeout T-008` | #198 |
-| `T-009` … `T-019` | to come | — | — |
+| `T-008` | done — **partial by measurement**: decision 0145 recorded and the Modbus half landed; the four larger entries stay in the ledger with their counts | `sdk: sdd closeout T-008` | #198 |
+| `T-009` | in PR — five items filed, one link, one closure, one comment | `sdk: sdd closeout T-009` | #199 |
+| `T-010` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -412,7 +413,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `BIND` | Seventeen namespaces of `Vion.Dale.Sdk` are outside the public-API ratchet, not four. | decision | `T-008` — the undeclared SDK namespaces; decided by decision 0145 and left here at 217 unmarked author-declared types, of which 97 under `Examples.*` the decision rules out of scope. The lead was renamed to carry the count. |
 | `BIND` | Eight example contract files and one example logic block ship inside the SDK assembly. | leave | A packaging decision — whether they ship at all — which question 2's ruling on the ratchet does not settle. |
 | `BIND` | `RegistrationSecret` belongs to no roster area. | leave | A corpus-roster ownership question with no behaviour behind it. |
-| `BIND` | A handler that survives a reconfiguration with no contract mappings keeps a stale map. | Jira | `D7`'s runtime candidate (VION-16, `dale-sdk` label); no SDK change can cure it — the message that would is one the runtime does not send. |
+| `BIND` | A handler that survives a reconfiguration with no contract mappings keeps a stale map. | Jira | `D7`'s runtime candidate (VION-16, `dale-sdk` label); no SDK change can cure it — the message that would is one the runtime does not send. **`T-009`: filed as VION-196 (VION-16, `dale-sdk`); the ledger entry is struck.** |
 | `BIND` | `Vion.Dale.Sdk.Reflection.AssemblyExtensions.GetConcreteType` now has no caller. | leave | A surface removal in a namespace still outside the ratchet: `T-008` armed the Modbus packages, not `Vion.Dale.Sdk`, so `Reflection` waits on the `BIND` row above with the other sixteen. |
 | `ANLZ` | A preset attribute is judged by every rule but `DALE019`. | leave | Widening the match to the base chain re-aims all 36 analyzers at once, at every consumer with preset attributes. |
 | `ANLZ` | A relation-bearing component declared on a base block in a referenced assembly draws no warning. | leave | `AC-ANLZ-002.3`'s stated boundary, not a defect in the rule. |
@@ -422,7 +423,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `ANLZ` | A package packed without the analyzer assembly loses all forty-six diagnostics in silence. | fix-now | The entry names the gate and the assertion: one check in `verify-packed-assembly-versions.ps1`, which was minted for this failure class. **`T-007`: the lead is refuted — such a package fails every consumer's build with `CS0006`, it is not silent; the check landed anyway and the entry is resolved. See *Drift checkpoints*.** |
 | `ANLZ` | A `PackagePath` ending in a separator packs two different artifacts by runner. | leave | **Entered the ledger after the ruling**, found by `T-007`'s own gate on its first real CI run — so it is bucketed here rather than ruled on. Dropping the trailing separator changes a released package's layout, which is `releasing.md`'s subject and not fix-sized; nothing is broken today, since NuGet resolves both forms. |
 | `ANLZ` | The generator's `Contract`-substring predicate runs on every class in every compilation. | leave | No functional observable; measuring the cache cost needs a build-time benchmark. |
-| `ANLZ` | An inclusion gate on a property typed as a generated contract interface draws a false error. | Jira | `D7`'s VION-62 candidate: `DALE043` is an error, so it fails a consumer's build rather than nagging in it. |
+| `ANLZ` | An inclusion gate on a property typed as a generated contract interface draws a false error. | Jira | `D7`'s VION-62 candidate: `DALE043` is an error, so it fails a consumer's build rather than nagging in it. **`T-009`: filed as VION-194; the ledger entry is struck. The escalation line's "five gating suites" is three, and no fielded gate is bitten today — all 29 are on component types. See *Drift checkpoints*.** |
 | `ANLZ` | `AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed. | leave | Adopting release tracking is an open decision the surface conventions deliberately do not take. |
 | `ANLZ` | `LogicClassGeneratorERR` has no registry id. | leave | A question about the diagnostic surface; its four sites all fire on the SDK's own build going wrong. |
 | `ANLZ` | `DALE013` fires on a documented `[PublicApi]` in a project that generates no documentation file. | leave | Entered after the operator's ruling: found by `T-008`'s review round. No shipped package is affected (all thirteen set the property); the cheap fix — setting it on the armed test projects — changes what those whole projects warn about. |
@@ -439,7 +440,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `MODB` | The reuse-address knob has no same-version-redeploy repro. | leave | OS- and timing-dependent, which is why the regression was never written and no portable test can prove one red. |
 | `MODB` | Whether a newer FluentModbus makes the reuse-address provider unnecessary is unasked. | leave | A dependency question, answered by a version bump nobody has asked for. |
 | `MODB` | Three server features were deferred at design time and no consumer has asked since. | leave | Feature bands, each layering onto today's surface; no consumer has asked. |
-| `CLI` | The two upload conflicts are told apart by the endpoint's message text. | Jira | `D7`'s VION-62 candidate; the distinguishable field is the platform API's, and six fielded invocations ride the substring. |
+| `CLI` | The two upload conflicts are told apart by the endpoint's message text. | Jira | `D7`'s VION-62 candidate; the distinguishable field is the platform API's, and six fielded invocations ride the substring. **`T-009`: filed as VION-195; the ledger entry is struck. All six invocations re-resolved.** |
 | `CLI` | One thirty-second ceiling covers every cloud request, the package upload included. | leave | Small, but with no observable a red-first test can stand on (`AC-CLI-017.6` is `GAP` for the same reason) — the fix-now lane's entry price. |
 | `CLI` | `dale dev` announces an address it never checked. | leave | Answering it needs `CTRL`'s readiness handshake, and changing the default is a surface change across five commands. |
 | `CLI` | The bundled template has no gate that runs `dale new`. | leave | The fixture, the cleanup and the failure modes are a change doc's worth of work. |
@@ -449,12 +450,12 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `TKIT` | Two downstream test projects cannot be proven against a same-PR kit change. | leave | It reaches the template's shipped content and the first-party library lane, which is `releasing.md`'s to decide. |
 | `TKIT` | The five kit test projects do not agree on their test-platform reference. | leave | A consistency question the entry states for the operator; nothing is red, so it waits on a ruling rather than a fix. |
 | `TKIT` | The SDK ships no test context for a service-provider handler. | leave | 350–450 lines of new published surface across three or four types — its own change doc. |
-| `IO` | A block cannot ask whether a face it holds is mapped. | Jira | `D7`: VION-130 exists — link only, no new item; the consumer's reflection probe names the same gap. |
+| `IO` | A block cannot ask whether a face it holds is mapped. | Jira | `D7`: VION-130 exists — link only, no new item; the consumer's reflection probe names the same gap. **`T-009`: VION-130 carries the pointer as a comment; the ledger entry is struck against that key.** |
 | `IO` | A state payload of the wrong schema decodes as a value nothing sent. | leave | The accessor is a public-surface addition on a `BIND`-owned `[PublicApi]` struct, and the refusal needs a rule for a payload carrying no `schema` at all. |
 | `IO` | A command that the far side refused is invisible to the block. | leave | Subscribing the response topic is new wire behaviour: a message type, an arm, and a decision about what a block observes. |
 | `IO` | The core SDK has the same unmarked public type the IO pass fixed in its own packages. | decision | `T-008` — the SDK's undeclared root namespace, which `DALE014` matches as a prefix, so this row is not separable from the `BIND` row above and stays with it. |
-| `IO` | `Vion.Contracts`' generated payload verifiers are unusable as published. | Jira | `D7`'s `vion-contracts` candidate (VION-16, `dale-sdk` label); the defect is in another repo's generated code. |
-| `IO` | `hal-sim` writes the two payload identity strings transposed. | Jira | `D7`'s `hal-sim` candidate (VION-16, `dale-sdk` label); nothing here reads the transposed fields. |
+| `IO` | `Vion.Contracts`' generated payload verifiers are unusable as published. | Jira | `D7`'s `vion-contracts` candidate (VION-16, `dale-sdk` label); the defect is in another repo's generated code. **`T-009`: filed as VION-197 (VION-16, `dale-sdk`), area `contracts`; the ledger entry is struck. Reproduced, and the count is eleven wrappers rather than ten. See *Drift checkpoints*.** |
+| `IO` | `hal-sim` writes the two payload identity strings transposed. | Jira | `D7`'s `hal-sim` candidate (VION-16, `dale-sdk` label); nothing here reads the transposed fields. **`T-009`: filed as VION-198 (VION-16, `dale-sdk`), area `hal-sim`; the ledger entry is struck. Reproduced.** |
 | `HTTP` | A per-request timeout does not bound the response body. | leave | Threading the token changes the exception class a callback receives — behaviour reshaped, not corrected. |
 | `HTTP` | A callback lost before the block's first message stays lost. | leave | Neither cure belongs to this package; `IActorDispatcher`'s two members cannot answer whether the block has an actor. |
 | `HTTP` | Two timeout bounds deliver two exception classes. | fix-now | `D6` already ruled *fix*, and it is **`T-010`'s, not `T-007`'s batch**: the predicate widens by one line, the message needs the executor to read `HttpClient.Timeout`. |
@@ -1259,6 +1260,46 @@ names the file and section that states the rule now, and *lane 3 § N* is
   duplicate-lead hole in the script, and showed that the self-test's repo-facing case had quietly
   made this a gate on every PR in the repo. Each is recorded above with what was measured, not with
   who found it; this line is the pointer for the retro, which counts review catches.
+- **`T-009`: the `DALE043` escalation line overstated who is bitten, twice.** It reads "the first
+  consumer carries five gating suites over fielded blocks — so this fails a consumer's build".
+  Measured at `logic-block-libraries@7fba0e04`: **three** suites named `*GatingShould`, and **29**
+  `[IncludedWhen]` declarations across three blocks — all of them on `ChargePoint` / `MeasuringGroup`,
+  which are service-bearing components and satisfy `IsGateable`'s **third** branch, never reaching the
+  symbol-only `AllInterfaces` lookup. So no fielded gate draws the false error today. The defect is
+  real and error-severity; the filing (VION-194) says both, because "fails a consumer's build" as an
+  unqualified present tense is a claim an external reader would check and find false.
+- **`T-009`: the ledger's "all ten" verifier wrappers are eleven.** `vion-contracts@a23623a` carries
+  ten `Verify<X>Payload` wrappers plus `VerifyRemoteFunctionInterfaceMessage`, all eleven passing the
+  empty identifier. Counted twice, by two different greps (`VerifyBuffer("", ` per file, then the
+  method names extracted). VION-197 states eleven.
+- **`T-009`: VION-132's evidence carries a false bullet, and it is the one the coordinator's review
+  marked "not re-read".** The bullet claims `ChangeThresholdRegistry.cs:157` "does skip dynamic
+  assemblies". It does not: `:145-158` is a `try`/`catch` around `GetReferencedAssemblies()` whose
+  comment says a dynamic assembly "may refuse" the call. `DynamicProxyGenAssembly2` does not refuse
+  it — VION-132's own probe reads `Vion.Dale.Sdk.DigitalIo` out of it — so that scan would admit the
+  proxy assembly exactly as the contract factory does. The correction is posted on VION-132 rather
+  than edited into it, because the item's body is the maintainer's.
+- **`T-009`: two of the five were reproduced rather than traced, and it changed what they claim.**
+  The operator declined the "traced" evidence class at the gate. `VerifyDiStatePayload` on a valid
+  buffer throws `ArgumentException: FlatBuffers: file identifier must be length4`; on an empty one it
+  answers `false`; the inner `Verify` with a `null` identifier answers correctly. `hal-sim`'s argument
+  order reads back `hardware_block_instance_id='endpoint-A'` where `hal-raspberry`'s reads back
+  `'hwblock-1'`. Both Origin lines now say `reproduced` with the observed output. The other three stay
+  `traced` and say why in the REPORT: one needs a Metalama-hosted build, one needs the platform
+  endpoint, one needs a running gateway.
+- **`T-009`: closing VION-133 retires `ShareContract` with no in-repo record.** `D7` chose branch (a),
+  but the item on the board had already been rewritten to branch (b) on 2026-09-06 — narrowed to the
+  wiring-editor guard and `DevConfigurationBuilder.ShareContract`, neither of which decision 0021
+  answers. The closing comment declines both framings, the second on scope (Tier C for the editor;
+  dead surface for `ShareContract`), on the operator's ruling at the gate. `ShareContract` has **no**
+  ledger entry and no spec mention — `grep` over `_findings.md` and every page finds nothing — so the
+  reopen condition on VION-133 is now its only record. **Ledger-correction candidate for the
+  operator:** whether `Vion.Dale.DevHost/DevConfigurationBuilder.cs:139` earns a `leave` entry as dead
+  surface. Not absorbed here.
+- **`T-009`: the task line's five is right, and its numbers needed no correction.** Five
+  `Escalated to the operator as a Jira candidate` lines (one wrapping across `:328-329`), five
+  routings agreeing with `D7`, plus the VION-130 link row — six `Jira` rows, as `T-006` recorded. The
+  first task line in five whose count held.
 
 ---
 
