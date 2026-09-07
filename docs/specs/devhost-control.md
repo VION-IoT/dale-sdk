@@ -366,6 +366,34 @@ the runner reads the refusal it produces instead of racing it with a stopwatch.
   embedded in the assembly, with revalidation forced on every file.
 - `AC-CTRL-014.5` (Ubiquitous): THE SYSTEM SHALL emit a duration as an ISO-8601 duration and an enum
   as its member name on both the request-response and the push wire.
+- `AC-CTRL-014.6` (Ubiquitous): THE SYSTEM SHALL decode a JSON duration written in either the ISO-8601
+  or the .NET form, and SHALL decode one carrying no text as zero.
+- `AC-CTRL-014.7` (Event-driven): WHEN a JSON duration carries text that is neither form, or names a
+  span that cannot be represented, THE SYSTEM SHALL refuse the payload as malformed naming that text,
+  rather than let the decode escape as a fault.
+
+`AC-CTRL-014.6` and `AC-CTRL-014.7` are the read half of `AC-CTRL-014.5`, split because they hold
+under different failures: dropping either accepted form loses a payload the wire is allowed to
+carry, while raising the wrong class on a bad one loses the refusal. Both say **JSON** because
+`AC-CTRL-009.3` states the same tolerance for the control surface's own codec, and two criteria whose
+sentences do not tell each other apart is how a test ends up citing the wrong one.
+
+Both are stated for the decode rather than for a wire, because that is what a caller reaches: the same
+decoder is registered on the request-response and the push wire, and no route binds a typed duration
+today, so the class it raises is the whole of the observable. On the request-response wire that class
+is the `400` of § Refusal shapes; on the push wire there is no status code to answer with, and an
+escaping parse exception is a fault on both.
+
+Three edges are the words rather than the intent. **"Carrying no text"**, not "absent": an empty
+string and a JSON `null` both reach the decoder with nothing to parse and both read as zero, so the
+refusal below has to exclude them by the same phrase that admits them above. That holds for a
+`TimeSpan`; a `TimeSpan?` never reaches this decoder for `null` at all, because the serializer's own
+nullable wrapper answers first with `null` — which is the framework's rule, not this page's.
+**"Cannot be represented"**, because a duration can be well formed in either spelling and still name a
+span too large to hold, and the two decoders raise different exception classes for it. And **"naming
+that text"** binds to text: a payload that is not a string at all is refused before the decode is
+reached, by the serializer, whose message does not name what it was offered — recorded here rather
+than minted, since nothing in this repository decides it.
 
 `AC-CTRL-014.2` is the local-tool posture: the server binds loopback, but a hostile page in the
 developer's own browser can still fire cross-origin requests at it, and cross-origin resource sharing

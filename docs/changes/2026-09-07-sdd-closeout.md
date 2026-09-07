@@ -29,10 +29,17 @@ operator at the STOP lines. Decided in the `sdk: sdd big picture` session on 202
 
 ### Spec implications
 
-None on any criterion. The pages this doc changes are process pages: `spec-process.md`,
-`testing-conventions.md`, `CLAUDE.md`, the commands under `.claude/commands/`, the gate scripts, and
-the architecture repo's two lane commands and the SDK's substrate page. `_findings.md` shrinks as
-the fix-now batch lands and the Jira-filed entries are struck with their keys.
+None **on the criteria this doc's own decisions touch** — the pages it changes are process pages:
+`spec-process.md`, `testing-conventions.md`, `CLAUDE.md`, the commands under `.claude/commands/`, the
+gate scripts, and the architecture repo's two lane commands and the SDK's substrate page.
+`_findings.md` shrinks as the fix-now batch lands and the Jira-filed entries are struck with their
+keys.
+
+**Corrected by `T-007`:** the fix-now batch necessarily moves criteria, because a lane-1 fix carries
+its page edit. It minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded
+`AC-ANLZ-018.3`. Lane 1 owes no delta line — the page edit riding a fix *is* the distill
+([`../spec-process.md`](../spec-process.md) § Lanes) — so this doc's *Spec delta* stays empty by
+design; what was wrong was the flat claim above, not the absence of a delta.
 
 ### Decisions
 
@@ -330,15 +337,19 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-003` | done | `sdk: sdd closeout T-003` | #193 |
 | `T-004` | done | `sdk: sdd closeout T-004` | #194 |
 | `T-005` | done | `sdk: sdd closeout T-005` | #195 |
-| `T-006` | in PR — STOP: the operator rules on the buckets | `sdk: sdd closeout T-006` | #196 |
-| `T-007` … `T-019` | to come | — | — |
+| `T-006` | done — buckets ruled by the operator | `sdk: sdd closeout T-006` | #196 |
+| `T-007` | in PR — the three `fix-now` rows the ruling leaves this task | `sdk: sdd closeout T-007` | #197 |
+| `T-008` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
 _Filled by `T-006`; ruled on by the operator; consumed by `T-007`, `T-008`, `T-009`._
 
 **75 entries, recounted at `6d19f75`** — reviewer's question 8's arithmetic holds (77 at the ruling,
-76 after `T-003`, 75 after `T-004`, untouched by `T-005`). Every entry is below exactly once, keyed
+76 after `T-003`, 75 after `T-004`, untouched by `T-005`; **72 after `T-007` deleted the three rows
+it fixed, then 73 when its own gate found one on its first CI run** — the checker reports
+`73 entry(ies) … 76 row(s), 3 resolved`). The new row is marked as having entered after the ruling:
+the operator has not bucketed it, `T-007` has. Every entry is below exactly once, keyed
 on its bold lead rather than its position, because a triage outlives the deletions it causes.
 `pwsh -File scripts/ledger-buckets.ps1` checks the table against `_findings.md` and prints the
 tallies; `-List` re-seeds it. A row whose entry is gone reads as *resolved*, not as an error — that
@@ -394,7 +405,8 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `ANLZ` | `[StructField]` on a parameter other than a wire struct's constructor parameter is judged by nothing. | leave | Narrowing further is source-breaking on a published attribute — the shape `DALE047` was minted to avoid. |
 | `ANLZ` | A `MinInterval` at the tick-representation boundary configures a negative interval, unreported. | fix-now | One comparison, in the analyzer and the runtime, that must move together; a token drawing no diagnostic and making the emission gate unconditionally true is a red-first test. |
 | `ANLZ` | `DALE046` judges a struct type only on its first occurrence in a wire graph. | leave | No shape makes the outcome differ, so there is nothing to prove red. |
-| `ANLZ` | A package packed without the analyzer assembly loses all forty-six diagnostics in silence. | fix-now | The entry names the gate and the assertion: one check in `verify-packed-assembly-versions.ps1`, which was minted for this failure class. |
+| `ANLZ` | A package packed without the analyzer assembly loses all forty-six diagnostics in silence. | fix-now | The entry names the gate and the assertion: one check in `verify-packed-assembly-versions.ps1`, which was minted for this failure class. **`T-007`: the lead is refuted — such a package fails every consumer's build with `CS0006`, it is not silent; the check landed anyway and the entry is resolved. See *Drift checkpoints*.** |
+| `ANLZ` | A `PackagePath` ending in a separator packs two different artifacts by runner. | leave | **Entered the ledger after the ruling**, found by `T-007`'s own gate on its first real CI run — so it is bucketed here rather than ruled on. Dropping the trailing separator changes a released package's layout, which is `releasing.md`'s subject and not fix-sized; nothing is broken today, since NuGet resolves both forms. |
 | `ANLZ` | The generator's `Contract`-substring predicate runs on every class in every compilation. | leave | No functional observable; measuring the cache cost needs a build-time benchmark. |
 | `ANLZ` | An inclusion gate on a property typed as a generated contract interface draws a false error. | Jira | `D7`'s VION-62 candidate: `DALE043` is an error, so it fails a consumer's build rather than nagging in it. |
 | `ANLZ` | `AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed. | leave | Adopting release tracking is an open decision the surface conventions deliberately do not take. |
@@ -431,7 +443,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `HTTP` | The package ships no HTTP test kit. | leave | A sixth kit is its own change doc; raised by the first consumer, not found here. |
 | `HTTP` | The package surfaces no link or connection diagnostics. | leave | A feature band that would need the package to own the primary handler. |
 
-**Five `fix-now`, six `decision`, six `Jira`, fifty-eight `leave`.** Three of the five `fix-now` rows
+**Five `fix-now`, six `decision`, six `Jira`, fifty-eight `leave`** — fifty-nine once `T-007` added its own. Three of the five `fix-now` rows
 — `ANLZ`'s packed-analyzer assertion, `CLI`'s `login` help default, `CTRL`'s duration converter — pass
 every test above. **Two do not**, and both are here for a stated reason rather than a clean fit; they
 are the rows to rule on first:
@@ -864,6 +876,236 @@ names the file and section that states the rule now, and *lane 3 § N* is
   the ledger was read for what each entry *says*, not re-probed — so `T-007` and `T-008` re-resolve
   before they act, and `docs/spec-process.md` § Lanes' "a finding is a hypothesis until the tree
   confirms it" is the rule that says so.
+- **`T-007`: the `CTRL` entry names one escaping exception class and the tree has two.** The entry
+  says `Iso8601TimeSpanConverter.Read` lets `TimeSpan.Parse`'s `FormatException` escape. Measured on
+  the tree this landed on, `"nope"` and `"PT"` escape as `FormatException` and
+  `"10675200.00:00:00"` — a duration past `TimeSpan`'s range — escapes as `OverflowException`, which
+  the entry does not name and which a `catch (FormatException)` would have left standing. The fix is
+  `TimeSpan.TryParse` plus one `throw new JsonException(…)`, so both go the same way, and the third
+  `[DataRow]` is there for the class the entry missed rather than for a second spelling of the one it
+  names.
+- **`T-007`: a non-string token was never the 500 the `CTRL` entry describes, and the fix is narrower
+  for it.** `reader.GetString()` on a number token throws `InvalidOperationException`, which looks
+  like the same escape — but `System.Text.Json` converts it itself: probed before deciding, `5`
+  deserialized as a `TimeSpan` yields `JsonException: The JSON value could not be converted to
+  System.TimeSpan`, path appended, with no converter change at all. So the malformed-body family has
+  exactly one hole and it is the parse fallback; widening the fix to the token check would have been
+  a guard against a defect the framework does not have.
+- **`T-007`: `AC-CTRL-014.6` is minted for the converter, not for a route, because the entry's
+  "unreachable today" is still true.** Re-resolved: the two `[FromBody]` actions in the whole web
+  surface take `SetValueInput<JsonElement>` and `SetValueInput<object>`
+  (`DevHostController.cs:52`, `:68`), so no request body binds a typed duration and no end-to-end
+  `400` can be asserted. The criterion therefore states the *class* the decode raises over both
+  wires, and the `400` is in the prose beneath it, where § Refusal shapes already owns it. Both
+  registration sites (`WebHostService.cs:87` MVC, `:104` SignalR) share the one converter instance
+  type, so the fix reaches the site the `T-006` note called the observable and the site it called
+  answerless, in one edit.
+- **`T-007`: the `CLI` entry proposes two fixes and only one of them is needed.** The entry asks for
+  the help to describe the resolution rule *and* for "the snapshot regeneration to run against an
+  explicitly empty store root". Once the option carries no `DefaultValueFactory` the help does not
+  read the store at all, so the second half guards nothing: `publish.yml`'s snapshot step is
+  untouched, and the committed snapshot line is regenerated from the built tool and committed here
+  rather than left to the bot. The entry's aside about `Environment.SpecialFolder.UserProfile`
+  ignoring `USERPROFILE` on Windows is confirmed and now moot for this option — `TokenStore.UseRoot`
+  is the seam the test uses, and the test's three rows differ only in what the store holds.
+- **`T-007`: one mutant of the `CLI` fix survives, and it is the browser-bound boundary again.**
+  Replacing `CommandContext.ResolveLocal(flag).Environment` in the action with `flag ?? "production"`
+  — dropping the stored-second step — is killed by no test in the 395 the suite runs. The observable
+  is past `AuthService.AcquireInteractiveAsync`, which opens a browser and binds a loopback listener,
+  and this area's suite reaches neither ([`cli.md`](../specs/cli.md) § Test discipline); it is the
+  same boundary `AC-CLI-018.4` and `.7` are `GAP` for. What the fix does about it is structural
+  rather than test-shaped: the rule now has one implementation, `ResolveLocal`, whose three branches
+  are proven at `CommandContextShould` against `AC-CLI-013.3`, and login's duplicate of it is gone.
+- **`T-007`: the packed-artifact gate's new real-tree case held only on the CI runner, which is the
+  carry-over's own failure shape.** The case checks that each required-content rule's package id
+  names a project in the repository — the one mutation no fixture catches, because a mis-typed id
+  matches no package and every fixture still reports OK. Written with `Test-Path`, it caught
+  `Vion.Dale.SDK` on Linux and passed at the desk, because a Windows file system answers `Test-Path`
+  for either spelling. The case now compares directory and file names with `-ceq`, and the mutation
+  is killed on Windows. Two `-ceq` comparisons stand behind it, so the single-rule mutant that
+  relaxes one is still caught by the other, so the mutation table in the PR body carries the double
+  mutant instead.
+- **`T-007`: the same gate's entry match was case-insensitive, and the convention path is not.**
+  PowerShell's `-contains` ignores case, so a package carrying `Analyzers/Dotnet/Cs/…` — which NuGet
+  does not load as an analyzer — satisfied the required-content rule. The comparison is
+  `-cnotcontains` and a fixture spelling the path in the wrong case is case 8. Found by the mutation
+  table, not by the fixtures: the first `-inotcontains` mutant survived because it was equivalent to
+  what the code already did.
+- **`T-007`: the packed-artifact gate's self-test now runs the script the way CI runs it, and still
+  runs only where CI runs it.** Its four cases called `Invoke-Verify` in process, so neither the
+  parameter binding, the exit code nor the printed report was under test — the shape `T-005` closed
+  for `bom-lint` by discovering that twelve cases had never touched the production branch. All cases
+  are now a `pwsh -File … -PackagesDir` child process and every one asserts report text beside its
+  exit code. Where they run is unchanged and is the honest limit: `-SelfTest` is called from
+  `publish.yml`'s `verify-packages` job, not from `run-script-tests.ps1`
+  (`scripts/run-script-tests.ps1`'s `$exempt` says so with that reason), and `publish.yml` ignores
+  `docs/**` and `examples/**` — so a docs-only PR runs none of it. This PR touches `scripts/` and
+  `.cs`, so it runs here.
+- **`T-007`: the gate's floor and its tallies are proven by two script variants, because a fixture
+  cannot vary module state.** The rule table is a module-level hashtable, so no directory of
+  packages can empty it or add to it. Two cases write a copy of the script with the table rewritten:
+  emptied — which must fail on the floor rather than report clean — and given a second rule, which
+  must print `2 rule(s)`. Without the second, the rule tally has one value across the whole suite and
+  a mutant printing the literal `1` survives; it did, until that case was added.
+- **`T-007`: `AC-ANLZ-018.3` said what the tree did, and now says what it does.** The criterion
+  stated the defect — "a package carrying no analyzers and no warning" — with the fix routed to the
+  ledger in its own `GAP` reason. It now states the pack condition's outcome *and* the release run
+  failing on it, and the `GAP` stands for the reason `AC-ANLZ-018.1`'s does: the observable is a
+  packed artifact, and this gate's fixtures are packages rather than compilations, so no test
+  artifact `spec-trace` scans can carry either id. The ledger entry's "forty-six diagnostics" is the
+  count in the tree today (46 distinct `DALE###` ids in `Vion.Dale.Sdk.Generators`); the `ANLZ` pass
+  archive's 44 was true at its own date and is not corrected here.
+- **`T-007`'s review round found the fix incomplete in the one dimension the entry named.**
+  `XmlConvert.ToTimeSpan` raises `OverflowException`, not `FormatException`, for a *well-formed* ISO
+  duration past `TimeSpan`'s range — so `"P100000000D"` escaped the first fix untouched, while
+  `"10675200.00:00:00"`, the same span in the .NET spelling, was refused. One input class, two answers,
+  and the checkpoint above claiming "both go the same way" was measured on the .NET form alone. The
+  converter now catches both classes off the ISO attempt, and the fourth `[DataRow]` is the ISO
+  spelling. Measured red at the first fix: `Actual exception type:<System.OverflowException>`.
+- **`T-007`: the criterion as first minted was falsified by its own commit's test.** `AC-CTRL-014.6`
+  read "WHEN a duration … is neither an ISO-8601 duration nor the .NET form THE SYSTEM SHALL refuse
+  the payload as malformed" — while the converter returns `TimeSpan.Zero` for `""` and for JSON
+  `null`, and the same commit's test asserted exactly that. The read half is two rules, not one, and
+  they hold under different failures: it is now `AC-CTRL-014.6` (both forms, and an absent duration as
+  zero) and `AC-CTRL-014.7` (the refusal). The tolerance test had also been citing `AC-CTRL-014.5`,
+  which is the **emit** half — a citation for behaviour the criterion does not state, and the defect
+  `spec-process.md` § IDs & EARS names. Both tests now cite the criterion whose text they assert.
+- **`T-007` dropped `AC-CTRL-014.6`'s "on either wire" clause, because nothing reaches a wire.** The
+  test builds its own `JsonSerializerOptions`; it proves the converter class and says nothing about
+  `WebHostService.cs:87` or `:104`. A criterion the suite cannot reach is `GAP` however many tests
+  name it, so the choice was to GAP the wire half or to state the decode. Both criteria now state the
+  decode, and where it is registered is prose beneath them.
+- **`T-007`: the `ANLZ` entry's premise was false, and it is the citation this round did not
+  re-resolve.** The entry says a package packed without its analyzer "restores, compiles clean and
+  judges nothing; the only signal is previously-red code turning green". It does not.
+  `Vion.Dale.Sdk.csproj:97` packs `build/Vion.Dale.Sdk.targets` **unconditionally**, and that file
+  adds the analyzer **unconditionally** (`:11`), while the analyzer is packed under
+  `Condition="Exists(…)"` (`:92`) — so the package ships a targets file pointing at a file it does not
+  carry, and every consumer's build fails with `CS0006`, 0 warnings. Probed on a minimal project, and
+  the import path confirmed in a consumer's generated `nuget.g.targets`. The gate is still worth
+  having — it names the package in the release run instead of in the first consumer's build — but the
+  failure mode was wrong in five places (the script's docstring, its rule-table comment, **its
+  report**, `analyzers.md`'s prose and `AC-ANLZ-018.3` itself) and is corrected in all of them. The
+  contradicting file is one directory from the `csproj:92` the entry cites; re-resolving a citation
+  means reading what the cited line does, not only that it is still there.
+- **`T-007` rewrote `AC-ANLZ-018.3`, so the archived `ANLZ` pass's delta line moved with it.**
+  `spec-process.md` § Change docs says a criterion's text on the page and on its delta line are one
+  text, and that a fix landing after the archive commit carries both. The delta line and the
+  consolidation map's row 152 in `docs/changes/archive/2026-09-04-anlz-pass.md` are updated, with a
+  blockquote above the line saying who touched it and why — the shape `T-003` established for the same
+  situation. Verified in isolation: `spec-change.ps1 archive` against a slug-renamed copy reports 6
+  unapplied delta lines before and 5 after, the five being pre-existing bold-marker artifacts that
+  `origin/main` carries too.
+- **`T-007`'s gate had one single-line mutant that left the self-test green**, and it is the shape the
+  fixtures could not see: `$absent += $result.Missing` → `$absent = $result.Missing`. Every one of the
+  eight package fixtures held **one** package, so "the total" and "the last package's" were the same
+  number for all three cross-package accumulators. On a release artifact set they are not —
+  `Vion.Dale.Sdk` never sorts last there, its `.AnalogIo`, `.Modbus.*` and `.TestKit` siblings follow
+  it — so the mutant reported the last package's empty finding list and exited 0 on exactly the
+  release the gate exists to stop. Two two-package fixtures close it, and a third accumulator
+  (`$matchedPackages++` → `= 1`) needed the two-rule variant pointed at a directory where **both**
+  packages are under a rule. **The second review round then found the same shape on the accumulator
+  that matters most** — see below; the count that stands is twenty mutants, no survivors.
+- **`T-007` tried a second production floor and backed it out.** "Every rule must match a package"
+  catches a rule id that names nothing — but it has no honest predicate: a directory holding one
+  unrelated package is a legitimate run, and the floor reddened four fixtures that are exactly that.
+  What it aimed at is a claim about *this repository*, so it is checked against this repository in the
+  self-test instead: each rule's id must name a project directory and a `.csproj` (both compared
+  `-ceq`), and where that project declares a `<PackageId>` it must equal the rule key — because a rule
+  keyed on a project whose package id differs matches nothing at run time and reports `0 package(s)
+  matched` in a green job.
+- **`T-007`: a `[DataRow]` value collided with the production default, and only the mutation showed
+  it.** `LoginCommandShould`'s rows were `null`, `"test"`, `"production"`, with an `if` on the
+  parameter — which `testing-conventions.md` § 13 rejects, since an `if` on a row parameter means the
+  rows are different scenarios. Split into a parameterised test and an empty-store test, the deleted-
+  Arrange mutation reddened two rows of three: `"production"` survived, because `DaleConfig.Environment`
+  *defaults* to `"production"` and `LoadConfig()` on a missing file returns a fresh one. A row whose
+  value equals the default cannot tell a loaded fixture from no fixture. The rows are now `"test"` and
+  `"staging"`, and the empty store is its own test.
+- **`T-007` left `verify-packed-assembly-versions.ps1` out of `spec-process.md` § Gates.** That table
+  says what each gate fails on, and this gate gained a failure this round — but every row in it is a
+  gate `spec-gates.yml` runs or a documented on-demand spec tool, and this one runs from `publish.yml`
+  over packed artifacts. Adding it would widen the table's subject from the SDD gate suite to the
+  release pipeline. The new failure is stated where its criterion lives, in `analyzers.md`, which names
+  the script.
+- **`T-007`'s second review round found this round's own lesson unapplied to the accumulator that
+  matters most.** The first round's fix pinned `$absent`, `$checked`, `$requiredCount` and
+  `$matchedPackages` with two-package fixtures — and left `$mismatches`, the one carrying the 0.11.1
+  stale-assembly defect the whole script was minted for. Both new pair fixtures built every package at
+  the honest version, so no fixture anywhere had a mismatch in a non-last package. Measured:
+  `$mismatches += …` → `= …` leaves the self-test reporting `Self-test passed.` A third pair fixture,
+  stale in the first-sorted package, kills it. The journal line this round wrote — *a cross-item
+  accumulator is unpinned until a fixture holds two items and the interesting one is not the last* —
+  was true and applied to four of five.
+- **`T-007`: two `unchecked` branches had no case at all, and one mutant found each.** The gate's
+  docstring promises a foreign assembly is "listed as unchecked rather than trusted silently", and the
+  same list carries a file named like an assembly that is not one. Neither branch had a fixture, so
+  both list-appends were overwritable. Two cases now, each with **two** entries, because one entry
+  cannot tell a list from a variable holding the last thing put in it. Twenty mutants, no survivors.
+- **`T-007`: "absent" and "present" were the wrong words in both new criteria, and each was falsified
+  by the other's test.** `AC-CTRL-014.7` said "WHEN a duration **is present** and is neither form … SHALL
+  refuse" — and an empty JSON string is present, is neither form, and reads as zero, which
+  `AC-CTRL-014.6`'s own row asserts. The pair is now written on *text*: `.6` decodes one **carrying no
+  text** as zero, `.7` refuses one **carrying text** that is neither form. Same defect as the first
+  round's blocker, moved one criterion over by the split that fixed it.
+- **`T-007`: `AC-CTRL-014.6` was untrue of the shape its own doc comment points at.** The converter's
+  summary says the framework applies it to `TimeSpan?` through the nullable wrapper — and that wrapper
+  answers a JSON `null` itself, so a `TimeSpan?` decodes `null` as `null`, never reaching the decoder.
+  Probed: `TimeSpan? null -> <null>`, `TimeSpan? "" -> 00:00:00`; the non-nullable `TimeSpan` reads
+  both as zero. The criteria are the non-nullable decode and the prose says so, rather than claiming a
+  rule the serializer overrides.
+- **`T-007`: `AC-CTRL-014.7`'s "naming that text" does not hold for a non-string payload, and that is
+  now stated rather than claimed.** A number or object body is refused as `JsonException` — by the
+  serializer, before the decode is reached, with a message that does not name what it was offered.
+  Binding the clause to *text* leaves that payload outside both criteria, which is right: nothing in
+  this repository decides it. The prose records the behaviour instead of minting a criterion for
+  someone else's rule.
+- **`T-007`: the two new criteria were textually indistinguishable from `AC-CTRL-009.3` on the same
+  page.** That criterion already says the control surface's codec accepts "a duration in either its
+  ISO-8601 or its .NET spelling"; `AC-CTRL-014.6` said the same words about a different decoder. Two
+  criteria whose sentences cannot tell each other apart is how the first round's third blocker
+  happened — a test citing the wrong one of two nearby ids. Both new criteria now say **JSON**.
+- **`T-007`: the false `ANLZ` premise survived in a third place in the archived doc.** The first
+  round's correction reached map row 152 and the delta line; the row-152 *sketch* still stated the
+  refuted reason as fact, in a bold heading, so the file contradicted itself. The checkpoint above
+  claiming "wrong in five places … corrected in all of them" was a wrong count in the same way the
+  entry it corrects was. The sketch now carries the correction as a blockquote, and
+  `AC-ANLZ-018.3`'s "rather than leave a consumer's build to report the missing file" — which
+  overclaims, since `verify-packages` needs `publish` and so runs after both pushes — is reworded to
+  what `analyzers.md`'s prose already said honestly.
+- **`T-007`: the case built to be platform-neutral was the one CI failed on.** The repository-reading
+  case compared each rule's required entry against the `.csproj` through `Split-Path`, and passed at
+  the desk. On the Linux runner it reported `FAIL rule 'Vion.Dale.Sdk -> analyzers/dotnet/cs/…' is not
+  content Vion.Dale.Sdk.csproj packs` — the gate's first CI run, red, on the case whose whole purpose
+  is to hold wherever it runs. Which of `Split-Path`'s two uses diverged is not recorded: the fix is
+  not to find out. A required entry is a **zip** path, always forward-slashed, so it is parsed as one
+  and the `.csproj` text is normalised to `/` — both sides platform-neutral by construction, nothing
+  asking the platform. (`Split-Path` does answer in backslashes on Windows whatever separator it is
+  given; measured. That is enough to know a comparison built on it is not neutral by accident.) The
+  `FAIL` branch also prints what it looked for, because a bare verdict on a case that only fails
+  somewhere else is a second round of guessing. Third platform trap in this task, after `T-005`'s
+  hidden-directory walk and this round's own `Test-Path`.
+- **`T-007`: the gate's second CI run failed on the real artifact, and the gate was wrong, not the
+  artifact.** `verify-packages` reported `Vion.Dale.Sdk 0.0.0-ci.622 -> analyzers/dotnet/cs/…: absent`.
+  The package carries it: the entry is `analyzers/dotnet/cs//Vion.Dale.Sdk.Generators.dll`, with a
+  **doubled** separator. Measured across the whole downloaded artifact set — every entry produced by a
+  `PackagePath` ending in a separator has it (`analyzers/dotnet/cs//` and all 43 `tools/net10.0//`
+  entries), while the `lib/` entries, which no `PackagePath` places, are clean. NuGet resolves either
+  form, and the published packages install and judge correctly; the strict match was the defect. Entry
+  names are now compared with repeated separators collapsed, and the fixture that proves it writes its
+  entry name **verbatim** into the zip, because `ZipFile.CreateFromDirectory` normalises separators —
+  which is exactly why eleven fixtures agreed with each other and none of them with the tree. The
+  carry-over asks for "a fixture shaped like the one production runs on"; a fixture built by a
+  different tool than production's is not one, and no amount of mutation testing inside that suite
+  could have shown it. The gate now runs clean over the artifact set that failed it
+  (`clean (18 assemblies across 18 packages)`, `required content: 1 of 1 present`).
+- **`T-007` did not fix the doubled separator, and it is a ledger candidate rather than this task's.**
+  `PackagePath="analyzers\dotnet\cs\"` and `PackagePath="tools\net10.0\"` in
+  `Vion.Dale.Sdk.csproj` end in a separator, which `dotnet pack` doubles on Linux and not on Windows,
+  so the same source produces two different artifacts by runner. Benign today — NuGet resolves both —
+  but it means any tool that reads entry names exactly must know, and the two artifacts are not byte
+  comparable. Dropping the trailing separator is a packaging change to a released package's layout,
+  which is `releasing.md`'s subject and not a fix-sized repair. Recorded, not absorbed.
 - **`T-006`: the review subagent's own round is why five of these checkpoints read as they do.** It
   refuted the Modbus premise, turned "four of six misroute" into all six at a uniform +3, found the
   duplicate-lead hole in the script, and showed that the self-test's repo-facing case had quietly
@@ -874,9 +1116,12 @@ names the file and section that states the rule now, and *lane 3 § N* is
 
 ## Spec delta (to distill)
 
-> No criterion changes: this doc's deltas are process documents, each a task above. The archive
-> gate has nothing to compare; the doc archives when the Implementation state reads done for every
-> task, by the session that lands `T-019`.
+> No criterion changes **owed here**: this doc's own deltas are process documents, each a task
+> above, so the archive gate has nothing to compare. Criteria that a task's lane-1 fix moves are
+> carried by the page edit in that task's PR and are listed in *Drift checkpoints*, not here —
+> `T-007` minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded `AC-ANLZ-018.3`.
+> The doc archives when the Implementation state reads done for every task, by the session that
+> lands `T-019`.
 
 ---
 

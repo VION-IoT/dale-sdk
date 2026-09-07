@@ -63,16 +63,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   process-global: a second host built in the same process — every test that builds one — inherits a
   mode its caller never asked for. A runner-held static would be the same global under another name,
   and a factory that takes the mode is a surface change. *(CTRL pass row 40 — `CTRL`.)*
-- **The duration converter's read half answers 500 where every other bad body answers 400.**
-  `Iso8601TimeSpanConverter.Read` lets `TimeSpan.Parse`'s `FormatException` escape
-  (`Vion.Dale.DevHost.Web/Api/Serialization/Iso8601TimeSpanConverter.cs:18-33`), which the input
-  pipeline does not translate. Unreachable today — every write body binds as `object` or `JsonElement`
-  and is decoded by the control surface instead — and live the moment a typed duration reaches a
-  request body. *(CTRL pass row 141 — `CTRL`.)* **`T-006` (2026-09-07):** the citation was
-  `:107-123`, a range this 40-line file has never had; corrected while bucketing. The converter is
-  also registered twice — `Vion.Dale.DevHost.Web/Services/WebHostService.cs:87` (MVC) and `:104`
-  (SignalR `PayloadSerializerOptions`) — and the second has no 400 to answer with, so a fix's
-  observable is the MVC path.
 - **A topology's validation errors are served by splitting a joined message.**
   `TopologiesController.InvalidTopology` splits `InvalidDataException.Message` on `"; "`
   (`Vion.Dale.DevHost.Web/Api/Controllers/TopologiesController.cs:140-148`), so an error containing that
@@ -353,14 +343,16 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   branches is skipped the second time. No shape I could construct makes the outcome differ — a type
   already judged representable is representable, and one already judged otherwise returned — so this
   is recorded rather than fixed. *(ANLZ pass row 150 — `ANLZ`.)*
-- **A package packed without the analyzer assembly loses all forty-six diagnostics in silence.**
-  `Vion.Dale.Sdk.csproj:92` packs the DLL under `Condition="Exists(…)"`, so a build that did not
-  produce it yields a package that restores, compiles clean and judges nothing; the only signal is
-  previously-red code turning green. The assertion that a packed `Vion.Dale.Sdk` carries
-  `analyzers/dotnet/cs/Vion.Dale.Sdk.Generators.dll` belongs in the post-pack artifact gate
-  (`scripts/verify-packed-assembly-versions.ps1`, `.github/workflows/publish.yml:72-93`), which was
-  minted for this class of silent-bad-package failure. *(ANLZ pass row 152 — the release process,
-  [`../releasing.md`](../releasing.md); the operator promotes.)*
+- **A `PackagePath` ending in a separator packs two different artifacts by runner.**
+  `Vion.Dale.Sdk.csproj:92` (`analyzers\dotnet\cs\`) and `:87` (`tools\net10.0\`) end in a
+  separator, which `dotnet pack` doubles on Linux and not on Windows: the CI artifact carries
+  `analyzers/dotnet/cs//Vion.Dale.Sdk.Generators.dll` and 43 `tools/net10.0//` entries, a locally
+  packed one carries a single slash. NuGet resolves both, so nothing is broken — but the two
+  artifacts are not byte comparable, and any tool reading entry names exactly has to know
+  (`scripts/verify-packed-assembly-versions.ps1` collapses repeated separators for that reason).
+  Dropping the trailing separator changes a released package's layout, which is
+  [`../releasing.md`](../releasing.md)'s. *(Found by `T-007`'s artifact gate on its first real run —
+  the release process.)*
 - **The generator's `Contract`-substring predicate runs on every class in every compilation.**
   `Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:36-40` matches any class carrying an attribute whose
   name *contains* `Contract`, and the semantic pass afterwards makes the output correct — so there is
@@ -512,17 +504,6 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   end. The publish workflow already installs the packed tool for the help snapshot
   (`publish.yml:148-155`), so the step exists to hang a smoke on — but the fixture, the cleanup and
   the failure modes are a change doc's worth of work. *(CLI pass row 212 — the release process.)*
-- **The `login` help's `--environment` default is whatever the developer's own store says.** The
-  option's default is read from `~/.dale/config.json` when the command tree is built, so `dale login
-  -h` prints `[default: test]` on a machine logged into the test environment and
-  `[default: production]` on a clean runner — and the committed help snapshot regenerated on such a
-  machine drifts from the one CI regenerates (the snapshot bot corrected exactly that one line on the
-  CLI pass's branch before it merged). The fix-up's "redirected home" did not reach it either: on
-  Windows `Environment.SpecialFolder.UserProfile` ignores the `USERPROFILE` variable. A help text
-  should not depend on stored state; the default shown is the resolution rule (stored, else
-  `production`), and the snapshot regeneration runs against an explicitly empty store root. Small,
-  area-local, and worth a test that pins the help line under an empty root. *(Found at the merge of
-  the CLI pass — `CLI`.)*
 
 ## `TKIT` — the five test kits (2026-09-06)
 

@@ -420,12 +420,23 @@ exempted shape works.
 An analyzer that is referenced is not necessarily running, and
 [`../testing-conventions.md`](../testing-conventions.md) § 3 is why that has its own standing gate.
 
-- `AC-ANLZ-018.1` (Ubiquitous): THE SYSTEM SHALL ship the analyzer assembly inside the `Vion.Dale.Sdk` package under `analyzers/dotnet/cs`, so a consumer referencing the package receives every diagnostic. GAP: observable only from a packed artifact, which is the post-pack gate's subject rather than a test's.
+- `AC-ANLZ-018.1` (Ubiquitous): THE SYSTEM SHALL ship the analyzer assembly inside the `Vion.Dale.Sdk` package under `analyzers/dotnet/cs`, so a consumer referencing the package receives every diagnostic. GAP: observable only from a packed artifact — asserted by `scripts/verify-packed-assembly-versions.ps1`, whose own fixtures are packages rather than compilations, so no in-process test can carry the id.
 - `AC-ANLZ-018.2` (Ubiquitous): THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; `AC-ANLZ-018.4` proves the mechanism on two of them.
-- `AC-ANLZ-018.3` (Event-driven): WHEN the analyzer assembly is absent at pack time THE SYSTEM SHALL produce a package carrying no analyzers and no warning. GAP: today's behaviour, recorded in [`_findings.md`](_findings.md) — the assertion that a packed artifact carries the analyzers belongs in the post-pack gate, which owns the packaging path.
+- `AC-ANLZ-018.3` (Event-driven): WHEN the analyzer assembly is absent at pack time THE SYSTEM SHALL produce a package whose build targets still reference it, and SHALL fail the release run naming that package, which is sooner than the consumer's build that reports the missing file but not before it. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`.
 - `AC-ANLZ-018.4` (Ubiquitous): THE SYSTEM SHALL fail a build of a probed project when the
   analyzer-wiring probe is linked in, and SHALL keep the probe out of an ordinary build.
 - `AC-ANLZ-018.5` (Ubiquitous): THE SYSTEM SHALL compile the predicate parser into the analyzer assembly and the runtime assembly from one source. GAP: a build-graph fact; the two compilations agreeing is pinned by the vendored conformance vectors, which are premise tests by design and cite no criterion.
+
+The pack-time criterion above has two halves, and both are deliberate. `Vion.Dale.Sdk.csproj:92`
+packs the analyzer under `Condition="Exists(…)"` while `:97` packs `build/Vion.Dale.Sdk.targets`
+unconditionally, and that targets file adds the analyzer unconditionally
+(`build/Vion.Dale.Sdk.targets:11`) — so a build that did not produce the generator assembly packs a
+package whose own targets file points at a file it does not carry. The consumer's build then fails
+with `CS0006`, naming a path inside our package: loud, but at the wrong desk, and only once the
+package is on a feed. Nothing in a compilation of *this* repository can see it, which is why the
+assertion is a required-content rule in the post-pack artifact gate and the criterion stays `GAP`.
+The gate runs after the push, as its job in `publish.yml` says: it names the package within a minute
+rather than preventing it.
 
 The probe's own hazard is stated once here and guarded in its suite: it shells a real `dotnet build`,
 and a child build that carries no version stamp will overwrite the outputs `dotnet pack` then ships.
