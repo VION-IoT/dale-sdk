@@ -29,10 +29,17 @@ operator at the STOP lines. Decided in the `sdk: sdd big picture` session on 202
 
 ### Spec implications
 
-None on any criterion. The pages this doc changes are process pages: `spec-process.md`,
-`testing-conventions.md`, `CLAUDE.md`, the commands under `.claude/commands/`, the gate scripts, and
-the architecture repo's two lane commands and the SDK's substrate page. `_findings.md` shrinks as
-the fix-now batch lands and the Jira-filed entries are struck with their keys.
+None **on the criteria this doc's own decisions touch** — the pages it changes are process pages:
+`spec-process.md`, `testing-conventions.md`, `CLAUDE.md`, the commands under `.claude/commands/`, the
+gate scripts, and the architecture repo's two lane commands and the SDK's substrate page.
+`_findings.md` shrinks as the fix-now batch lands and the Jira-filed entries are struck with their
+keys.
+
+**Corrected by `T-007`:** the fix-now batch necessarily moves criteria, because a lane-1 fix carries
+its page edit. It minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded
+`AC-ANLZ-018.3`. Lane 1 owes no delta line — the page edit riding a fix *is* the distill
+([`../spec-process.md`](../spec-process.md) § Lanes) — so this doc's *Spec delta* stays empty by
+design; what was wrong was the flat claim above, not the absence of a delta.
 
 ### Decisions
 
@@ -945,6 +952,78 @@ names the file and section that states the rule now, and *lane 3 § N* is
   artifact `spec-trace` scans can carry either id. The ledger entry's "forty-six diagnostics" is the
   count in the tree today (46 distinct `DALE###` ids in `Vion.Dale.Sdk.Generators`); the `ANLZ` pass
   archive's 44 was true at its own date and is not corrected here.
+- **`T-007`'s review round found the fix incomplete in the one dimension the entry named.**
+  `XmlConvert.ToTimeSpan` raises `OverflowException`, not `FormatException`, for a *well-formed* ISO
+  duration past `TimeSpan`'s range — so `"P100000000D"` escaped the first fix untouched, while
+  `"10675200.00:00:00"`, the same span in the .NET spelling, was refused. One input class, two answers,
+  and the checkpoint above claiming "both go the same way" was measured on the .NET form alone. The
+  converter now catches both classes off the ISO attempt, and the fourth `[DataRow]` is the ISO
+  spelling. Measured red at the first fix: `Actual exception type:<System.OverflowException>`.
+- **`T-007`: the criterion as first minted was falsified by its own commit's test.** `AC-CTRL-014.6`
+  read "WHEN a duration … is neither an ISO-8601 duration nor the .NET form THE SYSTEM SHALL refuse
+  the payload as malformed" — while the converter returns `TimeSpan.Zero` for `""` and for JSON
+  `null`, and the same commit's test asserted exactly that. The read half is two rules, not one, and
+  they hold under different failures: it is now `AC-CTRL-014.6` (both forms, and an absent duration as
+  zero) and `AC-CTRL-014.7` (the refusal). The tolerance test had also been citing `AC-CTRL-014.5`,
+  which is the **emit** half — a citation for behaviour the criterion does not state, and the defect
+  `spec-process.md` § IDs & EARS names. Both tests now cite the criterion whose text they assert.
+- **`T-007` dropped `AC-CTRL-014.6`'s "on either wire" clause, because nothing reaches a wire.** The
+  test builds its own `JsonSerializerOptions`; it proves the converter class and says nothing about
+  `WebHostService.cs:87` or `:104`. A criterion the suite cannot reach is `GAP` however many tests
+  name it, so the choice was to GAP the wire half or to state the decode. Both criteria now state the
+  decode, and where it is registered is prose beneath them.
+- **`T-007`: the `ANLZ` entry's premise was false, and it is the citation this round did not
+  re-resolve.** The entry says a package packed without its analyzer "restores, compiles clean and
+  judges nothing; the only signal is previously-red code turning green". It does not.
+  `Vion.Dale.Sdk.csproj:97` packs `build/Vion.Dale.Sdk.targets` **unconditionally**, and that file
+  adds the analyzer **unconditionally** (`:11`), while the analyzer is packed under
+  `Condition="Exists(…)"` (`:92`) — so the package ships a targets file pointing at a file it does not
+  carry, and every consumer's build fails with `CS0006`, 0 warnings. Probed on a minimal project, and
+  the import path confirmed in a consumer's generated `nuget.g.targets`. The gate is still worth
+  having — it names the package in the release run instead of in the first consumer's build — but the
+  failure mode was wrong in five places (the script's docstring, its rule-table comment, **its
+  report**, `analyzers.md`'s prose and `AC-ANLZ-018.3` itself) and is corrected in all of them. The
+  contradicting file is one directory from the `csproj:92` the entry cites; re-resolving a citation
+  means reading what the cited line does, not only that it is still there.
+- **`T-007` rewrote `AC-ANLZ-018.3`, so the archived `ANLZ` pass's delta line moved with it.**
+  `spec-process.md` § Change docs says a criterion's text on the page and on its delta line are one
+  text, and that a fix landing after the archive commit carries both. The delta line and the
+  consolidation map's row 152 in `docs/changes/archive/2026-09-04-anlz-pass.md` are updated, with a
+  blockquote above the line saying who touched it and why — the shape `T-003` established for the same
+  situation. Verified in isolation: `spec-change.ps1 archive` against a slug-renamed copy reports 6
+  unapplied delta lines before and 5 after, the five being pre-existing bold-marker artifacts that
+  `origin/main` carries too.
+- **`T-007`'s gate had one single-line mutant that left the self-test green**, and it is the shape the
+  fixtures could not see: `$absent += $result.Missing` → `$absent = $result.Missing`. Every one of the
+  eight package fixtures held **one** package, so "the total" and "the last package's" were the same
+  number for all three cross-package accumulators. On a release artifact set they are not —
+  `Vion.Dale.Sdk` never sorts last there, its `.AnalogIo`, `.Modbus.*` and `.TestKit` siblings follow
+  it — so the mutant reported the last package's empty finding list and exited 0 on exactly the
+  release the gate exists to stop. Two two-package fixtures close it, and a third accumulator
+  (`$matchedPackages++` → `= 1`) needed the two-rule variant pointed at a directory where **both**
+  packages are under a rule. Seventeen mutants, no survivors.
+- **`T-007` tried a second production floor and backed it out.** "Every rule must match a package"
+  catches a rule id that names nothing — but it has no honest predicate: a directory holding one
+  unrelated package is a legitimate run, and the floor reddened four fixtures that are exactly that.
+  What it aimed at is a claim about *this repository*, so it is checked against this repository in the
+  self-test instead: each rule's id must name a project directory and a `.csproj` (both compared
+  `-ceq`), and where that project declares a `<PackageId>` it must equal the rule key — because a rule
+  keyed on a project whose package id differs matches nothing at run time and reports `0 package(s)
+  matched` in a green job.
+- **`T-007`: a `[DataRow]` value collided with the production default, and only the mutation showed
+  it.** `LoginCommandShould`'s rows were `null`, `"test"`, `"production"`, with an `if` on the
+  parameter — which `testing-conventions.md` § 13 rejects, since an `if` on a row parameter means the
+  rows are different scenarios. Split into a parameterised test and an empty-store test, the deleted-
+  Arrange mutation reddened two rows of three: `"production"` survived, because `DaleConfig.Environment`
+  *defaults* to `"production"` and `LoadConfig()` on a missing file returns a fresh one. A row whose
+  value equals the default cannot tell a loaded fixture from no fixture. The rows are now `"test"` and
+  `"staging"`, and the empty store is its own test.
+- **`T-007` left `verify-packed-assembly-versions.ps1` out of `spec-process.md` § Gates.** That table
+  says what each gate fails on, and this gate gained a failure this round — but every row in it is a
+  gate `spec-gates.yml` runs or a documented on-demand spec tool, and this one runs from `publish.yml`
+  over packed artifacts. Adding it would widen the table's subject from the SDD gate suite to the
+  release pipeline. The new failure is stated where its criterion lives, in `analyzers.md`, which names
+  the script.
 - **`T-006`: the review subagent's own round is why five of these checkpoints read as they do.** It
   refuted the Modbus premise, turned "four of six misroute" into all six at a uniform +3, found the
   duplicate-lead hole in the script, and showed that the self-test's repo-facing case had quietly
@@ -955,9 +1034,12 @@ names the file and section that states the rule now, and *lane 3 § N* is
 
 ## Spec delta (to distill)
 
-> No criterion changes: this doc's deltas are process documents, each a task above. The archive
-> gate has nothing to compare; the doc archives when the Implementation state reads done for every
-> task, by the session that lands `T-019`.
+> No criterion changes **owed here**: this doc's own deltas are process documents, each a task
+> above, so the archive gate has nothing to compare. Criteria that a task's lane-1 fix moves are
+> carried by the page edit in that task's PR and are listed in *Drift checkpoints*, not here —
+> `T-007` minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded `AC-ANLZ-018.3`.
+> The doc archives when the Implementation state reads done for every task, by the session that
+> lands `T-019`.
 
 ---
 
