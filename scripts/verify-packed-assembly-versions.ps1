@@ -23,8 +23,10 @@
   their own versions.
 
   It also fails a package that is missing content its id promises ($requiredPackageContent):
-  today, a `Vion.Dale.Sdk` with no analyzer assembly. That package restores and compiles
-  clean while judging nothing, so a consumer sees it as previously-red code turning green.
+  today, a `Vion.Dale.Sdk` with no analyzer assembly. `build/Vion.Dale.Sdk.targets` is packed
+  unconditionally and adds the analyzer unconditionally, while the analyzer itself is packed
+  under Condition="Exists(...)" — so such a package breaks every consumer's build with
+  CS0006 on a file the package itself promised. This names it in the release run instead.
 
   Within those folders only assemblies BELONGING to the package are judged — simple
   name equal to the package id, or beginning with the package id and a dot. Anything
@@ -64,9 +66,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 # Content a package must carry because its id promises it, keyed on the package id. A package not
 # named here is judged for assembly versions only. Vion.Dale.Sdk packs its analyzer under a
-# Condition="Exists(...)" (Vion.Dale.Sdk.csproj), so a build that did not produce the assembly packs
-# a package that restores, compiles clean and judges nothing — the only signal being previously-red
-# code turning green. The gate for that is here because the artifact is the only place it shows.
+# Condition="Exists(...)" (Vion.Dale.Sdk.csproj) while packing build/Vion.Dale.Sdk.targets, which
+# references that analyzer, unconditionally — so a build that did not produce the assembly packs a
+# package whose own targets file points at a file it does not carry. The gate is here because the
+# artifact is the only place that shows before a consumer's build does.
 $requiredPackageContent = @{
     'Vion.Dale.Sdk' = @('analyzers/dotnet/cs/Vion.Dale.Sdk.Generators.dll')
 }
@@ -217,9 +220,11 @@ function Invoke-Verify([string]$directory)
         }
     }
 
-    # A floor catches a count reaching zero; it cannot catch a rule whose package id no longer names
-    # any package, which reads as "nothing required" and passes. The tallies are what shows that.
     $tally = "required content: $( $requiredCount - $absent.Count ) of $requiredCount present ($($requiredPackageContent.Count) rule(s), $matchedPackages package(s) matched)"
+
+    # There is no floor on a rule matching no package: a directory holding one unrelated package is a
+    # legitimate run. What that leaves — a rule id that names nothing anywhere — is a claim about this
+    # repository, and the self-test checks it against this repository. The tally is what shows it here.
 
     if ($mismatches.Count -gt 0)
     {
@@ -239,9 +244,10 @@ function Invoke-Verify([string]$directory)
         Write-Host "Packages are missing content their id promises:"
         $absent | ForEach-Object { Write-Host $_ }
         Write-Host ""
-        Write-Host "A Vion.Dale.Sdk without its analyzer assembly restores, compiles clean and judges nothing:"
-        Write-Host "every consumer loses all forty-six diagnostics and the only signal is previously-red code"
-        Write-Host "turning green. The pack condition is Exists(...), so a missed generator build packs this."
+        Write-Host "A Vion.Dale.Sdk without its analyzer assembly still ships build/Vion.Dale.Sdk.targets, which"
+        Write-Host "references that analyzer unconditionally — so every consumer's build fails with CS0006 on a"
+        Write-Host "file this package promised. The analyzer's pack condition is Exists(...), so a missed"
+        Write-Host "generator build produces exactly this."
         Write-Host $tally
         return 1
     }
@@ -314,7 +320,23 @@ function Invoke-SelfTest
         $matching = $sampleVersion.ToString()
         $stale = "$($sampleVersion.Major + 1).0.0"
         $sdk = 'Vion.Dale.Sdk'
+        # Sorts after $sdk, as its real sibling does: the accumulator mutants only show when the
+        # package carrying the finding is not the last one judged.
+        $sibling = 'Vion.Dale.Sdk.TestKit'
+        $http = 'Vion.Dale.Sdk.Http'
         $analyzer = 'analyzers/dotnet/cs/Vion.Dale.Sdk.Generators.dll'
+
+        # Two packages in one directory, the sibling written first so the id under a rule is not the
+        # last one judged.
+        New-Fixture 'pair-without-analyzer' $sibling $matching @("lib/net10.0/$sibling.dll") | Out-Null
+        $pairWithoutAnalyzer = New-Fixture 'pair-without-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll")
+        New-Fixture 'pair-with-analyzer' $sibling $matching @("lib/net10.0/$sibling.dll") | Out-Null
+        $pairWithAnalyzer = New-Fixture 'pair-with-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll", $analyzer)
+
+        # Both packages under a rule, for the two-rule variant: with one, `$matchedPackages++` and
+        # `$matchedPackages = 1` are the same number.
+        New-Fixture 'pair-two-rules' $http $matching @("lib/netstandard2.1/$http.dll") | Out-Null
+        $pairTwoRules = New-Fixture 'pair-two-rules' $sdk $matching @("lib/netstandard2.1/$sdk.dll", $analyzer)
 
         # Expect is matched against the report as a whole. Every case that pins a tally has a peer
         # disagreeing with it: a number that has one value across the whole suite is a constant a
@@ -328,7 +350,8 @@ function Invoke-SelfTest
             @{ Name = 'the 0.11.1 shape — right nuspec version, stale assembly'
                 Directory = (New-Fixture 'stale' $sampleName $stale @("lib/net10.0/$sampleName.dll"))
                 Expected = 1
-                Expect = @('do not carry their package', 'AssemblyVersion') }
+                Expect = @('do not carry their package', 'AssemblyVersion',
+                    'required content: 0 of 0 present (1 rule(s), 0 package(s) matched)') }
             @{ Name = 'a package with no assemblies to judge'
                 Directory = (New-Fixture 'empty' $sampleName $matching @())
                 Expected = 0
@@ -346,7 +369,7 @@ function Invoke-SelfTest
                 Expected = 1
                 Expect = @("$sdk $matching -> ${analyzer}: absent",
                     'required content: 0 of 1 present (1 rule(s), 1 package(s) matched)',
-                    'judges nothing') }
+                    'fails with CS0006') }
             @{ Name = 'a package whose analyzer folder holds something else'
                 Directory = (New-Fixture 'sdk-wrong-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll", "analyzers/dotnet/cs/$sdk.Other.dll"))
                 Expected = 1
@@ -355,6 +378,20 @@ function Invoke-SelfTest
                 Directory = (New-Fixture 'sdk-cased-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll", "Analyzers/Dotnet/Cs/$sdk.Generators.dll"))
                 Expected = 1
                 Expect = @("${analyzer}: absent") }
+            # A release artifact set is many packages and Vion.Dale.Sdk never sorts last in it, so the
+            # findings have to survive the packages judged after it. Both of these run on a directory
+            # holding two, which is what pins the three cross-package accumulators; every case above
+            # holds one, where "the total" and "the last package's" are the same number.
+            @{ Name = 'a missing entry survives the packages judged after it'
+                Directory = $pairWithoutAnalyzer
+                Expected = 1
+                Expect = @("$sdk $matching -> ${analyzer}: absent",
+                    'required content: 0 of 1 present (1 rule(s), 1 package(s) matched)') }
+            @{ Name = 'two packages, one of them carrying its required content'
+                Directory = $pairWithAnalyzer
+                Expected = 0
+                Expect = @('clean (3 assemblies across 2 packages)',
+                    'required content: 1 of 1 present (1 rule(s), 1 package(s) matched)') }
         )
 
         foreach ($case in $cases)
@@ -405,11 +442,11 @@ function Invoke-SelfTest
                 Script = (New-Variant 'two-rules.ps1' @(
                     '$requiredPackageContent = @{'
                     "    '$sdk' = @('$analyzer')"
-                    "    'Vion.Dale.Sdk.Http' = @('lib/netstandard2.1/Vion.Dale.Sdk.Http.dll')"
+                    "    '$http' = @('lib/netstandard2.1/$http.dll')"
                     '}'))
-                Directory = ($cases | Where-Object { $_.Name -eq 'the SDK package carrying its analyzer' }).Directory
+                Directory = $pairTwoRules
                 Expected = 0
-                Expect = @('required content: 1 of 1 present (2 rule(s), 1 package(s) matched)') }
+                Expect = @('required content: 2 of 2 present (2 rule(s), 2 package(s) matched)') }
         )
 
         foreach ($variant in $variants)
@@ -438,8 +475,8 @@ function Invoke-SelfTest
         $repository = Split-Path $PSScriptRoot -Parent
         foreach ($id in $requiredPackageContent.Keys)
         {
-            $folder = @(Get-ChildItem -LiteralPath $repository -Directory | Where-Object { $_.Name -ceq $id })
-            $csproj = @($folder | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -File -Filter '*.csproj' } |
+            $projectDirectory = @(Get-ChildItem -LiteralPath $repository -Directory | Where-Object { $_.Name -ceq $id })
+            $csproj = @($projectDirectory | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -File -Filter '*.csproj' } |
                     Where-Object { $_.Name -ceq "$id.csproj" })
             if ($csproj.Count -ne 1)
             {
@@ -449,6 +486,18 @@ function Invoke-SelfTest
             }
 
             $text = Get-Content -LiteralPath $csproj[0].FullName -Raw
+
+            # The rule is keyed on the PACKAGE id, and a project may declare one that is not its
+            # name. Absent, MSBuild defaults PackageId to AssemblyName to the project name, which is
+            # what the rule key already matched above.
+            $declaredId = ([regex]::Match($text, '<PackageId>([^<]*)</PackageId>')).Groups[1].Value
+            if ($declaredId -and $declaredId -cne $id)
+            {
+                Write-Host "FAIL rule '$id' is a project name; the package it produces is '$declaredId'"
+                $failures += "rule '$id' names a project whose package id differs"
+                continue
+            }
+
             foreach ($entry in $requiredPackageContent[$id])
             {
                 $file = Split-Path $entry -Leaf
