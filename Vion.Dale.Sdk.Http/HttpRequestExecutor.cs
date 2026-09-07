@@ -308,7 +308,7 @@ namespace Vion.Dale.Sdk.Http
                  * client's timeout. The first is what the per-request source's own flag excludes; the other
                  * two are told apart by the inner exception, which the client sets to a TimeoutException
                  * only for its own bound. Reading the flag alone hands a handler's cancellation to the block
-                 * as "Timed out after 30 seconds" for an exchange that never reached a bound, and wraps a
+                 * as a timeout naming the client's bound, for an exchange that never reached it — wrapping a
                  * transport failure `AC-HTTP-006.1` says arrives as the handler threw it.
                  *
                  * The relabel is here rather than beside the per-request one in HandleException so that the
