@@ -16,16 +16,16 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///     <para>
     ///         Both "still waiting" claims are observed over a real-clock window, not the fake clock:
     ///         <see cref="QuiescenceBarrier" /> takes no <see cref="TimeProvider" /> and exposes no
-    ///         poll-completion seam, so there is nothing to advance and nothing to await but wall time — the
-    ///         same absence the ledger records for <c>DeterministicStepper.QuiescenceTimeout</c>. The window's
-    ///         <em>expiry</em> is what is asserted, and that direction is load-safe: only the wait completing
-    ///         early would falsify the claim, and a slow machine cannot cause that. A longer window would make
-    ///         the suite slower, never flakier.
+    ///         poll-completion seam, so there is nothing to advance and nothing to await but wall time. The
+    ///         window's <em>expiry</em> is what is asserted, and that direction is load-safe: only the wait
+    ///         completing early would falsify the claim, and a slow machine cannot cause that. A longer window
+    ///         would make the suite slower, never flakier.
     ///     </para>
     ///     <para>
-    ///         The stepper's real-clock safety timeout around this wait is not covered: it is a fixed ten
-    ///         seconds with no injection seam, so a test could only reach it by waiting it out
-    ///         (<c>docs/specs/_findings.md</c>).
+    ///         The ceiling <see cref="DeterministicStepper" /> puts around this wait is a different question and
+    ///         is covered: it takes its budget by constructor parameter (<c>DevHostBudgets.Quiescence</c>), so
+    ///         <c>SafetyBudgetsShould</c> reaches the <see cref="TimeoutException" /> without waiting out the
+    ///         ten-second default. The barrier is the half that still has no seam.
     ///     </para>
     /// </summary>
     [TestClass]
