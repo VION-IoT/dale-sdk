@@ -21,8 +21,6 @@ namespace Vion.Dale.DevHost
 
         private readonly List<DeclaredContractPairing> _pairedContracts = new();
 
-        private readonly List<(LogicBlockHandle Lb1, string ContractId1, LogicBlockHandle Lb2, string ContractId2)> _sharedContracts = new();
-
         private bool _autoConnect;
 
         private int _logicBlockCounter;
@@ -134,23 +132,14 @@ namespace Vion.Dale.DevHost
         }
 
         /// <summary>
-        ///     Share one mock service provider endpoint between two contracts
-        /// </summary>
-        public DevConfigurationBuilder ShareContract(LogicBlockHandle lb1, string contractId1, LogicBlockHandle lb2, string contractId2)
-        {
-            _sharedContracts.Add((lb1, contractId1, lb2, contractId2));
-            return this;
-        }
-
-        /// <summary>
         ///     Declare two service-provider contract endpoints to be ONE wire — the C# equivalent of a
         ///     topology file's <c>contractPairings</c>. Each side's captured outbound is delivered as the other
         ///     side's inbound, so a simulator block bound to a provider face closes the loop a real service
         ///     provider would: a digital output's command reaches the simulator, and its confirmation reaches the
         ///     block's <c>OutputChanged</c>.
         ///     <para>
-        ///         The declaration is symmetric and needs no <see cref="ShareContract" /> — each contract keeps its
-        ///         own auto-created endpoint. Which directions materialise is derived from the two handlers'
+        ///         The declaration is symmetric and each contract keeps its own auto-created endpoint — pairing
+        ///         joins them as a wire, it does not merge them. Which directions materialise is derived from the two handlers'
         ///         <c>[ScenarioWire]</c> types and checked when the host loads: a pairing with no type-identical
         ///         direction is refused there, naming both declared types.
         ///     </para>
@@ -521,33 +510,6 @@ namespace Vion.Dale.DevHost
 
         private void AutoCreateServiceProviders(DevConfiguration config)
         {
-            // Build shared contract groups
-            var sharedGroups = new Dictionary<(string LbId, string ContractId), (string SpId, string SvcId)>();
-            var sharedGroupCounter = 0;
-
-            foreach (var (lb1, contractId1, lb2, contractId2) in _sharedContracts)
-            {
-                var key1 = (lb1.Id, contractId1);
-                var key2 = (lb2.Id, contractId2);
-
-                if (sharedGroups.TryGetValue(key1, out var existing))
-                {
-                    sharedGroups[key2] = existing;
-                }
-                else if (sharedGroups.TryGetValue(key2, out existing))
-                {
-                    sharedGroups[key1] = existing;
-                }
-                else
-                {
-                    var sharedSpId = $"sp_shared_{sharedGroupCounter}";
-                    var sharedSvcId = $"svc_shared_{sharedGroupCounter}";
-                    sharedGroupCounter++;
-                    sharedGroups[key1] = (sharedSpId, sharedSvcId);
-                    sharedGroups[key2] = (sharedSpId, sharedSvcId);
-                }
-            }
-
             // Track created SPs/services to avoid duplicates
             var spConfigs = new Dictionary<string, DevServiceProviderConfig>();
             var svcConfigs = new Dictionary<string, DevServiceProviderServiceConfig>();
@@ -566,21 +528,8 @@ namespace Vion.Dale.DevHost
 
                 foreach (var (identifier, contractType, _) in contractProperties)
                 {
-                    var key = (lbConfig.Id, identifier);
-
-                    string spId;
-                    string svcId;
-
-                    if (sharedGroups.TryGetValue(key, out var shared))
-                    {
-                        spId = shared.SpId;
-                        svcId = shared.SvcId;
-                    }
-                    else
-                    {
-                        spId = defaultSpId;
-                        svcId = defaultSvcId;
-                    }
+                    var spId = defaultSpId;
+                    var svcId = defaultSvcId;
 
                     // Ensure SP config exists
                     if (!spConfigs.TryGetValue(spId, out var spConfig))
