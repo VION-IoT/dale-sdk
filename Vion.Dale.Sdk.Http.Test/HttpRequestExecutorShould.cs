@@ -21,8 +21,10 @@ namespace Vion.Dale.Sdk.Http.Test
     ///     What a block sees once a request is on its way: which failure arrives as which exception, when a
     ///     callback runs and on what, what is disposed, and which timeout bound produced an expiry.
     ///     <para>
-    ///         Every test drives the real executor over a stub innermost handler and <b>awaits</b> the returned
-    ///         task, so nothing here waits on the clock and no assertion races the exchange. Callbacks are
+    ///         Every test that sends drives the real executor over a stub innermost handler and
+    ///         <b>awaits</b> the returned task, so nothing here waits on the clock and no assertion races the
+    ///         exchange — the refusals are answered at the caller before a request exists and are
+    ///         synchronous. Callbacks are
     ///         drained from a <c>RecordingDispatcher</c> afterwards, because that is what a real block's actor
     ///         does: the self-send runs the callback after the executor has already returned.
     ///     </para>
@@ -64,6 +66,8 @@ namespace Vion.Dale.Sdk.Http.Test
             TransportSocketFailure,
 
             TransportStreamFailure,
+
+            TransportCancellation,
         }
 
         /// <summary>The three executor overloads, as the rows of the families above.</summary>
@@ -256,6 +260,7 @@ namespace Vion.Dale.Sdk.Http.Test
         [DataRow(Failure.DisposedClient, typeof(ObjectDisposedException))]
         [DataRow(Failure.TransportSocketFailure, typeof(System.Net.Sockets.SocketException))]
         [DataRow(Failure.TransportStreamFailure, typeof(IOException))]
+        [DataRow(Failure.TransportCancellation, typeof(OperationCanceledException))]
         public async Task DeliverOneExceptionClassPerFailure(Failure failure, Type expectedExceptionType)
         {
             // Arrange
@@ -583,10 +588,10 @@ namespace Vion.Dale.Sdk.Http.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-008.2")]
-        public async Task DeliverTaskCanceledExceptionWhenClientTimeoutElapses()
+        public async Task DeliverTimeoutExceptionWhenClientBoundElapses()
         {
-            // Arrange — no per-request bound, so the client's own is the only one; the exception class is
-            // the platform's cancellation rather than the package's TimeoutException
+            // Arrange — no per-request bound, so the client's own is the only one that can end the
+            // exchange, and it is the bound the message has to name
             var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
             Exception? received = null;
 
@@ -595,16 +600,17 @@ namespace Vion.Dale.Sdk.Http.Test
             _dispatcher.Drain();
 
             // Assert
-            Assert.IsInstanceOfType<TaskCanceledException>(received);
-            Assert.IsInstanceOfType<TimeoutException>(received.InnerException);
+            Assert.IsInstanceOfType<TimeoutException>(received);
+            Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-008.2")]
-        public async Task BoundRequestByClientTimeoutUnderLongerPerRequestTimeout()
+        public async Task NameClientBoundUnderLongerPerRequestBound()
         {
             // Arrange — the per-request bound is three orders of magnitude larger than the client's, so a
-            // request that ends at all ended at the client's
+            // request that ends at all ended at the client's. The number is what discriminates: a message
+            // built from the per-request value would read 60 seconds for an exchange that ran 50 ms.
             var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
             Exception? received = null;
 
@@ -618,7 +624,40 @@ namespace Vion.Dale.Sdk.Http.Test
             _dispatcher.Drain();
 
             // Assert
-            Assert.IsInstanceOfType<TaskCanceledException>(received);
+            Assert.IsInstanceOfType<TimeoutException>(received);
+            Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.2")]
+        [DataRow("en-US")]
+        [DataRow("de-DE")]
+        [DataRow("fr-FR")]
+        public async Task NameClientBoundInInvariantCultureWhateverMachineRunsIt(string culture)
+        {
+            // Arrange — the ceiling's message is minted on its own path, so the locale discipline the
+            // per-request row above pins has to be shown here too rather than inferred from the two sharing
+            // a renderer today. The restore is in a finally because a failing assert would otherwise leave
+            // the locale set for every test the assembly runs after this one.
+            var previousCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo(culture);
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50));
+            Exception? received = null;
+
+            try
+            {
+                // Act
+                await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception);
+                _dispatcher.Drain();
+
+                // Assert
+                Assert.IsNotNull(received);
+                Assert.AreEqual("Timed out after 0.05 seconds", received.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
         }
 
         // ---- lifetime and disposal ---------------------------------------
@@ -904,6 +943,12 @@ namespace Vion.Dale.Sdk.Http.Test
                     return (Executor(StubHttpMessageHandler.Throwing(new System.Net.Sockets.SocketException(10061))), Url);
                 case Failure.TransportStreamFailure:
                     return (Executor(StubHttpMessageHandler.Throwing(new IOException("the connection was reset"))), Url);
+                case Failure.TransportCancellation:
+                    // A cancellation the handler raised, under a client bound this fixture leaves at
+                    // HttpClient's own default and never comes near. It is what separates "a cancellation"
+                    // from "the client's bound elapsed" — a relabel that reads only the per-request source's
+                    // flag hands this to the block as a timeout, naming a bound the exchange never reached.
+                    return (Executor(StubHttpMessageHandler.Throwing(new OperationCanceledException())), Url);
                 default: throw new ArgumentOutOfRangeException(nameof(failure), failure, null);
             }
         }

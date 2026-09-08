@@ -349,8 +349,9 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-006` | done — buckets ruled by the operator | `sdk: sdd closeout T-006` | #196 |
 | `T-007` | done | `sdk: sdd closeout T-007` | #197 |
 | `T-008` | done — **partial by measurement**: decision 0145 recorded and the Modbus half landed; the four larger entries stay in the ledger with their counts | `sdk: sdd closeout T-008` | #198 |
-| `T-009` | in PR — five items filed, one link, one closure, one comment | `sdk: sdd closeout T-009` | #199 |
-| `T-010` … `T-019` | to come | — | — |
+| `T-009` | done | `sdk: sdd closeout T-009` | #199 |
+| `T-010` | in PR — 28n fixed and `AC-HTTP-008.2` rewritten; row 54 re-read and unchanged | `sdk: sdd closeout T-010` | #200 |
+| `T-011` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -459,7 +460,7 @@ which is the ledger header's own loop. Each reason names which test took the ent
 | `IO` | `hal-sim` writes the two payload identity strings transposed. | Jira | `D7`'s `hal-sim` candidate (VION-16, `dale-sdk` label); nothing here reads the transposed fields. **`T-009`: filed as VION-198 (VION-16, `dale-sdk`), area `hal-sim`; the ledger entry is struck. Reproduced.** |
 | `HTTP` | A per-request timeout does not bound the response body. | leave | Threading the token changes the exception class a callback receives — behaviour reshaped, not corrected. |
 | `HTTP` | A callback lost before the block's first message stays lost. | leave | Neither cure belongs to this package; `IActorDispatcher`'s two members cannot answer whether the block has an actor. |
-| `HTTP` | Two timeout bounds deliver two exception classes. | fix-now | `D6` already ruled *fix*, and it is **`T-010`'s, not `T-007`'s batch**: the predicate widens by one line, the message needs the executor to read `HttpClient.Timeout`. |
+| `HTTP` | Two timeout bounds deliver two exception classes. | fix-now | `D6` already ruled *fix*, and it is **`T-010`'s, not `T-007`'s batch**: the predicate widens by one line, the message needs the executor to read `HttpClient.Timeout`. **`T-010`: fixed and the ledger entry deleted; `AC-HTTP-008.2` rewritten. Both halves of this reason are wrong — the one-line widening fixes neither case, and the executor does read `HttpClient.Timeout`. See *Drift checkpoints*.** |
 | `HTTP` | The package ships no HTTP test kit. | leave | A sixth kit is its own change doc; raised by the first consumer, not found here. |
 | `HTTP` | The package surfaces no link or connection diagnostics. | leave | A feature band that would need the package to own the primary handler. |
 
@@ -879,7 +880,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   task line reads "54: the decline stated on the page and the ledger line closed". `_findings.md`
   has never carried a `DaleSharedAssembly` entry — the HTTP pass's own record says only 28n left one
   ([`archive/2026-09-06-http-pass.md:757`](archive/2026-09-06-http-pass.md)) — and the decline is
-  already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:330`, its rationale at `:346`), landed
+  already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:347`, its rationale at `:363`), landed
   by that pass. So `T-010` is row 28n plus a re-read of a criterion that already says what the task
   asks to be said, not two halves. This is the same shape as `T-005`'s missing entry: the second
   task line in three to name a ledger entry that does not exist, both times for a question a pass
@@ -1321,6 +1322,54 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `Escalated to the operator as a Jira candidate` lines (one wrapping across `:328-329`), five
   routings agreeing with `D7`, plus the VION-130 link row — six `Jira` rows, as `T-006` recorded. The
   first task line in five whose count held.
+- **`T-010`: the clause that blocks the ceiling is `cts.IsCancellationRequested`, not `timeout != null`.**
+  Row 28n and the task line both say the predicate "fires only when a per-request timeout was given,
+  and widening it is one line". Widening it that way fixes nothing. `HttpClient` cancels its *own*
+  linked source when its bound elapses and never touches the one the executor passed, so
+  `cts.IsCancellationRequested` is false on the ceiling's path whether or not a per-request timeout
+  was set — and `cts.IsCancellationRequested` is only ever true when one *was* set, which makes
+  `timeout != null` a null-guard for `timeout.Value` and nothing else. Measured, not reasoned: the row
+  now named `NameClientBoundUnderLongerPerRequestBound` passed before the fix, with
+  `timeout != null` true, asserting the `TaskCanceledException` it received — which it could only do
+  with `cts.IsCancellationRequested` false. Two mutations were run, and they redden differently.
+  Dropping `timeout != null` literally, as the entry proposes, leaves the predicate false on both
+  ceiling paths and reddens the two rows on the *class* alone. Dropping `cts.IsCancellationRequested`
+  instead — the charitable reading, and the only one of the two that relabels anything — reddens the
+  longer-bound row on the *number*, which reads "Timed out after 60 seconds" for an exchange that ran
+  50 ms. Neither is the fix: the first does nothing and the second names the wrong bound.
+- **`T-010`: the executor does know the client's timeout, so the bound is named on both paths.** Row
+  28n's reason for parking the fix — "saying 'after {n} seconds' on the ceiling's path needs the
+  executor to read `HttpClient.Timeout`, which it never does" — reads the failure path, where there
+  is a factory and no client. `SendAsync` holds the client as a local, and relabelling in its own
+  `catch` names `httpClient.Timeout` with no threading and no second `CreateClient`. So the scope
+  guard's out (an unnamed bound) was not needed, and `AC-HTTP-008.2` states the number.
+- **`T-010`: row 54 confirmed, as `T-006` recorded.** No `DaleSharedAssembly` entry has ever been in
+  `_findings.md` (`grep -c` → 0 at `fe83284` and here), and `AC-HTTP-013.3` (`docs/specs/http.md:347`,
+  rationale at `:363` — `:330` and `:346` on `fe83284`, before this PR's own edits moved them) already states the decline the task line asks for. Nothing changed for this
+  half. The one page pointer this fix *did* owe was the other half's: the `AC-HTTP-008` prose ended
+  "the finding ledger carries the ask to normalise the two", and that sentence went with the entry.
+- **`T-010`: the ledger is 68 entries, 12 rows resolved.** `T-009` left 69 and 11; deleting row 28n
+  as fixed moves both by one (`fix-now 5, decision 6, Jira 6, leave 63` unchanged — the buckets
+  count rows, and 28n's row now reads *resolved*). Row 45's entry cites the same file: its
+  `:329` and `:297` are `:344` and `:301` after the fix, corrected in place, and its claim — that the
+  relabel asks what failed rather than only whether the source fired — is untouched, the new
+  `catch` taking only `OperationCanceledException` and only around the header exchange.
+- **`T-010`: the review round found the first cut of the `catch` filter relabelling cancellations that
+  were not the ceiling.** `!cts.IsCancellationRequested` alone reads as "the only other cancellation
+  left is the client's", and that inference is wrong: a `DelegatingHandler` in the named client's
+  pipeline can cancel on a token of its own, and the runtime can add one by name. Measured through the
+  real executor rather than argued — a throwaway probe with a stub handler throwing an
+  `OperationCanceledException` under an explicit 30 s client bound reached the block as
+  `"Timed out after 30 seconds"` for an exchange that took no time, wrapping a transport failure
+  `AC-HTTP-006.1` says arrives as the handler threw it. (The permanent row sets no bound, so it runs
+  against `HttpClient`'s own 100 s default; the number in the message was the probe's, and nothing in
+  the suite produces it.) The filter
+  now also requires `exception.InnerException is TimeoutException`, which the client sets for its own
+  bound and nothing else, and `DeliverOneExceptionClassPerFailure` gained a `TransportCancellation`
+  row that reddens without it. One caveat stated rather than hidden: that inner exception is .NET 5+
+  behaviour, so on a host older than the one this SDK's plugins load into the ceiling would go back to
+  arriving as a cancellation — a degradation to today's behaviour, never a false claim, which is the
+  right way round for a bound the message names.
 
 ---
 
@@ -1329,7 +1378,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
 > No criterion changes **owed here**: this doc's own deltas are process documents, each a task
 > above, so the archive gate has nothing to compare. Criteria that a task's lane-1 fix moves are
 > carried by the page edit in that task's PR and are listed in *Drift checkpoints*, not here —
-> `T-007` minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded `AC-ANLZ-018.3`.
+> `T-007` minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded `AC-ANLZ-018.3`,
+> and `T-010` rewrote `AC-HTTP-008.2`.
 > The doc archives when the Implementation state reads done for every task, by the session that
 > lands `T-019`.
 

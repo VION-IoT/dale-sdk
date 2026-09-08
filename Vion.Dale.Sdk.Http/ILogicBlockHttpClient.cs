@@ -26,9 +26,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -39,8 +38,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
@@ -75,9 +74,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -88,8 +86,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
@@ -131,9 +129,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -144,8 +141,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
@@ -188,9 +185,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -200,8 +196,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
@@ -243,9 +239,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -256,8 +251,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
@@ -296,9 +291,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -309,8 +303,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
@@ -341,9 +335,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -354,8 +347,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
@@ -394,9 +387,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
-        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
-        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
-        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
+        ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
         ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
         ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
         ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
@@ -406,8 +398,8 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own
         ///     timeout rather than in place of it: whichever elapses first ends the request, so a value longer
-        ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
-        ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
+        ///     than the client's does not extend it. Either bound's expiry arrives as a
+        ///     <see cref="TimeoutException" /> naming, in seconds, the bound that actually elapsed.
         /// </param>
         /// <exception cref="ArgumentNullException">
         ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> or

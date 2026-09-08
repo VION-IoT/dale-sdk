@@ -237,17 +237,34 @@ either, which is why a block that cares passes a callback.
   zero SHALL fail the request at once, and the infinite timeout SHALL apply no per-request bound.
 - `AC-HTTP-008.2` (Ubiquitous): THE SYSTEM SHALL bound every request by the client's own timeout as
   well, a per-request timeout never raising it, and SHALL deliver that bound's expiry as a
-  `TaskCanceledException`.
+  `TimeoutException` naming the client's timeout in seconds, rendered in the invariant culture.
 
-**Two bounds, two classes, and the smaller bound wins.** A per-request timeout is applied *in
-addition to* the client's, not in place of it: a value longer than the client's does not extend
-anything, and the request then ends at the client's bound and arrives as the platform's cancellation
-rather than as this package's `TimeoutException`. A block that catches only `TimeoutException` will
-miss every expiry of the ceiling, and the finding ledger carries the ask to normalise the two.
+**Two bounds, one class, and the smaller bound wins.** A per-request timeout is applied *in addition
+to* the client's, not in place of it: a value longer than the client's does not extend anything, and
+the request then ends at the client's bound. Both expiries arrive as the same `TimeoutException`, so
+a block that catches it catches every timeout it can have — including every request that set no
+per-request timeout at all, where the client's is the only bound there is. What tells the two apart
+is the number, which is always the bound that actually elapsed: a per-request value the request never
+reached is never the one named.
+
+Not every cancellation is one of the two, and the package does not treat it as one. A handler in the
+composed pipeline can cancel on a token of its own, and that reaches the block as what it is
+(`AC-HTTP-006.1`'s last row) rather than as a bound expiring. The two are told apart at their
+sources: the per-request bound by the state of the source this package armed, the client's by the
+`TimeoutException` the client puts inside the cancellation it raises for its own bound and for
+nothing else.
+
+That inner exception is the platform's, not this package's, and it is what tells the ceiling apart
+from any other cancellation rather than leaving it guessed at: the client has set it since .NET 5.
+The runtime this SDK's plugins load into is past that, and it is the host `AC-HTTP-008.2` is stated
+for. The `netstandard2.1` target reaches further back, and on a host that predates .NET 5 the
+client's bound arrives as the cancellation it raises with nothing to relabel it — the behaviour this
+criterion replaced, never a message naming a bound that did not elapse.
 
 The number in the message is rendered invariantly, so the string reads the same on every machine —
 the gateways this runs on are German-locale, where a culture-rendered `0.05` reads `0,05` and no
-support query finds it.
+support query finds it. Both bounds are named through one rendering, so the two messages cannot
+drift apart.
 
 A timeout of zero is not "no timeout": the cancellation source it builds is already expired, so the
 request fails immediately against any handler that honours cancellation. The value that means no
@@ -372,12 +389,23 @@ raised them.
 
 ## Test discipline
 
-The suite drives the real executor over a stub innermost handler, behind the real named client, and
-**awaits the executor's own task** before asserting; callbacks are then drained from a dispatcher
-stub that queues them the way a real actor does. Nothing waits on the wall clock. The discriminator
-for every timeout claim is a handler that never answers and honours cancellation — never a delay
-raced against a shorter bound ([`../testing-conventions.md`](../testing-conventions.md) § 16), and
-never a handler that ignores the token, which reads the opposite of a real one on a zero bound.
+The suite reaches the wire through two client seams, and every row that issues a request takes one of
+them: a stub factory's client, where a fixture meets the bounds it sets itself rather than the
+registration's, or the composed package — the real `AddDaleHttpSdk` and the real named client, only
+the innermost handler replaced — where the timeout, the `User-Agent` and the handler chain are under
+test rather than reconstructed. Holding a seam and issuing are separate things: a registration row
+composes the package and reads the client's own configuration without sending anything, and a
+refusal row is answered at the caller before a request exists. The rows on no seam at all stand where
+their claim lives — the client's member-mapping family on a mocked executor, because mapping a member
+to an executor call is all those members do; the surface family on the assembly; the serializer
+family on content alone.
+
+The executor's rows that do issue drive the real executor over a stub innermost handler and **await
+the executor's own task** before asserting; callbacks are then drained from a dispatcher stub that
+queues them the way a real actor does. Nothing waits on the wall clock. The discriminator for every timeout
+claim is a handler that never answers and honours cancellation — never a delay raced against a
+shorter bound ([`../testing-conventions.md`](../testing-conventions.md) § 16), and never a handler
+that ignores the token, which reads the opposite of a real one on a zero bound.
 
 Three limits of that seam are contract rather than accident, because the stub replaces the very
 handler the platform composes:

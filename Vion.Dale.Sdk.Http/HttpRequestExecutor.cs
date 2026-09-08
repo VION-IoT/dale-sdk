@@ -294,7 +294,29 @@ namespace Vion.Dale.Sdk.Http
         private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationTokenSource cts)
         {
             var httpClient = _httpClientFactory.CreateClient(HttpClientName);
-            var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            HttpResponseMessage response;
+
+            try
+            {
+                response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException exception) when (!cts.IsCancellationRequested && exception.InnerException is TimeoutException)
+            {
+                /* The client's own bound elapsed, and both clauses are needed to know that. Three things
+                 * can cancel this call — the per-request source, a handler in the named client's pipeline
+                 * cancelling on a token of its own, and the client's timeout — and all three arrive as an
+                 * OperationCanceledException, so the class caught says only that one of them happened. The
+                 * first is what the per-request source's own flag excludes; the other two are told apart by
+                 * the inner exception, which the client sets to a TimeoutException only for its own bound.
+                 * Reading the flag alone hands a handler's cancellation to the block as a timeout naming the
+                 * client's bound, for an exchange that never reached it — wrapping a transport failure
+                 * `AC-HTTP-006.1` says arrives as the handler threw it.
+                 *
+                 * The relabel is here rather than beside the per-request one in HandleException so that the
+                 * bound can be named from the client that imposed it, which is a local of this method; the
+                 * failure path holds only the factory, and would have to build a second client to read it. */
+                throw TimedOut(httpClient.Timeout);
+            }
 
             try
             {
@@ -328,9 +350,7 @@ namespace Vion.Dale.Sdk.Http
             // "Timed out after n seconds" with nothing left of what actually went wrong.
             if (exception is OperationCanceledException && cts.IsCancellationRequested && timeout != null)
             {
-                // Invariantly, not in the machine's culture: this message is what a block author matches on
-                // and what a support engineer greps for in a gateway log, and the gateways are German-locale.
-                exception = new TimeoutException($"Timed out after {timeout.Value.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds");
+                exception = TimedOut(timeout.Value);
             }
 
             LogRequestFailed(exception, httpMethod, url);
@@ -338,6 +358,19 @@ namespace Vion.Dale.Sdk.Http
             {
                 TryInvokeCallback(dispatcher, () => callback(exception), httpMethod, url);
             }
+        }
+
+        /// <summary>
+        ///     Builds the timeout for either bound — the one exception class this package mints rather than
+        ///     passes through from the transport. The number is rendered invariantly rather than in the
+        ///     machine's culture: this message is what a block author matches on and what a support engineer
+        ///     greps for in a gateway log, and the gateways are German-locale, where a culture-rendered
+        ///     <c>0.05</c> reads <c>0,05</c> and no query for the one finds the other. Both bounds are named
+        ///     through this one rendering, so the two messages cannot drift apart.
+        /// </summary>
+        private static TimeoutException TimedOut(TimeSpan bound)
+        {
+            return new TimeoutException($"Timed out after {bound.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds");
         }
 
         private void TryInvokeCallback(IActorDispatcher dispatcher, Action callback, HttpMethod httpMethod, string url)
