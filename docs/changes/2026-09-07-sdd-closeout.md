@@ -1507,6 +1507,13 @@ names the file and section that states the rule now, and *lane 3 § N* is
 - **`T-012`: the *Implementation state* row now covers `T-020`.** `T-011`'s checkpoint above left
   the to-come row reading `T-012` … `T-019` and named the next lander as the one to extend it. Done:
   the row reads `T-013` … `T-020`.
+- **`T-012` is the first phase-2 task line that needed no correction.** Every number and assumption
+  in it survived re-derivation: the nine gate lines, and the brief's two `[assumed]` flags (all nine
+  gates runnable at the desk; `-Diff origin/main` as CI's local equivalent). Four phase-1 task lines
+  carried wrong numbers — `T-004`, `T-005`, `T-006`, `T-008` — and `T-020`'s was wrong twice more, so
+  the counts-are-hypotheses rule has fired every round until this one. Recorded here rather than in
+  the journal, which is a friction log: a task line that held is evidence for retro-1, and retro-1
+  reads this doc and the journal, never a REPORT.
 - **`T-012`: "nine gate lines" holds, and the § Gates table's ten rows are not a contradiction.**
   `spec-gates.yml` has nine `./scripts/*.ps1` steps; `spec-process.md` § Gates carries ten rows
   because `spec-change.ps1 archive` is on demand and in no workflow. The first count in this phase's
