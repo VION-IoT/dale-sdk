@@ -755,3 +755,18 @@ is the review report only.
 
 `spec-gates.yml` runs on every PR (it is file-greps only — no build), because `publish.yml`
 ignores `docs/**` and a docs-only PR must still be gated.
+
+**Run the nine with `pwsh -File scripts/check.ps1`, or the `/check` command.** It derives them
+from `spec-gates.yml` rather than repeating the table above — a gate added to the workflow with
+no local invocation fails `check.ps1` instead of quietly not running — and prints one pass/fail
+line per gate, carrying that gate's own summary line. `-Build` and `-Test` add the solution
+build and test suite, off by default because this suite's whole point is being cheap enough to
+run on every change. `-CiShape` runs in the Linux runner's shape: the repository's
+dot-directories hidden, a scan for path literals in `scripts/*.ps1` whose casing disagrees with
+the git index, and `-p:Version=0.0.0-ci.1` on the build and test.
+
+A gate that cannot run at the desk is reported **skipped** with the reason, and one that ran
+without part of itself is reported **partial** naming what did not run. Neither is a pass. The
+live case is `spec-lint`: without `origin/main` fetched its narrative rule would compare nothing
+and still report OK, so `check.ps1` runs the gate without `-Diff` and says so rather than either
+skipping eight working rules or reporting a vacuous green.
