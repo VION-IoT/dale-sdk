@@ -317,14 +317,20 @@ brief: **a count in a task line is a hypothesis** — four phase-1 task lines ca
   where it belongs: the plugin's `ingest` journals into the coordinator repo the plugin finds, which
   is the architecture repo — so a dale-sdk worker journals in its own PR, and a `plugin:` line
   records it if that split bites a dale-sdk coordinator.
-- `T-020` *(Sonnet, medium)* — **the floating package versions pinned.**
-  `Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj:11-14` floats four references (`17.*`, `3.*`, `3.*`,
-  `6.*`); a floating version makes every restore query every configured feed for the newest match,
-  so an expired credential on the private feed fails the whole solution restore with `NU1301` —
-  which blocked desk tests and cleanup four times in phase 1 (journal, `infra`, `T-003` to `T-007`).
-  Pin the four to the versions the other test projects use; prove with a restore that reaches only
-  `https://api.nuget.org/v3/index.json`. STOP: the operator's yes, asked 2026-09-09 — the ask is one
-  csproj, four lines.
+- `T-020` *(Sonnet, medium)* — **the restore's sources made the repo's own.** The repo has no
+  `nuget.config`, so a desk restore inherits the machine-level config — nuget.org plus four private
+  Azure DevOps feeds that belong to other repositories — and any restore that must query every
+  source (a floating version, a version not yet cached) fails the whole solution with `NU1301` the
+  moment those feeds' credential expires; that blocked desk tests and cleanup four times in phase 1
+  (journal, `infra`, `T-003` to `T-007`). Every package this solution references, `Vion.Contracts`
+  included, is on nuget.org, and CI restores from nuget.org alone. Land a repo-root `nuget.config`
+  with `<clear/>` and nuget.org, so every machine and CI restore identically and the private feeds'
+  credentials stop mattering here (the publish workflow's `--add-source ./artifacts` is a
+  command-line source and survives the clear — prove it on the PR's CI run). Secondary: pin the four
+  floating references in `Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj:11-14` (`17.*`, `3.*`, `3.*`,
+  `6.*`), the only floats in the repo, to the versions the other test projects use. Renewing the
+  expired token is a machine-local matter for the repositories that use those feeds, not this
+  task's. STOP: the operator's yes, asked 2026-09-09.
 
 **Phase 3 — retro-1.**
 
