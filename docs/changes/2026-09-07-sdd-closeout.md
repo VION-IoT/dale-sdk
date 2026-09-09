@@ -317,20 +317,20 @@ brief: **a count in a task line is a hypothesis** — four phase-1 task lines ca
   where it belongs: the plugin's `ingest` journals into the coordinator repo the plugin finds, which
   is the architecture repo — so a dale-sdk worker journals in its own PR, and a `plugin:` line
   records it if that split bites a dale-sdk coordinator.
-- `T-020` *(Sonnet, medium)* — **the restore's sources made the repo's own.** The repo has no
-  `nuget.config`, so a desk restore inherits the machine-level config — nuget.org plus four private
-  Azure DevOps feeds that belong to other repositories — and any restore that must query every
-  source (a floating version, a version not yet cached) fails the whole solution with `NU1301` the
-  moment those feeds' credential expires; that blocked desk tests and cleanup four times in phase 1
-  (journal, `infra`, `T-003` to `T-007`). Every package this solution references, `Vion.Contracts`
-  included, is on nuget.org, and CI restores from nuget.org alone. Land a repo-root `nuget.config`
-  with `<clear/>` and nuget.org, so every machine and CI restore identically and the private feeds'
-  credentials stop mattering here (the publish workflow's `--add-source ./artifacts` is a
-  command-line source and survives the clear — prove it on the PR's CI run). Secondary: pin the four
-  floating references in `Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj:11-14` (`17.*`, `3.*`, `3.*`,
-  `6.*`), the only floats in the repo, to the versions the other test projects use. Renewing the
-  expired token is a machine-local matter for the repositories that use those feeds, not this
-  task's. STOP: the operator's yes, asked 2026-09-09.
+- `T-020` *(Sonnet, medium)* — **the four floating test references pinned.**
+  `Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj:11-14` floats `Microsoft.NET.Test.Sdk` on `17.*`,
+  `MSTest.TestAdapter` and `MSTest.TestFramework` on `3.*` and `coverlet.collector` on `6.*` — the
+  only floats in the repo. A floating version makes NuGet query *every* configured source to resolve
+  the highest match, so this one project is the only one a private feed's expired credential can
+  fail: measured 2026-09-09 on a clean `dotnet restore Vion.Dale.Sdk.sln`, 74 of 75 projects restore
+  and `Vion.Dale.Cli.Test` alone dies on `NU1301` / 401. That is the blockage the journal records
+  four times in phase 1 (`infra`, `T-003` to `T-007`). Pin the four to the versions the other test
+  projects already carry — `Microsoft.NET.Test.Sdk` `18.0.1` and `coverlet.collector` `6.0.4`, with
+  the split `MSTest.TestAdapter`/`MSTest.TestFramework` pair to be resolved against the `MSTest`
+  `4.0.2` meta-package the other MSTest projects use, whichever keeps the suite green. Nothing about
+  CLI/SDK version sync rides on these: all four are third-party test packages in a project with
+  `IsPackable: false`, and the `Vion.Dale.*` versions come from git tags with no `<Version>` in any
+  SDK `.csproj`. STOP: none — the operator ruled on the re-scope 2026-09-09.
 
 **Phase 3 — retro-1.**
 
@@ -1419,6 +1419,23 @@ names the file and section that states the rule now, and *lane 3 § N* is
   behaviour, so on a host older than the one this SDK's plugins load into the ceiling would go back to
   arriving as a cancellation — a degradation to today's behaviour, never a false claim, which is the
   right way round for a bound the message names.
+
+- **`T-020` was re-scoped a second time: the `nuget.config` half is dropped and the floats are the
+  whole task** (coordinator round 4, 2026-09-09, on the operator's challenge to both premises). The
+  2026-09-09 re-scope rested on two claims and neither survived being checked. *"CI restores from
+  nuget.org alone"* is false: the shared `publish-nuget.yml` runs
+  `VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1` before the gate builds, and that
+  action registers `ecocoach.csharplogicsystem` — the same private feed the desk inherits as machine
+  source 2, and the one this repo's own CI pushes its packages to. A repo-root `nuget.config` with
+  `<clear/>` would therefore strip from every in-repo CI restore a source CI deliberately sets up,
+  which is the opposite of making the two restore identically. And the inherited sources are not what
+  fails: a clean `dotnet restore Vion.Dale.Sdk.sln` on `24c9b83` restores 74 of 75 projects with the
+  four feeds' 401 as an `NU1900` warning and dies only on `Vion.Dale.Cli.Test`, because a floating
+  version is what forces NuGet to query every source. The floats are the cause and the pins are the
+  fix; renewing the expired Azure DevOps credential is the fix for the repositories that actually
+  consume those feeds. The operator's second question — whether the floats keep the CLI's version in
+  step with the SDK's — is answered no by the four package names: all third-party test packages, in
+  a project with `IsPackable: false`, in a repo where no SDK `.csproj` carries a `<Version>` at all.
 
 ---
 
