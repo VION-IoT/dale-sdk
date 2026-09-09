@@ -34,6 +34,8 @@ YYYY-MM-DD · <where> · <topic, PR #, or —> · <what happened, one line>
 - `release` — the release / example-bump / upload lane creaked
 - `infra` — CI runner, package feeds, credentials
 - `agent` — agent behavior or process
+- `plugin` — the dispatch mechanics themselves creaked: a hook that blocked wrongly, a report not
+  filed, a launch refused wrongly, a stale fetch
 - `manual` — human grumble
 
 Append at the bottom, newest last — `scripts/journal-lint.ps1` (in `spec-gates.yml`) fails CI on a

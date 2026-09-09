@@ -248,7 +248,8 @@ operator decides; a task with none is reviewed on its PR.
   disposal.** Harvest every SDD-window session from `~/.claude/projects/C---gh-dale-sdk*` and
   `C---gh-architecture` into `docs/retro/2026-09-sdd-pass-data.md`: pass, role, start, end, wall
   time, messages, tool uses, compactions, transcript size — before the transcripts age out. Then
-  delete the machine-local residue listed above, after `T-002` has copied whatever it keeps.
+  delete the machine-local residue listed above, after `T-002` has copied whatever it keeps; the
+  dispatch mechanics live in the `vion-dispatch` plugin's README now, so the deletion loses nothing.
 
 **Phase 2 — the standing process.**
 
@@ -510,7 +511,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
 | The brief is a pointer; scope and test scope as folders and projects the session enumerates itself; a Drift checkpoint where the brief differs; an empty anchor kind is a checkpoint, not a row | lane 3 § 1 |
 | A brief's counts are hypotheses — a fresh-context `Explore` subagent checks the brief before dispatch | lane 3 § 1 |
 | A hedge in a brief (*"appears to … — verify"*) is a STOP | lane 3 § 1 |
-| The launcher recipe, the model rubric, the per-process permission mode, `-AmendFile` round-trips | lane 3 § 2 |
+| The launcher recipe, the model rubric, the per-process permission mode, `-AmendFile` round-trips | lane 3 § 2, which points at `architecture/plugins/vion-dispatch/README.md` |
 | Scaffold with `spec-change.ps1 new`; the change doc is implementer-owned | § Change docs; § Lanes → lane 2 |
 | Anchor inventory first; `AttributeTargets` read against the targets its readers walk | lane 3 § 3 |
 | The statement, consumer, edge-value and state-interaction sweeps, with the symmetric-mechanism prompt and the fail-closed walk | lane 3 § 3 |

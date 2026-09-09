@@ -225,8 +225,11 @@ repay the same debt.
 
 #### 1. The brief
 
-Written to `C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md` — the gitignored home the
-launcher's permission model expects — and a **pointer, not a restatement**: the change-doc path;
+Written by `/vion-dispatch:spawn` from the plugin's `templates/brief.md`, so it carries the envelope's
+front matter (`key`, `unit`, `sections`, `pr`, `branch`, `deps`, `steer`) — lane 3's `pr:` is
+`stop-before`, because the REPORT comes first and the PR opens on the operator's go. It lands at
+`C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md` — the gitignored home the
+launcher's permission model expects — and is a **pointer, not a restatement**: the change-doc path;
 "decisions and review resolutions are binding; contradictions go to Drift checkpoints, not silent
 divergence"; the PR shape; every open point pre-classified; house discipline (branch, tests cite ids,
 `/cleanup` once pre-PR, `/vion-code-review branch` before the PR); and a read-only note per
@@ -254,21 +257,25 @@ existed to find.
 
 #### 2. Dispatch
 
-Dispatched to a fresh session with the architecture repo's launcher, exactly as `/implement` and
-`/fix` dispatch — never reimplement the launch inline; the launcher encodes hard-won constraints.
-Emit the launch line in a single `bash` fence (the fence is the copy button):
-
-```
-pwsh -NoProfile -File "C:\_gh\architecture\scripts\launch-session.ps1" -Repo "C:\_gh\dale-sdk" -Brief "C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md" -Model <opus|sonnet> -Effort <medium|high> -Name "<slug>: dale-sdk" -SessionId "<uuid>" -AddDirs "C:\_gh\architecture<,read-only dep>" -PermissionMode bypassPermissions
-```
+Dispatched to a fresh session with `/vion-dispatch:spawn`, exactly as `/implement` and `/fix` dispatch
+— **never reimplement the launch inline**; the launcher encodes hard-won constraints. The command
+writes the brief, runs the pre-flight, and launches: a dirty tree, a wrong branch or another live
+session in the checkout is refused with the standard three-answer question (*Worktree*, *Wait*,
+*Override*), and the launched session posts an idle notice when it goes quiet. The permission mode is
+the launcher's job — it reads the target repo's own `defaultMode` — so nothing is hand-added here.
+Ratification round-trips still use the launcher's `-AmendFile` plus the printed `-SessionId`; the
+two-phase STOP maps onto it directly.
 
 Model rubric: Opus unless the slice is mechanical (then Sonnet); High effort for
-design-bearing/correctness-sensitive work, Medium for a contained change. The permission mode is
-**per process**: a launch or an `-AmendFile` resume without the flag starts in default mode and stops
-at a startup prompt before its first turn (CLI 2.1.258 ignores `settings.local.json`'s `defaultMode`;
-the launcher reads it when the flag is omitted), and a default-mode session holds every inbound peer
-message. Pass the flag on every launch and every resume. Ratification round-trips use the launcher's
-`-AmendFile` plus the printed `-SessionId` — the two-phase STOP maps onto it directly.
+design-bearing/correctness-sensitive work, Medium for a contained change.
+
+The mechanics live in
+[`architecture/plugins/vion-dispatch/README.md`](https://github.com/VION-IoT/architecture/blob/main/plugins/vion-dispatch/README.md)
+(§ launch-session.ps1 for the parameter set and the composition constraints, § Pre-flight for what is
+detected and refused), and the VION procedure around them in
+[`architecture/runbooks/session-orchestration.md`](https://github.com/VION-IoT/architecture/blob/main/runbooks/session-orchestration.md).
+Where a path is needed it is `plugins/vion-dispatch/scripts/launch-session.ps1`; the old
+`architecture/scripts/launch-session.ps1` is a deprecated forwarding shim and is never cited.
 
 #### 3. Extract before you specify
 
@@ -513,6 +520,15 @@ fixture asserts a build-time literal, add a run under CI's shape
 otherwise — MTP runner in preview, multi-reference crash), read survivors by hand, never a gate and
 never a score.
 
+The envelope, the base sections (`Deviations`, `Questions`, `Friction`, `Affects others`) and the
+style a report is filled in are the plugin's — see
+[`vion-dispatch/README.md`](https://github.com/VION-IoT/architecture/blob/main/plugins/vion-dispatch/README.md)
+§ The envelope, and do not restate them here. Everything this section demands is carried as **extra
+sections**, which a lane 3 brief lists in its `sections:` line and the coordinator copies from here
+verbatim: `Self-check`, `Gates`, `Test to mutation`, `GAP`, `Park rows`, `Relay notes`. The session
+ends with `/vion-dispatch:report` and the `Stop` hook files the report under the coordinator repo's
+`.claude/briefs/reports/`; "no PR yet" is the brief's `pr: stop-before`.
+
 #### 7. The two checks, and the fix-up session
 
 After the REPORT and before any PR, the coordinator runs two fresh-context **Opus** subagents
@@ -552,17 +568,23 @@ retiring at the REPORT costs one session's ramp-up and saves a further round. Th
 the round with targeted reads of every item at its call site, and dispatches a further Opus check
 only when a targeted read finds a blocker.
 
-**The relay.** A REPORT may arrive as a cross-session message rather than as the session's last
-transcript text: the coordinator saves it from the message and says so, because the transcript's last
-text may be a one-word answer. Outbound, the amend file is the artifact, written first; the
-cross-session message pointing at it is only a notification, and it reaches the session only when
-**both** sessions run in bypass mode.
-The sender checks its own mode before sending, then verifies within a minute in the recipient's
-transcript — a `<cross-session-message from-name=…>` entry is delivery, a `Held peer message` entry
-is not. Held, or nothing after two minutes: the operator pastes the file into the tab, or — tab
-closed, never while it is open — resumes with `-AmendFile … -PermissionMode bypassPermissions`. One
-round lost ten hours to a relay that was held and expired unseen. The coordinator's watch wakes a
-session on **two** signals, not one: a last transcript text that starts with an API error, and a last
+**The relay.** The **file** is the artifact, in both directions. A REPORT is filed by the `Stop` hook
+under the coordinator repo's `.claude/briefs/reports/`, and `/vion-dispatch:ingest` reads the latest
+file for a key and unit — so nothing depends on the transcript's last text, which may be a one-word
+answer. A notification is one line (`/vion-dispatch:send-report`); losing it loses nothing.
+Inbound delivery is the launcher's job: it passes `--settings '{"crossSessionInbound":"accept"}'` to
+every session it opens, so an amendment is delivered rather than held — measured in the plugin
+README's "Verified on" table, which also records that the permission-mode pair decides delivery only
+where no such setting applies. See
+[`vion-dispatch/README.md`](https://github.com/VION-IoT/architecture/blob/main/plugins/vion-dispatch/README.md)
+§ Cross-session messaging; the coordinator's own inbound is a workstation setting, not a launcher one.
+Lane 3's own rule stands on top of that: **the amend file is the fresh session's brief**, written
+first, and the message only points at it. Held, or nothing after two minutes: the operator pastes the
+file into the tab, or — tab closed, never while it is open — resumes with `-AmendFile …`. One round
+lost ten hours to a relay that was held and expired unseen, so the sender still greps the recipient's
+transcript within a minute — a `<cross-session-message from-name=…>` entry is delivery, a
+`Held peer message` entry is not. The coordinator's watch wakes a session on **two** signals, not
+one: a last transcript text that starts with an API error, and a last
 text that has not changed across an interval longer than the phase's longest task — a hung turn
 writes no record and sends no idle notice, and one hung for six hours before "the response stopped
 arriving" surfaced. The watch does not run while the machine sleeps, so the wall clock is the only

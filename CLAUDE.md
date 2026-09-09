@@ -3,6 +3,10 @@
 > Clone it: `git clone git@github.com:VION-IoT/architecture.git ../architecture`
 > Before planning a feature with scope ≥ 2 repos, read the relevant `architecture/systems/*.md`
 > and run `/spec <slug> <repos>` from the architecture repo.
+> Cross-repo work is dispatched with the `vion-dispatch` plugin
+> ([mechanics](https://github.com/VION-IoT/architecture/blob/main/plugins/vion-dispatch/README.md),
+> [VION procedure](https://github.com/VION-IoT/architecture/blob/main/runbooks/session-orchestration.md)).
+> A session dispatched into this repo ends with `/vion-dispatch:report`.
 
 # Vion Dale SDK
 

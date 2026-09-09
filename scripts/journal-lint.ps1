@@ -31,7 +31,7 @@ $journal = Join-Path $RepoRoot $rel
 if (-not (Test-Path -LiteralPath $journal)) { Write-Host "journal-lint: no $rel under $RepoRoot"; exit 2 }
 
 # The vocabulary is the journal header's own list (## Format) - keep the two in step.
-$where = 'review|brief|gate|consumer|release|infra|agent|manual'
+$where = 'review|brief|gate|consumer|release|infra|agent|plugin|manual'
 $sep = ' · '
 $entryRx = "^(?<date>\d{4}-\d{2}-\d{2})$sep(?<where>[a-z]+)$sep(?<topic>.+?)$sep(?<what>\S.*)$"
 # A full entry stamp anywhere on a line: the shape a glued append leaves after the previous entry's text.
