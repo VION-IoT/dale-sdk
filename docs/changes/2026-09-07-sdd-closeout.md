@@ -24,7 +24,7 @@ Fourteen area passes, the unification pass and the ledger review closed the migr
 `docs/specs/` on 2026-09-06. What is open is closing it out (the pass skill retired with its lessons
 kept, the leftovers decided, the ledger and Jira dispositioned), turning the pass machinery into a
 standing three-lane process with its tooling, running the first retro over the migration's data, and
-releasing what the passes fixed. Four phases, nineteen tasks, one fresh session per task, the
+releasing what the passes fixed. Four phases, twenty tasks, one fresh session per task, the
 operator at the STOP lines. Decided in the `sdk: sdd big picture` session on 2026-09-07.
 
 ### Spec implications
@@ -317,20 +317,32 @@ brief: **a count in a task line is a hypothesis** — four phase-1 task lines ca
   where it belongs: the plugin's `ingest` journals into the coordinator repo the plugin finds, which
   is the architecture repo — so a dale-sdk worker journals in its own PR, and a `plugin:` line
   records it if that split bites a dale-sdk coordinator.
-- `T-020` *(Sonnet, medium)* — **the restore's sources made the repo's own.** The repo has no
-  `nuget.config`, so a desk restore inherits the machine-level config — nuget.org plus four private
-  Azure DevOps feeds that belong to other repositories — and any restore that must query every
-  source (a floating version, a version not yet cached) fails the whole solution with `NU1301` the
-  moment those feeds' credential expires; that blocked desk tests and cleanup four times in phase 1
-  (journal, `infra`, `T-003` to `T-007`). Every package this solution references, `Vion.Contracts`
-  included, is on nuget.org, and CI restores from nuget.org alone. Land a repo-root `nuget.config`
-  with `<clear/>` and nuget.org, so every machine and CI restore identically and the private feeds'
-  credentials stop mattering here (the publish workflow's `--add-source ./artifacts` is a
-  command-line source and survives the clear — prove it on the PR's CI run). Secondary: pin the four
-  floating references in `Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj:11-14` (`17.*`, `3.*`, `3.*`,
-  `6.*`), the only floats in the repo, to the versions the other test projects use. Renewing the
-  expired token is a machine-local matter for the repositories that use those feeds, not this
-  task's. STOP: the operator's yes, asked 2026-09-09.
+- `T-020` *(Sonnet, medium)* — **the four floating test references pinned.**
+  `Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj:11-14` floats `Microsoft.NET.Test.Sdk` on `17.*`,
+  `MSTest.TestAdapter` and `MSTest.TestFramework` on `3.*` and `coverlet.collector` on `6.*` — the
+  only floats in the repo. A floating version can never be answered from the global packages cache:
+  NuGet must reach every configured source to re-resolve the highest match on **every** restore, so
+  this project stays network-bound for the life of the float while its pinned siblings restore from
+  cache. That is why a private feed's expired credential fails this one project and not the other 74
+  — measured 2026-09-09 on a clean `dotnet restore Vion.Dale.Sdk.sln`, and it is the blockage the
+  journal records four times in phase 1 (`infra`, `T-003` to `T-007`; `:360` states the mechanism
+  correctly). Pin the four to the versions the rest of the repo carries: `18.0.1` for
+  `Microsoft.NET.Test.Sdk` (24 projects; the two `Vion.Examples.PingPong` test projects carry
+  `17.14.1` and are the exception, not the target), `6.0.4` for `coverlet.collector` (18 projects),
+  and the split `MSTest.TestAdapter`/`MSTest.TestFramework` pair resolved against the `MSTest`
+  `4.0.2` meta-package the other 18 MSTest projects use, whichever keeps the suite green. Sweep the
+  sibling while there: this file's `coverlet.collector` is the only bare one in the repo — the other
+  18 all carry `<PrivateAssets>all</PrivateAssets>` and the `<IncludeAssets>runtime; build; native;
+  contentfiles; analyzers; buildtransitive</IncludeAssets>` block (`Vion.Dale.Sdk.Test.csproj:13-18`).
+  Nothing about CLI/SDK version sync rides on any of this: all four are third-party test packages in
+  a project with `IsPackable: false`, and the `Vion.Dale.*` versions come from git tags with no
+  `<Version>` in any SDK `.csproj`. Done when a clean `dotnet restore Vion.Dale.Sdk.sln` at the desk
+  reports **75 of 75** with the private feeds' credential still expired. What this task does **not**
+  fix, and must not claim to: an expired credential still fails any package this machine has not
+  cached, pinned or not (`Markdig 0.37.0`, exact and uncached, takes the same `NU1301` / 401). The
+  cache is what protects the pinned projects; the pins only stop one project being permanently
+  network-bound. Renewing — better, rotating — the Azure DevOps credential is the root fix and is the
+  operator's. STOP: none — the operator ruled on the re-scope 2026-09-09.
 
 **Phase 3 — retro-1.**
 
@@ -1420,6 +1432,41 @@ names the file and section that states the rule now, and *lane 3 § N* is
   arriving as a cancellation — a degradation to today's behaviour, never a false claim, which is the
   right way round for a bound the message names.
 
+- **`T-020` was re-scoped a second time: the `nuget.config` half is dropped, the floats are the whole
+  task, and the first reason given for dropping it was itself wrong** (coordinator round 4,
+  2026-09-09, on the operator's challenge to both premises; corrected by the round's review before
+  the PR). The re-scope rested on two claims. The first — *"CI restores from nuget.org alone"* — is
+  false, and it is the reason the `<clear/>` file is dropped: the shared `publish-nuget.yml` runs
+  `VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1` at its line 107, before
+  `dotnet-gate@v1` at 113, and that action registers `ecocoach.csharplogicsystem` — the same private
+  feed the desk inherits as machine source 2, and the one this repo's own CI pushes its packages to.
+  A repo-root `nuget.config` with `<clear/>` would strip from every in-repo CI restore a source CI
+  deliberately sets up, which is the opposite of making the two restore identically. The second
+  claim — that the inherited sources *"are not what fails"*, because a floating version is what
+  forces the every-source query — **is wrong, and was wrong in the first draft of this checkpoint.**
+  Pinning is not what protects the other 74 projects; the global packages cache is. An exact version
+  that is not cached takes the identical `NU1301` / 401 (probed 2026-09-09: `Markdig 0.37.0`, exact
+  and uncached, fails; a cached exact version restores). The true distinction is that a float is
+  *permanently* network-bound while an exact version is network-bound only until first cached —
+  which is what this repo's own journal already said at `:360` on 2026-09-07, *"NuGet must reach
+  every source to re-resolve them while the pinned projects restore from cache"*, and what the
+  redraft dropped by deleting that final clause. The correction re-sizes the task: the pins fix the
+  one reproducing trigger, not the cause. A fresh clone, a cleared cache, a new `PackageReference`
+  or any version bump reproduces the whole-solution failure with all four floats pinned, and this
+  repo releases every other day. The root fix is the credential, and it is the operator's; two
+  options this checkpoint's own reasoning should have surfaced and did not are a repo `nuget.config`
+  that **adds** nuget.org and the private feed without `<clear/>`, and `--ignore-failed-sources`,
+  already the documented workaround at `Vion.Dale.Cli/CLAUDE.md:126`. One evidential sentence was
+  also miscast and is gone: the four feeds' `NU1900` lines are the *vulnerability-audit* source
+  failing, non-fatal by design and independent of pinning — a pinned, cached restore emits the same
+  four. Resolution failure is a different code path and it errors. The operator's second question —
+  whether the floats keep the CLI's version in step with the SDK's — is answered no by the four
+  package names: all third-party test packages, in a project with `IsPackable: false`, in a repo
+  where no SDK `.csproj` carries a `<Version>` at all. Left undone on purpose: the *Implementation
+  state* table's to-come row still reads `T-011` … `T-019` and names no `T-020`, so that task's
+  worker has no row to update. `T-011`'s PR is open on that exact line and owns it this round;
+  whoever lands next extends the row to `T-020`.
+
 ---
 
 ## Spec delta (to distill)
@@ -1436,7 +1483,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
 
 ## Tasks
 
-> The nineteen tasks are enumerated with their lanes, models and STOP lines under *The phases and
+> The twenty tasks are enumerated with their lanes, models and STOP lines under *The phases and
 > their tasks*; the completion record is the Implementation state table plus each PR.
 
 - `T-001` the handover (this PR) · `T-002` skill retirement and `spec-process.md` steady state ·
