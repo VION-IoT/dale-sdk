@@ -80,6 +80,20 @@ try {
     [System.IO.File]::WriteAllLines($journal, [string[]]@('# Process journal', '', '2026-09-02 · gate · #1 · Entry.'), [System.Text.UTF8Encoding]::new($false))
     Expect 1 'Case 8 (no Entries heading)' 'Entries'
 
+    # Case 9: every <where> in the vocabulary is accepted, `plugin` included -> 0
+    Write-Journal @(
+        '2026-09-02 · review · #1 · A correction.',
+        '2026-09-02 · brief · #2 · A brief was wrong.',
+        '2026-09-02 · gate · #3 · A gate false-failed.',
+        '2026-09-02 · consumer · #4 · A consumer hit a workaround.',
+        '2026-09-02 · release · #5 · The release lane creaked.',
+        '2026-09-02 · infra · #6 · A feed was down.',
+        '2026-09-02 · agent · #7 · An agent misread a convention.',
+        '2026-09-02 · plugin · #8 · The Stop hook did not file the report.',
+        '2026-09-02 · manual · #9 · A grumble.'
+    )
+    Expect 0 'Case 9 (full vocabulary)' '9 entries'
+
     Write-Host 'journal-lint.tests: PASS'
     exit 0
 }
