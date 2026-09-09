@@ -412,7 +412,8 @@ never a silent absorption.
 | `T-008` | done — **partial by measurement**: decision 0145 recorded and the Modbus half landed; the four larger entries stay in the ledger with their counts | `sdk: sdd closeout T-008` | #198 |
 | `T-009` | done | `sdk: sdd closeout T-009` | #199 |
 | `T-010` | done — 28n fixed and `AC-HTTP-008.2` rewritten; row 54 re-read and unchanged; two `T-009` opens closed in #201 | `sdk: sdd closeout T-010` | #200, #201 |
-| `T-011` … `T-019` | to come | — | — |
+| `T-011` | done — harvest committed (`docs/retro/2026-09-sdd-pass-data.md`, 45 sessions), then the machine-local residue disposed per the brief | `sdk: sdd closeout T-011` | (this PR) |
+| `T-012` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -1466,6 +1467,42 @@ names the file and section that states the rule now, and *lane 3 § N* is
   state* table's to-come row still reads `T-011` … `T-019` and names no `T-020`, so that task's
   worker has no row to update. `T-011`'s PR is open on that exact line and owns it this round;
   whoever lands next extends the row to `T-020`.
+- **`T-011`: the "what the passes measured" heuristic table undercounted fix-ups by one and missed a
+  second compaction.** `docs/retro/2026-09-sdd-pass-data.md` (harvested by direct transcript parse,
+  not a string count) shows **twelve** fix-up sessions, not eleven — INTRO and SCEN both drew one,
+  where the heuristic table implied only nine of the fourteen passes did; only PLUG and EMIT ran with
+  none. Two pass sessions carry a compaction (SCEN and CTRL), not the one the table's "0 (one at 1)"
+  said. The tool-use ranges (pass 137–723, coordinator 318–1409) match exactly; the size ranges are
+  close but not identical once the fix-up rows and two aborted coordinator false starts are counted
+  on their own. The doc's separate prose claim of "~27 h (INTRO, with a 10 h stall)" falling to "~3 h"
+  does not reconcile against INTRO's own session wall time (13.04 h end to end, no visible gap) —
+  flagged in the retro file rather than silently corrected, since which bound that figure meant
+  (session wall time vs. coordinator dispatch-to-signoff latency) is not recoverable from the
+  transcripts alone.
+- **`T-011`: both globs matched fifteen project directories, not the handful the task line and the
+  handoff named.** Beyond `C---gh-dale-sdk*` and `C---gh-architecture*`'s literal two, the actual set
+  is `C---gh-architecture`, `C---gh-architecture-dispatch`, `C---gh-dale-sdk`, two
+  `--claude-worktrees-` directories (neither held an SDD-window session), the nine per-area fix-up
+  directories and `C---gh-dale-sdk-unify`. All fifteen were scanned; the retro file's own § *What was
+  scanned* names them.
+- **`T-011`: 298 sessions fall inside the SDD window by timestamp; 45 are the effort's own.** The
+  other 253 are ~230 `Task`-tool subagent transcripts (no `custom-title`/`agent-name`, so not counted
+  as sessions in the sense the change doc's own table uses the word) and ~23 sessions of unrelated
+  concurrent work by the same operator in the same repos the same week (Jira items, a timesheet
+  reconstruction, the `vion-dispatch` plugin's own construction and self-tests). One exception is
+  kept in despite its plugin-shaped title: `session-orchestration: dale-sdk` landed PR #202 — the
+  handoff's own Round 3 history — so it is retro-relevant under a new `infra` role rather than folded
+  into a role it doesn't fit. The retro file states the inclusion rule in full.
+- **`T-011`: this session's own checkout carried another session's uncommitted edits.** A prior
+  coordinator round (`sdk: sdd closeout coordinator 2`) had rewritten `T-020`'s task line and added a
+  journal line locally, in this same shared checkout (`C:\_gh\dale-sdk`, not a worktree), and ended
+  without committing. Recovered onto its own branch,
+  `sdd-closeout/T-020-rescope-round4-recovered`, rather than losing it or folding it into this PR —
+  neither authored by this task, and `D15`'s parallel-worktree trial exists precisely to keep two
+  sessions from sharing one working tree like this. Not pushed; the operator's or `T-020`'s own
+  session to pick up. *(Recovered onto `sdd-closeout/T-020-rescope-round4-recovered` and landed
+  as PR #205 — the corrected `T-020` re-scope above is that recovery, picked up and fixed by
+  `sdk: sdd closeout coordinator 2`.)*
 
 ---
 
