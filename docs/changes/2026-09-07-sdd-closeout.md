@@ -5,7 +5,7 @@ blocked-on: none           # for parked docs: what's blocking + ref
 areas: process             # the process itself, as in 2026-09-01-sdd-process.md
 author: jonas.bertsch (drafted with Claude in the session `sdk: sdd big picture`)
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-09
 supersedes: none
 ---
 
@@ -93,6 +93,24 @@ design; what was wrong was the flat claim above, not the absence of a delta.
   not at every process step. Applies to `T-014`, `T-015`, `T-016` and to any later port. What this
   means for this repo's own commit stop (working agreement 2) is `T-013`'s to settle with the
   operator.
+- `D12` — **Review is in-session, and its record is the PR body** (operator, 2026-09-09). Before
+  the PR a fresh-context `/vion-code-review branch` subagent reviews; the session applies the
+  findings; the operator's dispositions are one `review` journal line in the commit that applies
+  them; the round is written as a Review section of the PR body. No draft PRs and no GitHub review
+  comments — that loop is too slow, and the operator wants it inside the session. Mesh's `/vion-pr`
+  is dropped whole.
+- `D13` — **Working agreement 2 changes for every session** (operator, 2026-09-09): commit on the
+  task branch without a diff pause, never push to `main`, the PR is where the operator reads the
+  diff and asks for one earlier when wanted. Consequence: a worker in this repo can be a **batch**
+  worker (`steer: no`) where no STOP line is expected, and is steered where one is.
+- `D14` — **PR and commit shape** (operator, 2026-09-09): the PR title is `<scope>: <what a reader
+  sees>`; the body follows `.github/pull_request_template.md` with fixed sections — the
+  consumer-visible change, the spec ids touched, the `/check` output pasted, the review round, the
+  verification beyond gates; commits are subject-only and imperative, no verb list, because the
+  squash merge keeps only the PR title.
+- `D15` — **Parallel worktrees are on trial, not a pattern** (operator, 2026-09-09): the
+  coordinator may run disjoint tasks in sibling worktrees, which the launcher's pre-flight offers,
+  and records what it cost; no standing doc recommends it until a phase has shown it works.
 
 ### Reviewer's questions
 
@@ -251,24 +269,33 @@ operator decides; a task with none is reviewed on its PR.
   delete the machine-local residue listed above, after `T-002` has copied whatever it keeps; the
   dispatch mechanics live in the `vion-dispatch` plugin's README now, so the deletion loses nothing.
 
-**Phase 2 — the standing process.**
+**Phase 2 — the standing process.** Re-cut on 2026-09-09 (`D12`–`D15`) after the `vion-dispatch`
+plugin landed. Dispatched by the phase's coordinator with `/vion-dispatch:spawn`, one worker per
+task, batch unless a STOP line is expected; each worker ends with `/vion-dispatch:report` and the
+coordinator ingests with `/vion-dispatch:ingest` (§ Session protocol). One rule rides in every
+brief: **a count in a task line is a hypothesis** — four phase-1 task lines carried wrong numbers
+(`T-004`, `T-005`, `T-006`, `T-008`), so a session re-derives every number before acting on it.
 
-- `T-012` *(Opus, medium)* — **`/check`.** `scripts/check.ps1` runs every gate spec-gates.yml runs,
-  optionally build and test, and prints one pass/fail line per gate; `.claude/commands/check.md`;
-  `spec-process.md` § Gates points at it. The passes pasted nine gate lines by hand each time.
+- `T-012` *(Opus, medium)* — **`/check`.** `scripts/check.ps1` runs every gate `spec-gates.yml`
+  runs, optionally build and test, and prints one pass/fail line per gate; a `-CiShape` switch adds
+  what phase 1 found green at the desk and red on the Linux runner — the hidden-directory walk,
+  case-sensitive paths, the `-p:Version=0.0.0-ci.1` run where a fixture pins a build literal.
+  `.claude/commands/check.md`; `spec-process.md` § Gates points at it. The passes pasted nine gate
+  lines by hand each time.
 - `T-013` *(Opus, medium)* — **the lanes made operable.** `spec-process.md` § Lanes completed with
-  the triage questions, the session start (the pointer prompt below), the title scheme, the REPORT
-  shape and the STOP convention; `CLAUDE.md`'s working agreement gains one line pointing there, and
-  its commit stop (agreement 2) is re-shaped for lane sessions with the operator per `D11` — the
-  operator wants fewer interaction stops on process steps, the PR as the review point;
-  `.github/pull_request_template.md` with the pass PR body's shape: what a consumer sees (the relay
-  notes), the gate lines pasted, the review round.
-- `T-014` *(Opus, medium)* — **the PR gate.** `/vion-pr` ported from mesh under `D11`: refuses on
-  `main` or a dirty tree, opens a draft PR, runs `/vion-code-review` in a fresh-context subagent
-  with the model passed explicitly, records `Gate review N — reviewed at <sha>` as a PR comment with a
-  status column, reruns with `since:<sha>`, never merges, and asks the operator nothing on the way —
-  the findings and their dispositions are read on the PR; `/vion-code-review` gains the
-  `since:<ref>` scope.
+  the triage questions, how a lane-1 or lane-2 session starts (inline when the operator drives it,
+  `/vion-dispatch:spawn` when it is dispatched), the counts-are-hypotheses rule, the brief's
+  `sections:` extras for lanes 1 and 2 (`Gates`, `Review`) and the STOP convention; `CLAUDE.md`'s
+  working agreement 2 rewritten per `D13` and the agreement given one line pointing at § Lanes;
+  `.github/pull_request_template.md` per `D14`, with the pass PR body's shape: what a consumer sees
+  (the relay notes), the spec ids touched, the `/check` output pasted, the review round, the
+  verification beyond gates.
+- `T-014` *(Opus, medium)* — **the in-session review loop** (`D12`). `/vion-code-review` gains the
+  `since:<ref>` scope for a second round over only what moved since the first; the Review section's
+  shape for the PR body — round, findings by severity, each fixed or accepted with its reason —
+  written by the session that ran the review; the rule that the operator's dispositions are one
+  `review` journal line in the commit that applies them. No draft PR, no PR comments; nothing of
+  mesh's `/vion-pr` is ported.
 - `T-015` *(Opus, medium)* — **collect and retro.** `/vion-codify` ported under `D11` (journal
   lines on the branch → codify / already covered / wait, stamped `→ codified:`, the table proposed
   and applied in one pass, the operator ruling on the PR rather than row by row); `/vion-retro`
@@ -278,15 +305,26 @@ operator decides; a task with none is reviewed on its PR.
   dated note). Retro-0's D6 said wait for data; fourteen passes are the data.
 - `T-016` *(Sonnet, medium)* — **conventions import.** `docs/harness-conventions.md` from mesh's
   `harness.md` (a file describes itself, one owner per rule, written to be copied); the
-  commit-subject rule as a rule in the working agreement, enforced by whatever commits — not
-  `/vion-commit`'s grouping-and-confirm flow (question 6, `D11`). Nothing from `testing.md` or
-  `comment.md` wholesale.
+  commit-subject rule per `D14` — subject-only, imperative, no verb list — in the working
+  agreement, enforced by whatever commits, never `/vion-commit`'s grouping-and-confirm flow
+  (question 6, `D11`). Nothing from `testing.md` or `comment.md` wholesale.
 - `T-017` *(Opus, medium; cwd `C:\_gh\architecture`)* — **the architecture side.** `/fix` and
   `/implement` gain a dale-sdk clause: briefs point at spec pages and cite ids, oblige a page edit for
   a fix-sized behaviour change and a change doc for a feature-sized one, and the REPORT names the
   ids touched; `docs/fix-workflow.md` says the same in a sentence; `libraries/dale-sdk.md` re-pointed
   from RFC 0005/0007/0015/0017/0018 to the spec pages that absorbed them; the drift loop's signals
-  gain `dale-sdk/docs/specs/**` inside decision 0102's boundaries (flag, never edit).
+  gain `dale-sdk/docs/specs/**` inside decision 0102's boundaries (flag, never edit). One more line
+  where it belongs: the plugin's `ingest` journals into the coordinator repo the plugin finds, which
+  is the architecture repo — so a dale-sdk worker journals in its own PR, and a `plugin:` line
+  records it if that split bites a dale-sdk coordinator.
+- `T-020` *(Sonnet, medium)* — **the floating package versions pinned.**
+  `Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj:11-14` floats four references (`17.*`, `3.*`, `3.*`,
+  `6.*`); a floating version makes every restore query every configured feed for the newest match,
+  so an expired credential on the private feed fails the whole solution restore with `NU1301` —
+  which blocked desk tests and cleanup four times in phase 1 (journal, `infra`, `T-003` to `T-007`).
+  Pin the four to the versions the other test projects use; prove with a restore that reaches only
+  `https://api.nuget.org/v3/index.json`. STOP: the operator's yes, asked 2026-09-09 — the ask is one
+  csproj, four lines.
 
 **Phase 3 — retro-1.**
 
@@ -308,35 +346,39 @@ operator decides; a task with none is reviewed on its PR.
 
 ### Session protocol
 
-Start a task in a **fresh session** with the repo as project folder, title `sdk: sdd closeout T-0NN`,
-model and effort from the task line, `C:\_gh\architecture` read-only where the task reads there.
-First message:
+Phase 1 ran on a pointer prompt the operator pasted into a fresh session per task, with a
+hand-written REPORT block; that shape is archived in this doc's history (PR #191). From phase 2 on
+the effort runs on the `vion-dispatch` plugin — the mechanics in
+[`architecture/plugins/vion-dispatch/README.md`](https://github.com/VION-IoT/architecture/blob/main/plugins/vion-dispatch/README.md),
+the VION procedure in
+[`architecture/runbooks/session-orchestration.md`](https://github.com/VION-IoT/architecture/blob/main/runbooks/session-orchestration.md).
 
-```
-Read docs/changes/2026-09-07-sdd-closeout.md and execute task T-0NN. Follow ./CLAUDE.md and
-docs/spec-process.md; their commit and approval rules win. Branch sdd-closeout/T-0NN-<slug>
-from origin/main, open a PR, never merge. Before the PR: every gate spec-gates.yml runs (or
-/check once it exists), /cleanup once, and a fresh-context read-only subagent running
-/vion-code-review branch with this change doc as the spec. Update this doc's Implementation
-state row and, on any divergence, its Drift checkpoints, in the same PR. Stop at every STOP line
-and wait for the operator. End with the REPORT block the doc names.
-```
+**The coordinator** is one session per phase, cwd `C:\_gh\dale-sdk`, titled
+`sdk: sdd closeout coordinator N`. It owns this doc and never implements: it dispatches one task
+per worker with `/vion-dispatch:spawn`, ingests the filed REPORT with `/vion-dispatch:ingest`,
+records outcomes here (its own docs PR, or the next worker's brief carries the edit), answers a
+worker's `Questions` in an amendment or the next brief, never only in chat, and retires at a round
+boundary with `/vion-dispatch:handoff`. The handoff file under
+`architecture/.claude/briefs/handoffs/` is the coordinator's memory between sessions; this doc is
+the effort's.
 
-The REPORT closes the session's last message, in a fenced block:
+**A worker** is a fresh session in this repo, titled `sdk: sdd closeout T-0NN`, batch
+(`steer: no`) unless its task carries a STOP line, then steered (`D13`). Its brief is a pointer —
+this doc's path and the task id, the counts-are-hypotheses rule, `sections: Deviations, Questions,
+Friction, Affects others, Gates, Review`, `pr: expected`, `branch: sdd-closeout/T-0NN-<slug>`,
+`deps: C:\_gh\architecture` where the task reads there — and nothing `CLAUDE.md` already says. The
+worker branches from `origin/main`, does the task, runs `/check` (until it exists: every gate
+`spec-gates.yml` runs) and `/cleanup` once, runs the in-session review (`D12`), updates this doc's
+Implementation state row and, on any divergence, its Drift checkpoints in the same PR, appends its
+own journal lines in that PR so `Friction` carries only what it could not journal, opens the PR
+without merging, and ends with `/vion-dispatch:report`. The REPORT's `Gates` section is the pasted
+`/check` output; `Review` is the round's findings and their dispositions.
 
-```
-REPORT ▸ T-0NN · sdd-closeout
-Status:      done | blocked | partial
-PR:          <url, or none>
-Deviations:  <numbered: what differs from the task and why — or "none">
-Questions:   <numbered: what needs the operator — or "none">
-Friction:    <journal candidates, one line each — or "none">
-Next:        <the next task id, or the STOP awaiting the operator>
-```
-
-The doc is the durable record; the REPORT is for the operator's eyes. The operator merges. A session
+**The operator** merges, and answers STOP lines — a `partial` REPORT is a STOP reached. Two
+workers at once run in sibling worktrees on disjoint tasks (`D15`, on trial); their rows in the
+Implementation state table are adjacent lines, so the second PR to merge rebases first. A worker
 that finds its task band-sized stops and says so: the task becomes its own change doc in lane 3,
-never a silent absorption. Two sessions at once need two worktrees and disjoint rows in this file.
+never a silent absorption.
 
 ### Implementation state
 
@@ -351,7 +393,7 @@ never a silent absorption. Two sessions at once need two worktrees and disjoint 
 | `T-007` | done | `sdk: sdd closeout T-007` | #197 |
 | `T-008` | done — **partial by measurement**: decision 0145 recorded and the Modbus half landed; the four larger entries stay in the ledger with their counts | `sdk: sdd closeout T-008` | #198 |
 | `T-009` | done | `sdk: sdd closeout T-009` | #199 |
-| `T-010` | in PR — 28n fixed and `AC-HTTP-008.2` rewritten; row 54 re-read and unchanged | `sdk: sdd closeout T-010` | #200 |
+| `T-010` | done — 28n fixed and `AC-HTTP-008.2` rewritten; row 54 re-read and unchanged; two `T-009` opens closed in #201 | `sdk: sdd closeout T-010` | #200, #201 |
 | `T-011` … `T-019` | to come | — | — |
 
 ### Ledger dispositions
@@ -1396,4 +1438,5 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `T-007` the fix-now batch · `T-008` the public-API ratchet's scope · `T-009` Jira · `T-010` the HTTP
   decisions · `T-011` transcript harvest and kit disposal · `T-012` `/check` · `T-013` the lanes made
   operable · `T-014` the PR gate · `T-015` collect and retro · `T-016` conventions import · `T-017`
-  the architecture side · `T-018` retro-1 · `T-019` the release
+  the architecture side · `T-018` retro-1 · `T-019` the release · `T-020` the floating package
+  versions pinned
