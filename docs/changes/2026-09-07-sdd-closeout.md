@@ -317,9 +317,10 @@ brief: **a count in a task line is a hypothesis** — four phase-1 task lines ca
   written by the session that ran the review; the rule that the operator's dispositions are one
   `review` journal line in the commit that applies them. No draft PR, no PR comments; nothing of
   mesh's `/vion-pr` is ported.
-  *(`since:` computes the diff `branch:<ref>` already computed; it is kept for the second round's
-  obligations, not for new arithmetic. Reviewer's question 4 was decided here too — see* Drift
-  checkpoints *and question 4's OUTCOME.)*
+  *(`since:<ref>` was **not** minted: `branch:<ref>` already computes the second round's diff, and
+  `since:` differs only where it is more dangerous, so § 1a keys the round's obligations on the
+  condition instead — this task line's naming is the part of it that was wrong. Reviewer's question 4
+  was decided here too — see* Drift checkpoints *and question 4's OUTCOME.)*
 - `T-015` *(Opus, medium)* — **collect and retro.** `/vion-codify` ported under `D11` (journal
   lines on the branch → codify / already covered / wait, stamped `→ codified:`, the table proposed
   and applied in one pass, the operator ruling on the PR rather than row by row); `/vion-retro`
@@ -439,7 +440,7 @@ never a silent absorption.
 | `T-011` | done — harvest committed (`docs/retro/2026-09-sdd-pass-data.md`, 45 sessions), then the machine-local residue disposed per the brief | `sdk: sdd closeout T-011` | #206 |
 | `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | #207 |
 | `T-013` | done | `sdk: sdd closeout T-013` | #208 |
-| `T-014` | done — reviewer's question 4 decided (no command files) and the answer written into the appendix; lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | #209 |
+| `T-014` | done — the second round keyed on `branch:<ref>` rather than a new `since:` keyword (`D1`, coordinator); reviewer's question 4 decided (no command files); lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | #209 |
 | `T-015` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
@@ -1636,21 +1637,34 @@ names the file and section that states the rule now, and *lane 3 § N* is
   phone is the operator driving, which is the inline case with the operator at a different keyboard.
   Neither earns a row, and the subsection says "the lane does not decide which" rather than tying a
   lane to a way in.
-- **`T-014`: `since:<ref>` computes no diff `branch:<ref>` did not already compute.** The task line
-  and the brief both read as if the second round needed a new scope resolution. It does not:
+- **`T-014`: `since:<ref>` was designed, measured, and then dropped as a `D1` finding.** The task
+  line names it and the brief says to keep it "unless you find a reason not to". There is one, and
+  the brief's own `[assumed]` — that it is a scope keyword and not a modifier — is what led to it.
   `git merge-base <ref> HEAD` returns `<ref>` whenever `<ref>` is an ancestor of `HEAD`, which every
-  first-round hash on the branch under review is, so `branch:<ref>` and `since:<ref>` produce the
-  same hunks — `git diff --stat 1226d49 3c3adbd` and
+  first-round hash on the branch under review is, so `branch:<ref>` already computes the second
+  round's diff: `git diff --stat 1226d49 3c3adbd` and
   `git diff --stat $(git merge-base 1226d49 3c3adbd) 3c3adbd` both report `5 files changed,
   144 insertions(+), 13 deletions(-)`, and `git merge-base 1226d49 3c3adbd` prints `1226d49`. Both
   ends are pinned commits on purpose: the first writing of this checkpoint compared a **working
   tree**, and its pasted numbers were stale by the next commit, which is `P1` catching the sentence
-  that explains `P1`. The keyword is kept, and the brief's `[assumed]` reading — a keyword, not a
-  modifier combining with the other three — holds, but the reason is the **job** and not the
-  arithmetic: a second round has three obligations the diff cannot state (read the first round's
-  record first, do not re-raise what the operator accepted, check that round 1's findings were
-  applied where they were said to be). Those are § 1a of the command, and the section says the
-  overlap out loud so the next reader does not mint a second way to compute the same thing.
+  that explains `P1`.
+  The first attempt kept the keyword anyway, for the obligations hanging off it, and recorded the
+  overlap here. The coordinator called that `D1` — *"a shorthand that duplicates a general path"*,
+  the shape of the dropped `Order = X` — and asked for the one case where the two spellings are not
+  equivalent. There is one, and it argues the other way. For a ref that is **not** an ancestor,
+  `branch:` still diffs from the fork point and reports only what the branch added, while `since:`
+  diffs literally and reports the other ref's files as **deletions this branch never made**:
+  in a three-commit throwaway repo, `git diff --name-status $(git merge-base other HEAD)` gives
+  `A m.txt` and `git diff --name-status other` gives `A m.txt` plus `D o.txt`. So `since:`'s only
+  distinct behaviour is a hazard — phantom hunks attributed to the change under review — in the case
+  a second round never has. A keyword that duplicates a general path where it is used and degrades
+  worse where it is not, for a mode nothing has yet run, is `D1` twice over.
+  **The second round now has no scope of its own.** § 1a keys on the condition instead: when the
+  base given to `branch:` is a commit on the branch under review, the session is in a second round
+  and owes three things the diff cannot state — read the first round's record first, do not re-raise
+  what the operator accepted, check that round 1's findings were applied where they were said to be.
+  One sentence, no new surface. The task line's `since:<ref>` naming is the part of `T-014` that was
+  wrong.
 - **`T-014`: the review command contradicted nothing of `D12`; § Lanes' lane 2 did.** The brief asked
   for the command to be read for draft-PR or PR-comment assumptions rather than only added to. It
   carries none — *"Do not edit, commit, stage, or post anything to a PR"* opens it and `pr:<N>` says

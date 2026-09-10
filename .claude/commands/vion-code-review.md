@@ -1,6 +1,6 @@
 ---
-description: Adversarially review a change (uncommitted, branch, a second round, or PR) against this repo's conventions, the lead's known findings taxonomy, and a spec if one is given
-argument-hint: [uncommitted|branch[:base]|since:<ref>|pr[:N]] [spec-path] [notes]
+description: Adversarially review a change (uncommitted, branch, or PR) against this repo's conventions, the lead's known findings taxonomy, and a spec if one is given
+argument-hint: [uncommitted|branch[:base]|pr[:N]] [spec-path] [notes]
 ---
 
 Another agent produced the change under review. You did **not** write it, and you are not here to
@@ -15,9 +15,6 @@ Look at the first argument:
 - `branch` → everything this branch adds relative to its base (default `main`), **including** uncommitted
   work. Compute it from the fork point so the base branch's own later commits don't leak in: diff from
   `git merge-base <base> HEAD` to the working tree. Override the base with `branch:<base>`.
-- `since:<ref>` → **a second round**: only what moved since an earlier round, `git diff <ref>` to the
-  working tree. `<ref>` is the commit that round reviewed. See § 1a — a second round is a different job,
-  not a smaller diff.
 - `pr:<N>` → fetch that PR's diff read-only with `gh pr diff <N>` and review it here. Never comment on it.
 - `pr` → **the PR this branch is on**: resolve it with `gh pr view --json number,url`, then proceed as
   `pr:<N>`. If the branch has no PR, say so and fall back to `branch`.
@@ -31,11 +28,14 @@ unreviewed change; say which scope you resolved before reporting anything.
 `docs/snapshots/publicapi-manifest.json` and `cli-help-snapshot.txt` onto the PR head. Those are machine
 output — review what they *reveal* (an unintended public-surface change) but never the diff itself.
 
-## 1a. A second round — what `since:` changes
+## 1a. A second round — `branch:<a commit on this branch>`
 
-The diff `since:<ref>` computes is not new. Where `<ref>` is a commit on the branch under review,
-`git merge-base <ref> HEAD` **is** `<ref>`, so `branch:<ref>` already produces the same hunks. The
-keyword exists because the second round is a different job, and three of its obligations do not
+**A second round has no scope of its own.** Give `branch:` the commit the first round reviewed:
+`git merge-base <ref> HEAD` **is** `<ref>` whenever `<ref>` is an ancestor of `HEAD`, so
+`branch:<that hash>` is exactly "everything that moved since round 1" with no new keyword behind it.
+
+So: **when the base you were given is a commit on the branch under review, you are running a second
+round.** Say so when you say which scope you resolved, and take on three obligations that do not
 follow from the diff:
 
 - **Read the first round's record before reading the diff** — the PR body's *Review round* section if
@@ -261,7 +261,7 @@ Four rules about that block:
   reviewer's judgment, not the session's to re-sort.
 - **No findings is a result, not an empty section.** Write `Round N — <scope> at <hash>: no findings.`
   A missing section reads as a round that was skipped.
-- **A second round is its own block**, run as `since:<the first round's hash>` (§ 1a). The body carries
+- **A second round is its own block**, run as `branch:<the first round's hash>` (§ 1a). The body carries
   both blocks; nothing is rewritten in place, because the first round's findings and their dispositions
   are what the second round was scoped against.
 

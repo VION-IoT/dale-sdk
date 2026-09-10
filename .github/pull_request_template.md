@@ -28,7 +28,7 @@ and `-Build` / `-Test` when the change touches C#. -->
 
 <!-- The in-session `/vion-code-review branch` round from a fresh-context subagent: findings by
 severity, each one fixed or accepted with its reason. One block per round, in the shape
-`.claude/commands/vion-code-review.md` § 7 sets out; a second round is `since:<the first round's
+`.claude/commands/vion-code-review.md` § 7 sets out; a second round is `branch:<the first round's
 hash>` and gets its own block. No findings is a result — write it. The operator's dispositions ride
 as one `review` line in `docs/process-journal.md`, in the commit that applies them (`CLAUDE.md`
 working agreement 7). -->

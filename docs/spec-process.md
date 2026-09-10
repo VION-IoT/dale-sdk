@@ -607,7 +607,7 @@ implementing session producing amendment items done wrongly, with checkpoints th
 retiring at the REPORT costs one session's ramp-up and saves a further round. The coordinator closes
 the round with targeted reads of every item at its call site, and dispatches a further Opus check
 only when a targeted read finds a blocker. A further check is a **second round**, scoped
-`since:<the REPORT's hash>` ([`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 1a),
+`branch:<the REPORT's hash>` ([`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 1a),
 so it reads what the fix-up session moved and not the round the amendment already dispositioned.
 
 **The relay.** The **file** is the artifact, in both directions. A REPORT is filed by the `Stop` hook
