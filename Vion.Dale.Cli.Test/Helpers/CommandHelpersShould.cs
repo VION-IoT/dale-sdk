@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Spectre.Console;
 using Vion.Dale.Cli.Helpers;
 
 namespace Vion.Dale.Cli.Test.Helpers
@@ -205,6 +206,80 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             // Assert
             Assert.AreEqual(csproj, project!.CsprojPath);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.10")]
+        public void CautionOnceTheProjectIsResolved()
+        {
+            // Arrange — the caution rides project resolution, so this is what proves it is reached at all.
+            // DaleConsole.Warning renders through the global Spectre console, which caches its writer, so
+            // the capture has to replace that console rather than redirect Console.Out beneath it.
+            var originalConsole = AnsiConsole.Console;
+            var captured = new StringWriter();
+            AnsiConsole.Console = AnsiConsole.Create(new AnsiConsoleSettings
+                                                     {
+                                                         Ansi = AnsiSupport.No,
+                                                         ColorSystem = ColorSystemSupport.NoColors,
+                                                         Out = new AnsiConsoleOutput(captured),
+                                                     });
+            var library = Path.Combine(_root, "MyLib");
+            Directory.CreateDirectory(library);
+            var csproj = Path.Combine(library, "MyLib.csproj");
+            File.WriteAllText(csproj, DaleCsproj);
+            CommandHelpers.UseToolVersion("0.11.0");
+
+            try
+            {
+                // Act
+                var project = CommandHelpers.RequireProject(csproj);
+
+                // Assert
+                Assert.IsNotNull(project);
+                StringAssert.Contains(captured.ToString(), "dotnet tool update -g Vion.Dale.Cli");
+            }
+            finally
+            {
+                CommandHelpers.UseToolVersion(null);
+                AnsiConsole.Console = originalConsole;
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.10")]
+        [DataRow("0.11.2", "0.11.0", DisplayName = "a patch behind")]
+        [DataRow("0.12.0", "0.11.2", DisplayName = "a minor behind")]
+        [DataRow("1.0.0", "0.11.2", DisplayName = "a major behind")]
+        [DataRow("0.11.2", "0.11.0-preview.4", DisplayName = "a preview of the older release")]
+        public void CautionWhenToolIsBehindReferencedSdk(string referencedSdk, string toolVersion)
+        {
+            // Arrange, Act
+            var caution = CommandHelpers.DescribeStaleTool(referencedSdk, toolVersion);
+
+            // Assert — the reader has to learn which half is stale and what to run.
+            Assert.IsNotNull(caution);
+            StringAssert.Contains(caution, toolVersion);
+            StringAssert.Contains(caution, referencedSdk);
+            StringAssert.Contains(caution, "dotnet tool update -g Vion.Dale.Cli --version " + referencedSdk);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.10")]
+        [DataRow("0.11.2", "0.11.2", DisplayName = "the same release")]
+        [DataRow("0.11.0", "0.11.2", DisplayName = "a newer tool against a pinned SDK")]
+        [DataRow("0.11.2", "0.0.0", DisplayName = "a local or untagged tool build")]
+        [DataRow("0.0.0", "0.11.2", DisplayName = "a project referencing a local SDK build")]
+        [DataRow("0.11.2", "0.0.0-ci.412", DisplayName = "a CI tool build")]
+        [DataRow("0.11.2-preview.1", "0.11.2", DisplayName = "a preview of the same release")]
+        [DataRow(null, "0.11.2", DisplayName = "a project referencing the SDK by project")]
+        [DataRow("$(SdkVersion)", "0.11.2", DisplayName = "an unevaluated MSBuild property")]
+        public void StaySilentWhenThereIsNoStaleTool(string? referencedSdk, string toolVersion)
+        {
+            // Arrange, Act
+            var caution = CommandHelpers.DescribeStaleTool(referencedSdk, toolVersion);
+
+            // Assert
+            Assert.IsNull(caution);
         }
 
         private void WriteProject(string name, string content)

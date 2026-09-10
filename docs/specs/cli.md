@@ -107,6 +107,14 @@ standard output, exit 1.
   Dale projects.
 - `AC-CLI-003.9` (Ubiquitous): THE SYSTEM SHALL report a project's package identity as its declared
   package id, falling back to its file name, and its root namespace the same way.
+- `AC-CLI-003.10` (Event-driven): WHEN a resolved project references an SDK release newer than the
+  running tool's own THE SYSTEM SHALL say so and name the update command, and SHALL stay silent
+  where either version is `0.0.0`, where the tool is newer, or where the output mode is JSON.
+
+A stale global tool renders the previous release's view of a project that has moved on, and nothing
+else in the output says which half is old — one post-release check read exactly that as a failed
+release. Only the older direction is a trap: a newer tool against a pinned older SDK is a deliberate
+pin, and a `0.0.0` build is on no feed and orders against nothing.
 
 `--project` is an instruction, not a hint: it wins over a solution above the working directory, and
 a path that cannot be used is refused rather than worked around. That is what keeps a typo from
