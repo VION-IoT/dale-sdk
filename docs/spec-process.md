@@ -208,7 +208,10 @@ would otherwise restate. Its front matter differs from lane 3's in two places:
   four plus the two this repo owes. `Gates` is the pasted `/check` output
   ([`.claude/commands/check.md`](../.claude/commands/check.md)); `Review` is the round's findings
   and what was done with each, the same text the PR body carries, in the shape
-  [`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 7 sets out.
+  [`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 7 sets out. It stays six, not
+  seven, for spec ids touched (operator, 2026-09-10): the PR template already carries a *Spec ids
+  touched* section (`D14`), which is where a reader looks; a REPORT exists to hand work back to a
+  coordinator, and ids ride `Deviations` there.
 - `pr:` is `expected`. Only lane 3 stops before the PR, because there the REPORT is what the
   operator reads first.
 
