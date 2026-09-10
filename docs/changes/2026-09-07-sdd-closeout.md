@@ -441,7 +441,8 @@ never a silent absorption.
 | `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | #207 |
 | `T-013` | done | `sdk: sdd closeout T-013` | #208 |
 | `T-014` | done — the second round keyed on `branch:<ref>` rather than a new `since:` keyword (`D1`, coordinator); reviewer's question 4 decided (no command files); lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | #209 |
-| `T-015` … `T-020` | to come | — | — |
+| `T-015` | done — both commands ported; the retro's rotation step gained a line-citation hazard the port sources have no reason to know about, and the journal header gained the `→ codified:` stamp it had never defined | `sdk: sdd closeout T-015` | — |
+| `T-016` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -1477,7 +1478,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   that is not cached takes the identical `NU1301` / 401 (probed 2026-09-09: `Markdig 0.37.0`, exact
   and uncached, fails; a cached exact version restores). The true distinction is that a float is
   *permanently* network-bound while an exact version is network-bound only until first cached —
-  which is what this repo's own journal already said at `:360` on 2026-09-07, *"NuGet must reach
+  which is what this repo's own journal already said at `:374` on 2026-09-07, *"NuGet must reach
   every source to re-resolve them while the pinned projects restore from cache"*, and what the
   redraft dropped by deleting that final clause. The correction re-sizes the task: the pins fix the
   one reproducing trigger, not the cause. A fresh clone, a cleared cache, a new `PackageReference`
@@ -1689,6 +1690,61 @@ names the file and section that states the rule now, and *lane 3 § N* is
   the asymmetry: a reader filling a PR body should not have to follow a link to learn what to do,
   and a reader of the review command should not be able to read a version of the rule that has
   drifted.
+- **`T-015`: mesh's retro marker would redden this repo's own journal gate.** Mesh appends a marker
+  as a bold line — `**Retro N** — …` — under its `## Entries` heading. `scripts/journal-lint.ps1`
+  skips HTML comments and fails *every* other non-entry line below that heading, so porting the
+  marker's shape verbatim would have failed the style-and-gates run on the retro's own PR, at the
+  last step of the round. Retro-0's marker is already an HTML comment; the ported § 9 keeps it one
+  and says why. The task line named the rotation target and not the marker, so this is the shape of
+  drift the counts-are-hypotheses rule is aimed at: what the source does is a hypothesis too.
+- **`T-015`: rotation makes line-number citations into the journal stale by re-pointing them, and
+  nothing in either port source knows that.** Thirteen citations of the form
+  `docs/process-journal.md:138` and ``journal `:71` `` exist on 2026-09-10 — seven in the `ANLZ`
+  pass doc, three in `CLI`, two in `MODB`, one in this doc at `:1480` — and the phrasings differ
+  enough that the grep is something a round *reads* rather than a count it trusts. After a rotation
+  those numbers resolve to whatever entry now occupies that line of the shortened live file, which
+  is worse than breaking. § 9 obliges the archive heading to carry the offset and the round to
+  report the grep's hits with its landing set; rewriting the citations stays the operator's call.
+  This was demonstrated on this PR before it was written down: adding the `→ codified:` paragraph to
+  the journal header moved the retro-0 marker from `:67`, which is where this task's own brief cites
+  it, and moved all thirteen citations with it. All thirteen were shifted back by the same `+14` in
+  this PR, so the delta this change introduced is undone.
+- **`T-015`: the journal's line-citation scheme was already broken before this PR touched it, and
+  no single offset repairs it.** Checking the shifted citations against the entries they land on
+  found the `MODB` doc's two stale by two — both mean the `#128` entry stating `[PublicApi]` as the
+  manifest gate, which they missed — and the `ANLZ` doc's stale by four at `:62`, which means the
+  brief-authored build-output hazard. Both are corrected here, by content. The other nine are **not**
+  audited: the `+4` that repaired `ANLZ`'s first citation repairs neither of the two at `:909`, so
+  the drift was written in one citation at a time as the header grew under them, and untangling nine
+  of those inside three archived docs is a judgment pass, not a sweep this task can carry. The
+  finding itself is worth more than the nine fixes: a pointer scheme that is wrong before anyone
+  moves anything is a candidate landing for retro-1, and `/vion-retro` § 9 now says to resolve a
+  citation by reading the entry rather than by arithmetic.
+- **`T-015`: `/vion-retro` keeps a stop, and `D11` is why that is not a contradiction.** `D11`
+  drops mesh's approval prompts *on process steps*; the landing set is a decision, and `T-018`'s
+  task line names it as a STOP. So the ported command stops exactly once, at § 5, and nowhere else —
+  not to confirm the read, the record or the rotation. `/vion-codify` keeps one stop for the same
+  reason and no other: a journal line that contradicts an existing rule is two sentences disagreeing,
+  and a command that picks between them quietly has changed a convention nobody ruled on.
+- **`T-015`: the ladder's rung 3 mints a `P`-number, never a `D`-number.** Mesh says a landing at
+  that rung "goes into that command's named checks, in the format defined there". Here that format
+  is two families with different provenance: `vion-code-review.md` § 5's `D1`–`D10` are mined from
+  what the lead said between 2026-06-12 and 2026-08-12 and do not grow by invention, while § 6's
+  `P`-numbers are the mintable family the fourteen area passes paid for. The ported § 4 says which.
+- **`T-015`: mesh's thin-window guard is the wrong guard for the first round here.** Its "under ~20
+  entries, warn" survives for later rounds, but the live window below the retro-0 marker holds
+  **354** entries — 125 `review`, 113 `agent`, 55 `gate`, 45 `brief`, 9 `infra`, 5 `release`, 1
+  `manual`, 1 `consumer`, counted 2026-09-10 with this PR's own three lines in it — which no single reader holds. § 2 slices above ~120
+  and adds a merge reader over the slice reports, because a theme drawn four times across four
+  slices is a singleton to every reader and the window's largest cluster to none of them.
+- **`T-015`: the mesh commands are self-contained, with one exception that was dropped.**
+  `vion-retro.md:15` tells the landings to "follow the Workflow" — a mesh concept, defined in that
+  repo and not here. It is replaced by this repo's own working agreement, which after `D13` says the
+  opposite of what mesh's stop-shaped sentence implies: the landings commit as they go and are read
+  at the PR. Nothing else in either file reaches outside itself; `docs/process/journal.md`,
+  `docs/process/retro/` and `/vion-code-review` all have counterparts here. Mesh's
+  `docs/process/retro/` does not exist at all, which is `D8`'s "the retro has never run" confirmed
+  at the filesystem rather than taken on faith.
 
 ---
 
