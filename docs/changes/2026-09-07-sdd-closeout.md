@@ -439,7 +439,7 @@ never a silent absorption.
 | `T-011` | done — harvest committed (`docs/retro/2026-09-sdd-pass-data.md`, 45 sessions), then the machine-local residue disposed per the brief | `sdk: sdd closeout T-011` | #206 |
 | `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | #207 |
 | `T-013` | done | `sdk: sdd closeout T-013` | #208 |
-| `T-014` | done — reviewer's question 4 decided (no command files) and the answer written into the appendix; lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | (this PR) |
+| `T-014` | done — reviewer's question 4 decided (no command files) and the answer written into the appendix; lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | #209 |
 | `T-015` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
