@@ -50,7 +50,9 @@ design; what was wrong was the flat claim above, not the absence of a delta.
   goes last on the operator's word ("no pressure right now"); no consumer is pressing.
 - `D3` — **Three lanes by size, coordinator only in lane 3.** Lane 1: fix-sized, inline — the page
   edit rides the PR, a fresh-context review subagent, `/cleanup`. Lane 2: a change doc, one
-  implementing session, a gate review on the PR. Lane 3: the pass shape generalised — a coordinator,
+  implementing session, a gate review on the PR *(the last clause is superseded by `D12`: the round
+  runs in-session before the PR, and the PR body is its record. Corrected in
+  [`../spec-process.md`](../spec-process.md) § Lanes by `T-014`; see* Drift checkpoints*)*. Lane 3: the pass shape generalised — a coordinator,
   a brief checked before dispatch, an implementer, two fresh-context checks, a fresh fix-up session.
   Triage happens at the start of the work, by three questions: does it change specified behaviour,
   does it cross an area, is a design point open. The passes measured why: implementer sessions ran
@@ -145,6 +147,20 @@ design; what was wrong was the flat claim above, not the absence of a delta.
    `.claude/commands/spec-critic.md` and `.claude/commands/spec-review.md`, taking the `<…>` parts
    as arguments — is the operator's to decide at `T-014` at the latest, which touches the review
    command anyway.
+   **Decided by `T-014` (2026-09-10, handed to it as decide-and-document): they stay the Lanes
+   appendix; no command files.** `T-014` is the first session in a position to judge the overlap,
+   and the overlap is total for one of the two: the adversarial review prompt's first instruction is
+   *"Read …ion-code-review.md and follow it exactly"* ([`../spec-process.md`](../spec-process.md)
+   § Lanes appendix), so `spec-review.md` would be a command file wrapping a command — a second
+   shelf for a rubric this repo keeps in one place, and the drift risk one-owner-per-rule exists to
+   avoid. The completeness critic does **not** overlap — nothing in the review command hunts for
+   observable behaviour a page misses — but it fails the other two tests. Its `<…>` parts are the
+   round's prose (the area's one-sentence definition, the edge values, the parity rule, the
+   neighbouring pages and their pages), which no argument list carries and a coordinator writes by
+   hand either way; and `.claude/commands/` is the shelf for what the operator **types**, while both
+   prompts are dispatched by a coordinator to an `Explore` subagent and are never typed. The
+   reasoning is written into the appendix itself so the question is not reopened from the file that
+   would have changed.
 5. *(b — decide-and-document, `T-004`)* Whether the pragma-reason lint fails or warns on first
    landing. OUTCOME: **fails** from the first landing (the operator leans yes, 2026-09-07).
 6. *(b — decide-and-document, `T-016`)* Whether `/vion-commit` is imported or only its subject rule.
@@ -301,6 +317,9 @@ brief: **a count in a task line is a hypothesis** — four phase-1 task lines ca
   written by the session that ran the review; the rule that the operator's dispositions are one
   `review` journal line in the commit that applies them. No draft PR, no PR comments; nothing of
   mesh's `/vion-pr` is ported.
+  *(`since:` computes the diff `branch:<ref>` already computed; it is kept for the second round's
+  obligations, not for new arithmetic. Reviewer's question 4 was decided here too — see* Drift
+  checkpoints *and question 4's OUTCOME.)*
 - `T-015` *(Opus, medium)* — **collect and retro.** `/vion-codify` ported under `D11` (journal
   lines on the branch → codify / already covered / wait, stamped `→ codified:`, the table proposed
   and applied in one pass, the operator ruling on the PR rather than row by row); `/vion-retro`
@@ -419,8 +438,9 @@ never a silent absorption.
 | `T-010` | done — 28n fixed and `AC-HTTP-008.2` rewritten; row 54 re-read and unchanged; two `T-009` opens closed in #201 | `sdk: sdd closeout T-010` | #200, #201 |
 | `T-011` | done — harvest committed (`docs/retro/2026-09-sdd-pass-data.md`, 45 sessions), then the machine-local residue disposed per the brief | `sdk: sdd closeout T-011` | #206 |
 | `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | #207 |
-| `T-013` | done | `sdk: sdd closeout T-013` | (this PR) |
-| `T-014` … `T-020` | to come | — | — |
+| `T-013` | done | `sdk: sdd closeout T-013` | #208 |
+| `T-014` | done — reviewer's question 4 decided (no command files) and the answer written into the appendix; lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | (this PR) |
+| `T-015` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -1616,6 +1636,37 @@ names the file and section that states the rule now, and *lane 3 § N* is
   phone is the operator driving, which is the inline case with the operator at a different keyboard.
   Neither earns a row, and the subsection says "the lane does not decide which" rather than tying a
   lane to a way in.
+- **`T-014`: `since:<ref>` computes no diff `branch:<ref>` did not already compute.** The task line
+  and the brief both read as if the second round needed a new scope resolution. It does not:
+  `git merge-base <ref> HEAD` returns `<ref>` whenever `<ref>` is an ancestor of `HEAD`, which every
+  first-round hash on the branch under review is, so `branch:<ref>` and `since:<ref>` produce the
+  same hunks — measured on this branch, `git diff --stat 1226d49` and
+  `git diff --stat $(git merge-base 1226d49 HEAD)` both report `5 files changed, 144 insertions(+),
+  13 deletions(-)`. The keyword is kept, and the brief's `[assumed]` reading — a keyword, not a
+  modifier combining with the other three — holds, but the reason is the **job** and not the
+  arithmetic: a second round has three obligations the diff cannot state (read the first round's
+  record first, do not re-raise what the operator accepted, check that round 1's findings were
+  applied where they were said to be). Those are § 1a of the command, and the section says the
+  overlap out loud so the next reader does not mint a second way to compute the same thing.
+- **`T-014`: the review command contradicted nothing of `D12`; § Lanes' lane 2 did.** The brief asked
+  for the command to be read for draft-PR or PR-comment assumptions rather than only added to. It
+  carries none — *"Do not edit, commit, stage, or post anything to a PR"* opens it and `pr:<N>` says
+  *"Never comment on it"* — and `pr:<N>` is not a `D12` breach either: reading an open PR's diff
+  read-only is a scope, not a review posted to it. What was stale sat one file over.
+  [`../spec-process.md`](../spec-process.md) § Lanes described lane 2 as "one change doc, one
+  implementing session, **the gate review on the PR**" — `D3`'s wording, written before `D12` moved
+  the round in-session and before the PR. Lane 1 already named the pre-PR subagent; lane 2 named
+  nothing, so the lane this very task runs in had no round. Lane 2 now runs the same round lane 1
+  does, with the change doc as the spec.
+- **`T-014`: the seam `T-013` was asked to re-check held, and the third statement of the
+  dispositions rule was the one to remove.** The template's *Review round* comment and § Lanes'
+  `Review` bullet agree about where dispositions go, and neither displaced the other. The rule stood
+  in three places, though — `CLAUDE.md` working agreement 7 owns it, the template restates it as the
+  field guide where a PR body is filled in, and `vion-code-review.md` § 4 restated it a third time.
+  The command's copy is now a pointer to the owner, and the template's keeps the sentence with the
+  owner named in it: a reader filling a PR body should not have to follow a link to learn what to do,
+  and a reader of the review command should not be able to read a version of the rule that has
+  drifted.
 
 ---
 

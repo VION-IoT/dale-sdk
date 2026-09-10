@@ -207,7 +207,8 @@ would otherwise restate. Its front matter differs from lane 3's in two places:
 - `sections:` is `Deviations, Questions, Friction, Affects others, Gates, Review` — the plugin's
   four plus the two this repo owes. `Gates` is the pasted `/check` output
   ([`.claude/commands/check.md`](../.claude/commands/check.md)); `Review` is the round's findings
-  and what was done with each, the same text the PR body carries.
+  and what was done with each, the same text the PR body carries, in the shape
+  [`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 7 sets out.
 - `pr:` is `expected`. Only lane 3 stops before the PR, because there the REPORT is what the
   operator reads first.
 
@@ -240,11 +241,13 @@ fix.
 
 ### Lane 2 — feature-sized
 
-New or reshaped specified behaviour. One change doc, one implementing session, the gate review on
-the PR. **Two-phase self-fires:** when the kickoff leaves design points open, or the doc mints
-decisions beyond what the operator ratified, STOP after the change doc for ratification before
-writing code. Pre-classify every open point: (a) ratified — cite; (b) decide-and-document;
-(c) propose-and-wait.
+New or reshaped specified behaviour. One change doc, one implementing session. Before the PR, the
+same round lane 1 runs: `/cleanup` once and a **fresh-context read-only review subagent**
+(`/vion-code-review branch`, with the change doc as the spec), its findings applied or accepted, and
+the round written into the PR body. **Two-phase self-fires:** when the kickoff leaves design points
+open, or the doc mints decisions beyond what the operator ratified, STOP after the change doc for
+ratification before writing code. Pre-classify every open point: (a) ratified — cite;
+(b) decide-and-document; (c) propose-and-wait.
 
 The change doc is **implementer-owned**: the session flips it `in-flight`, appends Drift
 checkpoints, distills, archives. No report-back block — the PR is the report.
@@ -603,7 +606,9 @@ session**: the implementing session retires at its REPORT, and the amend file
 implementing session producing amendment items done wrongly, with checkpoints that did not read true;
 retiring at the REPORT costs one session's ramp-up and saves a further round. The coordinator closes
 the round with targeted reads of every item at its call site, and dispatches a further Opus check
-only when a targeted read finds a blocker.
+only when a targeted read finds a blocker. A further check is a **second round**, scoped
+`since:<the REPORT's hash>` ([`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 1a),
+so it reads what the fix-up session moved and not the round the amendment already dispositioned.
 
 **The relay.** The **file** is the artifact, in both directions. A REPORT is filed by the `Stop` hook
 under the coordinator repo's `.claude/briefs/reports/`, and `/vion-dispatch:ingest` reads the latest
@@ -645,6 +650,18 @@ The coordinator fills it into the change doc before the PR merges:
 Dispatched as `Agent`, `subagent_type: Explore`, `model: opus`, both in the same response so they run
 concurrently. Replace the `<…>` parts; keep the method and the closing format — they are what makes
 results comparable between rounds, and misses-per-sweep is what feeds the scorecard.
+
+**They stay here rather than becoming `.claude/commands/` files** (decided by `T-014`, the task that
+rewrote the review command; the closeout doc's reviewer's question 4 carries the reasoning). Three
+reasons, in the order that decided it. The adversarial review below is not a second prompt at all —
+its first instruction is to read [`vion-code-review.md`](../.claude/commands/vion-code-review.md) and
+follow it, so a command file for it would be a wrapper around a command, and a second shelf the review
+rubric could drift off. The completeness critic genuinely has no overlap, but its `<…>` parts are the
+round's prose — the area's one-sentence definition, its edge values, its parity rule, the neighbouring
+pages — which a slash command's arguments cannot carry and a coordinator writes by hand either way.
+And `.claude/commands/` is the shelf for what the **operator types**; both of these are dispatched by
+a coordinator to a subagent and never typed. A template read where the recipe that uses it is written
+is cheaper than a command nobody invokes.
 
 **Completeness critic:**
 
