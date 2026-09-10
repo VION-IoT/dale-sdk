@@ -4,7 +4,7 @@ The operational playbook for this repo's spec corpus, its change docs, and the t
 in. Rationale and the adoption decisions (D1–D11): the archived change doc
 [`changes/archive/2026-09-01-sdd-process.md`](changes/archive/2026-09-01-sdd-process.md). The lanes
 and what the migration's fourteen area passes measured about them:
-[`changes/2026-09-07-sdd-closeout.md`](changes/2026-09-07-sdd-closeout.md) `D3`. Modeled on
+[`changes/2026-09-07-sdd-closeout.md`](changes/archive/2026-09-07-sdd-closeout.md) `D3`. Modeled on
 `logic-block-libraries/docs/spec-process/SPEC-PROCESS.md`, adapted to an SDK: the unit is not a
 logic block but a **contract**.
 

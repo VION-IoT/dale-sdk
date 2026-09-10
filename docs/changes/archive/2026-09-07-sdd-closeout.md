@@ -1,6 +1,6 @@
 ---
 slug: sdd-closeout
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: process             # the process itself, as in 2026-09-01-sdd-process.md
 author: jonas.bertsch (drafted with Claude in the session `sdk: sdd big picture`)
@@ -38,7 +38,7 @@ keys.
 **Corrected by `T-007`:** the fix-now batch necessarily moves criteria, because a lane-1 fix carries
 its page edit. It minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded
 `AC-ANLZ-018.3`. Lane 1 owes no delta line — the page edit riding a fix *is* the distill
-([`../spec-process.md`](../spec-process.md) § Lanes) — so this doc's *Spec delta* stays empty by
+([`../spec-process.md`](../../spec-process.md) § Lanes) — so this doc's *Spec delta* stays empty by
 design; what was wrong was the flat claim above, not the absence of a delta.
 
 ### Decisions
@@ -52,7 +52,7 @@ design; what was wrong was the flat claim above, not the absence of a delta.
   edit rides the PR, a fresh-context review subagent, `/cleanup`. Lane 2: a change doc, one
   implementing session, a gate review on the PR *(the last clause is superseded by `D12`: the round
   runs in-session before the PR, and the PR body is its record. Corrected in
-  [`../spec-process.md`](../spec-process.md) § Lanes by `T-014`; see* Drift checkpoints*)*. Lane 3: the pass shape generalised — a coordinator,
+  [`../spec-process.md`](../../spec-process.md) § Lanes by `T-014`; see* Drift checkpoints*)*. Lane 3: the pass shape generalised — a coordinator,
   a brief checked before dispatch, an implementer, two fresh-context checks, a fresh fix-up session.
   Triage happens at the start of the work, by three questions: does it change specified behaviour,
   does it cross an area, is a design point open. The passes measured why: implementer sessions ran
@@ -150,7 +150,7 @@ design; what was wrong was the flat claim above, not the absence of a delta.
    **Decided by `T-014` (2026-09-10, handed to it as decide-and-document): they stay the Lanes
    appendix; no command files.** `T-014` is the first session in a position to judge the overlap,
    and the overlap is total for one of the two: the first instruction of the adversarial review
-   prompt's task is *"Read …ion-code-review.md and follow it exactly"* ([`../spec-process.md`](../spec-process.md)
+   prompt's task is *"Read …ion-code-review.md and follow it exactly"* ([`../spec-process.md`](../../spec-process.md)
    § Lanes appendix), so `spec-review.md` would be a command file wrapping a command — a second
    shelf for a rubric this repo keeps in one place, and the drift risk one-owner-per-rule exists to
    avoid. The completeness critic does **not** overlap — nothing in the review command hunts for
@@ -974,7 +974,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
 - **`T-006`: `T-010`'s row 54 has no ledger line either, and its page edit is already made.** The
   task line reads "54: the decline stated on the page and the ledger line closed". `_findings.md`
   has never carried a `DaleSharedAssembly` entry — the HTTP pass's own record says only 28n left one
-  ([`archive/2026-09-06-http-pass.md:757`](archive/2026-09-06-http-pass.md)) — and the decline is
+  ([`archive/2026-09-06-http-pass.md:757`](2026-09-06-http-pass.md)) — and the decline is
   already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:347`, its rationale at `:363`), landed
   by that pass. So `T-010` is row 28n plus a re-read of a criterion that already says what the task
   asks to be said, not two halves. This is the same shape as `T-005`'s missing entry: the second
@@ -1028,7 +1028,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   Replacing `CommandContext.ResolveLocal(flag).Environment` in the action with `flag ?? "production"`
   — dropping the stored-second step — is killed by no test in the 395 the suite runs. The observable
   is past `AuthService.AcquireInteractiveAsync`, which opens a browser and binds a loopback listener,
-  and this area's suite reaches neither ([`cli.md`](../specs/cli.md) § Test discipline); it is the
+  and this area's suite reaches neither ([`cli.md`](../../specs/cli.md) § Test discipline); it is the
   same boundary `AC-CLI-018.4` and `.7` are `GAP` for. What the fix does about it is structural
   rather than test-shaped: the rule now has one implementation, `ResolveLocal`, whose three branches
   are proven at `CommandContextShould` against `AC-CLI-013.3`, and login's duplicate of it is gone.
@@ -1675,7 +1675,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   carries none — *"Do not edit, commit, stage, or post anything to a PR"* opens it and `pr:<N>` says
   *"Never comment on it"* — and `pr:<N>` is not a `D12` breach either: reading an open PR's diff
   read-only is a scope, not a review posted to it. What was stale sat one file over.
-  [`../spec-process.md`](../spec-process.md) § Lanes described lane 2 as "one change doc, one
+  [`../spec-process.md`](../../spec-process.md) § Lanes described lane 2 as "one change doc, one
   implementing session, **the gate review on the PR**" — `D3`'s wording, written before `D12` moved
   the round in-session and before the PR. Lane 1 already named the pre-PR subagent; lane 2 named
   nothing, so the lane this very task runs in had no round. Lane 2 now runs the same round lane 1
