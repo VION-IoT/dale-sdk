@@ -218,9 +218,12 @@ its history is in that repo's git, and the numbers survive as `Origin` lines on 
 
 One owner per rule: where a convention doc owns the subject, the rule lives there and this file links
 to it rather than restating it. Corrections and process friction go to
-[`docs/process-journal.md`](docs/process-journal.md) as they happen; a periodic retro
-([`docs/retro/`](docs/retro/)) reads the journal and promotes recurrences down the enforcement ladder —
-**a DALE analyzer or a CI gate > a `/vion-code-review` check > prose here**. This repo has the analyzer
+[`docs/process-journal.md`](docs/process-journal.md) as they happen; `/vion-codify`
+([`.claude/commands/vion-codify.md`](.claude/commands/vion-codify.md)) writes the rule a branch's own
+lines already make clear, in prose, into the file that owns it; and a periodic retro — `/vion-retro`
+([`.claude/commands/vion-retro.md`](.claude/commands/vion-retro.md)), recorded under
+[`docs/retro/`](docs/retro/) — reads the journal over a window and promotes recurrences down the
+enforcement ladder — **a DALE analyzer or a CI gate > a `/vion-code-review` check > prose here**. This repo has the analyzer
 rung the sibling repos lack, and it is the cheapest of all: a diagnostic fires in the consumer's build,
 not only in ours. A rule that exists only as prose and keeps drawing the same correction is an
 enforcement gap, not a documentation gap.
