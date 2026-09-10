@@ -27,11 +27,20 @@ round can name the command that fills it.
 - **review lines** — new `review` journal entries in the window; **/PR** = review lines ÷ merged PRs.
   No pre-loop baseline exists: retro-0 mined 288 follow-up turns across 26 sessions, but those are
   turns, not corrections, and the two are not comparable. The first row after retro-0 sets the baseline.
-- **second asks** — `review` lines carrying the `(second ask)` marker: things the human had to say
-  twice. Each is a standing candidate for absorption into an analyzer, a gate, or a convention rule.
-- **escapes** — `review` lines carrying the `(escape)` marker: corrections on work that had already
-  passed `/vion-code-review`. The loop-quality number: the analyzer/gate > check > prose ordering is
-  working when this falls.
+  **The definition moved at retro-1**, from *the user corrected produced work* to *produced work was
+  corrected, whoever found it*, so retro-1's own row undercounts against every row after it: two
+  slices of its window ran with classification delegated, and their corrections were filed `agent`.
+  Read the ratio forward from retro-2, not across that boundary.
+- **second asks** — `review` lines carrying an `(nth ask)` marker: things that had to be said more
+  than once. Count the lines and report the **highest `n`** beside the count, because the promotion
+  argument is carried by the worst case and not by the total — retro-1 found `(third ask)`,
+  `(fourth ask)` and `(fifth ask)` already written by hand and invisible to a column that read only
+  `(second ask)`.
+- **escapes** — `review` lines carrying the `(escape)` marker: corrections on work a review round had
+  already passed, whichever round it was, including a later round of the same task's review. The
+  loop-quality number: the analyzer/gate > check > prose ordering is working when this falls. Retro-1
+  redefined it after reading 359 entries with ≥20 qualifying lines and zero markers; a `0` before
+  that round means unrecorded, not none.
 - **D-hits** — which taxonomy checks the journal lines actually name (`D1`…`D10`), as a tally. Retro-0's
   open question is precisely this: the taxonomy is mined from what the lead *said*, not from what the
   review command *catches*. A check that never fires in three rounds is a candidate for deletion; one

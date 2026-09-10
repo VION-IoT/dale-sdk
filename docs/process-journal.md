@@ -25,7 +25,11 @@ YYYY-MM-DD · <where> · <topic, PR #, or —> · <what happened, one line>
 
 `where` is one of:
 
-- `review` — the user corrected produced work in-session (**the most important line type**)
+- `review` — **produced work was corrected** (**the most important line type**). Whoever found it: the
+  user in-session, a `/vion-code-review` round, a fresh-context critic, a coordinator's read. The test
+  is whether an artifact that had been produced turned out wrong, not who said so — retro-1 found two
+  slices where the operator had delegated classification and said almost nothing, so corrections
+  landed under `agent` and the metrics table's headline count read as a quiet fortnight
 - `brief` — a brief (from the architecture repo or a prior session) was wrong, ambiguous, or missing
   something; also where a `Friction:` field would have gone if the work had not been done locally
 - `gate` — the CI style gate, build, test gate or snapshot bot false-fails, false-passes, or fights the work
@@ -33,7 +37,8 @@ YYYY-MM-DD · <where> · <topic, PR #, or —> · <what happened, one line>
   workaround a consumer had to keep)
 - `release` — the release / example-bump / upload lane creaked
 - `infra` — CI runner, package feeds, credentials
-- `agent` — agent behavior or process
+- `agent` — agent behavior or process friction with **no corrected artifact**: a habit, a wasted
+  round, a way of working that creaked. Once something produced turned out wrong, the line is `review`
 - `plugin` — the dispatch mechanics themselves creaked: a hook that blocked wrongly, a report not
   filed, a launch refused wrongly, a stale fetch
 - `manual` — human grumble
@@ -47,10 +52,18 @@ characters — retro-1's open question is which of them actually fire.
 Two markers earn their keystrokes because [`process-metrics.md`](process-metrics.md) counts them and
 nothing else can produce them:
 
-- **`(second ask)`** on a `review` line the user has now had to make **twice**. Each one is a standing
-  candidate for promotion to an analyzer, a gate, or a convention rule.
-- **`(escape)`** on a `review` line for work that had already passed `/vion-code-review` — the review
-  ran and missed it. This is the loop-quality signal; it is the number that should fall.
+- **`(second ask)`** on a `review` line the user has now had to make **twice** — and `(third ask)`,
+  `(fourth ask)` and so on, counting up, when it is said again. Each one is a standing candidate for
+  promotion to an analyzer, a gate, or a convention rule, and the count *is* the promotion argument:
+  retro-1 found one correction asked five times, escalating markers already written by hand, and a
+  metrics column that could see only the first repeat.
+- **`(escape)`** on a `review` line for a correction to work a review round had **already passed**.
+  This is the loop-quality signal; it is the number that should fall. It counts wherever a round ran
+  and missed: `/vion-code-review`, a fresh-context critic, a coordinator's read — and **a later round
+  of the same task's own review catching what the earlier round left** is the ordinary case, not an
+  edge case. Retro-1 read 359 entries, found at least twenty that fit and not one marker: the
+  original wording named `/vion-code-review` alone, which was rarely the instrument, so the number
+  the table exists to watch has never once been produced.
 
 Both go at the end of the line, before the D-number.
 
