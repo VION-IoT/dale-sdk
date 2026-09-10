@@ -232,6 +232,18 @@ phase-1 task lines carried wrong counts, and one of them was wrong in the way th
 Lane 3 adds a coordinator-side check on top of this — a fresh reader over the brief before dispatch
 (§ 1 The brief) — which is a second reader, never a substitute for the session's own re-derivation.
 
+**A brief carries intent; a number is in it only when it serves that.** What the session must
+understand is what the work is for and where its edges are — a count is scaffolding, and a brief
+padded with numbers has buried the point it exists to make. So: write the number only if the session
+would act differently for a different value, and then **paste the command that produced it**. If it
+is not worth a grep, leave it out or mark it `[assumed]` and say what to check. **Never carry a count
+in from a subagent's summary** — most of what the lane-3 check catches is exactly that: an inventory
+subagent's "thirty-nine analyzers" and "two Moq files" reached briefs as facts and cost a second
+Opus subagent to undo, when the grep that refutes them takes seconds. The `[assumed]` half is the
+cheap half and it works: a task line asserting `/vion-code-review` needed a new scope marker was
+flagged rather than believed, and the scope turned out to exist already, so the command did not gain
+a keyword duplicating one it had.
+
 ### Lane 1 — fix-sized
 
 The default, and most backlog items. No change doc: the PR carries the fix, its test proven red
@@ -286,11 +298,12 @@ kind that turns out empty — an attribute with no named parameters — is a Dri
 **A count in a brief is a hypothesis until a second reader confirms it.** Before the launch line a
 fresh-context Opus `Explore` subagent reads the brief against the code — every file, folder, count,
 ownership claim and omission, reported as corrections — and the brief is rewritten before dispatch.
-Four minutes and one subagent: one brief carried thirteen wrong claims and nine omissions until it
-ran, and an inventory claiming thirty-nine analyzers with the severities transposed lost eighteen
-claims the same way. A premise about what the build decides — which projects pack, what an assembly
-carries, what a property evaluates to — comes from the build system's evaluation, never from a regex
-over its inputs.
+One subagent, seven to ten minutes across the four passes that timed it: one brief carried thirteen
+wrong claims and nine omissions until it ran, and an inventory claiming thirty-nine analyzers with
+the severities transposed lost eighteen claims the same way. A premise about what the build decides —
+which projects pack, what an assembly carries, what a property evaluates to — comes from the build
+system's evaluation, never from a regex over its inputs. The check is a second opinion and not an
+oracle: twice a pass refuted the checking subagent at the call site.
 
 **A hedge in a brief is a STOP.** *"Appears to … — verify"* has named an assumption; when it fails,
 record the deviation in the change doc and ask. One session improvised "resolve by evaluating" when
