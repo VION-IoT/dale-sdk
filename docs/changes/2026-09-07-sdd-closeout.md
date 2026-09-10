@@ -442,7 +442,8 @@ never a silent absorption.
 | `T-013` | done | `sdk: sdd closeout T-013` | #208 |
 | `T-014` | done — the second round keyed on `branch:<ref>` rather than a new `since:` keyword (`D1`, coordinator); reviewer's question 4 decided (no command files); lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | #209 |
 | `T-015` | done — both commands ported; the retro's rotation step gained a line-citation hazard the port sources have no reason to know about, and the journal header gained the `→ codified:` stamp it had never defined | `sdk: sdd closeout T-015` | #210 |
-| `T-016` … `T-020` | to come | — | — |
+| `T-016` | done | `sdk: sdd closeout T-016` | pending |
+| `T-017` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -1760,6 +1761,16 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `docs/process/retro/` and `/vion-code-review` all have counterparts here. Mesh's
   `docs/process/retro/` does not exist at all, which is `D8`'s "the retro has never run" confirmed
   at the filesystem rather than taken on faith.
+- **`T-016`: `harness.md` is 106 lines and mostly self-contained, but not fully — three names and
+  several incident anecdotes are mesh's own and do not survive the port.** The *A file describes
+  itself* section's ✓/✗ illustration names `/vion-cleanup`, `/vion-commit` and `/vion-pr` — none
+  exist in this repo (`D11` drops `/vion-commit`'s flow, `D12` drops `/vion-pr` whole) — and is
+  copied with those names replaced by "the cleanup command" / "the commit command" / "the review
+  command", which the source's own rule under *State the principle, illustrate with examples*
+  ("naming the cleanup command as an example is fine") already licenses. Five passages narrate a
+  specific incident "on the branch that built the harness" — mesh's own history, not something that
+  happened here — and are rewritten as the mechanism the incident illustrates rather than a claim
+  this repo cannot back.
 
 ---
 
