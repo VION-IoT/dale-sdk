@@ -91,13 +91,16 @@ strongest to weakest ([`CLAUDE.md`](../../CLAUDE.md) § How this file stays true
 1. **A DALE analyzer diagnostic** — for an authoring mistake a compiler can see. The cheapest rung
    in the repo despite being the strongest, because it fires in the *consumer's* build and not only
    in ours, and no rung mesh or the sibling repos have reaches that far. It costs what
-   [`docs/sdk-surface-conventions.md`](../../docs/sdk-surface-conventions.md) says an analyzer costs
-   — a registry entry, its tests, and the Metalama blind spot checked — so it is a landing with a
-   real bill, not a free promotion.
+   [`docs/sdk-surface-conventions.md`](../../docs/sdk-surface-conventions.md) §§ 4–5 say an analyzer
+   costs — an id allocated in `DaleDiagnostics.cs`, tests of the composed behaviour rather than the
+   rule alone, and proof that it fires in a real build, where Metalama replaces the compiler task and
+   generated contract interfaces are invisible — so it is a landing with a real bill, not a free
+   promotion.
 2. **A CI gate or a script** — for a mechanical correction that no diagnostic can see because it is
    about this repository rather than about a consumer's code: a doc shape, a count, a file set. It
-   goes into `.github/workflows/spec-gates.yml` with a self-test beside it, the shape
-   `scripts/check.ps1` established.
+   goes into `.github/workflows/spec-gates.yml`, and it carries a `scripts/<name>.tests.ps1`
+   self-test because `scripts/run-script-tests.ps1` fails on a gate script that is neither tested
+   nor exempt — so the self-test is a gate obligation here, not a nicety.
 3. **A named check in [`vion-code-review.md`](vion-code-review.md) § 6** — a new **`P`-number**, in
    that section's format, for a rule that already exists in prose in whichever file owns it and is
    still being drawn. Prose has failed; the round must catch it. **Never a new `D`-number**: § 5 is
