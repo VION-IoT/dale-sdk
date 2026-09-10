@@ -3,7 +3,7 @@
 # Pester. Run all: `pwsh -File scripts/run-script-tests.ps1`; just this one:
 # `pwsh -File scripts/check.tests.ps1`.
 #
-# check.ps1 shells out to the nine real gates, so the interesting part is not the shelling: it
+# check.ps1 shells out to the real gates, so the interesting part is not the shelling: it
 # is the derivation from the workflow, what happens when the workflow and the invocation table
 # disagree, the arguments each gate receives, and the two -CiShape checks. All of that runs
 # against a fixture repository with fake gates, so no real gate's verdict is involved. It is
@@ -21,8 +21,10 @@ $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("check-" + [guid]::NewGuid()
 $scriptsDir = Join-Path $tmp 'scripts'
 $workflow = Join-Path $tmp '.github/workflows/spec-gates.yml'
 
-# The nine gate names spec-gates.yml runs today, in its order. The fixture reuses the real
-# names because check.ps1's invocation table is keyed on them.
+# Nine of the gate names spec-gates.yml runs, in its order - a subset, not the whole list, and
+# deliberately so: this fixture tests the derivation, not the roster, and pinning it to every gate
+# would make an unrelated addition to the workflow fail these cases. The fixture reuses REAL names
+# because check.ps1's invocation table is keyed on them.
 $gates = @(
     'run-script-tests', 'spec-lint', 'spec-trace', 'test-style-lint', 'doc-comment-lint',
     'pragma-reason-lint', 'bom-lint', 'journal-lint', 'sweep-residue-lint'

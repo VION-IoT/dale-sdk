@@ -77,12 +77,13 @@ try {
     New-TextFile 'Sdk/build/Sdk.targets' $dashTargets | Out-Null
     New-Project 'Sdk/Sdk.csproj' @('<None Include="build\Sdk.targets" Pack="true" PackagePath="build\"/>') | Out-Null
     if ((Invoke-Lint) -ne 1) { throw "Case 2 (a comment containing '--') expected 1" }
-    # The parser's own words, which are the words MSB4024 quotes back to the consumer - and the
-    # line, which is where the author goes.
-    Assert-Says "Sdk/build/Sdk.targets:2:" 'Case 2'
-    Assert-Says "An XML comment cannot contain '--'" 'Case 2'
+    # The parser's own words, which are the words MSB4024 quotes back to the consumer, line AND
+    # column. A mutation printing the column as 0, or dropping it, passes an assertion
+    # that stops at the line - and the column is half of what makes the report one jump from the
+    # fix.
+    Assert-Says "Sdk/build/Sdk.targets:2:10: An XML comment cannot contain '--'" 'Case 2'
     Assert-Says 'MSB4024' 'Case 2'
-    Assert-Says '1 packed MSBuild file(s) MSBuild cannot import' 'Case 2'
+    Assert-Says '1 problem(s) across' 'Case 2'
 
     # Case 3: malformed in a way that has no double hyphen in it at all -> 1. Case 2 alone is
     # satisfied by a grep for `--`, which would pass every other file MSBuild cannot import.
@@ -121,6 +122,10 @@ try {
     New-Project 'Sdk/Sdk.csproj' @('<None Include="build\Gone.targets" Pack="true" PackagePath="build\"/>') | Out-Null
     if ((Invoke-Lint) -ne 1) { throw "Case 6 (Include pointing at nothing) expected 1" }
     Assert-Says "packs 'build\Gone.targets' under 'build\' and no such file exists" 'Case 6'
+    # A missing Include is a package shipped without the import it declares - the consumer meets a
+    # target that is not there, NOT a parse error. Claiming MSB4024 here would put the wrong
+    # failure in front of the author, and only an Assert-Silent notices.
+    Assert-Silent 'MSB4024' 'Case 6'
 
     # Case 7: a wildcard Include -> every file it matches is parsed, and one broken among several
     # fails. An Include is a glob in MSBuild, so a gate that only handles literal paths covers the
@@ -164,6 +169,8 @@ try {
     New-TextFile 'Sdk/Sdk.csproj' "<Project>`n    <ItemGroup>`n</Project>`n" | Out-Null
     if ((Invoke-Lint) -ne 1) { throw "Case 10 (a malformed project file) expected 1" }
     Assert-Says 'the project file itself is not well-formed XML' 'Case 10'
+    # This one fails THIS repository's pack, not a consumer's import.
+    Assert-Silent 'MSB4024' 'Case 10'
 
     # Case 11: the floor for a scan that reached no project file at all. A broken walk reports the
     # same "OK" as a clean repository.
@@ -187,6 +194,74 @@ try {
     New-Project 'Sdk/Sdk.csproj' @('<None Include="build\notes.txt" Pack="true" PackagePath="build\"/>') | Out-Null
     if ((Invoke-Lint) -ne 1) { throw "Case 13 (entries resolving to no MSBuild file) expected 1" }
     Assert-Says 'resolved to ZERO MSBuild file(s) to parse' 'Case 13'
+
+    # --- the spellings MSBuild honours -------------------------------------------------------
+    # Each of the four below packs a file into a build folder, and a derivation reading only the
+    # one spelling this repository uses today would report OK with the founding defect present.
+    # Each case therefore carries a HEALTHY entry alongside the broken one: with only the broken
+    # entry in the tree, a miss trips the "zero packed entries" floor and reddens for the wrong
+    # reason, which is exactly how a real miss stays invisible once a second package packs a
+    # build folder.
+    function New-Healthy {
+        New-TextFile 'Sdk/build/Sdk.targets' $goodTargets | Out-Null
+        New-Project 'Sdk/Sdk.csproj' @('<None Include="build\Sdk.targets" Pack="true" PackagePath="build\"/>') | Out-Null
+    }
+
+    # Case 15: Update= rather than Include=. The packed targets file is ALREADY a None item through
+    # the SDK's default glob, so Update= is the canonical way to attach Pack metadata to it.
+    Reset-Tree
+    New-Healthy
+    New-TextFile 'Io/build/Io.targets' $dashTargets | Out-Null
+    New-Project 'Io/Io.csproj' @('<None Update="build\Io.targets" Pack="true" PackagePath="build\"/>') | Out-Null
+    if ((Invoke-Lint) -ne 1) { throw "Case 15 (Update= rather than Include=) expected 1" }
+    Assert-Says 'Io/build/Io.targets:2:' 'Case 15'
+
+    # Case 16: metadata as child elements rather than attributes. This is the form an IDE writes,
+    # so a gate reading only attributes goes blind the first time one rewrites the project.
+    Reset-Tree
+    New-Healthy
+    New-TextFile 'Io/build/Io.targets' $dashTargets | Out-Null
+    New-Project 'Io/Io.csproj' @('<None Include="build\Io.targets"><Pack>true</Pack><PackagePath>build\</PackagePath></None>') | Out-Null
+    if ((Invoke-Lint) -ne 1) { throw "Case 16 (child-element metadata) expected 1" }
+    Assert-Says 'Io/build/Io.targets:2:' 'Case 16'
+
+    # Case 17: a PackagePath carrying several targets, with the build folder NOT first. Reading the
+    # first segment of the whole string matches 'build/;contentFiles/' by luck and misses this.
+    Reset-Tree
+    New-Healthy
+    New-TextFile 'Io/build/Io.targets' $dashTargets | Out-Null
+    New-Project 'Io/Io.csproj' @('<None Include="build\Io.targets" Pack="true" PackagePath="contentFiles\;build\"/>') | Out-Null
+    if ((Invoke-Lint) -ne 1) { throw "Case 17 (multi-value PackagePath, build not first) expected 1" }
+    Assert-Says 'Io/build/Io.targets:2:' 'Case 17'
+
+    # Case 18: the item declared in Directory.Build.targets rather than in a project. This
+    # repository already packs its shared readme from one, so it is a live declaration site here.
+    Reset-Tree
+    New-Healthy
+    New-TextFile 'Io/build/Io.targets' $dashTargets | Out-Null
+    New-TextFile 'Directory.Build.targets' "<Project>`n    <ItemGroup>`n        <None Include=`"Io\build\Io.targets`" Pack=`"true`" PackagePath=`"build\`"/>`n    </ItemGroup>`n</Project>`n" | Out-Null
+    if ((Invoke-Lint) -ne 1) { throw "Case 18 (declared in Directory.Build.targets) expected 1" }
+    Assert-Says 'Io/build/Io.targets:2:' 'Case 18'
+
+    # Case 18b: the packed targets file is NOT itself read as a declaration site. Directory.Build
+    # files are named rather than globbed on .targets for this reason: a broken packed file must be
+    # reported as a malformed PACKED file, not as a malformed declaration.
+    Reset-Tree
+    New-TextFile 'Sdk/build/Sdk.targets' $dashTargets | Out-Null
+    New-Project 'Sdk/Sdk.csproj' @('<None Include="build\Sdk.targets" Pack="true" PackagePath="build\"/>') | Out-Null
+    if ((Invoke-Lint) -ne 1) { throw "Case 18b (a broken packed file is not a declaration) expected 1" }
+    Assert-Silent 'the project file itself is not well-formed XML' 'Case 18b'
+    Assert-Says 'MSB4024' 'Case 18b'
+
+    # Case 19: a wildcard Include matching nothing is the same shipped-without-its-import defect as
+    # a literal Include pointing at nothing, and the two branches have to agree about it.
+    Reset-Tree
+    New-Healthy
+    New-Item -ItemType Directory -Force -Path (Join-Path $tmp 'Io/build') | Out-Null
+    New-Project 'Io/Io.csproj' @('<None Include="build\*.targets" Pack="true" PackagePath="build\"/>') | Out-Null
+    if ((Invoke-Lint) -ne 1) { throw "Case 19 (wildcard matching no file) expected 1" }
+    Assert-Says 'and the pattern matches no file' 'Case 19'
+    Assert-Silent 'MSB4024' 'Case 19'
 
     # Case 14: the branch CI actually takes. Every case above walks the tree, because a temp
     # fixture is not a git repo - so `git ls-files`, the only path spec-gates.yml ever reaches, is

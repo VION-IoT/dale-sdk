@@ -674,8 +674,9 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   `verify-packages` were all green while `build/Vion.Dale.Sdk.targets` was not well-formed XML, and
   the package shipped to nuget.org failing every consumer's first build with `MSB4024`. The
   0.12.1 hotfix closes the specific class — `scripts/packed-msbuild-lint.ps1` parses every file
-  packed under a NuGet build folder, on every pull request, before a package exists — and closes
-  nothing beyond it: well-formed XML is necessary and not sufficient, and no file scan can see a
+  packed under a NuGet build folder, on every pull request, before a package exists, deriving what
+  it scans from the declarations rather than a list (its own header states the shapes it still
+  cannot resolve) — and closes nothing beyond it: well-formed XML is necessary and not sufficient, and no file scan can see a
   package that restores but does not work. `verify-packages` is not the place for the rest either.
   It runs *after* both pushes, so it can report a bad release and cannot prevent one, and it reads
   assembly versions out of the artifact rather than consuming it. What would prevent one is a
