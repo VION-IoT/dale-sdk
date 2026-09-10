@@ -80,7 +80,8 @@ Three readings, each load-bearing:
 
 **`(escape)`: zero in 359 entries, and the thing it counts happens.** At least twenty lines fit, named
 independently by all five readers. Three structural reasons, one per era: the markers were defined in
-`process-metrics.md` and never in the journal header that produces them (`:88`); the passes ran critics
+`process-metrics.md` and never in the journal header that produces them
+(`journal-2026-08-12-to-2026-09-10.md:22`); the passes ran critics
 rather than `/vion-code-review`, so the marker's wording named an instrument that was rarely used; and the
 header never decided whether a second review round catching the first counts, which is now the ordinary
 case. Retired would have been the wrong call — the loop the number watches only started existing on
@@ -217,11 +218,23 @@ one unaided, which is the system working.
 
 ## Line citations into the rotated window
 
-Thirteen citations of journal lines exist in `docs/`, in three archived pass docs and the close-out doc.
-All thirteen resolve correctly by content today — `T-015` repaired them in #210 — and **all thirteen point
-into the window this round rotated.** They are reported rather than rewritten: that call is the operator's.
-The archive's heading carries the offset, and the offset is stated as a line range rather than computed,
-because `/vion-retro` § 9's formula omits the heading it also requires.
+Thirteen citations of journal lines existed in `docs/`, in three archived pass docs and the close-out doc,
+and all thirteen pointed into the window this round rotated. `T-015` had repaired them once, by content,
+in #210. **The operator ruled to rewrite them rather than leave the archive heading's offset to carry the
+resolution, and they are rewritten** — to `docs/retro/journal-2026-08-12-to-2026-09-10.md:<n>`, each one
+verified by reading the entry it now lands on. A fourteenth, this note's own pointer at the `(escape)`
+paragraph, was found by the same sweep and rewritten with them.
+
+The ruling depended on `/vion-retro` § 9's offset formula being right first, and it was not: it assumed
+the entries start at line 1 of a file the same section requires to open with a heading. Corrected before
+the rewrite, because a rewrite computed from a wrong formula reproduces the defect `T-015` spent a round
+repairing — its own first attempt failed exactly that way, by arithmetic.
+
+**Two pointers were deliberately left.** This note's window line above (`process-journal.md:83–445`) and
+the close-out doc's marker checkpoint (`:81` at `7662ec3`) are dated statements about where things stood
+before the rotation, not pointers a reader follows — both name their frame, which is what makes them
+readable afterwards. The archived entries' own internal citations are likewise untouched: the archive is
+a verbatim copy, and editing it to fix its pointers would cost the property that makes it evidence.
 
 ## What retro-2 should be able to answer
 
