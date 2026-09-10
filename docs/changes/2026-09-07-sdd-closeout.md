@@ -104,8 +104,8 @@ design; what was wrong was the flat claim above, not the absence of a delta.
   diff and asks for one earlier when wanted. Consequence: what makes a worker in this repo steered
   is no longer the working agreement's commit pause. **Every worker is still dispatched steered**
   (`steer: yes`) on the operator's separate ruling of the same day — `-NoSteer` suppresses
-  `--remote-control`, so an unsteered session never appears in the app or on the phone, whatever its
-  STOP lines. *(This sentence read "a worker in this repo can be a **batch** worker (`steer: no`)
+  `--remote-control`, so an unsteered session does not appear in the app or on the phone, and with a
+  stored token in play it cannot be turned on afterwards. *(This sentence read "a worker in this repo can be a **batch** worker (`steer: no`)
   where no STOP line is expected" until `T-013`; see* Drift checkpoints.*)*
 - `D14` — **PR and commit shape** (operator, 2026-09-09): the PR title is `<scope>: <what a reader
   sees>`; the body follows `.github/pull_request_template.md` with fixed sections — the
@@ -275,7 +275,8 @@ operator decides; a task with none is reviewed on its PR.
 
 **Phase 2 — the standing process.** Re-cut on 2026-09-09 (`D12`–`D15`) after the `vion-dispatch`
 plugin landed. Dispatched by the phase's coordinator with `/vion-dispatch:spawn`, one worker per
-task, batch unless a STOP line is expected; each worker ends with `/vion-dispatch:report` and the
+task, steered whether or not a STOP line is expected (`D13`, as corrected by `T-013`); each worker
+ends with `/vion-dispatch:report` and the
 coordinator ingests with `/vion-dispatch:ingest` (§ Session protocol). One rule rides in every
 brief: **a count in a task line is a hypothesis** — four phase-1 task lines carried wrong numbers
 (`T-004`, `T-005`, `T-006`, `T-008`), so a session re-derives every number before acting on it.
@@ -1587,10 +1588,13 @@ names the file and section that states the rule now, and *lane 3 § N* is
   below it, the next dispatch reads the wrong half. So `D13` now carries the corrected consequence
   with the old sentence quoted and dated, and the checkpoint is this line. The same wrong rule had a
   **second** site — § *Session protocol*'s worker paragraph, "batch (`steer: no`) unless its task
-  carries a STOP line" — which no reading of the brief would have found from `D13` alone; both are
-  corrected, and the operator's ruling (`-NoSteer` suppresses `--remote-control`, so an unsteered
-  session appears neither in the app nor on the phone) is now stated at all three sites that decide
-  a dispatch: `D13`, § *Session protocol*, and `spec-process.md` § Lanes.
+  carries a STOP line" — and a **third**, § *The phases and their tasks*' phase-2 preamble, "batch
+  unless a STOP line is expected", which is the line a coordinator reads immediately before
+  dispatching the next task. The first pass corrected two of the three and then claimed all sites
+  were done; the review round caught the third by grepping the rule's own words rather than its
+  decision id, which is the check the journal line from the first pass had already named. All three
+  now carry the operator's ruling — `-NoSteer` suppresses `--remote-control` — alongside
+  `spec-process.md` § Lanes.
 - **`T-013`: the PR template was five lines, not the four the brief assumed** — the banner, a blank,
   `## Summary`, a blank, and an HTML comment saying "Describe what changed and why". The comment is
   the line the count missed; nothing else differed, and the banner is kept verbatim as the brief
@@ -1603,8 +1607,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
   Commits are not mentioned in any file this task touches.
 - **`T-013`: two *Implementation state* rows still read `(this PR)` after their PRs had merged.**
   `T-011` is #206 and `T-012` is #207; each row was written by the session that opened its PR and
-  never revisited. Corrected here in passing, because "(this PR)" in a merged doc names whatever PR
-  the reader is holding. Whoever lands next: the row you write is read after your PR merges.
+  never revisited. **Write the row with a number, not "(this PR)"** — the phrase is read after the
+  PR merges, when it names whatever PR the reader is holding. Corrected here in passing.
 - **`T-013`: the two ways in held, and the two shapes that look like a third are not one.** The
   brief asked for a third way if working the lanes showed one. Phase 1's pointer prompt pasted into
   a fresh tab by hand is the same thing `/vion-dispatch:spawn` now does, and § *Session protocol*

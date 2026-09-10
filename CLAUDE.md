@@ -55,8 +55,8 @@ How a change is sized, how a session starts and where the operator decides is
    explicit and rare — the user says "do it right on main".)
 2. **Commit on the task branch as you go — no diff pause — and never push to `main`.** The PR is
    where the operator reads the diff, so a commit needs no approval and the branch is where the work
-   accumulates. When the operator wants the diff earlier they ask for it; a STOP line named in the
-   brief is where a session waits, and there only.
+   accumulates. When the operator wants the diff earlier they ask for it, and a dispatched session
+   waits only where its brief names a STOP.
 3. **Merge `main` in before opening the PR**, and again before pushing if `main` moved. This repo
    releases every other day; a branch is stale fast.
 4. **Run `pwsh scripts/cleanup-code.ps1 -Changed` before `gh pr create`** — automatically, without

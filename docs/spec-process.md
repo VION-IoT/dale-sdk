@@ -217,8 +217,9 @@ with no STOP line is reviewed on its PR and nowhere earlier. A session that reac
 did not name as a STOP says so rather than deciding quietly.
 
 **A dispatched worker is steered** — `steer: yes` — whether or not a STOP is expected (operator,
-2026-09-09). The unsteered mode suppresses `--remote-control`, so the session never appears in the
-app or on the phone: there is no surface to answer anything on, and nothing to watch it from.
+2026-09-09). The unsteered mode suppresses `--remote-control`, so the session does not appear in the
+app or on the phone, and where the launch carries a stored token that cannot be turned on afterwards
+— the tab is then the only surface the session has for its whole life.
 
 **A count in a brief or a task line is a hypothesis.** Re-derive every number — files, sites, ledger
 entries, suites — before acting on it, and record the correction where the work is recorded: the
@@ -536,7 +537,8 @@ checks read it first:
    `(pending classification)` that survived implementation is a placeholder nothing re-read (seven
    survived one round, its archive, two checks and a fresh session);
 7. the change doc carries a `## Relay notes for the PR body` section naming every consumer-visible
-   change, **written as each landed** — the PR body quotes that section verbatim and nothing else.
+   change, **written as each landed** — it is what the PR body's Summary quotes, under the shape
+   [`.github/pull_request_template.md`](../.github/pull_request_template.md) sets for every PR here.
    One round reached its close-out with the notes in two REPORTs and none in the doc.
 
 Then: commands run plus results · the `test → mutation` list · the GAP list · premise tests left
@@ -574,7 +576,7 @@ criterion's text against the test that cites it, both start from the REPORT's se
 and both read the doc's Reviewer's questions for an `OUTCOME` left pending and its prose for a
 retired name a rename replaced (a `(→ …)` marker after a current name) — two shapes the session's own
 self-check does not see. Both also read the doc for its `## Relay notes for the PR body` section,
-because the PR body quotes it verbatim and a doc whose notes live only in a REPORT has none to quote.
+because the PR body's Summary quotes it and a doc whose notes live only in a REPORT has none to quote.
 The prompt shapes are the appendix below.
 
 These checks run **after** the session's own sibling sweep and never instead of it: the sweep finds
