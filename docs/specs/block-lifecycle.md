@@ -115,9 +115,9 @@ silently. `AC-LIFE-003.5` puts the map after the ready hook rather than before i
 `AC-LIFE-012.1` promises a block that its links are not yet readable there.
 
 `AC-LIFE-003.4` is the one place the four outcomes leave a caller with less than a message: the
-publications are dropped, and only a log says so. The finding ledger carries what a configuration that
-omits a bound service should do instead — the answer belongs to the service allocation that produced
-it, not to the block that received it.
+publications are dropped, and only a log says so. What a configuration that omits a bound service
+should do instead belongs to the service allocation that produced it, not to the block that received
+it.
 
 ## Restoring persisted values
 
@@ -159,8 +159,8 @@ periodic-save chain that no stop retired.
 A block whose start hook threw never acknowledges, so a host's start fails within its own real-time
 budget and names the block through the failures it records — `AC-CTRL-002.4` and `AC-CTRL-003.*`. A
 block whose *configuration* failed is a different case: it still starts, still publishes over whatever
-bindings the failed configuration registered, and still acknowledges. The finding ledger carries that,
-with the three shapes a refusal could take and the reader each one has.
+bindings the failed configuration registered, and still acknowledges — so a host reports itself
+started while that block's members read their defaults.
 
 ## The dispatcher
 
@@ -334,8 +334,7 @@ it. Each promise below is kept by the sequence above rather than by a guard of i
 `AC-LIFE-012.1`'s three withholdings are the ones a block author gets wrong: each is silent, not an
 error. `AC-LIFE-012.2`'s "on a host that restores" is exact — the production runtime restores before it
 starts a block and the development host restores nothing, so a persisted value read in the start hook
-is a default in the development lane and the operator's value in the field. The finding ledger carries
-whether the development host should send an empty restore for parity.
+is a default in the development lane and the operator's value in the field.
 
 `AC-LIFE-012.3` says *only* hook because nothing else disposes a block: the pipeline disposes the scope
 a block's dependencies came from and never the block, so a block implementing a disposal interface has
@@ -376,7 +375,7 @@ into its parts, which is why the construction can be a concatenation.
 `AC-LIFE-014.7` is what a block author reaches through every dispatcher action, every `[Timer]` tick
 and every periodic save, since each is a self-send: the trail a correlation header leaves ends at the
 hop that scheduled the work. Nothing in this repository reads a self-send's headers, so the shape is
-stated rather than changed; the finding ledger carries the header accessor that has no reader.
+stated rather than changed.
 
 `AC-LIFE-014.2` is why one bad block cannot take a network down, and the cost is that a block which
 failed to configure, to bind or to start leaves no trace on its own state. `AC-LIFE-014.1`'s second
@@ -459,9 +458,7 @@ configuration (`AC-CTRL-004.5`) without risking a wait on a name that is already
   slot the pipeline notifies, using a lone observer as it is.
 
 `AC-LIFE-017.1` is the shape a block's contract link takes: a handler that was never spawned is
-addressed all the same, and every message to it becomes a dead letter with a warning and no error. The
-finding ledger carries that a link-time registry lookup would be better and why it is not this page's
-to make.
+addressed all the same, and every message to it becomes a dead letter with a warning and no error.
 
 `AC-LIFE-017.3` is why the production runtime is unaffected by the development host's features: the
 tap, the pause and the stepping are opt-in by registration, and a runtime that registers none of them

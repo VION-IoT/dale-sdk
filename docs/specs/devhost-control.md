@@ -429,8 +429,9 @@ bound a scenario's durations carry (`AC-SCEN-003.2`), because a manual advance i
 ## Refusals and their tokens
 
 A refusal a client is expected to act on carries a machine-readable token beside its prose, so a tool
-never has to match a message. The scenario and topology stores' own refusals do not carry one yet
-([`_findings.md`](_findings.md)).
+never has to match a message. The scenario and topology stores' own refusals carry none: an unknown
+scenario or topology, a missing embedded schema, a refused save and a structurally invalid file all
+answer with prose alone.
 
 - `AC-CTRL-016.1` (Ubiquitous): THE SYSTEM SHALL carry a stable reason token on every conflict it
   answers with, and on every write, drive and manual advance the control surface itself refuses.
@@ -493,6 +494,12 @@ identity — and every client of this API performs it rather than assuming the f
 - `AC-CTRL-018.2` (Event-driven): WHEN a client connects THE SYSTEM SHALL ask every stand-in and mock
   handler to re-publish, so the new client sees current state without polling.
 - `AC-CTRL-018.3` (Ubiquitous): THE SYSTEM SHALL log and swallow a failed broadcast rather than let it reach the block that published. GAP: nothing in the repository can make a live hub's broadcast fail, and the swallow is what keeps a publishing block's thread from carrying a transport error.
+
+`AC-CTRL-018.2`'s replay is only as complete as the generation it runs against: the web server accepts
+connections before the logic system has stood its actors up, so a client that connects in that window
+is asked to re-publish by nobody and is told so by nothing. A client that needs current state on
+connection fetches a snapshot itself rather than relying on the replay alone, which is what the
+bundled web UI does.
 
 ## The exported configuration
 
