@@ -5,7 +5,7 @@ transcript parse (JSONL), not sampling — every record in every session file un
 `~/.claude/projects/C---gh-dale-sdk*` and `~/.claude/projects/C---gh-architecture*` was read.
 
 This replaces the heuristic table in
-[`../changes/2026-09-07-sdd-closeout.md`](../changes/2026-09-07-sdd-closeout.md) § *What the passes
+[`../changes/2026-09-07-sdd-closeout.md`](../changes/archive/2026-09-07-sdd-closeout.md) § *What the passes
 measured, for the lanes*, which was "a string count over the transcripts, not a harvest." `T-018`
 reads the table below.
 

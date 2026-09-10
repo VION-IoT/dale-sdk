@@ -20,29 +20,10 @@ Prerequisites:
 - `main` is green on the commit you want to release.
 - `gh` is installed and authenticated (`gh auth status`).
 
-Notes: `--generate-notes` alone lists the merged PRs, which reads as a changelog for whoever wrote
-them and as nothing for a consumer. A release carrying behaviour a consumer has to act on gets a
-notes page under [`release-notes/`](release-notes/) — the first is
-[`release-notes/0.12.0.md`](release-notes/0.12.0.md) — written in the consumer's terms and passed as
-`--notes-file`. Where the action is not just reading, a
-[`migrations/<version>-<slug>.md`](migrations/) page carries the recipes and the notes link to it.
-
-**A notes page links absolutely, a migration page relatively.** The notes page is rendered as the
-release body at `/releases/tag/vX.Y.Z`, where a repo-relative `../specs/` resolves against that path
-and 404s — so every link in it is a full `https://github.com/VION-IoT/dale-sdk/blob/main/…` URL. The
-migration page is read in the repo and keeps repo-relative links like every other page under `docs/`.
-
 ```bash
 # Stable:
 gh release create v0.2.0 --target main --generate-notes \
   --title "v0.2.0" --notes "Short release summary."
-
-# Stable, with a notes page. -F fills the same body field -n does, and gh
-# documents --notes as prepended to the generated notes; that the file form
-# behaves identically is inference, so read the created release before
-# announcing it:
-gh release create v0.2.0 --target main --generate-notes \
-  --title "v0.2.0" -F docs/release-notes/0.2.0.md
 
 # Pre-release (add --prerelease for the UI badge; NuGet detects pre-release
 # automatically from the SemVer suffix):

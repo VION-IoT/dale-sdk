@@ -16,7 +16,7 @@ The journal below the retro-0 marker, in five slices: 83–161 (79 entries), 162
 290–357 (68), 358–445 (84). The slicing is not a convenience — the merge pass found two of the window's
 largest shapes invisible to every individual reader. Second inputs: the seventeen archived change docs
 under [`../changes/archive/`](../changes/archive/) for their scorecards and drift checkpoints, the
-in-flight [`2026-09-07-sdd-closeout.md`](../changes/2026-09-07-sdd-closeout.md), retro-0's note, and
+in-flight [`2026-09-07-sdd-closeout.md`](../changes/archive/2026-09-07-sdd-closeout.md), retro-0's note, and
 `T-011`'s transcript harvest [`2026-09-sdd-pass-data.md`](2026-09-sdd-pass-data.md).
 
 **Fourteen of the seventeen archived docs carry a scorecard**, not seventeen: the two unification docs and

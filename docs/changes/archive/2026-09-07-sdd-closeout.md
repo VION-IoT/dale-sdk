@@ -1,6 +1,6 @@
 ---
 slug: sdd-closeout
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: process             # the process itself, as in 2026-09-01-sdd-process.md
 author: jonas.bertsch (drafted with Claude in the session `sdk: sdd big picture`)
@@ -38,7 +38,7 @@ keys.
 **Corrected by `T-007`:** the fix-now batch necessarily moves criteria, because a lane-1 fix carries
 its page edit. It minted `AC-CTRL-014.6`, `AC-CTRL-014.7` and `AC-CLI-019.3` and reworded
 `AC-ANLZ-018.3`. Lane 1 owes no delta line — the page edit riding a fix *is* the distill
-([`../spec-process.md`](../spec-process.md) § Lanes) — so this doc's *Spec delta* stays empty by
+([`../spec-process.md`](../../spec-process.md) § Lanes) — so this doc's *Spec delta* stays empty by
 design; what was wrong was the flat claim above, not the absence of a delta.
 
 ### Decisions
@@ -52,7 +52,7 @@ design; what was wrong was the flat claim above, not the absence of a delta.
   edit rides the PR, a fresh-context review subagent, `/cleanup`. Lane 2: a change doc, one
   implementing session, a gate review on the PR *(the last clause is superseded by `D12`: the round
   runs in-session before the PR, and the PR body is its record. Corrected in
-  [`../spec-process.md`](../spec-process.md) § Lanes by `T-014`; see* Drift checkpoints*)*. Lane 3: the pass shape generalised — a coordinator,
+  [`../spec-process.md`](../../spec-process.md) § Lanes by `T-014`; see* Drift checkpoints*)*. Lane 3: the pass shape generalised — a coordinator,
   a brief checked before dispatch, an implementer, two fresh-context checks, a fresh fix-up session.
   Triage happens at the start of the work, by three questions: does it change specified behaviour,
   does it cross an area, is a design point open. The passes measured why: implementer sessions ran
@@ -150,7 +150,7 @@ design; what was wrong was the flat claim above, not the absence of a delta.
    **Decided by `T-014` (2026-09-10, handed to it as decide-and-document): they stay the Lanes
    appendix; no command files.** `T-014` is the first session in a position to judge the overlap,
    and the overlap is total for one of the two: the first instruction of the adversarial review
-   prompt's task is *"Read …ion-code-review.md and follow it exactly"* ([`../spec-process.md`](../spec-process.md)
+   prompt's task is *"Read …ion-code-review.md and follow it exactly"* ([`../spec-process.md`](../../spec-process.md)
    § Lanes appendix), so `spec-review.md` would be a command file wrapping a command — a second
    shelf for a rubric this repo keeps in one place, and the drift risk one-owner-per-rule exists to
    avoid. The completeness critic does **not** overlap — nothing in the review command hunts for
@@ -445,7 +445,7 @@ never a silent absorption.
 | `T-016` | done | `sdk: sdd closeout T-016` | #211 |
 | `T-017` | done — architecture-side clause landed spec-driven and **repo-agnostic**, not the dale-sdk clause the task line asked for (a hard-coded repo list goes stale the moment a repo adopts or drops a corpus); `libraries/dale-sdk.md` re-pointed off its RFC citations, correcting seven dangling citations rather than the five assumed, one of them split across two pages and one deleted by the CTRL pass; the topology-evolution claim was found to live in no spec page and is now stated as architecture's own | `sdk: sdd closeout T-017` (architecture) | architecture#78 |
 | `T-018` | done — six landings ruled by the operator; landing 2 re-shaped from "extend the lane-3 brief check to lane 2" to a writer-side rule after the evidence said the check is Opus-priced, twice as slow as its own paragraph claims, and mostly catches counts another subagent guessed into the brief | `sdk: sdd closeout T-018` | #213 |
-| `T-019` | done to the STOP — the notes, the migration page and the consumer relay are drafted and the version proposed; the tag, the reference bump, the Jira relay and the substrate page's version note are the operator's, and the doc is deliberately left unarchived until the tag exists | `sdk: sdd closeout T-019` | #215 |
+| `T-019` | done — **the release notes and the migration page were reverted by the operator's ruling after they merged**; the release itself stands (`v0.12.0` at `9a63424`, 2026-09-10), and what remains of the task is the reference bump (#216), the substrate page's version note (architecture#82) and the consumer relay, drafted and handed over, never sent | `sdk: sdd closeout T-019` | #215, #217 |
 | `T-020` | done — the task line's *pre-change* counts matched exactly on re-derivation (24× `18.0.1`, 2× `17.14.1`, 18× `6.0.4`, 18× the `MSTest` meta-package, 75 projects); `Vion.Dale.Cli.Test` converted to the `MSTest` meta-package to match its 18 neighbours rather than the split `TestAdapter`/`TestFramework` pair, and its bare `coverlet.collector` swept to the sibling `<PrivateAssets>`/`<IncludeAssets>` shape, so the post-change tree carries 25× `18.0.1`, 19× `6.0.4` and 19× the `MSTest` meta-package; restore now reports 75 of 75 with the credential still expired | `sdk: sdd closeout T-020` | #212 |
 
 ### Ledger dispositions
@@ -974,7 +974,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
 - **`T-006`: `T-010`'s row 54 has no ledger line either, and its page edit is already made.** The
   task line reads "54: the decline stated on the page and the ledger line closed". `_findings.md`
   has never carried a `DaleSharedAssembly` entry — the HTTP pass's own record says only 28n left one
-  ([`archive/2026-09-06-http-pass.md:757`](archive/2026-09-06-http-pass.md)) — and the decline is
+  ([`archive/2026-09-06-http-pass.md:757`](2026-09-06-http-pass.md)) — and the decline is
   already on the page as `AC-HTTP-013.3` (`docs/specs/http.md:347`, its rationale at `:363`), landed
   by that pass. So `T-010` is row 28n plus a re-read of a criterion that already says what the task
   asks to be said, not two halves. This is the same shape as `T-005`'s missing entry: the second
@@ -1028,7 +1028,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   Replacing `CommandContext.ResolveLocal(flag).Environment` in the action with `flag ?? "production"`
   — dropping the stored-second step — is killed by no test in the 395 the suite runs. The observable
   is past `AuthService.AcquireInteractiveAsync`, which opens a browser and binds a loopback listener,
-  and this area's suite reaches neither ([`cli.md`](../specs/cli.md) § Test discipline); it is the
+  and this area's suite reaches neither ([`cli.md`](../../specs/cli.md) § Test discipline); it is the
   same boundary `AC-CLI-018.4` and `.7` are `GAP` for. What the fix does about it is structural
   rather than test-shaped: the rule now has one implementation, `ResolveLocal`, whose three branches
   are proven at `CommandContextShould` against `AC-CLI-013.3`, and login's duplicate of it is gone.
@@ -1675,7 +1675,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   carries none — *"Do not edit, commit, stage, or post anything to a PR"* opens it and `pr:<N>` says
   *"Never comment on it"* — and `pr:<N>` is not a `D12` breach either: reading an open PR's diff
   read-only is a scope, not a review posted to it. What was stale sat one file over.
-  [`../spec-process.md`](../spec-process.md) § Lanes described lane 2 as "one change doc, one
+  [`../spec-process.md`](../../spec-process.md) § Lanes described lane 2 as "one change doc, one
   implementing session, **the gate review on the PR**" — `D3`'s wording, written before `D12` moved
   the round in-session and before the PR. Lane 1 already named the pre-PR subagent; lane 2 named
   nothing, so the lane this very task runs in had no round. Lane 2 now runs the same round lane 1
@@ -1866,7 +1866,25 @@ names the file and section that states the rule now, and *lane 3 § N* is
   dual-annotated measuring points to declare before the bump, and the sweeps the passes already ran
   against `logic-block-libraries` so the maintainer need not re-run them. It is drafted and handed
   over, never sent (`CLAUDE.md` § Feedback intake); no Jira write was made or proposed.
-- **`T-019`: the release notes needed a home and the repo had none, so `docs/release-notes/` is new.**
+- **`T-019`: the task line's "release notes assembled from the archived docs" was overtaken by a
+  ruling, and the artefacts it asked for are gone.** The notes page and the migration page were built,
+  reviewed twice and merged in #215; the operator then ruled that neither should exist yet — the notes
+  file is long and nobody reads it, there are no real consumers, and `docs/releasing.md` read verbose
+  with the rules that served them. `gh release create --generate-notes` with a `v` tag is the way for
+  now, and the question reopens at `v1.0.0`. So this PR deletes both pages and restores
+  `docs/releasing.md` byte-identical to `b5b420e`. **The gap the task found is real and deferred, not
+  refuted:** a release body that is the merged-PR list tells a consumer nothing, and this release had
+  fourteen passes of behaviour change behind it. What changed is the answer's cost — with one
+  consumer, `logic-block-libraries`, a message to the person who must act beats a page in a repo they
+  do not read, so the drafted relay is now the only channel carrying the release's one silent change
+  (the dual-annotated measuring points). The release notes themselves are not lost: they are in
+  `9a63424`, the tagged commit, where anyone reopening this at `v1.0.0` can read what one was like.
+  Recorded here rather than only in the journal because the next reader of this doc will otherwise
+  find a task line asking for an artefact the repo has decided against.
+
+- **`T-019`: the release notes needed a home and the repo had none, so `docs/release-notes/` was new**
+  *(superseded by the ruling above — the directory is gone again; kept for the `.gitignore` finding at
+  the end, which outlives it).*
   Every release before this one used `gh release create --generate-notes`, whose body is the merged-PR
   list — a changelog for whoever wrote the PRs and nothing for a consumer, which does not carry 57
   commits of behaviour change. `docs/migrations/<version>-<slug>.md` is an established convention
