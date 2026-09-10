@@ -35,7 +35,9 @@ round can name the command that fills it.
   than once. Count the lines and report the **highest `n`** beside the count, because the promotion
   argument is carried by the worst case and not by the total — retro-1 found `(third ask)`,
   `(fourth ask)` and `(fifth ask)` already written by hand and invisible to a column that read only
-  `(second ask)`.
+  `(second ask)`. **Anchor the count at the end of the line** (the marker's position, per the
+  journal's header), or an entry that *discusses* a marker is counted as carrying one — which
+  retro-1's own first tally did.
 - **escapes** — `review` lines carrying the `(escape)` marker: corrections on work a review round had
   already passed, whichever round it was, including a later round of the same task's review. The
   loop-quality number: the analyzer/gate > check > prose ordering is working when this falls. Retro-1
@@ -60,4 +62,4 @@ round can name the command that fills it.
 | round | window | merged PRs | review lines (/PR) | second asks | escapes | D-hits | brief lines | consumer lines | releases | journal other · acted | notes |
 | ----- | ------ | ---------- | ------------------ | ----------- | ------- | ------ | ----------- | -------------- | -------- | --------------------- | ----- |
 | [retro-0](retro/2026-08-12-review-mining-round.md) | 2026-06-12..2026-08-12 | 70 | n/a — 288 follow-up turns / 26 sessions (not comparable) | n/a | n/a | n/a | n/a | n/a | 31 (18 stable, 13 preview) | 4 · 0 | Baseline round: mined transcripts because no journal existed. Every "n/a" is a column the journal will fill from here — none is a zero. One release every other day is this repo's tempo; the example-bump obligation rides on all 31. |
-| [retro-1](retro/2026-09-10-sdd-migration-retro.md) | 2026-08-12..2026-09-10 | 85 | 128 (1.5) | 6 · highest `n` = 5 | 0 — unrecorded, see notes | D10 33 · D2 20 · D9 16 · D1 2 · D3 2 · D5 2 · D6 1 · **D4/D7/D8 0** · P1 2 · P3 2 · P2/P4 0 | 45 | 1 | 11 (11 stable, 0 preview) | 231 · 6 | The SDD migration end to end: 14 area passes, the unification pass, the ledger review, the close-out. 67 of 359 entries carry any taxonomy tag, and 53 of those sit in the two slices where a review command was the instrument. `escapes` is 0 because the marker had never been written, not because nothing escaped — ≥20 lines qualify; the definition was widened this round. No `→ codified:` stamp exists anywhere in the file. `acted` is the six landings, not the lines they were drawn from. |
+| [retro-1](retro/2026-09-10-sdd-migration-retro.md) | 2026-08-12..2026-09-10 | 85 | 128 (1.5) | 8 · highest `n` = 5 | 0 — unrecorded, see notes | D10 36 · D2 20 · D9 16 · D1 2 · D3 2 · D5 2 · D6 1 · **D4/D7/D8 0** · P1 2 · P3 2 · P2/P4 0 | 45 | 1 | 11 (11 stable, 0 preview) | 231 · 6 | The SDD migration end to end: 14 area passes, the unification pass, the ledger review, the close-out. 70 of 359 entries carry any taxonomy tag, and 60 of those sit in the two slices where a review command was the instrument. `escapes` is 0 because the marker had never been written, not because nothing escaped — ≥20 lines qualify; the definition was widened this round. No `→ codified:` stamp exists anywhere in the file. `acted` is the six landings, not the lines they were drawn from. |

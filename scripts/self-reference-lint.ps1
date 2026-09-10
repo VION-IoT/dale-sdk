@@ -7,11 +7,16 @@
   read after the merge that made it resolvable, by which time it silently names whatever PR
   the reader is holding.
 
-  Cells only, and short ones: the whole trimmed cell must be at most 60 characters. Prose is
-  never judged. An in-flight change doc narrating "this PR touches scripts/" is describing the
-  work, is true while it is written, and reads as history afterwards; a row whose PR column
-  says "(this PR)" is a pointer that was never filled in. The length bound is what keeps the
-  two apart - a narrative cell is a paragraph, a pointer cell is a token.
+  Cells only, and only a cell that IS the pointer: strip emphasis, backticks, brackets and
+  surrounding punctuation, and what is left must be the phrase and nothing else. Prose is never
+  judged, and neither is a cell that merely mentions one. An in-flight change doc narrating
+  "this PR touches scripts/" is describing the work, is true while it is written, and reads as
+  history afterwards; a definition cell reading "the .cs this branch touched" is a description;
+  a row whose PR column says "(this PR)" is a pointer that was never filled in.
+
+  Whole-cell is the rule because the obvious alternative - a length bound separating a token
+  from a paragraph - cannot be pinned. A bound of 60 survived being doubled to 130 with every
+  self-test still green, which makes the number an assertion rather than a rule (P5).
 
   The shape it catches: `T-013` journalled two Implementation state rows still reading
   "(this PR)" after their PRs had merged, wrote the rule "write the row with a number", and
@@ -19,9 +24,9 @@
   gate. Retro-1 counted the family (a pointer with no durable referent) at 19 lines across four
   slices of its window.
 
-  Out of scope, by repo-root-relative path: history and append-only logs (`docs/rfcs/`,
-  `docs/retro/`, `docs/changes/archive/`), the generated snapshots, and the journal - each is
-  written once and never revised, so a self-reference in them is a fact about its own moment.
+  Out of scope, by repo-root-relative path: history and append-only logs (`docs/retro/`,
+  `docs/changes/archive/`), the generated snapshots, and the journal - each is written once and
+  never revised, so a self-reference in them is a fact about its own moment.
 
   Scans the tracked files (`git ls-files`); with -RepoRoot outside a git repo it walks the tree,
   skipping bin/, obj/, node_modules/ and .git/ (the self-test's path).
@@ -39,10 +44,12 @@ if (-not $RepoRoot) {
 $RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
 
 # Written once and never revised: a self-reference there names its own moment correctly.
-$outOfScopeRx = '^docs/(rfcs|retro|changes/archive|snapshots)/|^docs/process-journal\.md$|(^|/)(bin|obj|node_modules|\.git)/'
-# The cell must BE a pointer, not contain narrative: a pointer cell is a token, not a paragraph.
-$maxCell = 60
-$selfRefRx = '(?i)\b(?:this|the\s+current)\s+(?:PR|pull\s+request|commit|branch)\b'
+$outOfScopeRx = '^docs/(retro|changes/archive|snapshots)/|^docs/process-journal\.md$|(^|/)(bin|obj|node_modules|\.git)/'
+# The cell must BE the pointer. Markdown decoration and the punctuation a pointer is written
+# inside are stripped first, so `**(this PR)**` and `(this PR)` reduce to the same phrase and a
+# cell that merely mentions one does not reduce to anything.
+$decorationRx = '^[\s`*_~\[\]()<>"''.,;:!?-]+|[\s`*_~\[\]()<>"''.,;:!?-]+$'
+$selfRefRx = '(?i)^(?:this|the\s+current)\s+(?:PR|pull\s+request|commit|branch)$'
 
 $files = @()
 $inGit = $false
@@ -84,8 +91,8 @@ foreach ($path in $files) {
             $cell = $fields[$f].Trim()
             if (-not $cell) { continue }
             $cells++
-            if ($cell.Length -gt $maxCell) { continue }
-            if ($cell -match $selfRefRx) {
+            $bare = [regex]::Replace($cell, $decorationRx, '')
+            if ($bare -match $selfRefRx) {
                 $problems.Add("${rel}:${n}: a table cell points at itself - '$cell'. Write the identifier (the PR number, the sha, the branch); the phrase is read after the merge that would have resolved it.")
             }
         }
@@ -95,6 +102,13 @@ foreach ($path in $files) {
 if ($problems.Count) {
     Write-Host "self-reference-lint: FAIL - $($problems.Count) self-referential cell(s) across $checked file(s):"
     $problems | Sort-Object -Unique | ForEach-Object { Write-Host "  $_" }
+    exit 1
+}
+
+# Anti-vacuous floor, as bom-lint and pragma-reason-lint carry: a scan that reached nothing
+# reports that everything conformed, which is the same output as a scan that is silently broken.
+if ($checked -eq 0) {
+    Write-Host "self-reference-lint: FAIL - the scan reached 0 markdown file(s); this repository has many, so the walk or the scope filter is broken"
     exit 1
 }
 Write-Host "self-reference-lint: OK - $cells table cell(s) across $checked markdown file(s), none self-referential"

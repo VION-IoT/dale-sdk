@@ -46,12 +46,27 @@ try {
     )
     Expect 0 'Case 3 (prose is not a cell)' 'none self-referential'
 
-    # Case 4: a long narrative cell is a paragraph, not a pointer -> 0. The length bound is the
-    # whole defence against false positives, so it is pinned here.
+    # Case 4: a cell that MENTIONS the phrase is a description, not a pointer -> 0. Both lengths,
+    # because the rule is whole-cell and must not smuggle a length bound back in: the short one is
+    # the false positive a 60-character bound produced, and the long one is a narrative cell.
     Reset-Tree
     $long = 'the round re-ran every gate after the rebase, and this PR carries the pasted output for each of them, including the two that had to be re-run'
-    Write-Doc 'docs/changes/x.md' ($tableHead + @("| Gates | green | $long |"))
-    Expect 0 'Case 4 (narrative cell)' 'none self-referential'
+    Write-Doc 'docs/changes/x.md' ($tableHead + @(
+            "| Gates | green | $long |",
+            '| `-Changed` | scope | the `.cs` this branch touched |',
+            '| a | done | #209, superseded by this PR |'
+        ))
+    Expect 0 'Case 4 (mentions, at both lengths)' 'none self-referential'
+
+    # Case 4b: markdown decoration around the pointer does not hide it -> 1 per row.
+    Reset-Tree
+    Write-Doc 'docs/changes/x.md' ($tableHead + @(
+            '| a | done | **(this PR)** |',
+            '| b | done | `this PR` |',
+            '| c | done | _this PR_ |',
+            '| d | done | this PR. |'
+        ))
+    Expect 1 'Case 4b (decorated pointer)' '4 self-referential cell(s)'
 
     # Case 5: the other three phrasings, plus "the current PR" -> 1 each, four findings on four rows.
     Reset-Tree
@@ -64,12 +79,13 @@ try {
     Expect 1 'Case 5 (every phrasing)' '4 self-referential cell(s)'
 
     # Case 6: the append-only logs and history are out of scope -> 0, even carrying the exact defect.
+    # A live doc beside them keeps the scan non-empty, so this proves the exclusion and not the floor.
     Reset-Tree
     Write-Doc 'docs/changes/archive/old-pass.md' ($tableHead + @('| a | done | (this PR) |'))
     Write-Doc 'docs/retro/note.md' ($tableHead + @('| a | done | (this PR) |'))
-    Write-Doc 'docs/rfcs/0001.md' ($tableHead + @('| a | done | (this PR) |'))
     Write-Doc 'docs/snapshots/s.md' ($tableHead + @('| a | done | (this PR) |'))
     Write-Doc 'docs/process-journal.md' ($tableHead + @('| a | done | (this PR) |'))
+    Write-Doc 'docs/changes/live.md' ($tableHead + @('| a | done | #209 |'))
     Expect 0 'Case 6 (history out of scope)' 'none self-referential'
 
     # Case 7: a fenced block that looks like a table is code, not a table -> 0.
@@ -83,9 +99,11 @@ try {
     Write-Doc 'docs/changes/x.md' @('| PR |', '| :--- |', '| (this PR) |')
     Expect 1 'Case 8 (single column)' 'points at itself'
 
-    # Case 9: a non-Markdown file carrying the phrase in a pipe-delimited line -> 0.
+    # Case 9: a non-Markdown file carrying the phrase in a pipe-delimited line -> 0. A markdown doc
+    # beside it keeps the scan non-empty, so this proves the kind filter and not the floor.
     Reset-Tree
     Write-Doc 'scripts/x.ps1' @('| a | done | (this PR) |')
+    Write-Doc 'docs/changes/live.md' ($tableHead + @('| a | done | #209 |'))
     Expect 0 'Case 9 (not markdown)' 'none self-referential'
 
     # Case 10: "this PRs" and "commitment" must not match - the word boundary is load-bearing.
@@ -99,6 +117,12 @@ try {
     Reset-Tree
     Write-Doc 'docs/changes/x.md' ($tableHead + @('| `T-013` | done | #208 |'))
     Expect 0 'Case 11 (separator is not cells)' '6 table cell(s)'
+
+    # Case 12: the anti-vacuous floor. A tree with no markdown at all is a broken walk or a broken
+    # scope filter, and reporting "none self-referential" for it is the same output as success.
+    Reset-Tree
+    Write-Doc 'scripts/x.ps1' @('nothing to scan here')
+    Expect 1 'Case 12 (anti-vacuous floor)' 'reached 0 markdown file(s)'
 
     Write-Host 'self-reference-lint.tests: PASS'
     exit 0

@@ -193,7 +193,7 @@ Run each as a named adversarial check; cite the D-number in findings.
   *"explain the bug, and why it could slip through, was the rfc silent about it?"* · *"why that change?
   please explain"*. **Scope: this is the claim, not the sweep.** A fix that reached fewer sites than the
   shape lives at is **P3**, and a claim true only of the machine, fixture or repository it ran on is
-  **P4** — cite those. Retro-1 found `D10` carrying 33 of the window's 80 taxonomy stamps with three
+  **P4** — cite those. Retro-1 found `D10` carrying 36 of the window's 83 taxonomy stamps with three
   different causes under it, five of them lines that `P3` had owned since the day it was minted; a
   number that means three things measures none of them.
 

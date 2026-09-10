@@ -210,9 +210,14 @@ namespace Vion.Dale.Cli.Test.Helpers
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-003.10")]
-        public void CautionOnceProjectResolves()
+        [DataRow("named", DisplayName = "resolved from an explicit --project")]
+        [DataRow("walkup", DisplayName = "resolved by walking up")]
+        [DataRow("solution", DisplayName = "auto-selected as a solution's only Dale project")]
+        public void CautionOnceProjectResolves(string howResolved)
         {
-            // Arrange — the caution rides project resolution, so this is what proves it is reached at all.
+            // Arrange — the caution rides project resolution, so this is what proves it is reached at all,
+            // and it runs over all three resolution paths because deleting the call from any one of them
+            // otherwise leaves the suite green.
             // DaleConsole.Warning renders through the global Spectre console, which caches its writer, so
             // the capture has to replace that console rather than redirect Console.Out beneath it.
             var originalConsole = AnsiConsole.Console;
@@ -228,11 +233,27 @@ namespace Vion.Dale.Cli.Test.Helpers
             var csproj = Path.Combine(library, "MyLib.csproj");
             File.WriteAllText(csproj, DaleCsproj);
             CommandHelpers.UseToolVersion("0.11.0");
+            string? projectPath = null;
+            switch (howResolved)
+            {
+                case "named":
+                    projectPath = csproj;
+                    break;
+                case "walkup":
+                    Directory.SetCurrentDirectory(library);
+                    break;
+                case "solution":
+                    // No Dale project under the working directory, so resolution falls through to the
+                    // solution above it and auto-selects its only one.
+                    File.WriteAllText(Path.Combine(_root, "Everything.sln"), "Project(\"{FAE04EC0}\") = \"MyLib\", \"MyLib\\MyLib.csproj\", \"{A}\"\r\nEndProject\r\n");
+                    Directory.SetCurrentDirectory(_root);
+                    break;
+            }
 
             try
             {
                 // Act
-                var project = CommandHelpers.RequireProject(csproj);
+                var project = CommandHelpers.RequireProject(projectPath);
 
                 // Assert
                 Assert.IsNotNull(project);
@@ -272,6 +293,7 @@ namespace Vion.Dale.Cli.Test.Helpers
         [DataRow("0.0.0", "0.11.2", DisplayName = "a project referencing a local SDK build")]
         [DataRow("0.11.2", "0.0.0-ci.412", DisplayName = "a CI tool build")]
         [DataRow("0.11.2-preview.1", "0.11.2", DisplayName = "a preview of the same release")]
+        [DataRow("0.11.2", "0.11.2-preview.1", DisplayName = "a preview tool against the released SDK of that core")]
         [DataRow(null, "0.11.2", DisplayName = "a project referencing the SDK by project")]
         [DataRow("$(SdkVersion)", "0.11.2", DisplayName = "an unevaluated MSBuild property")]
         public void StaySilentWithoutStaleTool(string? referencedSdk, string toolVersion)

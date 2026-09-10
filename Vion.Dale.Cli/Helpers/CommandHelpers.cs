@@ -259,7 +259,7 @@ namespace Vion.Dale.Cli.Helpers
             }
 
             var core = version.Split('-', '+')[0];
-            if (!Version.TryParse(core, out var parsed) || parsed.Major < 0)
+            if (!Version.TryParse(core, out var parsed))
             {
                 return null;
             }

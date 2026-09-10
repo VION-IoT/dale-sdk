@@ -298,7 +298,7 @@ kind that turns out empty — an attribute with no named parameters — is a Dri
 **A count in a brief is a hypothesis until a second reader confirms it.** Before the launch line a
 fresh-context Opus `Explore` subagent reads the brief against the code — every file, folder, count,
 ownership claim and omission, reported as corrections — and the brief is rewritten before dispatch.
-One subagent, seven to ten minutes across the four passes that timed it: one brief carried thirteen
+One subagent, seven to eleven and a half minutes across the five passes that timed it: one brief carried thirteen
 wrong claims and nine omissions until it ran, and an inventory claiming thirty-nine analyzers with
 the severities transposed lost eighteen claims the same way. A premise about what the build decides —
 which projects pack, what an assembly carries, what a property evaluates to — comes from the build

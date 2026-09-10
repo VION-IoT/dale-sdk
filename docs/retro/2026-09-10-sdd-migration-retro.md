@@ -55,23 +55,23 @@ notations the file uses:
 
 | `D10` | `D2` | `D9` | `D1` | `D3` | `D5` | `D6` | `D4` | `D7` | `D8` |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 33 | 20 | 16 | 2 | 2 | 2 | 1 | **0** | **0** | **0** |
+| 36 | 20 | 16 | 2 | 2 | 2 | 1 | **0** | **0** | **0** |
 
-`P1` 2, `P3` 2, `P2` and `P4` zero — and `P1`–`P4` existed for only the last 84 entries. Sixty-seven lines
+`P1` 2, `P3` 2, `P2` and `P4` zero — and `P1`–`P4` existed for only the last 84 entries. Seventy lines
 of 359 carry any tag at all.
 
 Three readings, each load-bearing:
 
-- **`D10` is a third of all tagging and carries three causes** — the unchecked claim, the incomplete sweep,
+- **`D10` is 36 of the 79 D-stamps and carries three causes** — the unchecked claim, the incomplete sweep,
   and the wrong premise. Slice D's own retro-mapping puts five of its `D10`-stamped lines under `P3`, which
   had owned that shape since the day it was minted.
 - **`D4`, `D7` and `D8` never fired.** `process-metrics.md` makes deletion a three-round judgment, so this
   is round one of three, not a verdict. `D4` is the analyzer-obligation check, and its silence is the
   reason nothing in this round reaches the ladder's top rung: the window was process, spec and harness
   work, with almost no consumer-facing authoring for an analyzer to see.
-- **Tagging tracks the instrument, not the discipline.** Fifty-three of the sixty-seven tagged lines sit in
+- **Tagging tracks the instrument, not the discipline.** Sixty of the seventy tagged lines sit in
   the two slices where a review command was the reviewing instrument; the three middle slices, where the
-  passes ran coordinator critics instead, carry seven tags across 196 entries, and thirty-seven consecutive
+  passes ran coordinator critics instead, carry ten tagged lines across 196 entries, and thirty-seven consecutive
   entries carry none. All four scorecards in one slice record the classification gate as *"0 — delegated"*.
   The taxonomy is calibrated to a review mode half the window did not use.
 
@@ -85,6 +85,12 @@ header never decided whether a second review round catching the first counts, wh
 case. Retired would have been the wrong call — the loop the number watches only started existing on
 2026-09-09. Redefined instead, landing 4.
 
+**The redefinition is not yet tested, and this round could not test it.** Its own review found four real
+defects, and none of them is an escape: round 1 was the first round over this branch, so nothing had
+already passed one. Two lines were written with an `(escape)` marker and corrected before commit for
+exactly that reason. An escape needs a second round to exist, which is why the marker's first honest
+reading is retro-2's, and why a `0` here still means unrecorded rather than none.
+
 **`→ codified:`: zero in 359 entries, and for all but the last day the stamp did not exist.** A true
 negative for the stamp, a false negative for codification: `:301` is quoted verbatim inside `P1`; `:187`
 proposed the doc-comment check and `doc-comment-lint` shipped in-window; five gates in one scorecard's list
@@ -93,6 +99,64 @@ exists so a later round can see *rule written, recurred anyway*, and a rotated w
 next round, so stamping the archive buys nothing. That is a real seam between the two loops: `/vion-codify`
 stamps on the branch, `/vion-retro` rotates the evidence away. Retro-2's first question is whether a stamp
 has appeared at all.
+
+## The seven questions
+
+Asked by the change doc on 2026-09-07, against transcripts `T-011` has since harvested and deleted.
+Answered from durable artifacts only; where the artifact is gone, that is said rather than reconstructed.
+
+**1. Compaction versus handover.** *The premise is wrong in both halves.* `T-011` measured two **pass**
+sessions compacting, not none — `SCEN` and `CTRL`, one each — and those are precisely the two passes where
+amendments first fell to one. So compaction did not move output quality in the direction the question
+assumes. Nor does the fresh-session rule explain the fall from six: amendments run **2, 3, 6, 2, 1, 1** and
+then one for eight consecutive passes, so the fall to one happened at `SCEN` (pass 5), while the amendment
+became *a fresh-session brief* at `LIFE` (pass 7), two passes later. What sits at the inflection instead is
+pass 4, `INTRO`, which introduced both the classification relay and the fresh-session fix-up round; six
+amendments became two there and one at the next pass. The fresh-session brief held the gain; it did not
+produce it.
+
+**2. The brief check's yield.** Eleven to twenty-four wrong claims and eight to thirteen omissions per
+brief, seven to eleven and a half minutes, one Opus subagent. A standing lane-3 rule and **not** a lane-2
+one — see *What landed* for why, and landing 2 for what replaced it.
+
+**3. Which checks pay.** Of the three the question names, two pay and one does not. Completeness-critic
+misses run one to six per pass and every one is a real gap; round-1 review blockers one to four. The
+**round-2 targeted read found zero in all eight passes that record it** — the second round paid for
+nothing new, eight times running. The second opinion is worth keeping for a different reason than its
+count: it reads the *other* repositories, and one of its passes changed the class of four rows. For lane
+2's single review the answer is the round it already runs, `/vion-code-review branch`, which fires on
+essentially every close-out task.
+
+**4. Where corrections concentrated.** The seven clusters above. Which became gates, *inside the window
+and without waiting for this retro*: `bom-lint`, `doc-comment-lint`, `sweep-residue-lint`, `journal-lint`
+and `test-style-lint`. Which remain prose: the two largest, until landings 1 and 2. **Which recur despite
+a gate** is the sharpest of the four — `spec-trace` is green while a test cites a criterion whose text it
+does not prove, because the gate checks that an id exists and never that the citation fits. Three journal
+lines and one pass's round-1 blocker are that exact defect.
+
+**5. Stalls.** Three, roughly nineteen hours, three unrelated mechanisms: a cross-session message held
+because the *sender* sat in default mode, a watch reporting "no STOP yet" over a session idle after an API
+connection loss, and a turn that hung for six hours and twenty minutes and surfaced only as "API Error".
+Do the watch rules matter with no coordinator? **More, not less.** Two of the three were visible only to a
+watcher, and the third writes no transcript record at all, so wall-clock is the only tell. But all three
+mechanisms live in the `vion-dispatch` plugin in the architecture repo, so the rung is that repo's to pick.
+
+**6. Cost.** From `T-011`'s harvest, forty-five dispatched sessions: fourteen passes (13,740 messages,
+5,170 tool uses, 70.6 h), twelve fix-ups (5,752 · 2,198 · 9.3 h), seven coordinator sessions plus two
+aborted (8,560 · 2,881), nine close-out workers (4,835 · 1,755 · 55.5 h), one infra session. Per area pass:
+two Opus sessions at high effort plus three to five Opus check subagents, two and a half to three and a
+half hours wall — `CLI`'s nine hours is six hours and twenty minutes of hang. **The harvest carries no
+model column**, and the transcripts it was taken from are deleted, so "sessions × model" cannot be
+reconstructed beyond each change doc's own *"2 Opus sessions at high effort"* line. That is the one place
+this round's inputs fall short of the question.
+
+**7. The skill's cadence.** Fourteen versions in six days, each from the previous pass's friction, and the
+skill is now retired. Can codify plus retro keep that loop closed? **Not proven, and the honest answer is
+"no evidence yet."** Two of the window's journal entries *are* skill-version changelogs — v13 and v14
+written as friction lines — which one reader read as `→ codified:` stamps in the wrong shape. The
+successor for the same-branch case is `/vion-codify`, and it has never run: zero stamps exist across 359
+entries. A per-pass bump had a cadence no six-weekly retro can match, so the two loops are only equivalent
+if the branch-local one actually fires. Retro-2's first question.
 
 ## What landed
 
@@ -106,7 +170,7 @@ has appeared at all.
 | 6 | A machine trap repaid in briefs | 2 — a fix in the tool | `Vion.Dale.Cli`, `AC-CLI-003.10` |
 
 Landing 2 is not the shape first proposed. The evidence said the lane-3 pre-dispatch brief check is
-prescribed at Opus, costs seven to ten minutes rather than the four its own paragraph claimed, was refuted
+prescribed at Opus, costs seven to eleven and a half minutes rather than the four its own paragraph claimed, was refuted
 by the pass it checked on two occasions, and mostly catches counts *another subagent had guessed into the
 brief*. So the rule went to the writer instead: a brief carries intent, a number is in it only when the
 session would act differently for a different value, and then it carries the command that produced it.
@@ -152,7 +216,7 @@ because `/vion-retro` § 9's formula omits the heading it also requires.
 2. **Does `(escape)` fire now that it names the case that happens?** A zero next round means the redefinition
    failed, not that nothing escaped.
 3. **Which of `D1`–`D10` fire**, carried forward from retro-0. This round answers it for one window: three
-   numbers carry 69 of 73 stamps and three never fire. Two more rounds decide whether `D4`, `D7` and `D8`
+   numbers carry 72 of the 79 D-stamps and three never fire. Two more rounds decide whether `D4`, `D7` and `D8`
    are dead or merely out of season.
 4. **Did `P5` catch anything?** It is the round's only rung-3 landing and it is aimed at the window's
    largest cluster.
