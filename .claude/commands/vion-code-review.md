@@ -265,8 +265,8 @@ Four rules about that block:
   both blocks; nothing is rewritten in place, because the first round's findings and their dispositions
   are what the second round was scoped against.
 
-**The operator's dispositions are one `review` journal line** in the commit that applies them —
-`CLAUDE.md` working agreement 7 owns that rule and [`docs/process-journal.md`](../../docs/process-journal.md)
-owns the line's shape, including the `(escape)` marker for work that had already passed a round. This
-section does not restate either; it points at them because a round that produced findings and journalled
-nothing has left no durable record of what it cost.
+**The round is not finished until the operator's dispositions are journalled.** What that line is and
+when it is written is `CLAUDE.md` working agreement 7's; the line's shape and its `(escape)` marker for
+work that had already passed a round are [`docs/process-journal.md`](../../docs/process-journal.md)'s.
+Read them there — a round that produced findings and journalled nothing has left no durable record of
+what it cost, and that is the only part of the obligation this section is entitled to say.

@@ -149,8 +149,8 @@ design; what was wrong was the flat claim above, not the absence of a delta.
    command anyway.
    **Decided by `T-014` (2026-09-10, handed to it as decide-and-document): they stay the Lanes
    appendix; no command files.** `T-014` is the first session in a position to judge the overlap,
-   and the overlap is total for one of the two: the adversarial review prompt's first instruction is
-   *"Read …ion-code-review.md and follow it exactly"* ([`../spec-process.md`](../spec-process.md)
+   and the overlap is total for one of the two: the first instruction of the adversarial review
+   prompt's task is *"Read …ion-code-review.md and follow it exactly"* ([`../spec-process.md`](../spec-process.md)
    § Lanes appendix), so `spec-review.md` would be a command file wrapping a command — a second
    shelf for a rubric this repo keeps in one place, and the drift risk one-owner-per-rule exists to
    avoid. The completeness critic does **not** overlap — nothing in the review command hunts for
@@ -1640,9 +1640,12 @@ names the file and section that states the rule now, and *lane 3 § N* is
   and the brief both read as if the second round needed a new scope resolution. It does not:
   `git merge-base <ref> HEAD` returns `<ref>` whenever `<ref>` is an ancestor of `HEAD`, which every
   first-round hash on the branch under review is, so `branch:<ref>` and `since:<ref>` produce the
-  same hunks — measured on this branch, `git diff --stat 1226d49` and
-  `git diff --stat $(git merge-base 1226d49 HEAD)` both report `5 files changed, 144 insertions(+),
-  13 deletions(-)`. The keyword is kept, and the brief's `[assumed]` reading — a keyword, not a
+  same hunks — `git diff --stat 1226d49 3c3adbd` and
+  `git diff --stat $(git merge-base 1226d49 3c3adbd) 3c3adbd` both report `5 files changed,
+  144 insertions(+), 13 deletions(-)`, and `git merge-base 1226d49 3c3adbd` prints `1226d49`. Both
+  ends are pinned commits on purpose: the first writing of this checkpoint compared a **working
+  tree**, and its pasted numbers were stale by the next commit, which is `P1` catching the sentence
+  that explains `P1`. The keyword is kept, and the brief's `[assumed]` reading — a keyword, not a
   modifier combining with the other three — holds, but the reason is the **job** and not the
   arithmetic: a second round has three obligations the diff cannot state (read the first round's
   record first, do not re-raise what the operator accepted, check that round 1's findings were
@@ -1657,14 +1660,19 @@ names the file and section that states the rule now, and *lane 3 § N* is
   implementing session, **the gate review on the PR**" — `D3`'s wording, written before `D12` moved
   the round in-session and before the PR. Lane 1 already named the pre-PR subagent; lane 2 named
   nothing, so the lane this very task runs in had no round. Lane 2 now runs the same round lane 1
-  does, with the change doc as the spec.
+  does, with the change doc as the spec. The review round then found lane 1 to be the unswept
+  sibling of that fix — it named the subagent and not the record, so the two lanes differed by one
+  clause while lane 2 called itself "the same round lane 1 runs". Lane 1 carries the clause now.
 - **`T-014`: the seam `T-013` was asked to re-check held, and the third statement of the
   dispositions rule was the one to remove.** The template's *Review round* comment and § Lanes'
   `Review` bullet agree about where dispositions go, and neither displaced the other. The rule stood
   in three places, though — `CLAUDE.md` working agreement 7 owns it, the template restates it as the
   field guide where a PR body is filled in, and `vion-code-review.md` § 4 restated it a third time.
-  The command's copy is now a pointer to the owner, and the template's keeps the sentence with the
-  owner named in it: a reader filling a PR body should not have to follow a link to learn what to do,
+  The command now points twice and states neither — § 4 hands the findings back, § 7 says the round
+  is unfinished until the line is written and names who owns the line — and the template keeps its
+  sentence with the owner named in it. *(The review round caught the first attempt at this: § 7 had
+  been left stating the rule in full one sentence above the claim that it did not.)* The reason for
+  the asymmetry: a reader filling a PR body should not have to follow a link to learn what to do,
   and a reader of the review command should not be able to read a version of the rule that has
   drifted.
 

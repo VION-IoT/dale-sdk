@@ -235,7 +235,7 @@ The default, and most backlog items. No change doc: the PR carries the fix, its 
 against the pre-fix code, and the edit to the touched spec page **in the same commit set** — a page
 edit riding a fix is not change narrative, it is the distill. Before the PR: `/cleanup` once and a
 **fresh-context read-only review subagent** (`/vion-code-review branch`, with the touched page as the
-spec). A fix that turns out non-local or design-bearing while you implement it **stops and says so**:
+spec), its findings applied or accepted, and the round written into the PR body. A fix that turns out non-local or design-bearing while you implement it **stops and says so**:
 it becomes lane 2, never a silent absorption. A "bug" that is really a feature band never rides a
 fix.
 
@@ -654,8 +654,8 @@ results comparable between rounds, and misses-per-sweep is what feeds the scorec
 **They stay here rather than becoming `.claude/commands/` files** (decided by `T-014`, the task that
 rewrote the review command; the closeout doc's reviewer's question 4 carries the reasoning). Three
 reasons, in the order that decided it. The adversarial review below is not a second prompt at all —
-its first instruction is to read [`vion-code-review.md`](../.claude/commands/vion-code-review.md) and
-follow it, so a command file for it would be a wrapper around a command, and a second shelf the review
+the first instruction of its task is to read
+[`vion-code-review.md`](../.claude/commands/vion-code-review.md) and follow it exactly, so a command file for it would be a wrapper around a command, and a second shelf the review
 rubric could drift off. The completeness critic genuinely has no overlap, but its `<…>` parts are the
 round's prose — the area's one-sentence definition, its edge values, its parity rule, the neighbouring
 pages — which a slash command's arguments cannot carry and a coordinator writes by hand either way.
