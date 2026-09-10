@@ -1767,10 +1767,10 @@ names the file and section that states the rule now, and *lane 3 § N* is
   exist in this repo (`D11` drops `/vion-commit`'s flow, `D12` drops `/vion-pr` whole) — and is
   copied with those names replaced by "the cleanup command" / "the commit command" / "the review
   command", which the source's own rule under *State the principle, illustrate with examples*
-  ("naming the cleanup command as an example is fine") already licenses. Five passages narrate a
-  specific incident "on the branch that built the harness" — mesh's own history, not something that
-  happened here — and are rewritten as the mechanism the incident illustrates rather than a claim
-  this repo cannot back.
+  ("naming the cleanup command as an example is fine") already licenses. Four passages
+  (`harness.md:22,36,90,102-103`) narrate a specific incident "on the branch that built the harness"
+  — mesh's own history, not something that happened here — and are rewritten as the mechanism the
+  incident illustrates rather than a claim this repo cannot back.
 
 ---
 

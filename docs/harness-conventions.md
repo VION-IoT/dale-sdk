@@ -39,9 +39,9 @@ twin is a sentence a reviewer can find inconsistent. Mirrored sentences that a f
 file and misses in another cost review rounds to reconcile, and a file that re-mentions what another
 file already said bloats for no reader's benefit.
 
-The owner is the file whose subject the rule governs, which is the file that applies it: the
-commit-message format lives in the commit convention, not in the working agreement that says to
-commit through it. The working agreement says which convention to use for what; what the convention
+The owner is the file whose subject the rule governs, which is the file that applies it: the lane
+rules live in the spec-process convention, not restated in the working-agreement item that points a
+session to them. The working agreement says which convention governs what; what a convention
 requires is in the convention.
 
 Point only where the reader would not get there anyway — a convention doc that a trigger in
