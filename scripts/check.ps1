@@ -79,21 +79,22 @@ if (-not (Test-Path -LiteralPath $workflow)) {
 # escape-hatch words, change-doc frontmatter and lifecycle - run without it. Skipping the
 # whole gate for want of a fetch would hide those on every unfetched clone.
 $invocation = @{
-    'run-script-tests'   = @{ Args = @(); RepoRootArg = $false }
-    'spec-lint'          = @{ Args = @(); RefArgs = @('-Diff', $baseRef); RepoRootArg = $true; NeedsRef = $baseRef
-                              WithoutRef = 'the narrative rule needs a base ref; its other rules ran' }
-    'spec-trace'         = @{ Args = @(); RepoRootArg = $true }
-    'test-style-lint'    = @{ Args = @(); RepoRootArg = $true }
-    'doc-comment-lint'   = @{ Args = @(); RepoRootArg = $true }
-    'pragma-reason-lint' = @{ Args = @(); RepoRootArg = $true }
-    'bom-lint'           = @{ Args = @(); RepoRootArg = $true }
-    'journal-lint'       = @{ Args = @(); RepoRootArg = $true }
-    'sweep-residue-lint' = @{ Args = @(); RepoRootArg = $true }
+    'run-script-tests'    = @{ Args = @(); RepoRootArg = $false }
+    'spec-lint'           = @{ Args = @(); RefArgs = @('-Diff', $baseRef); RepoRootArg = $true; NeedsRef = $baseRef
+                               WithoutRef = 'the narrative rule needs a base ref; its other rules ran' }
+    'spec-trace'          = @{ Args = @(); RepoRootArg = $true }
+    'test-style-lint'     = @{ Args = @(); RepoRootArg = $true }
+    'doc-comment-lint'    = @{ Args = @(); RepoRootArg = $true }
+    'pragma-reason-lint'  = @{ Args = @(); RepoRootArg = $true }
+    'bom-lint'            = @{ Args = @(); RepoRootArg = $true }
+    'journal-lint'        = @{ Args = @(); RepoRootArg = $true }
+    'sweep-residue-lint'  = @{ Args = @(); RepoRootArg = $true }
+    'self-reference-lint' = @{ Args = @(); RepoRootArg = $true }
 }
 
 # Derive the gate list, in the workflow's own order, from the scripts its steps invoke. The
 # spec-lint step names its script twice (an if/else on GITHUB_BASE_REF), hence the dedupe.
-# Comment lines are skipped: the workflow's header names all nine scripts in prose, and a
+# Comment lines are skipped: the workflow's header names all ten scripts in prose, and a
 # comment mentioning a script the workflow does not run would mint a gate that is not one.
 $derived = [System.Collections.Generic.List[string]]::new()
 foreach ($line in (Get-Content -LiteralPath $workflow)) {
