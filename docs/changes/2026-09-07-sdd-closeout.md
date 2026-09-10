@@ -5,7 +5,7 @@ blocked-on: none           # for parked docs: what's blocking + ref
 areas: process             # the process itself, as in 2026-09-01-sdd-process.md
 author: jonas.bertsch (drafted with Claude in the session `sdk: sdd big picture`)
 created: 2026-09-07
-updated: 2026-09-09
+updated: 2026-09-10
 supersedes: none
 ---
 
@@ -445,7 +445,7 @@ never a silent absorption.
 | `T-016` | done | `sdk: sdd closeout T-016` | #211 |
 | `T-017` | done — architecture-side clause landed spec-driven and **repo-agnostic**, not the dale-sdk clause the task line asked for (a hard-coded repo list goes stale the moment a repo adopts or drops a corpus); `libraries/dale-sdk.md` re-pointed off its RFC citations, correcting seven dangling citations rather than the five assumed, one of them split across two pages and one deleted by the CTRL pass; the topology-evolution claim was found to live in no spec page and is now stated as architecture's own | `sdk: sdd closeout T-017` (architecture) | architecture#78 |
 | `T-018` | done — six landings ruled by the operator; landing 2 re-shaped from "extend the lane-3 brief check to lane 2" to a writer-side rule after the evidence said the check is Opus-priced, twice as slow as its own paragraph claims, and mostly catches counts another subagent guessed into the brief | `sdk: sdd closeout T-018` | #213 |
-| `T-019` | to come | — | — |
+| `T-019` | done to the STOP — the notes, the migration page and the consumer relay are drafted and the version proposed; the tag, the reference bump, the Jira relay and the substrate page's version note are the operator's, and the doc is deliberately left unarchived until the tag exists | `sdk: sdd closeout T-019` | #215 |
 | `T-020` | done — the task line's *pre-change* counts matched exactly on re-derivation (24× `18.0.1`, 2× `17.14.1`, 18× `6.0.4`, 18× the `MSTest` meta-package, 75 projects); `Vion.Dale.Cli.Test` converted to the `MSTest` meta-package to match its 18 neighbours rather than the split `TestAdapter`/`TestFramework` pair, and its bare `coverlet.collector` swept to the sibling `<PrivateAssets>`/`<IncludeAssets>` shape, so the post-change tree carries 25× `18.0.1`, 19× `6.0.4` and 19× the `MSTest` meta-package; restore now reports 75 of 75 with the credential still expired | `sdk: sdd closeout T-020` | #212 |
 
 ### Ledger dispositions
@@ -1828,6 +1828,65 @@ names the file and section that states the rule now, and *lane 3 § N* is
   entries. Rebuilt from a recount, verified byte-identical to the window by hash, and three citations
   spot-checked by content against the offset. The lesson is the one the round landed: a line number means
   nothing without the commit it was read at, which is why the archive heading names `7662ec3`.
+- **`T-019`: the task line's relay-section inventory re-derived, and the brief's corrections all
+  hold.** Seventeen archived docs, not sixteen. The relay heading has three spellings — `## Relay
+  notes for the PR body` (11: `ctrl`, `anlz`, `bind`, `life`, `modb`, `cli`, `io`, `tkit`, `http`,
+  `unify-pass`, `unify-tier2`), `### Relay notes for the PR body` (1: `scen`) and `### Consumer-visible
+  change — relay this in the PR body` (3: `emit`, `gate`, `intro`) — so fifteen docs carry one and two
+  do not. `grep -c` on the first spelling alone reports 11 of 17. Counted with
+  `grep -rn "^#\+ \(Relay notes for the PR body\|Consumer-visible change — relay this in the PR body\)$"
+  docs/changes/archive/`.
+- **`T-019`: of the two docs with no relay section, one has a consumer-visible change and one has
+  none.** `2026-09-01-sdd-process.md` creates the corpus, the lane, the gates and two convention docs
+  and changes no shipped code — its own § *What does not change* is the evidence, and its Spec delta
+  targets are all `docs/` and `scripts/`. `2026-09-01-plug-pass.md` **does**: its Spec delta classifies
+  rows 30, 31 and 32 as `fix`, and row 32's is a behaviour change a plugin host feels — an unmarked
+  assembly in a plugin's own directory now loads private even when a shared instance of that simple
+  name exists (`AC-PLUG-005.3`, "isolation wins"). Rows 30 and 31 are the eager-load pair. All three
+  are in the notes under *Plugin loading*; the pilot pass predates the relay-section convention, which
+  is why the heading is absent rather than the change.
+- **`T-019`: four consumer-visible changes in the window are reachable from no relay section**, which
+  is the `[assumed]` the brief flagged doing its job. Three are close-out work that landed after its
+  area's doc archived: `T-010` (#200) relabelled the HTTP client's own timeout ceiling from
+  `TaskCanceledException` to `TimeoutException` and rewrote `AC-HTTP-008.2` — the largest catch-clause
+  change in the release; `T-007` (#197) made the control surface's duration converter refuse a
+  malformed body as a 400 where it faulted as a 500, minting `AC-CTRL-014.6` and `.7`, and took the
+  machine-dependent default off `dale login -h` (`AC-CLI-019.3`); #201 removed
+  `DevConfigurationBuilder.ShareContract`, a public member leaving `Vion.Dale.DevHost`. The fourth is
+  the one the brief named, retro-1's stale-tool caution. `T-005`'s byte-order-mark sweep, `T-003`'s and
+  `T-004`'s gate work and `T-008`'s API marks were read and are not consumer-visible behaviour — the
+  API marks change the manifest and the reference, and are in the notes' last section as such.
+- **`T-019`: no VION-62 item is resolved by this release, so the task line's "consumer relay for each
+  VION-62 item the release touches" has an empty set in its literal reading.** The epic's fourteen open
+  children are all untouched or declined-with-a-reason by the passes; every closed one was resolved
+  before 2026-09-01 and shipped in `v0.11.x` (`VION-131` closed 2026-09-01 07:42, twelve hours before
+  pass 0 landed). `T-009` **filed** `VION-194` and `VION-195` into the epic and closed `VION-133` *Wird
+  nicht gemacht*, and it relayed those itself. What the release actually owes the consumer is not a
+  closure comment but a pre-bump advisory, so the relay drafted for the operator is that: the
+  dual-annotated measuring points to declare before the bump, and the sweeps the passes already ran
+  against `logic-block-libraries` so the maintainer need not re-run them. It is drafted and handed
+  over, never sent (`CLAUDE.md` § Feedback intake); no Jira write was made or proposed.
+- **`T-019`: the release notes needed a home and the repo had none, so `docs/release-notes/` is new.**
+  Every release before this one used `gh release create --generate-notes`, whose body is the merged-PR
+  list — a changelog for whoever wrote the PRs and nothing for a consumer, which does not carry 57
+  commits of behaviour change. `docs/migrations/<version>-<slug>.md` is an established convention
+  (`0.10.4-modbus-client-surface.md`, named as such on `architecture/libraries/dale-sdk.md:284`) but it
+  is the recipes page, not the notes. The two are split as the precedent splits them: the notes say
+  what moved, the migration page says what to do about it, and `docs/releasing.md` — which owns the
+  procedure — gained the `-F` invocation and the rule for when a release earns a notes page. The
+  directory is `release-notes/` and not the obvious `releases/` because **`.gitignore:19` carries the
+  stock `[Rr]eleases/`** — the Visual Studio template's ClickOnce/Squirrel output rule, which matches
+  at any depth, so a `docs/releases/` page is silently uncommittable exactly as `docs/superpowers/`
+  is. Found by `git status` not listing the file after it was written; `git check-ignore -v` is the
+  tell `CLAUDE.md` already names for the other case. Redirected rather than un-ignored, which is what
+  `CLAUDE.md` prescribes there.
+- **`T-019`: the migration note is one page with a section per class, not one page per class.** The
+  task line's "a migration note for every consumer-visible behaviour change" reads either way; the sole
+  precedent is one page per release covering a themed surface, and the journal's 2026-08-27 line sets
+  the bar for a page at "a recipe with a trap", which several of this release's classes individually do
+  not meet. The page is ordered by when a change bites — before the bump, at the bump, at first start,
+  in a catch clause — because that is the order a consumer meets them, and every class the task line
+  names has its own section.
 
 ---
 
