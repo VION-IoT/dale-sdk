@@ -44,8 +44,14 @@ On a branch other than `origin/main`'s tip, say which.
 ## 2. Read with a fresh context
 
 Dispatch **reader subagents** (Agent tool, `general-purpose`, passing `model` explicitly as the model
-this session runs on, run in the foreground). **Never read the window inline**: this session or its
-predecessors wrote many of the entries, and recency bias sets the themes otherwise.
+this session runs on). **Never read the window inline**: this session or its predecessors wrote many
+of the entries, and recency bias sets the themes otherwise.
+
+The Agent tool returns as soon as each reader is launched and notifies on completion, so the slices
+run concurrently whether or not you want them to — dispatch all of them in one message and wait. Do
+not poll a reader's output file: it is the raw transcript, and reading it undoes the fresh context
+the slicing bought. Retro-1 ran five slices this way in under five minutes of wall time, the
+slowest reader setting the pace.
 
 Every reader gets the journal header (everything above `## Entries`, which defines the `where`
 vocabulary and the `(second ask)` / `(escape)` markers), its slice of the window **with line
@@ -197,18 +203,27 @@ another way is invisible to it. Widening the pattern is not the answer; reading 
 After a rotation those numbers do not break — they re-point, at whatever entry now occupies that line
 of the live file, which is worse. Three obligations, the first two cheap:
 
-- The archive's heading states the offset: *"these were lines `<a>`–`<b>` of `process-journal.md`;
-  an entry cited at line L is at line L − `<a-1>` here."* Verbatim copying keeps that offset exact.
+- The archive's heading states the offset, **measured from the file it just wrote, never composed**.
+  This file opens with a heading, so the entries do not start at line 1 and the offset is not the
+  window's own start: with the window's first entry at line `a` of `process-journal.md` and at line
+  `f` of the archive, an entry cited at line L is at line `L − (a − f)`. Read `f` out of the finished
+  archive — `awk '/^[0-9]{4}-[0-9]{2}-[0-9]{2} · /{print NR; exit}'` — and state the frame too: **`a`
+  is only meaningful with the commit it was read at**, and a round that edits the journal header
+  before rotating (this one landed a marker rewrite) has already moved `a` under itself. Retro-1
+  wrote `L − 71` from the arithmetic this bullet used to give, against a true offset of `L − 66`, and
+  built its first archive from a stale range for the same reason.
 - The round reports the grep's hits to the operator with the landing set, and says how many point
-  into the rotated window. Rewriting them is the operator's call, not the command's.
-- **Resolve a citation by its content, never by arithmetic.** The scheme is already unreliable
-  without any rotation: on 2026-09-10, before a single entry had moved, the `MODB` pass doc's two
-  citations were stale by two and the `ANLZ` doc's were stale by four in one place and by an
-  inconsistent amount in another — no single offset repairs a document, because the drift was written
-  in, one citation at a time, as the header grew under them. So a citation is checked by reading the
-  entry it lands on and asking whether that is the entry the sentence means. Where the answer is no,
-  say so and leave it for the operator; a renumber applied to a pointer that was already wrong just
-  makes the wrongness look deliberate.
+  into the rotated window. **Rewriting them is the operator's call, not the command's** — retro-1 was
+  told to rewrite, and the ruling turned on this bullet being right first.
+- **Resolve a citation by its content, never by arithmetic** — including a citation this round has
+  just renumbered. The scheme is unreliable even without a rotation: `T-015` audited thirteen on
+  2026-09-10 and found twelve already wrong, by amounts no single offset explains and three of them
+  by more than fifty, because the drift was written in one citation at a time as the header grew
+  under them. It repaired all thirteen by content in #210, so a reader measuring staleness after that
+  commit finds none — the defect is in the scheme, not in a residue you can still see. A citation is
+  checked by reading the entry it lands on and asking whether that is the entry the sentence means.
+  Where the answer is no, say so; a renumber applied to a pointer that was already wrong just makes
+  the wrongness look deliberate.
 
 Rotation keeps the live journal short so the append point stays near the end. Hand back:
 

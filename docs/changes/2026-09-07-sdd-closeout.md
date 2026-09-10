@@ -1482,7 +1482,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   that is not cached takes the identical `NU1301` / 401 (probed 2026-09-09: `Markdig 0.37.0`, exact
   and uncached, fails; a cached exact version restores). The true distinction is that a float is
   *permanently* network-bound while an exact version is network-bound only until first cached —
-  which is what this repo's own journal already said at `:374` on 2026-09-07, *"NuGet must reach
+  which is what this repo's own journal already said at `docs/retro/journal-2026-08-12-to-2026-09-10.md:308` on 2026-09-07, *"NuGet must reach
   every source to re-resolve them while the pinned projects restore from cache"*, and what the
   redraft dropped by deleting that final clause. The correction re-sizes the task: the pins fix the
   one reproducing trigger, not the cause. A fresh clone, a cleared cache, a new `PackageReference`
@@ -1709,6 +1709,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
   those numbers resolve to whatever entry now occupies that line of the shortened live file, which
   is worse than breaking. § 9 obliges the archive heading to carry the offset and the round to
   report the grep's hits with its landing set; rewriting the citations stays the operator's call.
+  **`T-018` put that call and the operator took it: rewritten.** The two line numbers in this
+  paragraph are illustrations of the citation *shape*, not citations, and stay as written.
   This was demonstrated on this PR before it was written down: adding the `→ codified:` paragraph to
   the journal header moved the retro-0 marker from `:67`, which is where this task's own brief cites
   it, and moved all thirteen citations with it.
@@ -1775,7 +1777,7 @@ names the file and section that states the rule now, and *lane 3 § N* is
   — mesh's own history, not something that happened here — and are rewritten as the mechanism the
   incident illustrates rather than a claim this repo cannot back.
 - **`T-018`: the brief's marker line and scorecard count were both wrong, and one is a finding.** The
-  retro-0 marker is at `docs/process-journal.md:81`, not `:67`; and there are **seventeen** archived
+  retro-0 marker was at `docs/process-journal.md:81` at `7662ec3`, not `:67`; and there are **seventeen** archived
   change docs carrying **fourteen** scorecards, not "the sixteen archived change docs' scorecards" — the
   two unification docs and the founding process doc carry none, and pass 0's *Drift checkpoints* is still
   its unfilled placeholder. Neither re-scoped the task. The second is the brief's own `[assumed]` doing
@@ -1802,6 +1804,24 @@ names the file and section that states the rule now, and *lane 3 § N* is
   rule (a brief carries intent; a number is in it only when the session would act differently for a
   different value, and then it carries its command) and lane 2 gained nothing, because six of eight
   phase-2 task lines carried a wrong claim and the worker caught every one unaided.
+- **`T-018` (amendment 1): all six landings approved as proposed, and landing 2's re-shape stands.**
+  The amendment rules the set unchanged at the rungs proposed, landing 6 included. It was written
+  before the operator answered the STOP directly in-session, where they asked whether an Opus
+  subagent at seven-plus minutes is worth it and then approved the cheaper writer-side rule. Both
+  rulings agree on the rung (4, prose in `spec-process.md`); the in-session one refines the content,
+  and the later, more specific instruction is what landed. Recorded because the two documents read as
+  disagreeing and do not.
+- **`T-018` (amendment 1): the thirteen citations were rewritten, and the formula they depend on was
+  fixed first.** The operator ruled rewrite-into-the-archive over leave-to-the-offset, conditional on
+  repairing `/vion-retro` § 9's offset formula — which omits the heading the same section requires,
+  so it yields `L − 71` here against a measured `L − 66`. Order followed: formula, then rewrite, then
+  each of the nine distinct targets re-read by content. The citations now name
+  `docs/retro/journal-2026-08-12-to-2026-09-10.md` with archive line numbers; four grep hits remain
+  and are sentences *about* citations or window frames, not citations.
+- **`T-018` (amendment 1): the three `/vion-retro` defects are all repaired in place.** The offset
+  formula and the stale § 9 worked example were both small edits; the foreground-readers instruction
+  was a harness mismatch rather than a wrong rule and now records what works. None grew past a small
+  fix, so none was deferred. All three carry a journal line, per the amendment.
 - **`T-018`: the rotation captured the wrong lines on its first pass.** The archive was built from
   entries 83–445, the range § 1 printed, after landing 4 had already added thirteen header lines in an
   earlier commit of this branch — so it copied the header tail and the retired marker instead of the first
