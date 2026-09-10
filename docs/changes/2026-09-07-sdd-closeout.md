@@ -443,7 +443,9 @@ never a silent absorption.
 | `T-014` | done — the second round keyed on `branch:<ref>` rather than a new `since:` keyword (`D1`, coordinator); reviewer's question 4 decided (no command files); lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | #209 |
 | `T-015` | done — both commands ported; the retro's rotation step gained a line-citation hazard the port sources have no reason to know about, and the journal header gained the `→ codified:` stamp it had never defined | `sdk: sdd closeout T-015` | #210 |
 | `T-016` | done | `sdk: sdd closeout T-016` | #211 |
-| `T-017` … `T-020` | to come | — | — |
+| `T-017` | done — architecture-side clause landed spec-driven and **repo-agnostic**, not the dale-sdk clause the task line asked for (a hard-coded repo list goes stale the moment a repo adopts or drops a corpus); `libraries/dale-sdk.md` re-pointed off its RFC citations, correcting seven dangling citations rather than the five assumed, one of them split across two pages and one deleted by the CTRL pass; the topology-evolution claim was found to live in no spec page and is now stated as architecture's own | `sdk: sdd closeout T-017` (architecture) | architecture#78 |
+| `T-018` … `T-019` | to come | — | — |
+| `T-020` | done — pins matched the task line's counts exactly on re-derivation (24× `18.0.1`, 2× `17.14.1`, 18× `6.0.4`, 18× the `MSTest` meta-package, 75 projects); `Vion.Dale.Cli.Test` converted to the `MSTest` meta-package to match its 18 neighbours rather than the split `TestAdapter`/`TestFramework` pair, and its bare `coverlet.collector` swept to the sibling `<PrivateAssets>`/`<IncludeAssets>` shape; restore now reports 75 of 75 with the credential still expired | `sdk: sdd closeout T-020` | (this PR) |
 
 ### Ledger dispositions
 
