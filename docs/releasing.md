@@ -28,18 +28,19 @@ notes page under [`release-notes/`](release-notes/) — the first is
 [`migrations/<version>-<slug>.md`](migrations/) page carries the recipes and the notes link to it.
 
 **A notes page links absolutely, a migration page relatively.** The notes page is rendered as the
-release body at `/releases/tag/vX.Y.Z`, where `../specs/` resolves to nothing — so every link in it
-is a full `https://github.com/VION-IoT/dale-sdk/blob/main/…` URL. The migration page is read in the
-repo and keeps repo-relative links like every other page under `docs/`.
+release body at `/releases/tag/vX.Y.Z`, where a repo-relative `../specs/` resolves against that path
+and 404s — so every link in it is a full `https://github.com/VION-IoT/dale-sdk/blob/main/…` URL. The
+migration page is read in the repo and keeps repo-relative links like every other page under `docs/`.
 
 ```bash
 # Stable:
 gh release create v0.2.0 --target main --generate-notes \
   --title "v0.2.0" --notes "Short release summary."
 
-# Stable, with a notes page. -F fills the body the same way -n does, so the
-# generated PR list and full-changelog link follow it (gh: "additional release
-# notes can be prepended to automatically generated notes"):
+# Stable, with a notes page. -F fills the same body field -n does, and gh
+# documents --notes as prepended to the generated notes; that the file form
+# behaves identically is inference, so read the created release before
+# announcing it:
 gh release create v0.2.0 --target main --generate-notes \
   --title "v0.2.0" -F docs/release-notes/0.2.0.md
 
