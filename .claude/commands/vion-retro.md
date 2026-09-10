@@ -180,17 +180,19 @@ non-entry line under `## Entries`, so a marker written as a bold line reddens th
 own PR.
 
 **Rotation makes line-number citations into the journal stale, and silently.** Archived change docs
-cite entries as `docs/process-journal.md:138` and as `journal :71` — thirteen such citations existed
-on 2026-09-10, in three archived pass docs and the in-flight closeout doc, and the phrasing varies,
-so this is a grep the round *reads*, not a count it trusts:
+cite entries as `docs/process-journal.md:154` and as ``journal `:172` `` — thirteen such citations
+existed on 2026-09-10, in three archived pass docs and the in-flight closeout doc, and the phrasing
+varies, so this is a grep the round *reads*, not a count it trusts:
 
 ```bash
 grep -rnoE "(process-journal\.md\`?:[0-9]+|journal[^.]{0,20}\`:[0-9]+(/\`:[0-9]+)?)" --include=*.md docs/
 ```
 
-Read the hits; do not count them. The pattern over-matches — a sentence about citations is not a
-citation, and this command's own § 9 is in `docs/` — and it under-matches wherever a doc phrased one
-differently, which two of the thirteen did. Widening it further is not the answer; reading is.
+Read the hits; do not count them. The pattern over-matches: a sentence *about* citations is not a
+citation, and two of them are in `docs/` today, in the closeout doc's checkpoint and in the journal
+entry that records it. It can also only match the phrasings someone has already used — the thirteen
+took four different shapes, one of them a pair of numbers in a single span — so a fourteenth written
+another way is invisible to it. Widening the pattern is not the answer; reading the hits is.
 
 After a rotation those numbers do not break — they re-point, at whatever entry now occupies that line
 of the live file, which is worse. Three obligations, the first two cheap:

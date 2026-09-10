@@ -1714,11 +1714,15 @@ names the file and section that states the rule now, and *lane 3 § N* is
   rule against it: arithmetic applied to a pointer that was already wrong makes the wrongness look
   deliberate, and it created a cross-pointing pair, handing the `ANLZ` doc the very entry the `CLI`
   doc meant. So all thirteen were resolved instead by reading the entry each sentence describes.
-  **Nine of the thirteen were wrong**, by amounts no single offset explains — `MODB`'s two by two,
-  `CLI`'s three by two, `ANLZ`'s at `:573` by four in the other direction, and `ANLZ`'s pair at
-  `:909` by more than fifty, which is not drift at all but a citation that never pointed anywhere
-  right. Four were correct: `ANLZ:62`, and the in-flight `T-020` note, whose verbatim quote matches
-  the entry it names. The scheme itself is the finding, and it is retro-1 input: pointers that go
+  **Twelve of the thirteen were wrong**, and the one that was right is this doc's own `T-020` note,
+  whose verbatim quote matches the entry it names. The twelve miss by amounts no single offset
+  explains: `MODB`'s two, `CLI`'s three and `ANLZ`'s at `:402`, `:481` and `:813` by two; `ANLZ`'s
+  at `:62` by four and at `:573` by four the other way; and `ANLZ`'s at `:520` and its pair at
+  `:909` by more than fifty, which is not drift at all but citations that never pointed anywhere
+  right. *(A first count here said nine — the number of citations the fix commit moved, which is not
+  the number that were wrong, because three had been corrected one commit earlier. Round 2 caught it;
+  it is `P1` on the sentence describing a `P1` failure.)* The scheme itself is the finding, and it is
+  retro-1 input: pointers that go
   stale silently, in documents that are closed to editing, are what `/vion-retro` § 9 now says to
   resolve by reading rather than by arithmetic.
 - **`T-015`: `/vion-codify` has a fourth verdict the task line does not name.** The task line and
@@ -1744,7 +1748,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
 - **`T-015`: mesh's thin-window guard is the wrong guard for the first round here.** Its "under ~20
   entries, warn" survives for later rounds, but the live window below the retro-0 marker holds
   **355** entries — 126 `review`, 113 `agent`, 55 `gate`, 45 `brief`, 9 `infra`, 5 `release`, 1
-  `manual`, 1 `consumer`, counted 2026-09-10 at this PR's tip, its own four lines included — which no single reader holds. § 2 slices above ~120
+  `manual`, 1 `consumer`, counted 2026-09-10 at this PR's tip, its own four lines included —
+  which no single reader holds. § 2 slices above ~120
   and adds a merge reader over the slice reports, because a theme drawn four times across four
   slices is a singleton to every reader and the window's largest cluster to none of them.
 - **`T-015`: the mesh commands are self-contained, with one exception that was dropped.**
