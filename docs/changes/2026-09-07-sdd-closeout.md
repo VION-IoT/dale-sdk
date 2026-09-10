@@ -441,7 +441,7 @@ never a silent absorption.
 | `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | #207 |
 | `T-013` | done | `sdk: sdd closeout T-013` | #208 |
 | `T-014` | done — the second round keyed on `branch:<ref>` rather than a new `since:` keyword (`D1`, coordinator); reviewer's question 4 decided (no command files); lane 2 gained the pre-PR round `D12` had left it without | `sdk: sdd closeout T-014` | #209 |
-| `T-015` | done — both commands ported; the retro's rotation step gained a line-citation hazard the port sources have no reason to know about, and the journal header gained the `→ codified:` stamp it had never defined | `sdk: sdd closeout T-015` | — |
+| `T-015` | done — both commands ported; the retro's rotation step gained a line-citation hazard the port sources have no reason to know about, and the journal header gained the `→ codified:` stamp it had never defined | `sdk: sdd closeout T-015` | #210 |
 | `T-016` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
