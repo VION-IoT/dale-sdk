@@ -20,10 +20,23 @@ Prerequisites:
 - `main` is green on the commit you want to release.
 - `gh` is installed and authenticated (`gh auth status`).
 
+Notes: `--generate-notes` alone lists the merged PRs, which reads as a changelog for whoever wrote
+them and as nothing for a consumer. A release carrying behaviour a consumer has to act on gets a
+notes page under [`release-notes/`](release-notes/) — the first is
+[`release-notes/0.12.0.md`](release-notes/0.12.0.md) — written in the consumer's terms and passed as
+`--notes-file`. Where the action is not just reading, a
+[`migrations/<version>-<slug>.md`](migrations/) page carries the recipes and the notes link to it.
+
 ```bash
 # Stable:
 gh release create v0.2.0 --target main --generate-notes \
   --title "v0.2.0" --notes "Short release summary."
+
+# Stable, with a notes page. -F fills the body the same way -n does, so the
+# generated PR list and full-changelog link follow it (gh: "additional release
+# notes can be prepended to automatically generated notes"):
+gh release create v0.2.0 --target main --generate-notes \
+  --title "v0.2.0" -F docs/release-notes/0.2.0.md
 
 # Pre-release (add --prerelease for the UI badge; NuGet detects pre-release
 # automatically from the SemVer suffix):
