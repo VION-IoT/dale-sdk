@@ -444,7 +444,8 @@ never a silent absorption.
 | `T-015` | done — both commands ported; the retro's rotation step gained a line-citation hazard the port sources have no reason to know about, and the journal header gained the `→ codified:` stamp it had never defined | `sdk: sdd closeout T-015` | #210 |
 | `T-016` | done | `sdk: sdd closeout T-016` | #211 |
 | `T-017` | done — architecture-side clause landed spec-driven and **repo-agnostic**, not the dale-sdk clause the task line asked for (a hard-coded repo list goes stale the moment a repo adopts or drops a corpus); `libraries/dale-sdk.md` re-pointed off its RFC citations, correcting seven dangling citations rather than the five assumed, one of them split across two pages and one deleted by the CTRL pass; the topology-evolution claim was found to live in no spec page and is now stated as architecture's own | `sdk: sdd closeout T-017` (architecture) | architecture#78 |
-| `T-018` … `T-019` | to come | — | — |
+| `T-018` | done — six landings ruled by the operator; landing 2 re-shaped from "extend the lane-3 brief check to lane 2" to a writer-side rule after the evidence said the check is Opus-priced, twice as slow as its own paragraph claims, and mostly catches counts another subagent guessed into the brief | `sdk: sdd closeout T-018` | #213 |
+| `T-019` | to come | — | — |
 | `T-020` | done — the task line's *pre-change* counts matched exactly on re-derivation (24× `18.0.1`, 2× `17.14.1`, 18× `6.0.4`, 18× the `MSTest` meta-package, 75 projects); `Vion.Dale.Cli.Test` converted to the `MSTest` meta-package to match its 18 neighbours rather than the split `TestAdapter`/`TestFramework` pair, and its bare `coverlet.collector` swept to the sibling `<PrivateAssets>`/`<IncludeAssets>` shape, so the post-change tree carries 25× `18.0.1`, 19× `6.0.4` and 19× the `MSTest` meta-package; restore now reports 75 of 75 with the credential still expired | `sdk: sdd closeout T-020` | #212 |
 
 ### Ledger dispositions
@@ -1773,6 +1774,38 @@ names the file and section that states the rule now, and *lane 3 § N* is
   (`harness.md:22,36,90,102-103`) narrate a specific incident "on the branch that built the harness"
   — mesh's own history, not something that happened here — and are rewritten as the mechanism the
   incident illustrates rather than a claim this repo cannot back.
+- **`T-018`: the brief's marker line and scorecard count were both wrong, and one is a finding.** The
+  retro-0 marker is at `docs/process-journal.md:81`, not `:67`; and there are **seventeen** archived
+  change docs carrying **fourteen** scorecards, not "the sixteen archived change docs' scorecards" — the
+  two unification docs and the founding process doc carry none, and pass 0's *Drift checkpoints* is still
+  its unfilled placeholder. Neither re-scoped the task. The second is the brief's own `[assumed]` doing
+  its job: a pass that skipped its own record is a finding, and it is recorded in retro-1's note.
+- **`T-018`: `/vion-retro`'s § 9 is stale in its worked example and wrong in its offset formula.** Its
+  claim that the `MODB` doc's citations "were stale by two" and the `ANLZ` doc's "by four" describes the
+  state **before** `T-015` repaired all thirteen by content in the same PR (#210) that wrote the sentence;
+  today all thirteen resolve exactly, so a reader following § 9 measures zero and concludes the command is
+  lying. And its archive-heading formula — *"an entry cited at line L is at line L − `<a-1>`"* — assumes
+  the entries start at line 1 of a file the same section requires to open with a heading. This round's
+  archive states the measured offset and the commit its frame belongs to instead. Both are first-execution
+  defects of the command, journalled, not a reason to abandon it: the scale guard, the slicing and the
+  mandatory merge pass all worked, and the merge pass found two of the window's seven largest clusters
+  that were top-3 to no individual reader.
+- **`T-018`: landing 2 was re-shaped by the operator at the STOP, and the evidence agreed.** The proposal
+  was to extend lane 3's pre-dispatch brief check to lane 2. The operator asked whether a seven-minute
+  subagent is worth it and whether a model is prescribed. Both questions were right: `spec-process.md:287`
+  prescribes **Opus**, its paragraph claimed four minutes against seven to ten measured across the four
+  passes that timed it, the check was itself refuted by the pass it checked twice, and the scorecards say
+  most of what it catches is *"an inventory subagent's counts that did not survive an independent read"* —
+  a number one model guessed into a brief and a second was paid to undo. The landing became a writer-side
+  rule (a brief carries intent; a number is in it only when the session would act differently for a
+  different value, and then it carries its command) and lane 2 gained nothing, because six of eight
+  phase-2 task lines carried a wrong claim and the worker caught every one unaided.
+- **`T-018`: the rotation captured the wrong lines on its first pass.** The archive was built from
+  entries 83–445, the range § 1 printed, after landing 4 had already added thirteen header lines in an
+  earlier commit of this branch — so it copied the header tail and the retired marker instead of the first
+  entries. Rebuilt from a recount, verified byte-identical to the window by hash, and three citations
+  spot-checked by content against the offset. The lesson is the one the round landed: a line number means
+  nothing without the commit it was read at, which is why the archive heading names `7662ec3`.
 
 ---
 
