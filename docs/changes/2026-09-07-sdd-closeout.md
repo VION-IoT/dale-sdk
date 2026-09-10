@@ -413,7 +413,8 @@ never a silent absorption.
 | `T-009` | done | `sdk: sdd closeout T-009` | #199 |
 | `T-010` | done — 28n fixed and `AC-HTTP-008.2` rewritten; row 54 re-read and unchanged; two `T-009` opens closed in #201 | `sdk: sdd closeout T-010` | #200, #201 |
 | `T-011` | done — harvest committed (`docs/retro/2026-09-sdd-pass-data.md`, 45 sessions), then the machine-local residue disposed per the brief | `sdk: sdd closeout T-011` | (this PR) |
-| `T-012` … `T-019` | to come | — | — |
+| `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | (this PR) |
+| `T-013` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -1503,6 +1504,64 @@ names the file and section that states the rule now, and *lane 3 § N* is
   session to pick up. *(Recovered onto `sdd-closeout/T-020-rescope-round4-recovered` and landed
   as PR #205 — the corrected `T-020` re-scope above is that recovery, picked up and fixed by
   `sdk: sdd closeout coordinator 2`.)*
+- **`T-012`: the *Implementation state* row now covers `T-020`.** `T-011`'s checkpoint above left
+  the to-come row reading `T-012` … `T-019` and named the next lander as the one to extend it. Done:
+  the row reads `T-013` … `T-020`.
+- **`T-012` is the first phase-2 task line that needed no correction.** Every number and assumption
+  in it survived re-derivation: the nine gate lines, and the brief's two `[assumed]` flags (all nine
+  gates runnable at the desk; `-Diff origin/main` as CI's local equivalent). Four phase-1 task lines
+  carried wrong numbers — `T-004`, `T-005`, `T-006`, `T-008` — and `T-020`'s was wrong twice more, so
+  the counts-are-hypotheses rule has fired every round until this one. Recorded here rather than in
+  the journal, which is a friction log: a task line that held is evidence for retro-1, and retro-1
+  reads this doc and the journal, never a REPORT.
+- **`T-012`: "nine gate lines" holds, and the § Gates table's ten rows are not a contradiction.**
+  `spec-gates.yml` has nine `./scripts/*.ps1` steps; `spec-process.md` § Gates carries ten rows
+  because `spec-change.ps1 archive` is on demand and in no workflow. The first count in this phase's
+  task lines that needed no correction. `check.ps1` does not hard-code the nine: it derives them
+  from the workflow at run time, so a tenth gate added there without a local invocation fails
+  `check.ps1` rather than quietly not running, and the count in this line cannot go stale.
+- **`T-012`: `check.ps1` gets a self-test, not an exemption.** The brief called the choice the
+  interesting design question. What is worth pinning is not the shelling out: it is the derivation
+  from the workflow (its order, a step naming its script twice, a script named only in a comment),
+  the two ways the workflow and the invocation table can disagree, the arguments each gate receives,
+  the partial-run path, and the two `-CiShape` checks. All of it runs against a fixture repository
+  with fake gates, so no real gate's verdict is involved — which is the property the four
+  build-shaped exemptions lack (`pack-examples`, `smoke-modbus`, `stage-xml-docs`, `cleanup-code`
+  each need a real build, a real socket or the publish job's output; the other two are exempt for
+  unrelated reasons — the runner would be testing itself, and `verify-packed-assembly-versions`
+  carries a `-SelfTest` of its own). It is **not** cheap: nineteen cases at ~40 s, because each
+  spawns `check.ps1` and `check.ps1` spawns nine more processes, taking `run-script-tests` from
+  ~46 s to ~86 s. The argument for a self-test is that the fixture makes the interesting behaviour
+  reachable, not that it is fast. Twelve named mutations of `check.ps1`, each red on its own case.
+- **`T-012`: all nine gates run at the desk, and one of them fails open there.** The brief's first
+  `[assumed]` holds — no gate needed a skip for want of a CI-only input. Its second holds too:
+  `-Diff origin/main` is the local equivalent of CI's `origin/$GITHUB_BASE_REF`. But `spec-lint.ps1`
+  swallows a `-Diff` ref git cannot resolve and reports `OK` having compared nothing, so on a desk
+  without `origin/main` fetched the narrative rule is a vacuous pass. `check.ps1` verifies the ref
+  and, when it does not resolve, runs the gate **without** `-Diff` and reports it PARTIAL naming the
+  rule that did not run. Skipping the gate outright — the first design, corrected in review — would
+  have hidden its other eight rules, malformed ACs and change-doc lifecycle among them, on every
+  unfetched clone: a fix for one vacuous rule that created an eight-rule blind spot. The gate's own
+  fail-open is recorded in the journal and left to whoever owns the gate next.
+- **`T-012`: `-CiShape`'s hidden-directory shape changes no gate's verdict today.** Every gate's
+  tally is identical with the repository's dot-directories hidden, measured by running both ways.
+  The reason is that no gate's file discovery is exposed to the difference, by four different
+  routes rather than one rule: `bom-lint` and `sweep-residue-lint` take their file set from
+  `git ls-files` when they are inside a repository, so their `-Force`-less fallback walks never
+  run here; `doc-comment-lint` and `pragma-reason-lint` walk the repository root without `-Force`
+  but filter to `*.cs`, and no tracked `.cs` lives under a dot-directory; `spec-trace` and
+  `test-style-lint` do the same looking for `*.Test` directories, of which none does either. The
+  switch is therefore a guard against the next gate, not a fix for a current one — worth saying
+  plainly, because a switch that reproduces nothing today looks like one that works. Its signal is
+  a tally *difference*, so it needs a plain run to compare against; nothing prints a baseline.
+- **`T-012`: `-CiShape` reproduces one of its three shapes and scans for the second.** Windows cannot
+  be made case-sensitive for the length of a run, so the case shape is a scan of `scripts/*.ps1` for
+  path literals whose casing disagrees with the git index — the two sites that bit `T-005` and `T-007`
+  were both there. It reads `scripts/*.ps1` and nothing else, skips comment text (its first run
+  flagged its own help block, which names the wrong casing on purpose), and cannot see a path a
+  script composes rather than quotes. The hidden-directory shape is a real reproduction: the Hidden
+  attribute set and restored, which is the fixture recipe `T-005` settled on. The version shape rides
+  `-Build` and `-Test`. Where the switch cannot reproduce, it says so rather than implying it did.
 
 ---
 
