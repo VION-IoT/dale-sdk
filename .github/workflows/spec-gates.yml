@@ -1,7 +1,7 @@
 name: Spec Gates
 # The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint, spec-trace,
-# test-style-lint, doc-comment-lint, pragma-reason-lint, bom-lint, journal-lint,
-# sweep-residue-lint, self-reference-lint. Its own workflow — not a publish.yml
+# test-style-lint, doc-comment-lint, pragma-reason-lint, bom-lint, packed-msbuild-lint,
+# journal-lint, sweep-residue-lint, self-reference-lint. Its own workflow — not a publish.yml
 # job — because publish.yml ignores docs/** on both triggers and a docs-only PR (a spec
 # page, a change doc) must still be gated. Pure file scans, no dotnet build: cheap
 # enough to run on every PR.
@@ -66,6 +66,13 @@ jobs:
       - name: BOM lint
         shell: pwsh
         run: ./scripts/bom-lint.ps1
+
+      # Every MSBuild file packed under a NuGet build folder parses: nothing here imports its own
+      # build/*.targets, so a comment containing '--' shipped as 0.12.0 and failed every consumer
+      # at MSB4024 with the whole pipeline green.
+      - name: Packed MSBuild lint
+        shell: pwsh
+        run: ./scripts/packed-msbuild-lint.ps1
 
       # One dated entry per line under "## Entries", in order: an append that does not end the
       # previous line glues two entries together, and the retro counts entries by line.

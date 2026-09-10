@@ -664,3 +664,25 @@ surprises (the spec page states it), or a missing test (that is a `GAP` marker o
   `_families/modbus-tcp-device`'s link criterion. Raised by the same note, `:78-79`. A feature band
   rather than a defect, and it would need the package to own the primary handler.
   *(HTTP pass row 64b — `HTTP`, raised by `logic-block-libraries`.)*
+
+## `RELEASE` — the packed artifact and the checks that never read it (2026-09-10)
+
+- **No check in this repository consumes the packed package, so a release can be unusable with every
+  gate green.** The SDK's own projects reference each other with `ProjectReference` and `examples/`
+  reference a *published* package, so nothing here has ever restored the artifact this repository
+  produces. `0.12.0` is the proof: a solution build, the whole test suite, the style gate and
+  `verify-packages` were all green while `build/Vion.Dale.Sdk.targets` was not well-formed XML, and
+  the package shipped to nuget.org failing every consumer's first build with `MSB4024`. The
+  0.12.1 hotfix closes the specific class — `scripts/packed-msbuild-lint.ps1` parses every file
+  packed under a NuGet build folder, on every pull request, before a package exists, deriving what
+  it scans from the declarations rather than a list (its own header states the shapes it still
+  cannot resolve) — and closes nothing beyond it: well-formed XML is necessary and not sufficient, and no file scan can see a
+  package that restores but does not work. `verify-packages` is not the place for the rest either.
+  It runs *after* both pushes, so it can report a bad release and cannot prevent one, and it reads
+  assembly versions out of the artifact rather than consuming it. What would prevent one is a
+  **pre-public release regression suite** that restores the packed package as a real consumer and
+  exercises it at runtime. That is its own change doc, not a hotfix, and the operator ruled it out
+  of this one (2026-09-10) precisely so that half of it is not built here: a check that looks like
+  verification and is not is the shape this incident already demonstrated.
+  *(0.12.1 hotfix — the burned 0.12.0 release; operator ruling relayed by the sdd-closeout
+  coordinator.)*
