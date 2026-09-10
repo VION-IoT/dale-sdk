@@ -32,7 +32,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | touching `Vion.Dale.Sdk.Modbus.*` or either Modbus example | the `modbus-smoke` skill ([`.claude/skills/modbus-smoke/`](.claude/skills/modbus-smoke/SKILL.md)) — the link policy over a real socket pair on `127.0.0.1:15020`; real clock, ~1 min |
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
-| reviewing a change before a PR | `/vion-code-review branch` — [`.claude/commands/vion-code-review.md`](.claude/commands/vion-code-review.md) |
+| reviewing a change before a PR | `/vion-code-review branch` — [`.claude/commands/vion-code-review.md`](.claude/commands/vion-code-review.md); a second round is `branch:<the first round's hash>`, and § 7 is the shape the round takes in the PR body |
 
 **Before writing new code, read similar existing files** in the same area and replicate their
 structure. Do not invent new patterns; name the precedent you followed.

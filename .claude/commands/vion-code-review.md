@@ -28,6 +28,30 @@ unreviewed change; say which scope you resolved before reporting anything.
 `docs/snapshots/publicapi-manifest.json` and `cli-help-snapshot.txt` onto the PR head. Those are machine
 output — review what they *reveal* (an unintended public-surface change) but never the diff itself.
 
+## 1a. A second round — `branch:<a commit on this branch>`
+
+**A second round has no scope of its own.** Give `branch:` the commit the first round reviewed:
+`git merge-base <ref> HEAD` **is** `<ref>` whenever `<ref>` is an ancestor of `HEAD`, so
+`branch:<that hash>` is exactly "everything that moved since round 1" with no new keyword behind it.
+
+So: **when the base you were given is a commit on the branch under review, you are running a second
+round.** Say so when you say which scope you resolved, and take on three obligations that do not
+follow from the diff:
+
+- **Read the first round's record before reading the diff** — the PR body's *Review round* section if
+  the PR is open, otherwise the branch's `review` lines in
+  [`docs/process-journal.md`](../../docs/process-journal.md) and the session's own report of it.
+- **Do not re-raise what round 1 raised and the operator accepted.** An accepted finding is a decision,
+  and re-reporting it costs the round its credibility. A finding round 1 raised and the change did
+  **not** answer is worth raising again, said as such.
+- **Check that round 1's findings were applied where they were said to be applied.** This is the pass
+  on which § 5's blind spot closes: D2's stale-doc check and D10's correction check can only fire on a
+  re-review, and this is the re-review.
+
+**A merged base is not the change.** If `main` was merged in since `<ref>` — `git log --merges <ref>..HEAD`
+is the check, and working agreement 3 makes it likely before a PR — the diff carries `main`'s commits
+too. Say so, name the merge, and review only the hunks the branch authored.
+
 ## 2. Intent
 
 If a spec, RFC or brief path was given (the next argument that looks like a path): read it, treat it as the
@@ -86,10 +110,9 @@ the premise was corrected. A premise about what the **build** decides — which 
 assembly carries, what a property evaluates to — comes from `dotnet msbuild -getProperty` or the
 generated `AssemblyInfo.cs`, never from a regex over the csprojs.
 
-**The user's reply choosing which findings to apply is itself a correction** (`CLAUDE.md` working
-agreement #7): whoever applies them appends a one-line `review` entry to
-[`docs/process-journal.md`](../../docs/process-journal.md) in the commit that carries the fix. Having run
-the review is not a substitute for logging what it cost — that line is the only durable record.
+Hand the findings back and stop. What the session does with them — the round written into the PR body,
+the operator's dispositions journalled — is § 7, and the rule that owns the dispositions is `CLAUDE.md`
+working agreement 7.
 
 ## 5. The lead's taxonomy
 
@@ -206,3 +229,44 @@ cite the P-number in the finding.
   observation (a DevHost Tier 2 row) is a **paste**, made through the UI's own controls; a row whose
   paste shows a scripted DOM write is not an observation
   ([`devhost-conventions.md`](../../docs/devhost-conventions.md) § 1).
+
+## 7. The record the round leaves
+
+*(§ 1a, § 5 and § 6 are numbered as they are so that the D-numbers stay in § 5 and the P-numbers in
+§ 6 — four files cite them by section.)*
+
+You are the reviewer and you write nothing but findings. This section is for the **session that ran
+you**: where the round goes once you hand them back. The review is in-session and its record is the PR
+body — there is no draft PR and no GitHub review comment, on this round or any later one.
+
+The PR body's *Review round* section ([`.github/pull_request_template.md`](../../.github/pull_request_template.md))
+carries one block per round, in order:
+
+```text
+Round N — <scope argument> at <hash>, fresh-context subagent.
+
+[blocker] <file:line> — <the finding in one line>.
+  Fixed in <commit or file:line>: <what changed>.
+[convention] <file:line> — <the finding in one line>.
+  Accepted: <why it stands>.
+[judgment] <file:line> — <the finding in one line>.
+  Fixed / Accepted: <…>.
+```
+
+Four rules about that block:
+
+- **Every finding appears, fixed or accepted, and an accepted one carries its reason.** A finding
+  dropped silently between the review and the PR body is the one thing this record exists to prevent.
+- **Findings keep § 4's severity order.** The reader wants the blockers first, and the ranking is the
+  reviewer's judgment, not the session's to re-sort.
+- **No findings is a result, not an empty section.** Write `Round N — <scope> at <hash>: no findings.`
+  A missing section reads as a round that was skipped.
+- **A second round is its own block**, run as `branch:<the first round's hash>` (§ 1a). The body carries
+  both blocks; nothing is rewritten in place, because the first round's findings and their dispositions
+  are what the second round was scoped against.
+
+**The round is not finished until the operator's dispositions are journalled.** What that line is and
+when it is written is `CLAUDE.md` working agreement 7's; the line's shape and its `(escape)` marker for
+work that had already passed a round are [`docs/process-journal.md`](../../docs/process-journal.md)'s.
+Read them there — a round that produced findings and journalled nothing has left no durable record of
+what it cost, and that is the only part of the obligation this section is entitled to say.
