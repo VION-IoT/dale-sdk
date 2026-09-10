@@ -68,11 +68,9 @@ In one pass, without pausing between rows:
 - Write each **codify** rule into its owning file, in that file's existing structure and voice.
 - Make each **fix, not rule** change.
 - Append ` → codified: <path>` to each journal line the landing came from, naming the file the rule
-  was written into (or the file the fix changed). The stamp goes **at the very end of the line**,
-  after the `(second ask)` / `(escape)` markers and after the `D`-number — the journal header's
-  *Format* section owns that ordering. Leave **already covered** and **wait** lines unstamped: the
-  stamp means *a sentence now exists that prevents the recurrence*, so stamping a line that only
-  cites an old rule would tell the next retro the gap was closed when it was not.
+  was written into (or the file the fix changed). Where the stamp goes and what it means are the
+  journal header's, under *Format* — read it there. It decides which of your rows earn one, and
+  **already covered** and **wait** rows do not.
 - Run `pwsh -File scripts/journal-lint.ps1` before you finish. Stamps are appended to existing
   lines, and an append that lands on the wrong line is exactly what that gate catches.
 

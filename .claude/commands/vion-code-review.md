@@ -233,7 +233,7 @@ cite the P-number in the finding.
 ## 7. The record the round leaves
 
 *(§ 1a, § 5 and § 6 are numbered as they are so that the D-numbers stay in § 5 and the P-numbers in
-§ 6 — four files cite them by section.)*
+§ 6 — six files cite them by section.)*
 
 You are the reviewer and you write nothing but findings. This section is for the **session that ran
 you**: where the round goes once you hand them back. The review is in-session and its record is the PR

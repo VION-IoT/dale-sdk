@@ -18,17 +18,22 @@ The window is everything below the retro marker in the journal — the HTML comm
 date. Find it and count before reading anything else:
 
 ```bash
-grep -n "retro-.* marker" docs/process-journal.md
-awk 'NR>MARKER && /^[0-9]{4}-[0-9]{2}-[0-9]{2} · /' docs/process-journal.md | wc -l
-awk 'NR>MARKER && /^[0-9]{4}-[0-9]{2}-[0-9]{2} · /' docs/process-journal.md \
+grep -n "retro-.* marker" docs/process-journal.md            # gives the marker's line, M
+awk -v m=M 'NR>m && /^[0-9]{4}-[0-9]{2}-[0-9]{2} · /' docs/process-journal.md | wc -l
+awk -v m=M 'NR>m && /^[0-9]{4}-[0-9]{2}-[0-9]{2} · /' docs/process-journal.md \
   | sed 's/^[0-9-]* · \([a-z]*\) · .*/\1/' | sort | uniq -c | sort -rn
 ```
+
+Substitute the number the first command printed for `M`. An unbound `awk` variable is `0`, so
+leaving it as written counts the whole file and reports a window larger than the one you are about
+to read — invisible today, because every entry sits below the marker, which is how it would ship
+wrong.
 
 Say the total and the per-`where` breakdown out loud before § 2. Two guards, in opposite directions:
 
 - **Under ~20 entries the window is thin** and mostly yields one-offs. Warn, and ask whether to
   proceed — the interval is the operator's; the warning is the guard.
-- **Over ~120 entries a single reader cannot hold the window**, and § 2 slices. Retro-0 left 354
+- **Over ~120 entries a single reader cannot hold the window**, and § 2 slices. Retro-0 left over 350
   entries below its marker, so this is the case the first real round meets, not a hypothetical.
 
 Retro-0 did **not** rotate: it placed the marker and left the window in the live file. Every round
@@ -180,8 +185,12 @@ on 2026-09-10, in three archived pass docs and the in-flight closeout doc, and t
 so this is a grep the round *reads*, not a count it trusts:
 
 ```bash
-grep -rnoE "(process-journal\.md\`?:[0-9]+|journal (at )?\`:[0-9]+)" --include=*.md docs/
+grep -rnoE "(process-journal\.md\`?:[0-9]+|journal[^.]{0,20}\`:[0-9]+(/\`:[0-9]+)?)" --include=*.md docs/
 ```
+
+Read the hits; do not count them. The pattern over-matches — a sentence about citations is not a
+citation, and this command's own § 9 is in `docs/` — and it under-matches wherever a doc phrased one
+differently, which two of the thirteen did. Widening it further is not the answer; reading is.
 
 After a rotation those numbers do not break — they re-point, at whatever entry now occupies that line
 of the live file, which is worse. Three obligations, the first two cheap:

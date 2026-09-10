@@ -1707,19 +1707,29 @@ names the file and section that states the rule now, and *lane 3 § N* is
   report the grep's hits with its landing set; rewriting the citations stays the operator's call.
   This was demonstrated on this PR before it was written down: adding the `→ codified:` paragraph to
   the journal header moved the retro-0 marker from `:67`, which is where this task's own brief cites
-  it, and moved all thirteen citations with it. All thirteen were shifted back by the same `+14` in
-  this PR, so the delta this change introduced is undone.
+  it, and moved all thirteen citations with it.
 - **`T-015`: the journal's line-citation scheme was already broken before this PR touched it, and
-  no single offset repairs it.** Checking the shifted citations against the entries they land on
-  found the `MODB` doc's two stale by two — both mean the `#128` entry stating `[PublicApi]` as the
-  manifest gate, which they missed — and the `ANLZ` doc's stale by four at `:62`, which means the
-  brief-authored build-output hazard. Both are corrected here, by content. The other nine are **not**
-  audited: the `+4` that repaired `ANLZ`'s first citation repairs neither of the two at `:909`, so
-  the drift was written in one citation at a time as the header grew under them, and untangling nine
-  of those inside three archived docs is a judgment pass, not a sweep this task can carry. The
-  finding itself is worth more than the nine fixes: a pointer scheme that is wrong before anyone
-  moves anything is a candidate landing for retro-1, and `/vion-retro` § 9 now says to resolve a
-  citation by reading the entry rather than by arithmetic.
+  every citation was re-resolved by content.** The first attempt here shifted all thirteen by `+14`
+  to undo this PR's own delta, and the review round called that a blocker in the PR that mints the
+  rule against it: arithmetic applied to a pointer that was already wrong makes the wrongness look
+  deliberate, and it created a cross-pointing pair, handing the `ANLZ` doc the very entry the `CLI`
+  doc meant. So all thirteen were resolved instead by reading the entry each sentence describes.
+  **Nine of the thirteen were wrong**, by amounts no single offset explains — `MODB`'s two by two,
+  `CLI`'s three by two, `ANLZ`'s at `:573` by four in the other direction, and `ANLZ`'s pair at
+  `:909` by more than fifty, which is not drift at all but a citation that never pointed anywhere
+  right. Four were correct: `ANLZ:62`, and the in-flight `T-020` note, whose verbatim quote matches
+  the entry it names. The scheme itself is the finding, and it is retro-1 input: pointers that go
+  stale silently, in documents that are closed to editing, are what `/vion-retro` § 9 now says to
+  resolve by reading rather than by arithmetic.
+- **`T-015`: `/vion-codify` has a fourth verdict the task line does not name.** The task line and
+  mesh both give three — codify, already covered, wait. **Fix, not rule** is added for the case where
+  the correction is mechanical and the sentence is the worst available response to it: a gate script
+  that saw the wrong file set, a stale count in a SKILL.md. Its precedent is the first entry under
+  the retro-0 marker, where `cleanup-code.ps1`'s untracked-file blindness was fixed rather than
+  documented, with "(enforcement ladder)" written into the line. Without the fourth branch those
+  land as *codify*, which is how a repo accumulates prose about its own bugs. It overlaps rung 2 of
+  the retro's ladder deliberately: this is the one-occurrence case, where waiting for a recurrence
+  costs more than the fix.
 - **`T-015`: `/vion-retro` keeps a stop, and `D11` is why that is not a contradiction.** `D11`
   drops mesh's approval prompts *on process steps*; the landing set is a decision, and `T-018`'s
   task line names it as a STOP. So the ported command stops exactly once, at § 5, and nowhere else —
@@ -1733,8 +1743,8 @@ names the file and section that states the rule now, and *lane 3 § N* is
   `P`-numbers are the mintable family the fourteen area passes paid for. The ported § 4 says which.
 - **`T-015`: mesh's thin-window guard is the wrong guard for the first round here.** Its "under ~20
   entries, warn" survives for later rounds, but the live window below the retro-0 marker holds
-  **354** entries — 125 `review`, 113 `agent`, 55 `gate`, 45 `brief`, 9 `infra`, 5 `release`, 1
-  `manual`, 1 `consumer`, counted 2026-09-10 with this PR's own three lines in it — which no single reader holds. § 2 slices above ~120
+  **355** entries — 126 `review`, 113 `agent`, 55 `gate`, 45 `brief`, 9 `infra`, 5 `release`, 1
+  `manual`, 1 `consumer`, counted 2026-09-10 at this PR's tip, its own four lines included — which no single reader holds. § 2 slices above ~120
   and adds a merge reader over the slice reports, because a theme drawn four times across four
   slices is a singleton to every reader and the window's largest cluster to none of them.
 - **`T-015`: the mesh commands are self-contained, with one exception that was dropped.**
