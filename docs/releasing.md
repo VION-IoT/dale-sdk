@@ -27,6 +27,11 @@ notes page under [`release-notes/`](release-notes/) — the first is
 `--notes-file`. Where the action is not just reading, a
 [`migrations/<version>-<slug>.md`](migrations/) page carries the recipes and the notes link to it.
 
+**A notes page links absolutely, a migration page relatively.** The notes page is rendered as the
+release body at `/releases/tag/vX.Y.Z`, where `../specs/` resolves to nothing — so every link in it
+is a full `https://github.com/VION-IoT/dale-sdk/blob/main/…` URL. The migration page is read in the
+repo and keeps repo-relative links like every other page under `docs/`.
+
 ```bash
 # Stable:
 gh release create v0.2.0 --target main --generate-notes \
