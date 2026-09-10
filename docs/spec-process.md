@@ -192,6 +192,41 @@ ran to 28 MB and compacted up to four times each. Context depth degrades exactly
 checks exist to enforce — so in lane 3 the coordinator does not implement, and the session that
 implements does not work its own review findings.
 
+### Starting a lane-1 or lane-2 session
+
+Two ways in, and the lane does not decide which. **Inline**, when the operator is driving the
+session that will do the work: the triage above is the first thing done and its answer is said out
+loud, so a wrong lane is cheap to correct. **`/vion-dispatch:spawn`**, when the work is handed to a
+fresh session: the brief is written first, and the session reads it and starts without asking.
+Lane 3 only ever dispatches, because its coordinator does not implement (§ 2 Dispatch), and its
+brief is the one with a recipe of its own (§ 1 The brief).
+
+A lane-1 or lane-2 brief is short — it is a pointer, and this file plus `CLAUDE.md` carry what it
+would otherwise restate. Its front matter differs from lane 3's in two places:
+
+- `sections:` is `Deviations, Questions, Friction, Affects others, Gates, Review` — the plugin's
+  four plus the two this repo owes. `Gates` is the pasted `/check` output
+  ([`.claude/commands/check.md`](../.claude/commands/check.md)); `Review` is the round's findings
+  and what was done with each, the same text the PR body carries.
+- `pr:` is `expected`. Only lane 3 stops before the PR, because there the REPORT is what the
+  operator reads first.
+
+**A STOP is where the operator decides, and the brief names it before the session starts.** A task
+with no STOP line is reviewed on its PR and nowhere earlier. A session that reaches a STOP emits a
+`partial` REPORT there and continues when it is answered; a session that finds a decision its brief
+did not name as a STOP says so rather than deciding quietly.
+
+**A dispatched worker is steered** — `steer: yes` — whether or not a STOP is expected (operator,
+2026-09-09). The unsteered mode suppresses `--remote-control`, so the session never appears in the
+app or on the phone: there is no surface to answer anything on, and nothing to watch it from.
+
+**A count in a brief or a task line is a hypothesis.** Re-derive every number — files, sites, ledger
+entries, suites — before acting on it, and record the correction where the work is recorded: the
+change doc's *Drift checkpoints* in lanes 2 and 3, the PR body in lane 1. Four of the SDD closeout's
+phase-1 task lines carried wrong counts, and one of them was wrong in the way that re-scopes a task.
+Lane 3 adds a coordinator-side check on top of this — a fresh reader over the brief before dispatch
+(§ 1 The brief) — which is a second reader, never a substitute for the session's own re-derivation.
+
 ### Lane 1 — fix-sized
 
 The default, and most backlog items. No change doc: the PR carries the fix, its test proven red

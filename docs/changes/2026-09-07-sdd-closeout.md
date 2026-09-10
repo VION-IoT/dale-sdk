@@ -101,8 +101,12 @@ design; what was wrong was the flat claim above, not the absence of a delta.
   is dropped whole.
 - `D13` — **Working agreement 2 changes for every session** (operator, 2026-09-09): commit on the
   task branch without a diff pause, never push to `main`, the PR is where the operator reads the
-  diff and asks for one earlier when wanted. Consequence: a worker in this repo can be a **batch**
-  worker (`steer: no`) where no STOP line is expected, and is steered where one is.
+  diff and asks for one earlier when wanted. Consequence: what makes a worker in this repo steered
+  is no longer the working agreement's commit pause. **Every worker is still dispatched steered**
+  (`steer: yes`) on the operator's separate ruling of the same day — `-NoSteer` suppresses
+  `--remote-control`, so an unsteered session never appears in the app or on the phone, whatever its
+  STOP lines. *(This sentence read "a worker in this repo can be a **batch** worker (`steer: no`)
+  where no STOP line is expected" until `T-013`; see* Drift checkpoints.*)*
 - `D14` — **PR and commit shape** (operator, 2026-09-09): the PR title is `<scope>: <what a reader
   sees>`; the body follows `.github/pull_request_template.md` with fixed sections — the
   consumer-visible change, the spec ids touched, the `/check` output pasted, the review round, the
@@ -380,8 +384,8 @@ boundary with `/vion-dispatch:handoff`. The handoff file under
 `architecture/.claude/briefs/handoffs/` is the coordinator's memory between sessions; this doc is
 the effort's.
 
-**A worker** is a fresh session in this repo, titled `sdk: sdd closeout T-0NN`, batch
-(`steer: no`) unless its task carries a STOP line, then steered (`D13`). Its brief is a pointer —
+**A worker** is a fresh session in this repo, titled `sdk: sdd closeout T-0NN`, steered
+(`steer: yes`) whether or not its task carries a STOP line (`D13`, as corrected by `T-013`). Its brief is a pointer —
 this doc's path and the task id, the counts-are-hypotheses rule, `sections: Deviations, Questions,
 Friction, Affects others, Gates, Review`, `pr: expected`, `branch: sdd-closeout/T-0NN-<slug>`,
 `deps: C:\_gh\architecture` where the task reads there — and nothing `CLAUDE.md` already says. The
@@ -412,9 +416,10 @@ never a silent absorption.
 | `T-008` | done — **partial by measurement**: decision 0145 recorded and the Modbus half landed; the four larger entries stay in the ledger with their counts | `sdk: sdd closeout T-008` | #198 |
 | `T-009` | done | `sdk: sdd closeout T-009` | #199 |
 | `T-010` | done — 28n fixed and `AC-HTTP-008.2` rewritten; row 54 re-read and unchanged; two `T-009` opens closed in #201 | `sdk: sdd closeout T-010` | #200, #201 |
-| `T-011` | done — harvest committed (`docs/retro/2026-09-sdd-pass-data.md`, 45 sessions), then the machine-local residue disposed per the brief | `sdk: sdd closeout T-011` | (this PR) |
-| `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | (this PR) |
-| `T-013` … `T-020` | to come | — | — |
+| `T-011` | done — harvest committed (`docs/retro/2026-09-sdd-pass-data.md`, 45 sessions), then the machine-local residue disposed per the brief | `sdk: sdd closeout T-011` | #206 |
+| `T-012` | done — `scripts/check.ps1` derives its gate list from `spec-gates.yml`; a self-test rather than an exemption | `sdk: sdd closeout T-012` | #207 |
+| `T-013` | done | `sdk: sdd closeout T-013` | (this PR) |
+| `T-014` … `T-020` | to come | — | — |
 
 ### Ledger dispositions
 
@@ -1562,6 +1567,51 @@ names the file and section that states the rule now, and *lane 3 § N* is
   script composes rather than quotes. The hidden-directory shape is a real reproduction: the Hidden
   attribute set and restored, which is the fixture recipe `T-005` settled on. The version shape rides
   `-Build` and `-Test`. Where the switch cannot reproduce, it says so rather than implying it did.
+
+- **`T-013`: four of the five things the task line asks § Lanes for were missing; the triage
+  questions were already there.** The line reads "§ Lanes completed with the triage questions, how a
+  lane-1 or lane-2 session starts, the counts-are-hypotheses rule, the brief's `sections:` extras
+  and the STOP convention". `T-002` already opened the section with them — *does it change specified
+  behaviour · does it cross an area · is a design point open* — and the lane assignment that follows
+  from each answer. Nothing was added for that clause and nothing was moved; the other four are new,
+  in one `### Starting a lane-1 or lane-2 session` subsection between the triage paragraph and
+  § Lane 1. The counts rule was in the file already, but only as lane 3's coordinator-side check on
+  a brief before dispatch (§ 1 The brief) — a second reader, not the session's own obligation. The
+  new statement is the session-side rule for every lane, and § 1 keeps its own as an addition to it
+  rather than a copy: one owner per rule.
+- **`T-013`: `D13`'s consequence sentence was corrected in `D13` itself, not only here.** The brief
+  left the placement to this task. A `Drift checkpoints` entry is the right home for a number that
+  turned out wrong, because nobody acts on a count without re-deriving it; this was an *instruction*
+  — "a worker in this repo can be a batch worker (`steer: no`) where no STOP line is expected" — at
+  the site a coordinator reads when choosing `steer:`. Left standing with the correction 800 lines
+  below it, the next dispatch reads the wrong half. So `D13` now carries the corrected consequence
+  with the old sentence quoted and dated, and the checkpoint is this line. The same wrong rule had a
+  **second** site — § *Session protocol*'s worker paragraph, "batch (`steer: no`) unless its task
+  carries a STOP line" — which no reading of the brief would have found from `D13` alone; both are
+  corrected, and the operator's ruling (`-NoSteer` suppresses `--remote-control`, so an unsteered
+  session appears neither in the app nor on the phone) is now stated at all three sites that decide
+  a dispatch: `D13`, § *Session protocol*, and `spec-process.md` § Lanes.
+- **`T-013`: the PR template was five lines, not the four the brief assumed** — the banner, a blank,
+  `## Summary`, a blank, and an HTML comment saying "Describe what changed and why". The comment is
+  the line the count missed; nothing else differed, and the banner is kept verbatim as the brief
+  required. The rewrite is the banner plus `D14`'s five sections, each an HTML comment saying what
+  belongs under it, so an empty section is visibly unanswered rather than silently absent.
+- **`T-013`: `D14`'s PR *title* rule rides in the template; the *commit-subject* rule does not.**
+  The brief reserves the commit-subject rule for `T-016`, and this task does not write it into the
+  working agreement. `D14` states both in one breath, and the template's opening comment names the
+  title shape `<scope>: <what a reader sees>` because the template is where a PR title is chosen.
+  Commits are not mentioned in any file this task touches.
+- **`T-013`: two *Implementation state* rows still read `(this PR)` after their PRs had merged.**
+  `T-011` is #206 and `T-012` is #207; each row was written by the session that opened its PR and
+  never revisited. Corrected here in passing, because "(this PR)" in a merged doc names whatever PR
+  the reader is holding. Whoever lands next: the row you write is read after your PR merges.
+- **`T-013`: the two ways in held, and the two shapes that look like a third are not one.** The
+  brief asked for a third way if working the lanes showed one. Phase 1's pointer prompt pasted into
+  a fresh tab by hand is the same thing `/vion-dispatch:spawn` now does, and § *Session protocol*
+  already records it as superseded; a session opened with `/vion-dispatch:open` and steered from the
+  phone is the operator driving, which is the inline case with the operator at a different keyboard.
+  Neither earns a row, and the subsection says "the lane does not decide which" rather than tying a
+  lane to a way in.
 
 ---
 

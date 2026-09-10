@@ -48,10 +48,15 @@ live in `../architecture/specs/`, never here.
 
 ## Working agreement
 
+How a change is sized, how a session starts and where the operator decides is
+[`docs/spec-process.md`](docs/spec-process.md) § Lanes; the rules below hold in every lane.
+
 1. **Branch and PR, never straight to main.** Work on a feature branch and open a PR. (Exceptions are
    explicit and rare — the user says "do it right on main".)
-2. **Do not commit until the user has seen the change.** Show the diff and wait. When explicitly told
-   to commit and open a PR, do the whole sequence without stopping in the middle.
+2. **Commit on the task branch as you go — no diff pause — and never push to `main`.** The PR is
+   where the operator reads the diff, so a commit needs no approval and the branch is where the work
+   accumulates. When the operator wants the diff earlier they ask for it; a STOP line named in the
+   brief is where a session waits, and there only.
 3. **Merge `main` in before opening the PR**, and again before pushing if `main` moved. This repo
    releases every other day; a branch is stale fast.
 4. **Run `pwsh scripts/cleanup-code.ps1 -Changed` before `gh pr create`** — automatically, without
