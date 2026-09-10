@@ -210,7 +210,7 @@ namespace Vion.Dale.Cli.Test.Helpers
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-003.10")]
-        public void CautionOnceTheProjectIsResolved()
+        public void CautionOnceProjectResolves()
         {
             // Arrange — the caution rides project resolution, so this is what proves it is reached at all.
             // DaleConsole.Warning renders through the global Spectre console, which caches its writer, so
@@ -251,9 +251,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         [DataRow("0.12.0", "0.11.2", DisplayName = "a minor behind")]
         [DataRow("1.0.0", "0.11.2", DisplayName = "a major behind")]
         [DataRow("0.11.2", "0.11.0-preview.4", DisplayName = "a preview of the older release")]
-        public void CautionWhenToolIsBehindReferencedSdk(string referencedSdk, string toolVersion)
+        public void CautionWhenToolBehindReferencedSdk(string referencedSdk, string toolVersion)
         {
-            // Arrange, Act
+            // Arrange
+            // Act
             var caution = CommandHelpers.DescribeStaleTool(referencedSdk, toolVersion);
 
             // Assert — the reader has to learn which half is stale and what to run.
@@ -273,9 +274,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         [DataRow("0.11.2-preview.1", "0.11.2", DisplayName = "a preview of the same release")]
         [DataRow(null, "0.11.2", DisplayName = "a project referencing the SDK by project")]
         [DataRow("$(SdkVersion)", "0.11.2", DisplayName = "an unevaluated MSBuild property")]
-        public void StaySilentWhenThereIsNoStaleTool(string? referencedSdk, string toolVersion)
+        public void StaySilentWithoutStaleTool(string? referencedSdk, string toolVersion)
         {
-            // Arrange, Act
+            // Arrange
+            // Act
             var caution = CommandHelpers.DescribeStaleTool(referencedSdk, toolVersion);
 
             // Assert
