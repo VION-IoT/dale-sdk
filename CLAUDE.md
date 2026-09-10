@@ -33,6 +33,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
 | reviewing a change before a PR | `/vion-code-review branch` — [`.claude/commands/vion-code-review.md`](.claude/commands/vion-code-review.md); a second round is `branch:<the first round's hash>`, and § 7 is the shape the round takes in the PR body |
+| writing or editing a harness file — `CLAUDE.md`, a convention doc, a command, a skill, settings, the journal header | [`docs/harness-conventions.md`](docs/harness-conventions.md) — a file describes itself and never its callers, every rule has one owner, state the principle and illustrate with examples, walk through the change before handing it back |
 
 **Before writing new code, read similar existing files** in the same area and replicate their
 structure. Do not invent new patterns; name the precedent you followed.
@@ -80,6 +81,10 @@ How a change is sized, how a session starts and where the operator decides is
     [`docs/specs/`](docs/specs/) page in the same PR. Feature-sized: the full change-doc cycle —
     scaffold, implement with tests citing the delta's ids, distill, archive. Every area of the
     roster carries a traced page today, so there is no lane in which a page edit is optional.
+11. **A commit subject is imperative and states only what changed, with no verb list and no body
+    beyond it** — the squash merge keeps only the PR title, so the subject is what a reviewer of the
+    commit history actually reads, not a rationale or a to-do list. Enforced by whatever commits;
+    there is no grouping-and-confirm command in this repo.
 
 ## Repository Structure
 
