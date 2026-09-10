@@ -84,12 +84,11 @@ initialization and the runtime-actor linking both happened.
 surprises someone. A host learns which contracts exist from the plugin it loaded; the builder learns
 it from **the block under test** — the marked, writable properties the block itself declares. Two
 consequences follow. A contract an inclusion gate would have excluded is mapped in a test and absent
-in a host, because the discovery reads no gate (decision `0081`, and
-[`_findings.md`](_findings.md) carries it). And a contract whose services live in an assembly the
-block does not reach through a property is not registered, so its dependency does not resolve; the
-supported answer is `WithServices`, which adds registrations the discovery would not find. Widening
-the discovery would make a test's service graph depend on whatever else happened to be loaded, which
-is why it stays as it is.
+in a host, because the discovery reads no gate (decision `0081`). And a contract whose services live in
+an assembly the block does not reach through a property is not registered, so its dependency does not
+resolve; the supported answer is `WithServices`, which adds registrations the discovery would not find.
+Widening the discovery would make a test's service graph depend on whatever else happened to be
+loaded, which is why it stays as it is.
 
 The interface-mapping rule above is the one criterion here the kit's own test project cannot
 reach. A block binds its declared interfaces whether or not a mapping named them, so the
