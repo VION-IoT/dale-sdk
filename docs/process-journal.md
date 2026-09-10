@@ -61,9 +61,11 @@ nothing else can produce them:
   This is the loop-quality signal; it is the number that should fall. It counts wherever a round ran
   and missed: `/vion-code-review`, a fresh-context critic, a coordinator's read — and **a later round
   of the same task's own review catching what the earlier round left** is the ordinary case, not an
-  edge case. Retro-1 read 359 entries, found at least twenty that fit and not one marker: the
-  original wording named `/vion-code-review` alone, which was rarely the instrument, so the number
-  the table exists to watch has never once been produced.
+  edge case. **A round means a reader who is not the author.** The author's own check of their own
+  work is not a round, however rigorously it applied a named check, or the marker swallows nearly
+  every correction and stops measuring the loop. Retro-1 read 359 entries, found at least twenty that
+  fit and not one marker: the original wording named `/vion-code-review` alone, which was rarely the
+  instrument, so the number the table exists to watch has never once been produced.
 
 Both go at the end of the line, before the D-number.
 
@@ -102,3 +104,7 @@ it was felt.
 2026-09-10 · review · T-018 · The new gate's 60-character bound survived being doubled to 130 with all eleven self-test cases green — the constant was asserted by a comment claiming it was pinned, and pinned by nothing. Replaced with whole-cell matching, which needs no constant, kills a false positive the reviewer found on a legitimate definition cell, and is fully mutable-testable. `P5` catching the branch that minted `P5`, sixty lines from where it was written. (P5)
 2026-09-10 · review · T-018 · A Drift checkpoint cited `spec-process.md:287` for a line this same branch had already moved to `:299` — the exact defect the branch landed a gate for, committed one file away, two entries after a journal line saying a line number means nothing without the commit it was read at. Rule, gate and journal line all present; the sentence written under them still did it. (D10, P1)
 2026-09-10 · review · T-018 · Two of the caution's three call sites were unreddenable: only the explicit `--project` path had a test, so deleting the call from the walk-up or the solution auto-select path left 407 of 407 green. The seam that made one path provable was mistaken for making the behaviour provable. Now a three-row `[DataRow]` over the resolution paths, each proved red by deleting its own call. (P5, P3)
+2026-09-10 · review · T-018 · Round 2 found the sentence round 1 had already forced a recount of still carrying an unrecounted number: "thirty-seven consecutive entries carry none" was the tail of one slice under the old parens-only notation, and under the corrected one the longest untagged run is 102 — the round's own strongest evidence understated by nearly three times, inside the clause that had just been fixed. Recounting a sentence is not recounting the sentence's every number. (D10, P1)
+2026-09-10 · review · T-018 · The repair for a miscount was itself a miscount in the opposite direction: told that the metrics column had counted `(second ask)` only, I added "anchor the count at the end of the line" — but the journal's own header puts the D-number after the marker, so the anchored command returns 3 where the truth is 8. Both the original and its fix were written without running the command over the file. The column now carries the command itself rather than a description of it. (D10, P1)
+2026-09-10 · review · T-018 · The gate's user-facing row in `spec-process.md` still described the 60-character bound and the `docs/rfcs/` exclusion that the same commit had deleted from the script — `check.ps1`'s meta-gate proves a row exists and never that it is true. A rung-3 landing's own documentation went stale inside the commit that landed it. (D2)
+2026-09-10 · review · T-018 · Round 2 read the redefined `(escape)` marker as covering an author's own application of a named check, which would have made round 1's catch an escape. The wording allowed it. Rather than argue the instance, the header now says a round is a reader who is not the author — a marker whose count depends on who is reading its definition cannot be the number that should fall. (D9)

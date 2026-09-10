@@ -71,9 +71,10 @@ Three readings, each load-bearing:
   work, with almost no consumer-facing authoring for an analyzer to see.
 - **Tagging tracks the instrument, not the discipline.** Sixty of the seventy tagged lines sit in
   the two slices where a review command was the reviewing instrument; the three middle slices, where the
-  passes ran coordinator critics instead, carry ten tagged lines across 196 entries, and thirty-seven consecutive
-  entries carry none. All four scorecards in one slice record the classification gate as *"0 — delegated"*.
-  The taxonomy is calibrated to a review mode half the window did not use.
+  passes ran coordinator critics instead, carry ten tagged lines across 196 entries. The longest unbroken
+  run of untagged entries is **102**, over a quarter of the window in one stretch. All four scorecards in
+  one slice record the classification gate as *"0 — delegated"*. The taxonomy is calibrated to a review
+  mode half the window did not use.
 
 ## The two silent markers
 
@@ -90,6 +91,14 @@ defects, and none of them is an escape: round 1 was the first round over this br
 already passed one. Two lines were written with an `(escape)` marker and corrected before commit for
 exactly that reason. An escape needs a second round to exist, which is why the marker's first honest
 reading is retro-2's, and why a `0` here still means unrecorded rather than none.
+
+**Round 2 disagreed, and closing the disagreement is the more useful outcome than either answer.** It
+argued that the author's own application of `P5` to the stale-tool code, journalled before round 1 ran,
+was itself a round that missed two of three call sites — making round 1's catch an escape. The wording
+allowed that reading, so the header now says a round is **a reader who is not the author**: a self-check,
+however rigorous, is not one, or the marker swallows nearly every correction and measures nothing. The
+line stays unmarked by decision, not by oversight, and retro-2 inherits a definition that no longer
+turns on who is reading it.
 
 **`→ codified:`: zero in 359 entries, and for all but the last day the stamp did not exist.** A true
 negative for the stamp, a false negative for codification: `:301` is quoted verbatim inside `P1`; `:187`
@@ -110,8 +119,10 @@ sessions compacting, not none — `SCEN` and `CTRL`, one each — and those are 
 amendments first fell to one. So compaction did not move output quality in the direction the question
 assumes. Nor does the fresh-session rule explain the fall from six: amendments run **2, 3, 6, 2, 1, 1** and
 then one for eight consecutive passes, so the fall to one happened at `SCEN` (pass 5), while the amendment
-became *a fresh-session brief* at `LIFE` (pass 7), two passes later. What sits at the inflection instead is
-pass 4, `INTRO`, which introduced both the classification relay and the fresh-session fix-up round; six
+became *a fresh-session brief* at `LIFE` (pass 7), two passes later. The fresh-session fix-up itself is
+older still — `GATE` (pass 3) invented it mid-pass, *"after two rounds in which the same defect classes
+recurred"*, and the recurrence stopped there. What sits at the inflection is pass 4, `INTRO`, which added
+the classification relay on top of it; six
 amendments became two there and one at the next pass. The fresh-session brief held the gain; it did not
 produce it.
 
@@ -120,7 +131,8 @@ brief, seven to eleven and a half minutes, one Opus subagent. A standing lane-3 
 one — see *What landed* for why, and landing 2 for what replaced it.
 
 **3. Which checks pay.** Of the three the question names, two pay and one does not. Completeness-critic
-misses run one to six per pass and every one is a real gap; round-1 review blockers one to four. The
+misses run **one to ten** per pass across the fourteen — one to six over the eight the next sentence
+scopes to — and every one is a real gap; round-1 review blockers one to four. The
 **round-2 targeted read found zero in all eight passes that record it** — the second round paid for
 nothing new, eight times running. The second opinion is worth keeping for a different reason than its
 count: it reads the *other* repositories, and one of its passes changed the class of four rows. For lane
@@ -128,10 +140,11 @@ count: it reads the *other* repositories, and one of its passes changed the clas
 essentially every close-out task.
 
 **4. Where corrections concentrated.** The seven clusters above. Which became gates, *inside the window
-and without waiting for this retro*: `bom-lint`, `doc-comment-lint`, `sweep-residue-lint`, `journal-lint`
-and `test-style-lint`. Which remain prose: the two largest, until landings 1 and 2. **Which recur despite
-a gate** is the sharpest of the four — `spec-trace` is green while a test cites a criterion whose text it
-does not prove, because the gate checks that an id exists and never that the citation fits. Three journal
+and without waiting for this retro*: `bom-lint`, `doc-comment-lint`, `sweep-residue-lint`,
+`journal-lint`, `pragma-reason-lint` and `test-style-lint`. Which remain prose: the two largest, until
+landings 1 and 2. **Which recur despite a gate** is the sharpest of the four — `spec-trace` is green
+while a test cites a criterion whose text it does not prove, because the gate checks that an id exists
+and never that the citation fits. Three journal
 lines and one pass's round-1 blocker are that exact defect.
 
 **5. Stalls.** Three, roughly nineteen hours, three unrelated mechanisms: a cross-session message held
@@ -184,7 +197,8 @@ one unaided, which is the system working.
 - **The partial sweep, 34 lines.** `P3` was minted three days before this round and has fired twice. A
   check gets a round before it is judged.
 - **A gate passing over what it does not read, 19 lines.** The ladder already worked here without waiting
-  for a retro: `bom-lint`, `doc-comment-lint`, `sweep-residue-lint`, `journal-lint` and `test-style-lint`
+  for a retro: `bom-lint`, `doc-comment-lint`, `sweep-residue-lint`, `journal-lint`, `pragma-reason-lint`
+  and `test-style-lint`
   were all minted inside the window from these lines.
 - **The round-2 targeted read.** Question 3's answer is that it found **zero** in all eight passes that
   record it, against one to six completeness-critic misses and one to four round-1 blockers each. Removing

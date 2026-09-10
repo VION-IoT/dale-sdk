@@ -35,9 +35,18 @@ round can name the command that fills it.
   than once. Count the lines and report the **highest `n`** beside the count, because the promotion
   argument is carried by the worst case and not by the total — retro-1 found `(third ask)`,
   `(fourth ask)` and `(fifth ask)` already written by hand and invisible to a column that read only
-  `(second ask)`. **Anchor the count at the end of the line** (the marker's position, per the
-  journal's header), or an entry that *discusses* a marker is counted as carrying one — which
-  retro-1's own first tally did.
+  `(second ask)`. Count the marker **in its position** — last on the line except for the D-number and
+  any `→ codified:` stamp after it — and not merely mentioned in an entry's prose, or a line
+  *about* the markers is counted as carrying one:
+
+  ```bash
+  grep -cE '^[0-9-]+ · review · .*\([a-z]+ ask\)( \([DP][0-9, DP]*\))?( → codified:.*)?$' <file>
+  ```
+
+  Anchoring the marker itself at end of line is the wrong repair and undercounts by more than half,
+  because the header puts the D-number after it. Retro-1 made both mistakes in one round: its first
+  tally matched `(second ask)` alone and missed the escalations, and its correction anchored too
+  hard.
 - **escapes** — `review` lines carrying the `(escape)` marker: corrections on work a review round had
   already passed, whichever round it was, including a later round of the same task's review. The
   loop-quality number: the analyzer/gate > check > prose ordering is working when this falls. Retro-1

@@ -1792,13 +1792,12 @@ names the file and section that states the rule now, and *lane 3 § N* is
   that were top-3 to no individual reader.
 - **`T-018`: landing 2 was re-shaped by the operator at the STOP, and the evidence agreed.** The proposal
   was to extend lane 3's pre-dispatch brief check to lane 2. The operator asked whether a seven-minute
-  subagent is worth it and whether a model is prescribed. Both questions were right: `spec-process.md:299`
+  subagent is worth it and whether a model is prescribed. Both questions were right: `spec-process.md:299` at `88dffcb`
   (`:287` at `7662ec3` — this branch's own edit moved it, which is the defect the round landed a gate for,
   committed one file away) prescribes **Opus**, its paragraph claimed four minutes against seven to
   eleven and a half measured across the five passes that timed it — `tkit-pass.md:1483` is the ceiling and
   was missed on the first count — the check was itself refuted by the pass it checked twice, and the
-  scorecards say
-  most of what it catches is *"an inventory subagent's counts that did not survive an independent read"* —
+  scorecards say most of what it catches is *"an inventory subagent's counts that did not survive an independent read"* —
   a number one model guessed into a brief and a second was paid to undo. The landing became a writer-side
   rule (a brief carries intent; a number is in it only when the session would act differently for a
   different value, and then it carries its command) and lane 2 gained nothing, because six of eight

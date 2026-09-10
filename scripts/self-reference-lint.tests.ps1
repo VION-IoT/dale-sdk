@@ -64,9 +64,12 @@ try {
             '| a | done | **(this PR)** |',
             '| b | done | `this PR` |',
             '| c | done | _this PR_ |',
-            '| d | done | this PR. |'
+            '| d | done | this PR. |',
+            '| e | done | "this PR" |',
+            '| f | done | <this PR> |',
+            '| g | done | ~this PR~ |'
         ))
-    Expect 1 'Case 4b (decorated pointer)' '4 self-referential cell(s)'
+    Expect 1 'Case 4b (decorated pointer)' '7 self-referential cell(s)'
 
     # Case 5: the other three phrasings, plus "the current PR" -> 1 each, four findings on four rows.
     Reset-Tree
@@ -93,8 +96,8 @@ try {
     Write-Doc 'docs/changes/x.md' @('```', '| a | done | (this PR) |', '```')
     Expect 0 'Case 7 (fenced)' 'none self-referential'
 
-    # Case 8: the separator row is skipped and the leading/trailing empty fields are not cells, so a
-    # one-column table still finds its single cell -> 1.
+    # Case 8: a one-column table still finds its single cell -> 1. The empty fields either side of the
+    # row's outer pipes are skipped as empty, not by the index bounds.
     Reset-Tree
     Write-Doc 'docs/changes/x.md' @('| PR |', '| :--- |', '| (this PR) |')
     Expect 1 'Case 8 (single column)' 'points at itself'
@@ -106,10 +109,11 @@ try {
     Write-Doc 'docs/changes/live.md' ($tableHead + @('| a | done | #209 |'))
     Expect 0 'Case 9 (not markdown)' 'none self-referential'
 
-    # Case 10: "this PRs" and "commitment" must not match - the word boundary is load-bearing.
+    # Case 10: "this PRs" and "commitment" must not match - the whole-cell anchors are what reject them,
+    # and nothing else does: the pattern carries no word boundary.
     Reset-Tree
     Write-Doc 'docs/changes/x.md' ($tableHead + @('| a | done | this PRs of theirs |', '| b | done | this commitment |'))
-    Expect 0 'Case 10 (word boundary)' 'none self-referential'
+    Expect 0 'Case 10 (whole cell, not substring)' 'none self-referential'
 
     # Case 11: the separator row is not cells. It can never carry the phrase (it has no letters), so
     # the skip cannot change the verdict - it changes the count the OK line reports, and that is what

@@ -18,6 +18,13 @@
   from a paragraph - cannot be pinned. A bound of 60 survived being doubled to 130 with every
   self-test still green, which makes the number an assertion rather than a rule (P5).
 
+  What that gives up, stated rather than discovered later: a cell that carries the phrase inside
+  a sentence is NOT caught. `landed in this PR`, `see this PR`, `this PR (#TBD)` and `PR: this PR`
+  all pass, and the contains-plus-length rule caught them. The trade is deliberate - that rule also
+  failed a legitimate description cell (`the .cs this branch touched`), and a gate that reddens a
+  docs PR over a description costs more than one that misses a sentence. The founding shape, a bare
+  `(this PR)` in an Implementation state column, is what this catches and what shipped twice.
+
   The shape it catches: `T-013` journalled two Implementation state rows still reading
   "(this PR)" after their PRs had merged, wrote the rule "write the row with a number", and
   `T-014` shipped the identical cell one commit later - caught by its review round, not by any
