@@ -232,6 +232,18 @@ phase-1 task lines carried wrong counts, and one of them was wrong in the way th
 Lane 3 adds a coordinator-side check on top of this — a fresh reader over the brief before dispatch
 (§ 1 The brief) — which is a second reader, never a substitute for the session's own re-derivation.
 
+**A brief carries intent; a number is in it only when it serves that.** What the session must
+understand is what the work is for and where its edges are — a count is scaffolding, and a brief
+padded with numbers has buried the point it exists to make. So: write the number only if the session
+would act differently for a different value, and then **paste the command that produced it**. If it
+is not worth a grep, leave it out or mark it `[assumed]` and say what to check. **Never carry a count
+in from a subagent's summary** — most of what the lane-3 check catches is exactly that: an inventory
+subagent's "thirty-nine analyzers" and "two Moq files" reached briefs as facts and cost a second
+Opus subagent to undo, when the grep that refutes them takes seconds. The `[assumed]` half is the
+cheap half and it works: a task line asserting `/vion-code-review` needed a new scope marker was
+flagged rather than believed, and the scope turned out to exist already, so the command did not gain
+a keyword duplicating one it had.
+
 ### Lane 1 — fix-sized
 
 The default, and most backlog items. No change doc: the PR carries the fix, its test proven red
@@ -286,11 +298,12 @@ kind that turns out empty — an attribute with no named parameters — is a Dri
 **A count in a brief is a hypothesis until a second reader confirms it.** Before the launch line a
 fresh-context Opus `Explore` subagent reads the brief against the code — every file, folder, count,
 ownership claim and omission, reported as corrections — and the brief is rewritten before dispatch.
-Four minutes and one subagent: one brief carried thirteen wrong claims and nine omissions until it
-ran, and an inventory claiming thirty-nine analyzers with the severities transposed lost eighteen
-claims the same way. A premise about what the build decides — which projects pack, what an assembly
-carries, what a property evaluates to — comes from the build system's evaluation, never from a regex
-over its inputs.
+One subagent, seven to eleven and a half minutes across the five passes that timed it: one brief carried thirteen
+wrong claims and nine omissions until it ran, and an inventory claiming thirty-nine analyzers with
+the severities transposed lost eighteen claims the same way. A premise about what the build decides —
+which projects pack, what an assembly carries, what a property evaluates to — comes from the build
+system's evaluation, never from a regex over its inputs. The check is a second opinion and not an
+oracle: twice a pass refuted the checking subagent at the call site.
 
 **A hedge in a brief is a STOP.** *"Appears to … — verify"* has named an assumption; when it fails,
 record the deviation in the change doc and ask. One session improvised "resolve by evaluating" when
@@ -804,6 +817,7 @@ is the review report only.
 | `scripts/bom-lint.ps1` | `spec-gates.yml` + on demand | a `.cs`, `.md`, `.js`, `.mjs`, `.cjs`, `.json`, `.yml`, `.yaml`, `.html`, `.css`, `.targets` or `.props` file carrying a UTF-8 byte-order mark — no file of these kinds has one here, and a helper writing `utf-8-sig` once stamped 46 — **or a NUL byte**: one makes git call the whole file binary, so the line-ending policy never normalises it and every `grep` and reference sweep skips it (`wwwroot/components.js` carried one inside a comment, with 22 RFC citations behind it); **and zero files, or zero `.cs`, reaching the scan** — the anti-vacuous floors `pragma-reason-lint` also carries, the second because dropping `.cs` leaves every other kind still checked. A floor only catches a count reaching zero, so the report also prints the file, kind and `.cs` tallies: a scan narrowed to a pathspec that still returns C# clears both floors and shows only in the numbers. C# joined the kinds once its marked files were normalised; `.csproj`, the solution, `.DotSettings` and the `.scriban` generator template stay mixed and out of scope — an IDE rewrites the first three on its own terms, and the template's mark is stripped by the `StreamReader` that renders it |
 | `scripts/journal-lint.ps1` | `spec-gates.yml` + on demand | a line under `docs/process-journal.md`'s `## Entries` that is not one dated entry in the header's shape and vocabulary, two entries sharing a line (an append that did not end the previous one), or an entry dated below the one above it |
 | `scripts/sweep-residue-lint.ps1` | `spec-gates.yml` + on demand | prose — Markdown outside code, tables and headings; `//` and `///` comment text in C# and JavaScript — carrying what a scripted reference sweep leaves behind: an empty `()` on its own, two spaces inside a sentence, a Markdown line ending on `(`; frozen RFCs, the append-only logs, snapshots and vendored scripts are out of scope |
+| `scripts/self-reference-lint.ps1` | `spec-gates.yml` + on demand | a Markdown table cell that **is** `this PR`, `this commit`, `this branch` or `the current PR` once emphasis, backticks and surrounding punctuation are stripped — a pointer column filled with a phrase that only resolves before the merge, and is read after it. Cells only, so narrative saying "this PR touches `scripts/`" is untouched; whole-cell rather than a length bound, because a bound survived being doubled with every self-test still green and false-fired on a description cell. **What it gives up:** a cell that *mentions* the phrase inside a sentence is not caught, so `landed in this PR` passes — the founding shape, a bare `(this PR)` in an *Implementation state* row, does not. The append-only logs, `docs/changes/archive/` and the snapshots are out of scope, and the scan fails on reaching zero markdown files. Two rows shipped the founding shape one commit after the journal line recording it |
 | `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target, or an `ADDED`/`MODIFIED` line whose EARS text the target's declaring bullet no longer carries (backticks, brackets, type arguments, wrapping, a `GAP` tail and a trailing parenthetical set aside) |
 | `scripts/doc-comment-lint.ps1` | `spec-gates.yml` + on demand | a C# doc-comment block carrying more than one `<summary>` — one declaration took two doc comments, the one above the insertion anchor is bare ([`sdk-surface-conventions.md`](sdk-surface-conventions.md) § 2) |
 | `scripts/test-style-lint.ps1` | `spec-gates.yml` + on demand | a test citing a spec id carries an article in its name or no Triple-A markers (`testing-conventions.md` §12/§13); projects cited from without ownership are exempt in the script, with a reason |
@@ -813,7 +827,7 @@ is the review report only.
 `spec-gates.yml` runs on every PR (it is file-greps only — no build), because `publish.yml`
 ignores `docs/**` and a docs-only PR must still be gated.
 
-**Run the nine with `pwsh -File scripts/check.ps1`, or the `/check` command.** It derives them
+**Run the ten with `pwsh -File scripts/check.ps1`, or the `/check` command.** It derives them
 from `spec-gates.yml` rather than repeating the table above — a gate added to the workflow with
 no local invocation fails `check.ps1` instead of quietly not running — and prints one pass/fail
 line per gate, carrying that gate's own summary line. `-Build` and `-Test` add the solution

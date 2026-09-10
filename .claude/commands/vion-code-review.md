@@ -191,16 +191,21 @@ Run each as a named adversarial check; cite the D-number in findings.
   read after the last push, and — for anything touching the DevHost — was it demonstrated live, not just
   asserted (`devhost-conventions.md` § 1)? A fix explains *why it slipped*, not just what changed:
   *"explain the bug, and why it could slip through, was the rfc silent about it?"* · *"why that change?
-  please explain"*.
+  please explain"*. **Scope: this is the claim, not the sweep.** A fix that reached fewer sites than the
+  shape lives at is **P3**, and a claim true only of the machine, fixture or repository it ran on is
+  **P4** — cite those. Retro-1 found `D10` carrying 36 of the window's 83 taxonomy stamps with three
+  different causes under it, five of them lines that `P3` had owned since the day it was minted; a
+  number that means three things measures none of them.
 
 **Blind spot to state, not to hide:** D2's stale-doc check and D10's correction check can only fire on a
 re-review or where the branch already answers feedback. On a first pass, § 4 is what covers them.
 
 ## 6. Standing checks from the spec corpus
 
-Four more named checks, paid for by the fourteen area passes that seeded `docs/specs/`
-([`spec-process.md`](../../docs/spec-process.md) § Lanes). Run each the way you run a D-number, and
-cite the P-number in the finding.
+Five more named checks. `P1`–`P4` were paid for by the fourteen area passes that seeded `docs/specs/`
+([`spec-process.md`](../../docs/spec-process.md) § Lanes); `P5` by retro-1
+([`2026-09-10-sdd-migration-retro.md`](../../docs/retro/2026-09-10-sdd-migration-retro.md)). Run each
+the way you run a D-number, and cite the P-number in the finding.
 
 - **P1 — Every count is pasted with its command.** A number in a change doc, a REPORT or a PR body
   that was *re-read* rather than *recounted* is stale by default; a composed one is the same defect.
@@ -230,7 +235,17 @@ cite the P-number in the finding.
   paste shows a scripted DOM write is not an observation
   ([`devhost-conventions.md`](../../docs/devhost-conventions.md) § 1).
 
-## 7. The record the round leaves
+- **P5 — A green check is not evidence until something that should redden it does.** Ask it of every
+  new test, acceptance criterion, gate rule and probe the change adds: what edit to the production
+  code would fail this, and has that edit been run? A fixture that cannot reach the clause, an
+  `Arrange` and `Assert` naming the same declaration, a `_NoDiagnostic` test standing in for a
+  behaviour claim, a `Contains` whose excluded substring contains its required one, a criterion with
+  no observable — each is green, plausible and worthless. **The drift is toward the answer "it
+  passed", and the check is the counterfactual, not the run.** Where the mutation has not been run,
+  the honest shape is a `GAP:` with its reason, never a citation. Drawn **72 times across the SDD
+  migration's 359 journal lines** — in every slice of the window and rising to a fifth of the last
+  one — while [`testing-conventions.md`](../../docs/testing-conventions.md) already said a no-throw
+  assertion is not a test. Prose had it and prose did not hold, which is why it is a named check.
 
 *(§ 1a, § 5 and § 6 are numbered as they are so that the D-numbers stay in § 5 and the P-numbers in
 § 6 — five files cite them by section.)*

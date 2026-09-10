@@ -14,6 +14,13 @@ namespace Vion.Dale.Cli.Helpers
     /// </summary>
     public static class CommandHelpers
     {
+        private static string? _toolVersionOverride;
+
+        private static string ToolVersion
+        {
+            get => _toolVersionOverride ?? Program.Version();
+        }
+
         /// <summary>
         ///     Find a Dale project or report an error. Returns null on failure (error already printed).
         ///     When in a solution directory, lists available Dale projects.
@@ -29,6 +36,10 @@ namespace Vion.Dale.Cli.Helpers
                 {
                     DaleConsole.Error(DescribeUnusableProjectPath(projectPath));
                 }
+                else
+                {
+                    WarnIfToolOlderThanSdk(named);
+                }
 
                 return named;
             }
@@ -36,6 +47,7 @@ namespace Vion.Dale.Cli.Helpers
             var project = ProjectDiscovery.FindProject();
             if (project != null)
             {
+                WarnIfToolOlderThanSdk(project);
                 return project;
             }
 
@@ -49,7 +61,13 @@ namespace Vion.Dale.Cli.Helpers
                     // Auto-select the only Dale project
                     var slnDir = Path.GetDirectoryName(solution) ?? ".";
                     var autoPath = Path.GetFullPath(Path.Combine(slnDir, daleProjects[0]));
-                    return ProjectDiscovery.FindProject(autoPath);
+                    var autoSelected = ProjectDiscovery.FindProject(autoPath);
+                    if (autoSelected != null)
+                    {
+                        WarnIfToolOlderThanSdk(autoSelected);
+                    }
+
+                    return autoSelected;
                 }
 
                 if (daleProjects.Count > 1)
@@ -137,6 +155,18 @@ namespace Vion.Dale.Cli.Helpers
         }
 
         /// <summary>
+        ///     The version this tool reports itself as, or null for the running assembly's own. The one place
+        ///     it is chosen: <c>CliComposition</c> passes the real assembly version at start-up and a test
+        ///     passes a released-looking one, which is what lets the stale-tool caution be proven — a local
+        ///     build reports <c>0.0.0-local</c>, and <see cref="DescribeStaleTool" /> is silent for that by
+        ///     design, so without the seam the wiring could be removed and no test would notice.
+        /// </summary>
+        internal static void UseToolVersion(string? version)
+        {
+            _toolVersionOverride = version;
+        }
+
+        /// <summary>
         ///     Why an explicitly named <c>--project</c> could not be used. The two causes need different
         ///     actions from the reader, and neither is "use --project", which they just did.
         /// </summary>
@@ -179,6 +209,63 @@ namespace Vion.Dale.Cli.Helpers
             }
 
             return results;
+        }
+
+        /// <summary>
+        ///     Warn when this tool is older than the SDK the project references. A stale global tool renders
+        ///     the previous release's view of a project that has already moved on, and nothing in the output
+        ///     says which half is old — a post-release check reads it as a failed release rather than a tool
+        ///     that needs updating. Only the older direction is a trap: a newer tool against a pinned older
+        ///     SDK is a deliberate pin.
+        /// </summary>
+        internal static void WarnIfToolOlderThanSdk(DaleProject project)
+        {
+            // DaleConsole.Warning is what keeps this out of the JSON document (AC-CLI-001.5).
+            var caution = DescribeStaleTool(project.SdkVersion, ToolVersion);
+            if (caution != null)
+            {
+                DaleConsole.Warning(caution);
+            }
+        }
+
+        /// <summary>
+        ///     The caution for a tool older than the SDK a project references, or null where there is nothing
+        ///     to say. Separated from the printing so every branch is decidable without a console.
+        /// </summary>
+        internal static string? DescribeStaleTool(string? referencedSdk, string toolVersion)
+        {
+            var referenced = ReleaseCore(referencedSdk);
+            var tool = ReleaseCore(toolVersion);
+            if (referenced == null || tool == null || tool >= referenced)
+            {
+                return null;
+            }
+
+            return $"This tool is {toolVersion}; the project references Vion.Dale.Sdk {referencedSdk}. " + $"Run: dotnet tool update -g Vion.Dale.Cli --version {referencedSdk}";
+        }
+
+        /// <summary>
+        ///     The <c>major.minor.patch</c> of a released version, or null when there is nothing to compare:
+        ///     an unparseable string, or a <c>0.0.0</c> build. A local or untagged CI build is on no feed and
+        ///     carries no ordering against a released SDK, so warning about it would fire on every run inside
+        ///     this repository. Pre-release suffixes are dropped rather than ordered — the trap is a whole
+        ///     release behind, and a stricter comparison would warn on a preview pinned on purpose.
+        /// </summary>
+        private static Version? ReleaseCore(string? version)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                return null;
+            }
+
+            var core = version.Split('-', '+')[0];
+            if (!Version.TryParse(core, out var parsed))
+            {
+                return null;
+            }
+
+            var normalized = new Version(parsed.Major, parsed.Minor, Math.Max(parsed.Build, 0));
+            return normalized == new Version(0, 0, 0) ? null : normalized;
         }
 
         /// <summary>

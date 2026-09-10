@@ -107,6 +107,19 @@ standard output, exit 1.
   Dale projects.
 - `AC-CLI-003.9` (Ubiquitous): THE SYSTEM SHALL report a project's package identity as its declared
   package id, falling back to its file name, and its root namespace the same way.
+- `AC-CLI-003.10` (Event-driven): WHEN a resolved project references an SDK whose
+  `major.minor.patch` is higher than the running tool's own THE SYSTEM SHALL say so and name the
+  update command, and SHALL stay silent where the two are equal, where either is `0.0.0`, where the
+  tool's is higher, or where the output mode is JSON.
+
+A stale global tool renders the previous release's view of a project that has moved on, and nothing
+else in the output says which half is old — one post-release check read exactly that as a failed
+release. Only the older direction is a trap: a newer tool against a pinned older SDK is a deliberate
+pin, and a `0.0.0` build is on no feed and orders against nothing. The comparison is over the
+release core alone, so a pre-release suffix never decides it in either direction: a `0.11.2-preview.1`
+tool is silent against a `0.11.2` project even though semver orders it lower, because the alternative
+warns at every preview a consumer pinned on purpose, and the trap this exists for is a whole release
+behind.
 
 `--project` is an instruction, not a hint: it wins over a solution above the working directory, and
 a path that cannot be used is refused rather than worked around. That is what keeps a typo from

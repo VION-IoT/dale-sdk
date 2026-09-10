@@ -1,7 +1,7 @@
 name: Spec Gates
 # The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint, spec-trace,
 # test-style-lint, doc-comment-lint, pragma-reason-lint, bom-lint, journal-lint,
-# sweep-residue-lint. Its own workflow — not a publish.yml
+# sweep-residue-lint, self-reference-lint. Its own workflow — not a publish.yml
 # job — because publish.yml ignores docs/** on both triggers and a docs-only PR (a spec
 # page, a change doc) must still be gated. Pure file scans, no dotnet build: cheap
 # enough to run on every PR.
@@ -78,3 +78,9 @@ jobs:
       - name: Sweep-residue lint
         shell: pwsh
         run: ./scripts/sweep-residue-lint.ps1
+
+      # No table cell points at itself: `(this PR)` in a pointer column is read after the merge that
+      # would have resolved it. Journalled once, then shipped again one commit later (T-013, T-014).
+      - name: Self-reference lint
+        shell: pwsh
+        run: ./scripts/self-reference-lint.ps1
