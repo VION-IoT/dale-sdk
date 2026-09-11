@@ -32,7 +32,8 @@ namespace Vion.Dale.Cli.Commands
             var dirOption = new Option<string>("--dir") { Description = "Topologies directory (default ./topologies).", DefaultValueFactory = _ => "topologies" };
             var requireSchemaOption = new Option<bool>("--require-schema-ref")
                                       {
-                                          Description = "Fail a file that carries no \"$schema\" reference, instead of warning about it. The loader treats the reference as optional.",
+                                          Description =
+                                              "Fail a file that carries no \"$schema\" reference, instead of warning about it. The loader treats the reference as optional.",
                                       };
             validate.Options.Add(dirOption);
             validate.Options.Add(requireSchemaOption);

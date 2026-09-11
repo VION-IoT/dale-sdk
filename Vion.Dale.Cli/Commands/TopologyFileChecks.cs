@@ -223,8 +223,8 @@ namespace Vion.Dale.Cli.Commands
 
                 var source = AsString(mapping["sourceLogicBlockName"]);
                 var target = AsString(mapping["targetLogicBlockName"]);
-                if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target) ||
-                    string.IsNullOrWhiteSpace(AsString(mapping["sourceInterfaceIdentifier"])) || string.IsNullOrWhiteSpace(AsString(mapping["targetInterfaceIdentifier"])))
+                if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target) || string.IsNullOrWhiteSpace(AsString(mapping["sourceInterfaceIdentifier"])) ||
+                    string.IsNullOrWhiteSpace(AsString(mapping["targetInterfaceIdentifier"])))
                 {
                     errors.Add($"{where}: sourceLogicBlockName, sourceInterfaceIdentifier, targetLogicBlockName, targetInterfaceIdentifier are all required");
                     continue;

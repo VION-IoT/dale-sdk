@@ -64,7 +64,8 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = TopologyFileChecks.Validate(fileName, json);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)), $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)),
+                          $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
         }
 
         [TestMethod]
@@ -73,8 +74,9 @@ namespace Vion.Dale.Cli.Test.Commands
         [DataRow("""{ "typeFullName": "Acme.Blocks.Meter" }""", "name is required", DisplayName = "no instance name")]
         [DataRow("""{ "typeFullName": "Acme.Blocks.Meter", "name": "Has.Dot" }""", "must not contain '.'", DisplayName = "a dotted instance name")]
         [DataRow("""{ "typeFullName": "Acme.Blocks.Meter", "name": "Meter" }""", "duplicate instance name 'Meter'", DisplayName = "a name already declared")]
-        [DataRow("""{ "typeFullName": "Acme.Blocks.Meter", "name": "Second", "instantiationParameters": { "Phases": { "nested": 1 } } }""", "must be a JSON scalar",
-                    DisplayName = "an instantiation parameter that is not a scalar")]
+        [DataRow("""{ "typeFullName": "Acme.Blocks.Meter", "name": "Second", "instantiationParameters": { "Phases": { "nested": 1 } } }""",
+                 "must be a JSON scalar",
+                 DisplayName = "an instantiation parameter that is not a scalar")]
         public void ReportInstanceBreak(string instance, string expectedFragment)
         {
             // Arrange
@@ -89,17 +91,21 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)), $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)),
+                          $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.6")]
-        [DataRow("""{ "sourceLogicBlockName": "Meter", "sourceInterfaceIdentifier": "Out", "targetLogicBlockName": "Sim" }""", "are all required",
-                    DisplayName = "a mapping missing one of its four fields")]
+        [DataRow("""{ "sourceLogicBlockName": "Meter", "sourceInterfaceIdentifier": "Out", "targetLogicBlockName": "Sim" }""",
+                 "are all required",
+                 DisplayName = "a mapping missing one of its four fields")]
         [DataRow("""{ "sourceLogicBlockName": "Ghost", "sourceInterfaceIdentifier": "Out", "targetLogicBlockName": "Sim", "targetInterfaceIdentifier": "In" }""",
-                    "'Ghost' is not a declared instance", DisplayName = "a mapping naming an undeclared source")]
+                 "'Ghost' is not a declared instance",
+                 DisplayName = "a mapping naming an undeclared source")]
         [DataRow("""{ "sourceLogicBlockName": "Meter", "sourceInterfaceIdentifier": "Out", "targetLogicBlockName": "Ghost", "targetInterfaceIdentifier": "In" }""",
-                    "'Ghost' is not a declared instance", DisplayName = "a mapping naming an undeclared target")]
+                 "'Ghost' is not a declared instance",
+                 DisplayName = "a mapping naming an undeclared target")]
         public void ReportInterfaceMappingBreak(string mapping, string expectedFragment)
         {
             // Arrange
@@ -115,17 +121,21 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)), $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)),
+                          $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.6")]
-        [DataRow("""{ "a": { "logicBlockName": "Meter" }, "b": { "logicBlockName": "Sim", "contractIdentifier": "Grid" } }""", "logicBlockName and contractIdentifier are both required",
-                    DisplayName = "an endpoint missing its contract")]
+        [DataRow("""{ "a": { "logicBlockName": "Meter" }, "b": { "logicBlockName": "Sim", "contractIdentifier": "Grid" } }""",
+                 "logicBlockName and contractIdentifier are both required",
+                 DisplayName = "an endpoint missing its contract")]
         [DataRow("""{ "a": { "logicBlockName": "Ghost", "contractIdentifier": "Grid" }, "b": { "logicBlockName": "Sim", "contractIdentifier": "Grid" } }""",
-                    "'Ghost' is not a declared instance", DisplayName = "an endpoint naming an undeclared block")]
+                 "'Ghost' is not a declared instance",
+                 DisplayName = "an endpoint naming an undeclared block")]
         [DataRow("""{ "a": { "logicBlockName": "Meter", "contractIdentifier": "Grid" }, "b": { "logicBlockName": "Meter", "contractIdentifier": "Grid" } }""",
-                    "a pairing joins two distinct endpoints", DisplayName = "an endpoint paired with itself")]
+                 "a pairing joins two distinct endpoints",
+                 DisplayName = "an endpoint paired with itself")]
         public void ReportContractPairingBreak(string pairing, string expectedFragment)
         {
             // Arrange
@@ -135,7 +145,8 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)), $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)),
+                          $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
         }
 
         [TestMethod]
@@ -188,19 +199,23 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.7")]
-        [DataRow("""{ "id": "demo", "logicBlockInstance": [], "logicBlockInstances": [ { "typeFullName": "T", "name": "N" } ] }""", "'logicBlockInstance' is not a topology field",
-                    DisplayName = "a misspelled root member")]
-        [DataRow("""{ "id": "demo", "logicBlockInstances": [ { "typeFullName": "T", "name": "N", "typeName": "T" } ] }""", "'typeName' is not a topology field",
-                    DisplayName = "a misspelled instance member")]
+        [DataRow("""{ "id": "demo", "logicBlockInstance": [], "logicBlockInstances": [ { "typeFullName": "T", "name": "N" } ] }""",
+                 "'logicBlockInstance' is not a topology field",
+                 DisplayName = "a misspelled root member")]
+        [DataRow("""{ "id": "demo", "logicBlockInstances": [ { "typeFullName": "T", "name": "N", "typeName": "T" } ] }""",
+                 "'typeName' is not a topology field",
+                 DisplayName = "a misspelled instance member")]
         [DataRow("""{ "id": "demo", "logicBlockInstances": [ { "typeFullName": "T", "name": "N" } ], "contractPairings": [ { "a": { "logicBlockName": "N", "contractIdentifier": "C", "extra": 1 }, "b": { "logicBlockName": "N", "contractIdentifier": "D" } } ] }""",
-                    "'extra' is not a topology field", DisplayName = "a misspelled pairing-endpoint member")]
+                 "'extra' is not a topology field",
+                 DisplayName = "a misspelled pairing-endpoint member")]
         public void ReportUndeclaredMember(string json, string expectedFragment)
         {
             // Arrange / Act
             var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)), $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)),
+                          $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
         }
 
         [TestMethod]
@@ -221,13 +236,14 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.8")]
         [DataRow("""{ "a": { "logicBlockName": "Meter", "contractIdentifier": "Grid" }, "b": { "logicBlockName": "Sim", "contractIdentifier": "Grid" } }""",
-                    DisplayName = "the same order twice")]
+                 DisplayName = "the same order twice")]
         [DataRow("""{ "a": { "logicBlockName": "Sim", "contractIdentifier": "Grid" }, "b": { "logicBlockName": "Meter", "contractIdentifier": "Grid" } }""",
-                    DisplayName = "the endpoints swapped")]
+                 DisplayName = "the endpoints swapped")]
         public void ReportWireDeclaredTwice(string repeat)
         {
             // Arrange
-            var json = PairedTopology("""{ "a": { "logicBlockName": "Meter", "contractIdentifier": "Grid" }, "b": { "logicBlockName": "Sim", "contractIdentifier": "Grid" } }""", repeat);
+            var json = PairedTopology("""{ "a": { "logicBlockName": "Meter", "contractIdentifier": "Grid" }, "b": { "logicBlockName": "Sim", "contractIdentifier": "Grid" } }""",
+                                      repeat);
 
             // Act
             var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
