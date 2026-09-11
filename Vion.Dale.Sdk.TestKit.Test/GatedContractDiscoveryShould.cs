@@ -17,11 +17,11 @@ namespace Vion.Dale.Sdk.TestKit.Test
     /// <inheritdoc cref="ITestKitGatingProbe" />
     public sealed class TestKitGatingProbeContract : LogicBlockContractBase, ITestKitGatingProbe
     {
+        public override string ContractHandlerActorName { get; protected set; } = "TestKitGatingProbeHandler";
+
         public TestKitGatingProbeContract(string identifier, IActorContext actorContext) : base(identifier, actorContext)
         {
         }
-
-        public override string ContractHandlerActorName { get; protected set; } = "TestKitGatingProbeHandler";
 
         public void Poke(int amount)
         {
@@ -39,20 +39,22 @@ namespace Vion.Dale.Sdk.TestKit.Test
     /// </summary>
     public sealed class TestKitGatedContractBlock : LogicBlockBase
     {
-        public TestKitGatedContractBlock(ILogger logger) : base(logger)
-        {
-        }
-
         [ServiceProperty(Title = "Ladepunkte", Minimum = 1, Maximum = 3)]
         [InstantiationParameter]
         public int PointCount { get; init; } = 1;
 
-        public ITestKitGatingProbe FirstProbe { get; private set; } = null!;
+        // Nullable and uninitialised, like every other contract property in the suites: the binder is
+        // what writes one, so a non-null initializer would let the cleanup profile take the setter off.
+        public ITestKitGatingProbe? FirstProbe { get; private set; }
 
         // Nullable, which is the documented authoring shape for a gated contract: the binder is what
         // constructs one, so a gated-out property is left null.
         [IncludedWhen("PointCount >= 2")]
         public ITestKitGatingProbe? SecondProbe { get; private set; }
+
+        public TestKitGatedContractBlock(ILogger logger) : base(logger)
+        {
+        }
 
         /// <inheritdoc />
         protected override void Ready()
