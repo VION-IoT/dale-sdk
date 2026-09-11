@@ -46,9 +46,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         private static void AnalyzeCompilation(CompilationAnalysisContext context)
         {
-            var sourceTypes = GetAllTypes(context.Compilation.GlobalNamespace)
-                              .Where(t => SymbolEqualityComparer.Default.Equals(t.ContainingAssembly, context.Compilation.Assembly))
-                              .ToList();
+            var sourceTypes = AnalyzerHelper.EnumerateDeclaredTypes(context.Compilation.Assembly).ToList();
 
             // relationType → the contracts declaring it, for the cross-contract collision warning.
             var declaringContracts = new Dictionary<string, List<string>>(System.StringComparer.Ordinal);
@@ -269,32 +267,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static List<AttributeData> GetRelationAttributes(ISymbol symbol)
         {
             return symbol.GetAttributes().Where(a => AnalyzerHelper.GetFullName(a.AttributeClass) == AnalyzerHelper.ServiceRelationAttribute).ToList();
-        }
-
-        private static IEnumerable<INamedTypeSymbol> GetAllTypes(INamespaceOrTypeSymbol symbol)
-        {
-            foreach (var member in symbol.GetMembers())
-            {
-                switch (member)
-                {
-                    case INamespaceSymbol childNamespace:
-                        foreach (var nested in GetAllTypes(childNamespace))
-                        {
-                            yield return nested;
-                        }
-
-                        break;
-                    case INamedTypeSymbol namedType:
-                        yield return namedType;
-
-                        foreach (var nested in GetAllTypes(namedType))
-                        {
-                            yield return nested;
-                        }
-
-                        break;
-                }
-            }
         }
 
         private static Location AttributeLocation(AttributeData attribute, ISymbol fallback)

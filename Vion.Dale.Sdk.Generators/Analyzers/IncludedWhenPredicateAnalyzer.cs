@@ -278,18 +278,26 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///             The accurate path, and the only one that reaches a contract in a <i>referenced</i> assembly.
         ///         </item>
         ///         <item>
-        ///             <b>By name</b> — the declared base list against this compilation's own contract role
-        ///             names. Necessary because every logic-block project runs Metalama, in whose pipeline an
-        ///             interface <c>LogicClassGenerator</c> emits is an error type absent from
-        ///             <c>AllInterfaces</c> — so for the common same-library case the symbol path finds nothing
-        ///             and a legitimately gated binding draws <c>DALE043</c>.
+        ///             <b>By name</b> — declared base lists against this compilation's own contract role names.
+        ///             Necessary because every logic-block project runs Metalama, in whose pipeline an interface
+        ///             <c>LogicClassGenerator</c> emits is an error type absent from <c>AllInterfaces</c> — so
+        ///             for the common same-library case the symbol path finds nothing and a legitimately gated
+        ///             binding draws <c>DALE043</c>.
         ///         </item>
         ///     </list>
         ///     <para>
-        ///         The name match is deliberately narrow: only a name a <c>[LogicBlockContract]</c> here
-        ///         declares as a role counts. <c>DeclarativeInterfaceBinder</c> binds on
-        ///         <c>Type.GetInterfaces()</c>, so a looser match would accept a gate that compiles and then
-        ///         binds nothing — and over-acceptance on an error-severity diagnostic is invisible.
+        ///         Both halves are transitive, because <c>DeclarativeInterfaceBinder</c> binds on
+        ///         <c>Type.GetInterfaces()</c> and that is: an endpoint inherited from a base class, or reached
+        ///         through an interface that extends the generated one, binds exactly like a directly declared
+        ///         one. Reading only the property type's own base list would refuse a gate the runtime then
+        ///         binds — the same defect as the symbol-only lookup, one step further out.
+        ///     </para>
+        ///     <para>
+        ///         And no wider than that, because <c>DALE043</c> is an error and over-acceptance is invisible:
+        ///         only a name a <c>[LogicBlockContract]</c> here declares as a role counts, and a name that
+        ///         already resolves to an interface this type implements is skipped — that interface is in
+        ///         <c>AllInterfaces</c> without <c>[LogicInterface]</c>, so it is an ordinary type sharing a
+        ///         role's simple name and the binder will not bind it.
         ///     </para>
         /// </summary>
         private static bool TypeImplementsLogicInterface(ITypeSymbol type, HashSet<string> contractInterfaceNames, CancellationToken cancellationToken)
@@ -299,8 +307,37 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return true;
             }
 
-            return contractInterfaceNames.Count > 0 && type is INamedTypeSymbol named &&
-                   AnalyzerHelper.DeclaredBaseTypeNames(named, cancellationToken).Any(contractInterfaceNames.Contains);
+            if (contractInterfaceNames.Count == 0 || type is not INamedTypeSymbol named)
+            {
+                return false;
+            }
+
+            // TypeKind.Error excluded deliberately: an unresolved interface still appears in AllInterfaces when it
+            // is inherited through one that resolves, and that is precisely the name the by-name half exists
+            // to find. Only a genuinely resolved interface without [LogicInterface] disqualifies a name.
+            var resolved = new HashSet<string>(named.AllInterfaces.Where(i => i.TypeKind != TypeKind.Error).Select(i => i.Name), System.StringComparer.Ordinal);
+
+            return AncestryDeclaringBaseTypes(named)
+                   .SelectMany(ancestor => AnalyzerHelper.DeclaredBaseTypeNames(ancestor, cancellationToken))
+                   .Any(name => contractInterfaceNames.Contains(name) && !resolved.Contains(name));
+        }
+
+        // Every type whose declared base list can carry the generated name: the property's type, the base
+        // classes it inherits from, and the interfaces it implements. AllInterfaces is already the transitive
+        // closure of the interfaces and the BaseType chain that of the base classes, so this needs no
+        // recursion of its own. An error-type entry among them contributes nothing rather than needing a
+        // guard: it has no DeclaringSyntaxReferences, so there is no base list to read off it.
+        private static IEnumerable<INamedTypeSymbol> AncestryDeclaringBaseTypes(INamedTypeSymbol type)
+        {
+            for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                yield return current;
+            }
+
+            foreach (var iface in type.AllInterfaces)
+            {
+                yield return iface;
+            }
         }
 
         private static bool HasBaseGateOrParameter(IPropertySymbol property)

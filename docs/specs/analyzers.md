@@ -373,9 +373,11 @@ be the compile-time door onto.
   not public THE SYSTEM SHALL report `DALE044` as a warning naming the accessibility.
 - `AC-ANLZ-014.3` (Event-driven): WHEN an `[InstantiationParameter]` is assigned outside its declaring type's constructor or object initializer THE SYSTEM SHALL report `DALE044`, and SHALL judge only an assignment written in the declaring type itself. GAP: the first clause is `AC-GATE-011.8`'s and tested there; the second guards against a second report from another type's code, which no single-compilation fixture distinguishes from silence.
 - `AC-ANLZ-014.4` (Ubiquitous): THE SYSTEM SHALL resolve a gated property's interface binding both by
-  symbol and by the property type's declared base-list names matched against this compilation's
-  `[LogicBlockContract]` role interfaces, so a gate on a property whose type implements a *generated*
-  contract interface draws no `DALE043` in a build where that interface is an error type.
+  symbol and by the declared base-list names of the property's type, its base classes and the
+  interfaces it implements, matched against this compilation's `[LogicBlockContract]` role interfaces,
+  so a gate on a property whose type implements a *generated* contract interface — directly, through a
+  base class, or through an interface extending it — draws no `DALE043` in a build where that
+  interface is an error type.
 
 `AC-ANLZ-013.2` matters to anyone shipping a library of base blocks: skipping abstract declarations
 meant a library's own predicates were validated in its consumers' builds and never in its own.
@@ -386,10 +388,16 @@ reported at the abstract declaration — which is the rule, not an accident of i
 and the gateable test was the last to gain it. Each half reaches what the other cannot: by symbol is
 the only path to a contract in a *referenced* assembly, and by name the only path to one this
 compilation declares, because in a Metalama-hosted build the interface `LogicClassGenerator` emits is
-an error type absent from `AllInterfaces`. The criterion names a property whose **type implements**
-the interface, which is the binding `DeclarativeInterfaceBinder` binds; a property typed as the
-interface itself is not one, and is refused. The name match is narrow on purpose — a name no
-`[LogicBlockContract]` here declares as a role is no binding — because `DALE043` is an error, and
+an error type absent from `AllInterfaces`.
+
+Its two edges are both the binder's. The criterion names a property whose **type implements** the
+interface, which is what `DeclarativeInterfaceBinder` binds; a property typed as the interface itself
+is not a binding and is refused. And it names the whole ancestry, because the binder's
+`Type.GetInterfaces()` is transitive: an endpoint inherited from a base class, or reached through an
+interface extending the generated one, binds like a directly declared one, so reading the property
+type's own base list alone would refuse a gate the runtime then binds. No wider than that, though — a
+name no `[LogicBlockContract]` here declares as a role is no binding, and neither is one that already
+resolves to an interface the type implements without `[LogicInterface]`. `DALE043` is an error, and
 over-accepting one admits a gate that compiles and then binds nothing, which nobody sees.
 
 ## Service relations
