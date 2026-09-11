@@ -1,5 +1,4 @@
 using System;
-using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -30,7 +29,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controllable energy Buffer that can be observed by the EnergyManager
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IObservableBufferController))]
         public interface IObservableBuffer
         {
             // empty, not requesting/commanding anything, only receiving/responding via implementation
@@ -46,7 +44,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controller for EnergyManager that can send requests to the Buffer.
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IObservableBuffer))]
         public interface IObservableBufferController : ILogicSenderInterface, ISendRequest<ObservableBufferDataRequest>
         {
         }
@@ -106,7 +103,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controllable energy Buffer that can be observed by the EnergyManager.
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IControllableBufferController))]
         public interface IControllableBuffer : IObservableBuffer,
                                                ISendStateUpdate<ControllableBufferConfigurationStateUpdate>,
                                                ISendStateUpdate<ControllableBufferDataStateUpdate>,
@@ -124,7 +120,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controller for an observable energy Buffer that can send requests to the Buffer.
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IControllableBuffer))]
         public interface IControllableBufferController : IObservableBufferController, ISendCommand<ControllableBufferCommand>
         {
         }

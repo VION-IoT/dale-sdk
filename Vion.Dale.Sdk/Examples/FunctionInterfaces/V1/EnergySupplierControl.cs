@@ -1,4 +1,3 @@
-using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -28,7 +27,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controllable energy Supplier that can be observed by the EnergyManager
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IObservableSupplierController))]
         public interface IObservableSupplier
         {
             // empty, not requesting/commanding anything, only receiving/responding via implementation
@@ -44,7 +42,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controller for an EnergyManager that can send requests to the Supplier.
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IObservableSupplier))]
         public interface IObservableSupplierController : ILogicSenderInterface, ISendRequest<ObservableSupplierDataRequest>
         {
         }
@@ -78,7 +75,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controllable energy Supplier that can be observed by the EnergyManager
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IControllableSupplierController))]
         public interface IControllableSupplier : IObservableSupplier, ISendStateUpdate<ControllableSupplierConfigurationStateUpdate>
         {
         }
@@ -93,7 +89,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controller for an observable energy Supplier that can send requests to the Supplier.
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IControllableSupplier))]
         public interface IControllableSupplierController : IObservableSupplierController, ISendCommand<ControllableSupplierCommand>
         {
         }

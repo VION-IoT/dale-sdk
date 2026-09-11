@@ -54,8 +54,7 @@ namespace Vion.Dale.Sdk.Abstractions
         }
 
         /// <summary>
-        ///     The payload type's schema name, as the publisher labelled it, or <c>null</c> when the message
-        ///     carries no such label.
+        ///     The payload type's schema name as the publisher labelled it, or <c>null</c> when unlabelled.
         /// </summary>
         public string? Schema
         {

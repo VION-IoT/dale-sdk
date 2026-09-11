@@ -146,6 +146,4 @@ namespace Vion.Dale.Sdk.Mqtt
     ///     Response message acknowledging that a PublishMqttMessageRequest was processed.
     /// </summary>
     public readonly record struct PublishMqttMessageResponse(bool Success, string? ErrorMessage = null);
-
-    public readonly record struct RegisterServiceProvider;
 }

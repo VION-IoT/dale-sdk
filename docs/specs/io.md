@@ -210,16 +210,13 @@ than admitted on the strength of its bytes. The label is judged before the buffe
 another family never reaches the verifier at all — including the narrower one `AC-IO-005.2` would
 also have refused, which is no longer reachable from the wire.
 
-The drop is **reported at warning level**, which is the half of this criterion that keeps it from
-trading one silence for another: a refused message leaves the bound blocks holding their last value,
-and for as long as the mislabelling lasts that is an input outage nothing else in the system reports.
-Nothing routine reaches the arm — the topic carries one payload type and every publisher labels it —
-and the volume is the publisher's own state-change rate, state being published on change rather than
-polled. `AC-IO-005.2`'s refusal is the deliberate contrast and stays at debug, because an empty
-payload *is* routine there: state is published retained, so a retained-clear reaches it on a topic
-nothing is wrong with. Neither level is a criterion; log text is not a contract
-([`../testing-conventions.md`](../testing-conventions.md) § 15), and it is stated here because the
-choice between them is the difference between an operator seeing this and not.
+The drop is **reported at warning level**, which is what keeps it from trading one silence for
+another: the bound blocks hold their last value for as long as the mislabelling lasts, and no other
+part of the system reports that. Nothing routine reaches the arm — the topic carries one payload type,
+every publisher labels it, and the volume is the publisher's own state-change rate. `AC-IO-005.2`'s
+refusal stays at debug for the opposite reason: state is published retained, so a retained-clear
+reaches it on a topic nothing is wrong with. Neither level is a criterion, log text being no contract
+([`../testing-conventions.md`](../testing-conventions.md) § 15).
 
 `AC-IO-005.3` is why the identity strings a state payload carries are the publisher's own bookkeeping:
 the topic is the identity, and this area never reads them. `AC-IO-005.4` fixes a block's first value:

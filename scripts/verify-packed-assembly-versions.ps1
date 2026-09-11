@@ -22,6 +22,16 @@
   alone: it is a publish folder, legitimately full of third-party assemblies carrying
   their own versions.
 
+  It also fails any package carrying an analyzer assembly as a lib asset
+  ($forbiddenLibAssemblies). Twelve packable projects reference Vion.Dale.Sdk.Generators
+  with ReferenceOutputAssembly="false" OutputItemType="Analyzer"; drop that first attribute
+  from any of them and the generator packs into lib/ as a reference the consumer compiles
+  and loads against. It carries no Microsoft.CodeAnalysis dependency in the nuspec, so it
+  is the 0.11.1 failure again — a well-formed package that dies at load. Nothing else sees
+  it: for Vion.Dale.Sdk the generator's simple name is owned by the package id and its
+  version is honest, and for the eleven siblings it lands in the unchecked bucket below,
+  which reports without judging.
+
   It also fails a package that is missing content its id promises ($requiredPackageContent):
   today, a `Vion.Dale.Sdk` with no analyzer assembly. `build/Vion.Dale.Sdk.targets` is packed
   unconditionally and adds the analyzer unconditionally, while the analyzer itself is packed
@@ -74,6 +84,14 @@ $requiredPackageContent = @{
     'Vion.Dale.Sdk' = @('analyzers/dotnet/cs/Vion.Dale.Sdk.Generators.dll')
 }
 
+# Assembly simple names that belong under analyzers/ and nowhere under lib/, whatever package they
+# turn up in. An analyzer packed as a lib asset is a compile and runtime reference the consumer never
+# asked for, and the pack that produces it is one deleted attribute away in each of the twelve
+# packable projects that reference the generator. Matched case-insensitively: the pack writes the
+# assembly's own name, so another casing is not the field shape, but a case-sensitive check is one a
+# renamed output slips past for nothing gained.
+$forbiddenLibAssemblies = @('Vion.Dale.Sdk.Generators')
+
 # The nuspec version's numeric prefix, padded to the four parts an AssemblyVersion always has.
 function Get-ExpectedAssemblyVersion([string]$packageVersion)
 {
@@ -107,6 +125,7 @@ function Test-Package([string]$nupkgPath)
     $mismatches = @()
     $checked = 0
     $unchecked = @()
+    $analyzersInLib = @()
     $required = @()
     $missing = @()
 
@@ -151,6 +170,15 @@ function Test-Package([string]$nupkgPath)
             if ($entry.Name -notlike '*.dll') { continue }
 
             $simpleName = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+
+            # Before ownership: for Vion.Dale.Sdk the generator IS owned by the package id, so a
+            # check placed after the classification below would judge its version and say nothing.
+            if ($entry.FullName -like 'lib/*' -and $forbiddenLibAssemblies -contains $simpleName)
+            {
+                $analyzersInLib += "  $packageId $packageVersion -> $($entry.FullName): an analyzer assembly, not a lib asset"
+                continue
+            }
+
             if ($simpleName -ne $packageId -and -not $simpleName.StartsWith("$packageId."))
             {
                 $unchecked += "$($entry.FullName) (not an assembly of $packageId)"
@@ -182,6 +210,7 @@ function Test-Package([string]$nupkgPath)
         Checked    = $checked
         Mismatches = $mismatches
         Unchecked  = $unchecked
+        Misplaced  = $analyzersInLib
         Required   = $required
         Missing    = @($missing | ForEach-Object { "  $packageId $packageVersion -> ${_}: absent" })
     }
@@ -204,8 +233,17 @@ function Invoke-Verify([string]$directory)
         return 1
     }
 
+    # Same floor for the other table: emptied, every package ships whatever it likes under lib/ and
+    # the run still reports clean.
+    if ($forbiddenLibAssemblies.Count -eq 0)
+    {
+        Write-Host "The forbidden-lib-assembly list is empty — no analyzer placement is being checked at all."
+        return 1
+    }
+
     $mismatches = @()
     $absent = @()
+    $misplaced = @()
     $checked = 0
     $requiredCount = 0
     $matchedPackages = 0
@@ -216,6 +254,7 @@ function Invoke-Verify([string]$directory)
         $checked += $result.Checked
         $mismatches += $result.Mismatches
         $absent += $result.Missing
+        $misplaced += $result.Misplaced
         $requiredCount += $result.Required.Count
         if ($result.Required.Count -gt 0) { $matchedPackages++ }
 
@@ -226,6 +265,7 @@ function Invoke-Verify([string]$directory)
     }
 
     $tally = "required content: $( $requiredCount - $absent.Count ) of $requiredCount present ($($requiredPackageContent.Count) rule(s), $matchedPackages package(s) matched)"
+    $analyzerTally = "analyzer assemblies: $( if ($misplaced.Count -eq 0) { 'none' } else { $misplaced.Count } ) in lib/ ($($forbiddenLibAssemblies.Count) name(s) forbidden there)"
 
     # There is no floor on a rule matching no package: a directory holding one unrelated package is a
     # legitimate run. What that leaves — a rule id that names nothing anywhere — is a claim about this
@@ -240,6 +280,7 @@ function Invoke-Verify([string]$directory)
         Write-Host "These packages would install cleanly and fail at load: a consumer binds to the version"
         Write-Host "in the nuspec and the assembly answers to another. This is what release 0.11.1 shipped."
         Write-Host $tally
+        Write-Host $analyzerTally
         return 1
     }
 
@@ -254,11 +295,28 @@ function Invoke-Verify([string]$directory)
         Write-Host "file this package promised. The analyzer's pack condition is Exists(...), so a missed"
         Write-Host "generator build produces exactly this."
         Write-Host $tally
+        Write-Host $analyzerTally
+        return 1
+    }
+
+    if ($misplaced.Count -gt 0)
+    {
+        Write-Host ""
+        Write-Host "Packages carry an analyzer assembly as a lib asset:"
+        $misplaced | ForEach-Object { Write-Host $_ }
+        Write-Host ""
+        Write-Host "An analyzer belongs under analyzers/dotnet/cs. Packed under lib/ it becomes a reference the"
+        Write-Host "consumer compiles and loads against, with no Microsoft.CodeAnalysis dependency in the nuspec"
+        Write-Host "to resolve it — a well-formed package that dies at load. A generator ProjectReference that"
+        Write-Host "loses its ReferenceOutputAssembly=false attribute packs exactly this."
+        Write-Host $tally
+        Write-Host $analyzerTally
         return 1
     }
 
     Write-Host "Packed assembly versions: clean ($checked assemblies across $($packages.Count) packages)."
     Write-Host $tally
+    Write-Host $analyzerTally
     return 0
 }
 
@@ -380,6 +438,14 @@ function Invoke-SelfTest
         New-Fixture 'pair-two-rules' $http $matching @("lib/netstandard2.1/$http.dll") | Out-Null
         $pairTwoRules = New-Fixture 'pair-two-rules' $sdk $matching @("lib/netstandard2.1/$sdk.dll", $analyzer)
 
+        # The analyzer assembly shipped as a lib asset: what dropping ReferenceOutputAssembly="false"
+        # from any of the twelve packable projects that reference the generator produces. The sibling
+        # is written first again, so the finding has to survive the packages judged after it.
+        $generator = "$sdk.Generators.dll"
+        New-Fixture 'pair-analyzer-in-lib' $sibling $matching @("lib/net10.0/$sibling.dll") | Out-Null
+        $pairAnalyzerInLib = New-Fixture 'pair-analyzer-in-lib' $sdk $matching @(
+            "lib/netstandard2.1/$sdk.dll", $analyzer, "lib/netstandard2.1/$generator")
+
         # Expect is matched against the report as a whole. Every case that pins a tally has a peer
         # disagreeing with it: a number that has one value across the whole suite is a constant a
         # mutant can print.
@@ -440,6 +506,30 @@ function Invoke-SelfTest
                 Directory = (New-Fixture 'sdk-cased-analyzer' $sdk $matching @("lib/netstandard2.1/$sdk.dll", "Analyzers/Dotnet/Cs/$sdk.Generators.dll"))
                 Expected = 1
                 Expect = @("${analyzer}: absent") }
+            # An analyzer assembly under lib/ is judged whoever the package is: for Vion.Dale.Sdk the
+            # simple name is owned by the package id and passes the version check, for the eleven
+            # siblings it lands in the unchecked bucket and is reported without a verdict. Neither
+            # says anything, which is the whole finding.
+            @{ Name = 'the SDK package shipping its analyzer as a lib asset'
+                Directory = (New-Fixture 'sdk-analyzer-in-lib' $sdk $matching @("lib/netstandard2.1/$sdk.dll", $analyzer, "lib/netstandard2.1/$sdk.Generators.dll"))
+                Expected = 1
+                Expect = @("$sdk $matching -> lib/netstandard2.1/$sdk.Generators.dll: an analyzer assembly, not a lib asset",
+                    'analyzer assemblies: 1 in lib/ (1 name(s) forbidden there)') }
+            @{ Name = 'a sibling package shipping the analyzer as a lib asset'
+                Directory = (New-Fixture 'http-analyzer-in-lib' $http $matching @("lib/netstandard2.1/$http.dll", "lib/netstandard2.1/$sdk.Generators.dll"))
+                Expected = 1
+                Expect = @("$http $matching -> lib/netstandard2.1/$sdk.Generators.dll: an analyzer assembly, not a lib asset") }
+            # The pack that produces this writes the assembly's own name, so an upper-cased entry is
+            # not the shape in the field -- but a check that reads the name case-sensitively is one a
+            # renamed output slips past for free, and nothing is gained by letting it.
+            @{ Name = 'an analyzer in lib/ spelled in another case is still caught'
+                Directory = (New-Fixture 'sdk-cased-analyzer-in-lib' $sdk $matching @("lib/netstandard2.1/$sdk.dll", $analyzer, "lib/netstandard2.1/VION.DALE.SDK.GENERATORS.dll"))
+                Expected = 1
+                Expect = @('an analyzer assembly, not a lib asset') }
+            @{ Name = 'the analyzer under analyzers/ is where it belongs'
+                Directory = $pairWithAnalyzer
+                Expected = 0
+                Expect = @('analyzer assemblies: none in lib/ (1 name(s) forbidden there)') }
             # A release artifact set is many packages and Vion.Dale.Sdk never sorts last in it, so the
             # findings have to survive the packages judged after it. Both of these run on a directory
             # holding two, which is what pins the three cross-package accumulators; every case above
@@ -455,6 +545,11 @@ function Invoke-SelfTest
                 Expect = @("$sdk $stale -> lib/netstandard2.1/$sdk.dll: AssemblyVersion",
                     'do not carry their package',
                     'required content: 1 of 1 present (1 rule(s), 1 package(s) matched)') }
+            @{ Name = 'an analyzer in lib/ survives the packages judged after it'
+                Directory = $pairAnalyzerInLib
+                Expected = 1
+                Expect = @("$sdk $matching -> lib/netstandard2.1/$sdk.Generators.dll: an analyzer assembly, not a lib asset",
+                    'analyzer assemblies: 1 in lib/ (1 name(s) forbidden there)') }
             @{ Name = 'two packages, one of them carrying its required content'
                 Directory = $pairWithAnalyzer
                 Expected = 0
@@ -484,14 +579,16 @@ function Invoke-SelfTest
         # table rewritten is the only case shape that can. Two of them follow — the floor no fixture
         # reaches, and a second rule, because a tally that has one value across the whole suite is a
         # constant a mutant can print.
-        function New-Variant([string]$name, [string[]]$body)
+        function New-Variant([string]$name, [string]$variable, [string[]]$body)
         {
             $lines = @(Get-Content -LiteralPath $PSCommandPath)
-            $opening = [Array]::IndexOf($lines, '$requiredPackageContent = @{')
-            $closing = [Array]::IndexOf($lines, '}', $opening)
+            $opening = [Array]::FindIndex($lines, [Predicate[string]]{ param($line) $line.StartsWith("$variable = ") })
+            # A table opens a brace and runs to the next line that is one alone; a list is declared and
+            # closed on its own line.
+            $closing = if ($opening -ge 0 -and $lines[$opening].EndsWith('@{')) { [Array]::IndexOf($lines, '}', $opening) } else { $opening }
             if ($opening -lt 0 -or $closing -lt 0)
             {
-                throw "Self-test cannot find the rule table's own declaration to rewrite."
+                throw "Self-test cannot find $variable's own declaration to rewrite."
             }
 
             $path = Join-Path $root $name
@@ -502,12 +599,12 @@ function Invoke-SelfTest
 
         $variants = @(
             @{ Name = 'an emptied rule table fails instead of reporting clean'
-                Script = (New-Variant 'hollow.ps1' '$requiredPackageContent = @{}')
+                Script = (New-Variant 'hollow.ps1' '$requiredPackageContent' '$requiredPackageContent = @{}')
                 Directory = $cases[0].Directory
                 Expected = 1
                 Expect = @('required-content table is empty') }
             @{ Name = 'a second rule is counted, not assumed'
-                Script = (New-Variant 'two-rules.ps1' @(
+                Script = (New-Variant 'two-rules.ps1' '$requiredPackageContent' @(
                     '$requiredPackageContent = @{'
                     "    '$sdk' = @('$analyzer')"
                     "    '$http' = @('lib/netstandard2.1/$http.dll')"
@@ -515,6 +612,21 @@ function Invoke-SelfTest
                 Directory = $pairTwoRules
                 Expected = 0
                 Expect = @('required content: 2 of 2 present (2 rule(s), 2 package(s) matched)') }
+        )
+
+        $variants += @(
+            @{ Name = 'an emptied forbidden-list fails instead of reporting clean'
+                Script = (New-Variant 'no-forbidden.ps1' '$forbiddenLibAssemblies' '$forbiddenLibAssemblies = @()')
+                Directory = $cases[0].Directory
+                Expected = 1
+                Expect = @('forbidden-lib-assembly list is empty') }
+            # A second forbidden name, for the same reason the two-rule variant exists: with one, the
+            # count in the tally and the literal 1 are the same number.
+            @{ Name = 'a second forbidden name is counted, not assumed'
+                Script = (New-Variant 'two-forbidden.ps1' '$forbiddenLibAssemblies' "`$forbiddenLibAssemblies = @('$sdk.Generators', 'Some.Other.Analyzer')")
+                Directory = $pairWithAnalyzer
+                Expected = 0
+                Expect = @('analyzer assemblies: none in lib/ (2 name(s) forbidden there)') }
         )
 
         foreach ($variant in $variants)
@@ -589,6 +701,26 @@ function Invoke-SelfTest
                     Write-Host "       looked for '$file' and '$folder' in $id.csproj, slashes normalised"
                     $failures += "rule '$id -> $entry' is unpacked"
                 }
+            }
+        }
+
+        # The forbidden names against the tree they are names about, for the same reason the rule ids
+        # above are checked: a mis-typed name matches no entry, so every fixture still reports OK and
+        # no floor fires. -ceq again, because a Windows file system answers Test-Path for
+        # Vion.Dale.Sdk.GENERATORS and the Linux runner does not.
+        foreach ($name in $forbiddenLibAssemblies)
+        {
+            $projectDirectory = @(Get-ChildItem -LiteralPath $repository -Directory | Where-Object { $_.Name -ceq $name })
+            $csproj = @($projectDirectory | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -File -Filter '*.csproj' } |
+                    Where-Object { $_.Name -ceq "$name.csproj" })
+            if ($csproj.Count -eq 1)
+            {
+                Write-Host "ok   forbidden name '$name' is an assembly this repository builds"
+            }
+            else
+            {
+                Write-Host "FAIL forbidden name '$name' is no assembly this repository builds"
+                $failures += "forbidden name '$name' names no project"
             }
         }
     }

@@ -426,8 +426,8 @@ substring cannot tell apart from a key that matches everything.
 
 - `AC-BIND-016.1` (Ubiquitous): THE SYSTEM SHALL publish the handler-actor protocol — the registration
   request and answer, the registration itself, its topic groups, the received message, the two publish
-  forms and their answer, the connect-time registration and the service-provider marker — as message
-  types a host outside the runtime can construct.
+  forms and their answer, and the connect-time registration — as message types a host outside the
+  runtime can construct.
 - `AC-BIND-016.2` (Ubiquitous): THE SYSTEM SHALL answer a registration request whether or not the
   registration it sent will be accepted, so the answer states that the handler is alive and not that
   it is subscribed.

@@ -17,6 +17,12 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- The contract-id discovery is internal so the suite can assert the mapping set a gate resolves
+             to; the only other observable is a warning, and log text is not a contract. -->
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit.Test"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0"/>
         <!-- FakeTimeProvider drives virtual time inside LogicBlockTestContext (clock reads + scheduled actions). -->

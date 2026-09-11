@@ -98,15 +98,15 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
         [DataRow(nameof(AoStatePayload), DisplayName = "the neighbouring family's payload type")]
         public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
-            // Arrange — this topic's own payload, well-formed, under a label naming another payload type. The
-            // bytes pass the buffer check, so the label is the only thing left to refuse on.
+            // Arrange — this topic's own payload under another payload type's label, so the label is the only
+            // thing left to refuse on.
             _harness.Link(_sut);
             var mislabelled = HandlerHarness.Labelled(HandlerHarness.DigitalOutputStatePayload(true), schema);
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), mislabelled));
 
-            // Assert — the refusal is that nothing reached a block.
+            // Assert
             Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());
         }
 
@@ -114,8 +114,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
         [TestProperty("spec", "AC-IO-005.5")]
         public void ForwardNothingWhenSchemaMissing()
         {
-            // Arrange — the same well-formed payload with no label beside it. Every publisher on this wire
-            // sets one, so an unlabelled message is not one this side can vouch for.
+            // Arrange — the same payload with no label. Every publisher on this wire sets one.
             _harness.Link(_sut);
             var unlabelled = HandlerHarness.Unlabelled(HandlerHarness.DigitalOutputStatePayload(true));
 
@@ -130,15 +129,13 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
         [TestProperty("spec", "AC-IO-005.5")]
         public void ForwardNothingWhenPayloadWiderThanTopicCarries()
         {
-            // Arrange — the neighbouring family's payload carries a real number where this topic carries a truth
-            // value, and the layouts agree closely enough that the buffer check accepts it. The label it comes
-            // under is what refuses it.
+            // Arrange — the neighbouring family's wider payload, which the buffer check accepts.
             _harness.Link(_sut);
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), HandlerHarness.AnalogOutputStatePayload(4.2)));
 
-            // Assert — a value of the other family's width is the shape the buffer check alone admits.
+            // Assert
             Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());
         }
 

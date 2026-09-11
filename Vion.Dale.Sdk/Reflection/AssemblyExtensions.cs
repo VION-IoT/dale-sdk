@@ -25,23 +25,6 @@ namespace Vion.Dale.Sdk.Reflection
                 return assemblies.GetConcreteTypesInternal(derivedFrom).ToList();
             }
 
-            /// <summary>
-            ///     Retrieves the first concrete (non-interface, non-abstract) type that implements or inherits from the specified
-            ///     type.
-            /// </summary>
-            /// <param name="derivedFrom">The interface or base type to find an implementor/inheritor of.</param>
-            /// <returns>The first concrete type that implements or inherits from <paramref name="derivedFrom" />.</returns>
-            /// <remarks>
-            ///     If the same type name exists in multiple assemblies, only the type from the assembly with the highest version is
-            ///     returned.
-            /// </remarks>
-            /// <exception cref="AssemblyTypeLoadException">Thrown when an assembly references unresolvable dependencies.</exception>
-            /// <exception cref="InvalidOperationException">Thrown when no matching type is found.</exception>
-            public Type GetConcreteType(Type derivedFrom)
-            {
-                return assemblies.GetConcreteTypesInternal(derivedFrom).First();
-            }
-
             private IEnumerable<Type> GetConcreteTypesInternal(Type derivedFrom)
             {
                 var derivedFromAssemblyName = derivedFrom.Assembly.GetName().Name;

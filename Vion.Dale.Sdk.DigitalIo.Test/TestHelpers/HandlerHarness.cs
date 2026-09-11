@@ -16,11 +16,7 @@ using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
 {
-    /// <summary>
-    ///     A state message's payload as it arrives: the bytes, and the schema name the publisher labelled them
-    ///     with. The two travel together because a handler judges them together — the bytes alone cannot say
-    ///     which contract family they belong to.
-    /// </summary>
+    /// <summary>A state message as it arrives: the bytes, and the schema name the publisher labelled them with.</summary>
     internal readonly record struct StatePayload(byte[] Bytes, string? Schema);
 
     /// <summary>
@@ -99,11 +95,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
             return new StatePayload(builder.SizedByteArray(), nameof(DoStatePayload));
         }
 
-        /// <summary>
-        ///     The neighbouring family's input payload — the same layout with a wider value, carrying that
-        ///     family's own label. A digital topic never carries one on a host, and the buffer check alone
-        ///     cannot tell that it does not.
-        /// </summary>
+        /// <summary>The neighbouring family's input payload — a wider value under its own label, which the buffer check accepts.</summary>
         internal static StatePayload AnalogStatePayload(double value)
         {
             var builder = new FlatBufferBuilder(64);
@@ -125,28 +117,19 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
             return new StatePayload(builder.SizedByteArray(), nameof(AoStatePayload));
         }
 
-        /// <summary>
-        ///     The first <paramref name="length" /> bytes of a payload — a message cut short in flight. It keeps
-        ///     its label, because a publisher that labelled a message correctly is not what cut it.
-        /// </summary>
+        /// <summary>The first <paramref name="length" /> bytes of a payload, label intact — a message cut short in flight.</summary>
         internal static StatePayload Truncated(StatePayload payload, int length)
         {
             return payload with { Bytes = payload.Bytes.Take(length).ToArray() };
         }
 
-        /// <summary>
-        ///     The same bytes under a different schema label — the one arrangement in which the label is the only
-        ///     thing a handler can refuse on, the payload itself being the one its topic carries.
-        /// </summary>
+        /// <summary>The same bytes under a different schema label — the one arrangement in which only the label is wrong.</summary>
         internal static StatePayload Labelled(StatePayload payload, string schema)
         {
             return payload with { Schema = schema };
         }
 
-        /// <summary>
-        ///     The same payload with its schema label stripped — what a publisher that sets no label puts on the
-        ///     wire.
-        /// </summary>
+        /// <summary>The same payload with its schema label stripped.</summary>
         internal static StatePayload Unlabelled(StatePayload payload)
         {
             return payload with { Schema = null };

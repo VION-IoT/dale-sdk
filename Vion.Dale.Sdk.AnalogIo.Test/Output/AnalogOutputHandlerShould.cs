@@ -99,15 +99,15 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         [DataRow(nameof(DoStatePayload), DisplayName = "the neighbouring family's payload type")]
         public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
-            // Arrange — this topic's own payload, well-formed, under a label naming another payload type. The
-            // bytes pass the buffer check, so the label is the only thing left to refuse on.
+            // Arrange — this topic's own payload under another payload type's label, so the label is the only
+            // thing left to refuse on.
             _harness.Link(_sut);
             var mislabelled = HandlerHarness.Labelled(HandlerHarness.AnalogOutputStatePayload(4.2), schema);
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), mislabelled));
 
-            // Assert — the refusal is that nothing reached a block.
+            // Assert
             Assert.IsEmpty(_harness.Forwarded<AnalogOutputChanged>());
         }
 
@@ -115,8 +115,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         [TestProperty("spec", "AC-IO-005.5")]
         public void ForwardNothingWhenSchemaMissing()
         {
-            // Arrange — the same well-formed payload with no label beside it. Every publisher on this wire
-            // sets one, so an unlabelled message is not one this side can vouch for.
+            // Arrange — the same payload with no label. Every publisher on this wire sets one.
             _harness.Link(_sut);
             var unlabelled = HandlerHarness.Unlabelled(HandlerHarness.AnalogOutputStatePayload(4.2));
 

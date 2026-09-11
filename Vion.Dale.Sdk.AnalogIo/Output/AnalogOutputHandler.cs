@@ -49,19 +49,9 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            /* The buffer check below cannot separate this contract's payload from its sibling's: the two
-               layouts are identical, so a payload of the other direction decodes here as a value nobody
-               published and every bound block acts on it. The label the publisher sets beside the payload is
-               what separates them, and the far side of this wire refuses on the same label.
-
-               Dropping it is a warning and not a debug line, unlike the buffer refusal below: the block's
-               input stays at its last value for as long as the mislabelling lasts, which is an outage nothing
-               else reports, and nothing routine reaches this arm — the topic carries one payload type and
-               every publisher on this wire labels it. Its volume is the publisher's own state-change rate,
-               since state is published on change rather than polled, so a per-message warning cannot outrun
-               the condition it reports. The buffer refusal stays at debug because an empty payload does
-               arrive routinely: state is published retained, so a retained-clear reaches it on a topic
-               nothing is wrong with. */
+            // The buffer check below cannot separate this contract's payload from its sibling's: the layouts
+            // are identical, so the label the publisher sets is the only thing that can. Refusing it is a
+            // warning because the block's input then holds its last value, which nothing else reports.
             if (message.Schema != nameof(AoStatePayload))
             {
                 LogRejectedForeignSchema(message.ContractId, message.Schema, message.Topic);

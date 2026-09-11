@@ -89,8 +89,7 @@ namespace Vion.Dale.DevHost
 
         private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(5);
 
-        // The runtime's own restore budget (LogicSystemConfigurationInitializer.RestorePersistentDataAsync),
-        // VIRTUAL like the others, which is why the start path carries its real-time backstop too.
+        // The runtime's own restore budget, VIRTUAL like the others.
         private static readonly TimeSpan RestoreTimeout = TimeSpan.FromSeconds(5);
 
         private static readonly TimeSpan TerminateTimeout = TimeSpan.FromSeconds(5);
@@ -299,34 +298,19 @@ namespace Vion.Dale.DevHost
 
         /// <summary>
         ///     Runs the runtime's restore over the logic block actors before they are started, so a block's start
-        ///     hook is reached at the same point in the message sequence in development as in production.
-        ///     <para>
-        ///         A block that does not acknowledge in time is a warning, as in the runtime: the start
-        ///         acknowledgement is what decides whether the host started.
-        ///     </para>
+        ///     hook is reached at the same point in the message sequence as in production.
         /// </summary>
         private async Task RestorePersistentDataAsync(List<IActorReference> logicBlockActors)
         {
-            /* The counterpart of the snapshot request the stop sequence sends and discards, and it is sent for
-               the same reason: DevHost has no persistent data store, so the request carries no values and the
-               response is thrown away, message-sequence parity with the runtime being the fidelity gap being
-               closed. An empty request runs the block's restore arm and its acknowledgement; Apply returns on
-               the empty set without reaching a member, so no value a block reads is touched.
-
-               The runtime sends the request only to the blocks its store holds values for, so against an empty
-               store it would send none. One per block is what puts the message where the runtime puts it when the
-               store is not empty, which is the sequence a block's Starting() is written against. */
+            // The snapshot request's counterpart, and discarded for the same reason: there is no persistent
+            // store here, so what this closes is the message sequence a block's Starting() is written against.
             var acknowledged =
                 _actorSystem.SendAndWaitForAcknowledgementAsync<RestorePersistentDataRequest, RestorePersistentDataResponse>(logicBlockActors,
                     new RestorePersistentDataRequest([]),
                     RestoreTimeout);
 
-            /* The wait above is VIRTUAL, for the same reason the start acknowledgement is, so it takes the same
-               real-time backstop: on a stepped host nothing advances the fake clock during boot, and a block that
-               never answers would leave a due-time that never arrives.
-
-               Only a timeout is downgraded. Anything else is a fault in the actor system rather than in one
-               block, and a start that continues past it would report a healthy host built on it. */
+            // The wait above is VIRTUAL, so it takes the same real-time backstop the start acknowledgement
+            // does. Only a timeout is downgraded: anything else is the actor system failing, not one block.
             try
             {
                 await acknowledged.WaitAsync(Budgets.StartAcknowledgement);
