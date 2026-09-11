@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Google.FlatBuffers;
+using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
@@ -50,6 +51,25 @@ namespace Vion.Dale.Sdk.Abstractions
         public string? ResponseTopic
         {
             get => _inner.ResponseTopic;
+        }
+
+        /// <summary>
+        ///     The payload type's schema name as the publisher labelled it, or <c>null</c> when unlabelled.
+        /// </summary>
+        public string? Schema
+        {
+            get
+            {
+                foreach (var userProperty in _inner.UserProperties)
+                {
+                    if (userProperty.Name == MqttUserProperties.Schema.Name)
+                    {
+                        return userProperty.Value;
+                    }
+                }
+
+                return null;
+            }
         }
 
         /// <summary>

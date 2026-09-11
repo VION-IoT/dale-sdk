@@ -1,5 +1,7 @@
 using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vion.Contracts.FlatBuffers.Hw.Ao;
+using Vion.Contracts.FlatBuffers.Hw.Di;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
@@ -114,17 +116,35 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.2")]
-        public void ForwardNothingWhenPayloadNarrowerThanTopicCarries()
+        [TestProperty("spec", "AC-IO-005.5")]
+        [DataRow(nameof(AoStatePayload), DisplayName = "the sibling contract's payload type")]
+        [DataRow(nameof(DiStatePayload), DisplayName = "the neighbouring family's payload type")]
+        public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
-            // Arrange — the neighbouring family's payload carries a truth value where this topic carries a
-            // real number, so the schema check finds fewer bytes than the field needs.
+            // Arrange — this topic's own payload under another payload type's label, so the label is the only
+            // thing left to refuse on.
             _harness.Link(_sut);
+            var mislabelled = HandlerHarness.Labelled(HandlerHarness.AnalogStatePayload(4.2), schema);
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), HandlerHarness.DigitalStatePayload(true)));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), mislabelled));
 
-            // Assert — the half of the bound the schema does reach; the other direction is the digital suite's.
+            // Assert
+            Assert.IsEmpty(_harness.Forwarded<AnalogInputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-005.5")]
+        public void ForwardNothingWhenSchemaMissing()
+        {
+            // Arrange — the same payload with no label. Every publisher on this wire sets one.
+            _harness.Link(_sut);
+            var unlabelled = HandlerHarness.Unlabelled(HandlerHarness.AnalogStatePayload(4.2));
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), unlabelled));
+
+            // Assert
             Assert.IsEmpty(_harness.Forwarded<AnalogInputChanged>());
         }
 

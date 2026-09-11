@@ -75,11 +75,26 @@ boot-dump-exit export path rests on — it never starts the host it exports.
   start with a message naming the port.
 - `AC-CTRL-002.7` (Ubiquitous): THE SYSTEM SHALL run a started host until its cancellation token fires,
   then stop it and return without throwing.
+- `AC-CTRL-002.8` (Ubiquitous): THE SYSTEM SHALL run the domain start as a persistent-data restore
+  carrying no values, then the start acknowledgement, so every block is restored before its start hook
+  runs.
+- `AC-CTRL-002.9` (Event-driven): WHEN a block does not acknowledge the restore within its budget THE SYSTEM SHALL warn and start anyway. GAP: no fixture reaches a non-acknowledging restore — a block answers the request from the base class before any hook of its own, so only a block whose actor never came up can fail to, and such a block is already a recorded start failure.
 
 `AC-CTRL-002.4` is a real-time budget because the acknowledgement wait itself is virtual: on a stepped
 host nothing advances the clock during a boot, so a block that never answers would leave a due-time
 that never arrives. The block that does not answer is one whose start hook threw — which
 `AC-CTRL-003.*` is how a caller finds out about.
+
+`AC-CTRL-002.8` is `AC-CTRL-004.2`'s counterpart, and it exists for the same reason: message-sequence
+parity with the runtime is the fidelity a development host is for. It carries no values because the
+development host has no persistent store — the same reason the snapshot the teardown collects is
+discarded — so nothing a block reads in its start hook changes, and a persisted value read there is
+still the declared default at the desk. What changes is that the message is now in the sequence, at the
+point the runtime puts it, and that the block's restore arm runs in development at all. The runtime
+sends the request only to the blocks its store holds values for, so one per block is deliberately more
+than a runtime with an empty store would send: the sequence a block's start hook is written against is
+the populated one. The criterion above it is a warning rather than a failure, as in the runtime, because the start
+acknowledgement is what decides whether the host started.
 
 ## Health after a start
 
@@ -343,11 +358,18 @@ stuck host surfaces as a named failure instead of a hang.
 
 - `AC-CTRL-013.1` (Ubiquitous): THE SYSTEM SHALL give a caller one place to set the write
   acknowledgement window, the start acknowledgement backstop, the stop-sequence backstop and the
-  quiescence ceiling, and SHALL bound each of those four waits by the value set there.
+  quiescence ceiling, and SHALL bound every wait each of those four governs by the value set there.
 - `AC-CTRL-013.2` (Ubiquitous): THE SYSTEM SHALL refuse a budget that is not a positive span.
 - `AC-CTRL-013.3` (Ubiquitous): THE SYSTEM SHALL take a scenario run's hollow-acknowledgement
   detection from the host's refusal of an unacknowledged write rather than from a measurement of the
   runner's own.
+
+Four budgets, five waits: the start acknowledgement backstop governs two — the restore
+(`AC-CTRL-002.8`) and the start acknowledgement — and bounds them **independently**, so a host over a
+block that answers neither fails after their sum rather than after one of them. The stop sequence's
+four steps are the deliberate contrast: they share one deadline (`AC-CTRL-004.3`) because teardown
+must reach actor termination whatever the earlier steps cost, while a start that cannot complete has
+nothing to protect downstream of it.
 
 `AC-CTRL-013.3` is what made `AC-SCEN-009.10` provable. The run and the host each held a number, and
 a host built with any other window either fired the detection on every write or on none; no test

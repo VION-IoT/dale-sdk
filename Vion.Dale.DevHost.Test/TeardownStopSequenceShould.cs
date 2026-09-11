@@ -18,10 +18,11 @@ using Vion.Dale.Sdk.Messages;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     DevHost teardown runs the runtime's domain stop sequence — stop acknowledgement, then the
-    ///     persistent-data snapshot, then actor termination — so <c>LogicBlockBase.Stopping()</c> is actually
-    ///     invoked in development. Before the fix <c>DevHost.StopAsync</c> carried a commented-out TODO and no
-    ///     production sender for <see cref="StopLogicBlockRequest" /> existed anywhere in this repo.
+    ///     DevHost runs the runtime's domain message sequence around a block's own lifetime — a restore before
+    ///     the start acknowledgement, and stop acknowledgement, then the persistent-data snapshot, then actor
+    ///     termination on the way down — so <c>LogicBlockBase</c>'s hooks are reached at the same points in
+    ///     development as in production. Before the fix <c>DevHost.StopAsync</c> carried a commented-out TODO
+    ///     and no production sender for <see cref="StopLogicBlockRequest" /> existed anywhere in this repo.
     ///     <para>
     ///         Every test here drives a real built host through its own <c>await using</c> / DisposeAsync —
     ///         the seam that was broken. Pushing the message into <c>HandleMessageAsync</c> directly (as
@@ -57,6 +58,30 @@ namespace Vion.Dale.DevHost.Test
                                       TeardownRecorder.Stopping,
                                       "Disposing the host must send the domain stop to the logic blocks, which is what invokes Stopping(). " + "Recorded: " +
                                       string.Join(", ", recorder.Entries));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.8")]
+        [DataRow(false, DisplayName = "free-running clock")]
+        [DataRow(true, DisplayName = "stepped clock")]
+        public async Task RunRestoreBeforeStartHook(bool stepped)
+        {
+            // Arrange
+            var recorder = new TeardownRecorder();
+
+            await using var host = BuildHost(recorder, stepped);
+
+            // Act
+            await host.StartAsync();
+
+            // Assert
+            var entries = recorder.Entries;
+            var restoreRequest = IndexOfMessage(entries, nameof(RestorePersistentDataRequest));
+            var starting = entries.ToList().IndexOf(TeardownRecorder.Starting);
+            var recorded = "Recorded: " + string.Join(", ", entries);
+
+            Assert.IsGreaterThanOrEqualTo(0, restoreRequest, "The block must receive RestorePersistentDataRequest while the host starts. " + recorded);
+            Assert.IsLessThan(starting, restoreRequest, "The restore must precede Starting(), which is the sequence a block's start hook is written against. " + recorded);
         }
 
         [TestMethod]

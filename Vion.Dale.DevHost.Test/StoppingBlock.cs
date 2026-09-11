@@ -23,6 +23,8 @@ namespace Vion.Dale.DevHost.Test
     {
         public const string ScopeDisposed = "scope-disposed";
 
+        public const string Starting = "Starting";
+
         public const string Stopping = "Stopping";
 
         private readonly ConcurrentQueue<string> _entries = new();
@@ -48,9 +50,9 @@ namespace Vion.Dale.DevHost.Test
 
         public void OnReceived(string actorName, object message)
         {
-            // Only the two teardown messages, and only for logic block actors — the mock handlers see them
+            // Only the domain lifecycle messages, and only for logic block actors — the mock handlers see them
             // too, and the ordering claim is about what reaches the block.
-            if (message is StopLogicBlockRequest or GetPersistentDataSnapshotRequest)
+            if (message is RestorePersistentDataRequest or StopLogicBlockRequest or GetPersistentDataSnapshotRequest)
             {
                 Record($"{message.GetType().Name}@{actorName}");
             }
@@ -137,6 +139,8 @@ namespace Vion.Dale.DevHost.Test
 
         protected override void Starting()
         {
+            _recorder.Record(TeardownRecorder.Starting);
+
             // Only an actor is ever started, so this is what distinguishes this instance's scope from the one
             // introspection resolves out of the root provider.
             _scopeProbe.MarkLive();

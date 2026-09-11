@@ -3,7 +3,9 @@ using System.Linq;
 using Google.FlatBuffers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Contracts.Constants;
+using Vion.Contracts.FlatBuffers.Hw.Ai;
 using Vion.Contracts.FlatBuffers.Hw.Ao;
+using Vion.Contracts.FlatBuffers.Hw.Do;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
@@ -92,17 +94,35 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.2")]
-        public void ForwardNothingWhenPayloadNarrowerThanTopicCarries()
+        [TestProperty("spec", "AC-IO-005.5")]
+        [DataRow(nameof(AiStatePayload), DisplayName = "the sibling contract's payload type")]
+        [DataRow(nameof(DoStatePayload), DisplayName = "the neighbouring family's payload type")]
+        public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
-            // Arrange — the neighbouring family's payload carries a truth value where this topic carries a
-            // real number, so the schema check finds fewer bytes than the field needs.
+            // Arrange — this topic's own payload under another payload type's label, so the label is the only
+            // thing left to refuse on.
             _harness.Link(_sut);
+            var mislabelled = HandlerHarness.Labelled(HandlerHarness.AnalogOutputStatePayload(4.2), schema);
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), HandlerHarness.DigitalOutputStatePayload(true)));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), mislabelled));
 
-            // Assert — the half of the bound the schema does reach; the other direction is the digital suite's.
+            // Assert
+            Assert.IsEmpty(_harness.Forwarded<AnalogOutputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-005.5")]
+        public void ForwardNothingWhenSchemaMissing()
+        {
+            // Arrange — the same payload with no label. Every publisher on this wire sets one.
+            _harness.Link(_sut);
+            var unlabelled = HandlerHarness.Unlabelled(HandlerHarness.AnalogOutputStatePayload(4.2));
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), unlabelled));
+
+            // Assert
             Assert.IsEmpty(_harness.Forwarded<AnalogOutputChanged>());
         }
 

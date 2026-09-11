@@ -89,6 +89,9 @@ namespace Vion.Dale.DevHost
 
         private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(5);
 
+        // The runtime's own restore budget, VIRTUAL like the others.
+        private static readonly TimeSpan RestoreTimeout = TimeSpan.FromSeconds(5);
+
         private static readonly TimeSpan TerminateTimeout = TimeSpan.FromSeconds(5);
 
         // The slice termination keeps even when the sequence budget above is already spent.
@@ -177,6 +180,8 @@ namespace Vion.Dale.DevHost
             _logger.LogInformation("Starting {Count} LogicBlocks...", configuration.LogicBlocks.Count);
 
             var logicBlockActors = configuration.LogicBlocks.Select(lb => _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(lb.Name, lb.Id))).ToList();
+
+            await RestorePersistentDataAsync(logicBlockActors);
 
             var acknowledged =
                 _actorSystem.SendAndWaitForAcknowledgementAsync<StartLogicBlockRequest, StartLogicBlockResponse>(logicBlockActors,
@@ -289,6 +294,32 @@ namespace Vion.Dale.DevHost
                                          "waiting for LogicBlock actors to terminate");
 
             _logger.LogInformation("LogicBlocks stopped");
+        }
+
+        /// <summary>
+        ///     Runs the runtime's restore over the logic block actors before they are started, so a block's start
+        ///     hook is reached at the same point in the message sequence as in production.
+        /// </summary>
+        private async Task RestorePersistentDataAsync(List<IActorReference> logicBlockActors)
+        {
+            // The snapshot request's counterpart, and discarded for the same reason: there is no persistent
+            // store here, so what this closes is the message sequence a block's Starting() is written against.
+            var acknowledged =
+                _actorSystem.SendAndWaitForAcknowledgementAsync<RestorePersistentDataRequest, RestorePersistentDataResponse>(logicBlockActors,
+                    new RestorePersistentDataRequest([]),
+                    RestoreTimeout);
+
+            // The wait above is VIRTUAL, so it takes the same real-time backstop the start acknowledgement
+            // does. Only a timeout is downgraded: anything else is the actor system failing, not one block.
+            try
+            {
+                await acknowledged.WaitAsync(Budgets.StartAcknowledgement);
+            }
+            catch (TimeoutException exception)
+            {
+                Observe(acknowledged);
+                _logger.LogWarning(exception, "Not every logic block acknowledged the persistent-data restore within the budget; continuing to start.");
+            }
         }
 
         // What is left of the sequence-wide wall-clock budget. Never negative: an exhausted budget yields

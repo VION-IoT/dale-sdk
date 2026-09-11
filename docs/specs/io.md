@@ -185,19 +185,38 @@ whole of this area's decode surface.
 - `AC-IO-005.4` (Event-driven): WHEN a state message names a service-provider contract no logic-block
   contract is mapped to THE SYSTEM SHALL drop it, and SHALL replay nothing when a mapping later
   arrives.
+- `AC-IO-005.5` (Event-driven): WHEN a state message is not labelled with the schema name of the
+  payload type its topic carries THE SYSTEM SHALL drop the message, delivering nothing to any block,
+  a message carrying no label at all included.
 
 `AC-IO-005.2` is what the schema's own check buys and what it does not. It refuses an empty payload,
 a payload truncated anywhere but its last byte, and a payload of a *narrower* value type than the
 topic carries. It does **not** refuse a payload of a wider value type — the two layouts agree, so an
-analog payload read on a digital topic yields a value nothing sent — and it does not refuse trailing
-bytes past a complete message. Distinguishing the remaining case needs the payload's schema label,
-which every publisher on this wire already sets and this area's receiver cannot yet read. The check
-costs one `Verifier` per inbound state message, constructed on the decode path at the option defaults
-its parameterless constructor sets — unmeasured, and stated once here so it is not rediscovered as a
-surprise. Before the check
-existed, an empty payload threw out of the handler (contained by `AC-LIFE-014.2`, so the message was
-dropped and the actor survived) and a truncated one delivered a fabricated value to every mapped
-block — which is why the guard is worth its line.
+analog payload read on a digital topic decodes as a value nothing sent — and it does not refuse
+trailing bytes past a complete message. The check costs one `Verifier` per inbound state message,
+constructed on the decode path at the option defaults its parameterless constructor sets — unmeasured,
+and stated once here so it is not rediscovered as a surprise. Before the check existed, an empty
+payload threw out of the handler (contained by `AC-LIFE-014.2`, so the message was dropped and the
+actor survived) and a truncated one delivered a fabricated value to every mapped block — which is why
+the guard is worth its line.
+
+`AC-IO-005.5` is what closes the case `AC-IO-005.2` cannot see, and it is the one failure in this area
+that was silent rather than merely absent: a wider payload decoded into a value nobody published, and
+the bound blocks acted on it. The label is the discriminator because the bytes are not — every
+publisher on this wire sets the payload type's name as the message's schema user property, and the
+service-provider side of the same wire refuses a message whose label is missing or names another type.
+This side now refuses on the same two grounds, which is why a message with no label is refused rather
+than admitted on the strength of its bytes. The label is judged before the buffer, so a payload of
+another family never reaches the verifier at all — including the narrower one `AC-IO-005.2` would
+also have refused, which is no longer reachable from the wire.
+
+The drop is **reported at warning level**, which is what keeps it from trading one silence for
+another: the bound blocks hold their last value for as long as the mislabelling lasts, and no other
+part of the system reports that. Nothing routine reaches the arm — the topic carries one payload type,
+every publisher labels it, and the volume is the publisher's own state-change rate. `AC-IO-005.2`'s
+refusal stays at debug for the opposite reason: state is published retained, so a retained-clear
+reaches it on a topic nothing is wrong with. Neither level is a criterion, log text being no contract
+([`../testing-conventions.md`](../testing-conventions.md) § 15).
 
 `AC-IO-005.3` is why the identity strings a state payload carries are the publisher's own bookkeeping:
 the topic is the identity, and this area never reads them. `AC-IO-005.4` fixes a block's first value:
@@ -221,8 +240,8 @@ retained, which is what makes that first value arrive at all.
   contract and keep it for the life of the handler, so the topic a contract is commanded on is the
   one the installation topic yielded when that contract was first commanded.
 
-`AC-IO-006.2`'s schema label is not decoration: the far side dispatches on it. That this area sets one
-on every command and reads none on any message is the asymmetry `AC-IO-005.2` is bounded by.
+`AC-IO-006.2`'s schema label is not decoration: the far side dispatches on it, and this area reads the
+one a state message carries (`AC-IO-005.5`), so the label is load-bearing in both directions.
 
 `AC-IO-006.1`'s response topic is where a service provider answers a command — including where it
 answers that the command **failed**. Nothing in the runtime subscribes it. So a set that the far side
