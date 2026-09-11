@@ -30,6 +30,13 @@
         <EmbeddedResource Include="..\Vion.Dale.DevHost\Scenarios\scenario.schema.json">
             <LogicalName>Vion.Dale.Cli.scenario.schema.json</LogicalName>
         </EmbeddedResource>
+
+        <!-- The generic topology-file JSON Schema, on the same terms: `dale topology schema` emits the
+             canonical file itself rather than a copy, so a consumer's committed .dale/topology.schema.json
+             can be regenerated instead of going quietly stale against the host's. -->
+        <EmbeddedResource Include="..\Vion.Dale.DevHost\Topologies\topology.schema.json">
+            <LogicalName>Vion.Dale.Cli.topology.schema.json</LogicalName>
+        </EmbeddedResource>
     </ItemGroup>
 
     <ItemGroup>

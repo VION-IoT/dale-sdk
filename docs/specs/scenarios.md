@@ -493,10 +493,12 @@ on block cadence. `AC-SCEN-014.9` is the other one — a `serviceProviderExpect`
 a paired output wrote. The strict posture of `AC-SCEN-014.5` is deliberate: a *declared* pairing that
 can carry nothing is an authoring mistake and has to be loud.
 
-## The offline validator
+## The offline validators
 
-`dale scenario validate` judges a scenario against an exported configuration, so CI and editors catch
-renames without booting a host per file. The runner stays authoritative; the validator mirrors it.
+`dale scenario validate` judges a scenario against an exported configuration and `dale topology
+validate` judges a topology against nothing at all, so continuous integration and editors catch a
+rename or a hand edit without booting a host per file. The runner and the loader stay authoritative;
+the validators mirror them. The command surface of both is [`cli.md`](cli.md)'s.
 
 - `AC-SCEN-015.1` (Ubiquitous): THE SYSTEM SHALL resolve name paths in the offline validator by the
   same rules the runner applies.
@@ -511,9 +513,39 @@ renames without booting a host per file. The runner stays authoritative; the val
   only when it is unambiguous.
 - `AC-SCEN-015.5` (Ubiquitous): THE SYSTEM SHALL ship the generic scenario schema to the command-line
   tool as the canonical file itself rather than a copy of it.
+- `AC-SCEN-015.6` (Ubiquitous): THE SYSTEM SHALL check a topology file offline against the
+  structural rules its loader applies — the id and its match with the file name, the instances, the
+  interface mappings, the contract mappings and the contract pairings — and SHALL report every error
+  it found rather than the first.
+- `AC-SCEN-015.7` (Ubiquitous): THE SYSTEM SHALL refuse offline a member no topology file declares
+  and a member declared twice, at every level of the document, so a hand edit's misspelling is
+  reported without a host.
+- `AC-SCEN-015.8` (Ubiquitous): THE SYSTEM SHALL refuse offline a topology that declares one wire
+  twice, whichever order each pairing names its two endpoints in, as the loader refuses it.
+- `AC-SCEN-015.9` (Optional): WHERE a topology file carries no schema reference THE SYSTEM SHALL
+  report that as a warning, and SHALL refuse the file for it only where the caller asked for the
+  reference to be required.
+- `AC-SCEN-015.10` (Ubiquitous): THE SYSTEM SHALL ship the generic topology schema to the
+  command-line tool as the canonical file itself rather than a copy of it.
 
 `AC-SCEN-015.4` is the enricher's half of `AC-SCEN-005.5`: the schema must not autocomplete a path the
 runner would refuse.
+
+The topology validator strikes the same bargain: it mirrors what
+`AC-SCEN-013.*` states about the file, so a hand edit is caught in a pull-request lane rather than at
+load. Three of the loader's checks are not mirrored and cannot be, because none is decidable from the
+file alone — whether an instance's type is loadable and is a logic block (`AC-SCEN-013.3`), whether a
+contract mapping names a binding the block carries (`AC-SCEN-013.5`), and which directions of a
+pairing materialise (`AC-SCEN-014.*`). Those stay the host's, and a committed scenario run is where
+the file is proven to load.
+
+`AC-SCEN-015.8` is a mirror like the rest, of `AC-SCEN-014.3` rather than of `AC-SCEN-013.*`: the
+duplicate wire is refused when the topology is built, not when the file is parsed, so an author who
+wrote it twice meant two wires, has one, and learns that from the host today and from the validator
+now. `AC-SCEN-015.9` is the one rule the validator adds: the loader treats a schema reference as
+optional and this leaves that true, reporting its absence as a warning the caller can promote rather
+than a refusal — an author with no reference gets no editor check at all, which is worth saying
+without moving a rule a topology file's other readers also parse.
 
 ## A scenario as a consumer's test
 

@@ -130,6 +130,7 @@ namespace Vion.Dale.Cli
             rootCommand.Subcommands.Add(DevCommand.Create());
             rootCommand.Subcommands.Add(ListCommand.Create());
             rootCommand.Subcommands.Add(ScenarioCommand.Create());
+            rootCommand.Subcommands.Add(TopologyCommand.Create());
 
             var addCommand = new Command("add", "Add elements to a LogicBlock project");
             addCommand.Subcommands.Add(AddLogicBlockCommand.Create());
