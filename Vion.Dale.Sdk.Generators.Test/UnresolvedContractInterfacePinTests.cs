@@ -74,18 +74,101 @@ public class Endpoint : {|#1:IGenSource|} { }";
 
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-014.4")]
-        public async Task ReportGateOnPropertyWithUnresolvedInterface()
+        public async Task StaySilentOnGateOverPropertyWithUnresolvedInterface()
         {
             // Arrange / Act / Assert
-            // The gateable test resolves a generated interface by SYMBOL (its [LogicInterface] attribute
-            // through AllInterfaces), so an unresolved one leaves the property looking ungateable and
-            // DALE043 fires on a binding that is legitimately gated in a real build. This pin records that
-            // outcome rather than asserting it is right — the by-name half is `GATE`'s rule to add, and
-            // this pass parks it (change doc row 185).
+            // The shape every consumer writes: a component class implementing a generated contract
+            // interface, held by a gated property. `IGenSink` does not resolve to a symbol, so the
+            // by-symbol half finds nothing and the by-name half — the base-list identifier matched against
+            // the contract's own AndInterface string — is the only thing that can see the binding.
             var source = @"
 using Vion.Dale.Sdk.Core;
 
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+public class GeneratedContract { }
+
 public class Component : {|#1:IGenSink|} { }
+
+public class MyBlock : LogicBlockBase
+{
+    [InstantiationParameter][ServiceProperty] public bool UseBackup { get; set; }
+
+    [IncludedWhen(""UseBackup"")] public Component Backup { get; private set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IGenSink"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.4")]
+        public async Task StaySilentOnGateOverPropertyInheritingUnresolvedInterfaceFromBaseClass()
+        {
+            // Arrange / Act / Assert
+            // DeclarativeInterfaceBinder binds on Type.GetInterfaces(), which is transitive, so a component
+            // that picks its endpoint up from a base class binds exactly like one declaring it directly.
+            // Reading only the component's own base list would refuse this and bind it anyway.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+public class GeneratedContract { }
+
+public class ComponentBase : {|#1:IGenSink|} { }
+
+public class Component : ComponentBase { }
+
+public class MyBlock : LogicBlockBase
+{
+    [InstantiationParameter][ServiceProperty] public bool UseBackup { get; set; }
+
+    [IncludedWhen(""UseBackup"")] public Component Backup { get; private set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IGenSink"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.4")]
+        public async Task StaySilentOnGateOverPropertyImplementingInterfaceExtendingUnresolvedInterface()
+        {
+            // Arrange / Act / Assert
+            // The other half of the same transitivity: the endpoint arrives through an interface the
+            // component implements, not through the component's own base list. That intermediate interface
+            // resolves, so its base list is where the generated name is written.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+public class GeneratedContract { }
+
+public interface IStationEndpoint : {|#1:IGenSink|} { }
+
+public class Component : IStationEndpoint { }
+
+public class MyBlock : LogicBlockBase
+{
+    [InstantiationParameter][ServiceProperty] public bool UseBackup { get; set; }
+
+    [IncludedWhen(""UseBackup"")] public Component Backup { get; private set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IGenSink"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.4")]
+        [TestProperty("spec", "AC-GATE-011.3")]
+        public async Task ReportGateOnPropertyNamingUnresolvedNonContractInterface()
+        {
+            // Arrange / Act / Assert
+            // The boundary of the by-name half, and the direction that fails silently: an unresolved
+            // name that no [LogicBlockContract] in this compilation declares as a role interface is not a
+            // binding, so the gate stays ungateable. Matching any unresolved name would admit declarations
+            // that compile here and throw at bind.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+public class GeneratedContract { }
+
+public class Component : {|#1:IStranger|} { }
 
 public class MyBlock : LogicBlockBase
 {
@@ -102,7 +185,7 @@ public class MyBlock : LogicBlockBase
                                                           "[Presentation(VisibleWhen = ...)] for display relevance.");
             await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source,
                                                                                       expected,
-                                                                                      DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IGenSink"));
+                                                                                      DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IStranger"));
         }
     }
 }

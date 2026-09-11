@@ -61,6 +61,85 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.4")]
+        public async Task StaySilentOnGateOverPropertyWithResolvedLogicInterface()
+        {
+            // Arrange / Act / Assert
+            // The by-symbol half of the same lookup, on a component with no service surface of its own —
+            // so nothing but the interface can make it gateable. A contract in a REFERENCED assembly
+            // arrives exactly this way, its generated interface already in metadata.
+            var source = Block("[IncludedWhen(\"Count >= 2\")] public Endpoint Leg { get; } = new();") + @"
+public interface IMatching { }
+public interface ISender { }
+public class Contract { }
+
+[Vion.Dale.Sdk.CodeGeneration.LogicInterface(MatchingInterface = typeof(IMatching), SenderInterface = typeof(ISender), ContractType = typeof(Contract))]
+public interface IGenSink { }
+
+public class Endpoint : IGenSink { }";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.5")]
+        [TestProperty("spec", "AC-GATE-011.3")]
+        public async Task ReportGateOnPropertyNamingResolvedInterfaceSharingContractRoleName()
+        {
+            // Arrange / Act / Assert
+            // The by-name half exists for a name that resolves to NOTHING. One that resolves cleanly to an
+            // unrelated interface of the same simple name is an ordinary type the binder will not bind, so
+            // matching it would make DALE043 silently under-report.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+public class GeneratedContract { }
+
+namespace Elsewhere
+{
+    public interface IGenSink { }
+}
+
+public class Component : Elsewhere.IGenSink { }
+
+public class MyBlock : LogicBlockBase
+{
+    [InstantiationParameter][ServiceProperty] public bool UseBackup { get; set; }
+
+    [IncludedWhen({|#0:""UseBackup""|})] public Component Backup { get; private set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.5")]
+        [TestProperty("spec", "AC-GATE-011.3")]
+        public async Task ReportGateOnPropertyNamingResolvedBaseClassSharingContractRoleName()
+        {
+            // Arrange / Act / Assert
+            // Same boundary as its sibling above, on the shape that reaches the ancestry as a base class
+            // rather than an interface. Keying the guard on implemented interfaces alone would let this one
+            // through, and a base class is no more an interface binding than an unrelated interface is.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+public class GeneratedContract { }
+
+public class IGenSink { }
+
+public class Component : IGenSink { }
+
+public class MyBlock : LogicBlockBase
+{
+    [InstantiationParameter][ServiceProperty] public bool UseBackup { get; set; }
+
+    [IncludedWhen({|#0:""UseBackup""|})] public Component Backup { get; private set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0));
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-ANLZ-002.1")]
         public async Task ResolveGateAndParameterDeclaredOnBaseClass()
         {

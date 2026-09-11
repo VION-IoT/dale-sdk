@@ -144,9 +144,15 @@ Adding one:
 
 **Contract interfaces emitted by `LogicClassGenerator` are not visible to analyzers in a real
 build.** Every logic-block project references Metalama, which replaces the compiler task; in that
-pipeline a `class ChargingPoint : IPing` whose `IPing` is generated resolves to an **error type**, and
-`AllInterfaces` simply does not contain it. A symbol-only check against contract interfaces therefore
-compiles, passes its stub-based unit tests, and no-ops for every real consumer.
+pipeline a `class ChargingPoint : IPing` whose `IPing` is generated resolves to an **error type**, so
+nothing in `AllInterfaces` carries `[LogicInterface]`. A symbol-only check against contract interfaces
+therefore compiles, passes its stub-based unit tests, and no-ops for every real consumer.
+
+**Whether the error type is in `AllInterfaces` at all depends on how the type reaches it**, and an
+analyzer that decides anything from its presence needs to know which: declared directly on a class it
+is absent, because Roslyn binds the unresolved name as the base type; inherited through an interface
+that *does* resolve it is present, with `TypeKind.Error`. So absence is not a test for "generated",
+and presence is not a test for "resolved" — `TypeKind` is.
 
 An analyzer that keys off contract interfaces must resolve them **both ways**:
 
@@ -168,11 +174,13 @@ Pin it with a test whose contract interface is genuinely unresolved (the test ex
 alongside the Dale diagnostic). A test using a resolvable stub interface does not reproduce the real
 build and will pass either way. `ServiceRelationAnalyzer` /
 [`ServiceRelationAnalyzerTests`](../Vion.Dale.Sdk.Generators.Test/ServiceRelationAnalyzerTests.cs) is
-the worked example — see `RelationBearingInterfaces` for the two-way lookup and the two `CS0246` tests
-for the pin. The other analyzers that resolve a contract interface are pinned in
+the worked example of the *pin* — see the two `CS0246` tests. Copy its **reach** from
+`IncludedWhenPredicateAnalyzer.TypeImplementsLogicInterface` instead: the binder these mirror walks the
+whole ancestry, and `RelationBearingInterfaces` reads only the type's own base list, which is the
+narrow reach `AC-ANLZ-014.4` was first written with and had to be widened out of. The other analyzers that resolve a contract interface are pinned in
 [`UnresolvedContractInterfacePinTests`](../Vion.Dale.Sdk.Generators.Test/UnresolvedContractInterfacePinTests.cs),
-and one of those pins records a live blind spot rather than a rule: the inclusion gate's own
-resolution is by symbol only (`AC-ANLZ-014.4`). Know what the proxy can and cannot say — a fixture
+the inclusion gate's `IncludedWhenPredicateAnalyzer` among them — its gateable test carries the same
+two lookups (`AC-ANLZ-014.4`). Know what the proxy can and cannot say — a fixture
 where the interface is *absent* is harsher than a real build where it exists and is an error type
 only to the analyzer, so no fixture can exercise a remedy written as `typeof(TheInterface)`. The session that found this also tried flipping `ConfigureGeneratedCodeAnalysis` to
 `Analyze` and reported no change, so don't spend a round there.

@@ -3,7 +3,6 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Vion.Dale.Sdk.Generators.Analyzers
@@ -47,9 +46,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         private static void AnalyzeCompilation(CompilationAnalysisContext context)
         {
-            var sourceTypes = GetAllTypes(context.Compilation.GlobalNamespace)
-                              .Where(t => SymbolEqualityComparer.Default.Equals(t.ContainingAssembly, context.Compilation.Assembly))
-                              .ToList();
+            var sourceTypes = AnalyzerHelper.EnumerateDeclaredTypes(context.Compilation.Assembly).ToList();
 
             // relationType → the contracts declaring it, for the cross-contract collision warning.
             var declaringContracts = new Dictionary<string, List<string>>(System.StringComparer.Ordinal);
@@ -253,7 +250,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             if (localRelationInterfaceNames.Count > 0)
             {
-                foreach (var baseTypeName in DeclaredBaseTypeNames(type, cancellationToken))
+                foreach (var baseTypeName in AnalyzerHelper.DeclaredBaseTypeNames(type, cancellationToken))
                 {
                     if (localRelationInterfaceNames.Contains(baseTypeName))
                     {
@@ -265,64 +262,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             return result.OrderBy(n => n, System.StringComparer.Ordinal).ToList();
         }
 
-        /// <summary>The simple names in <paramref name="type" />'s declared base list, across all its parts.</summary>
-        private static IEnumerable<string> DeclaredBaseTypeNames(INamedTypeSymbol type, CancellationToken cancellationToken)
-        {
-            foreach (var reference in type.DeclaringSyntaxReferences)
-            {
-                if (reference.GetSyntax(cancellationToken) is not TypeDeclarationSyntax declaration || declaration.BaseList is null)
-                {
-                    continue;
-                }
-
-                foreach (var baseType in declaration.BaseList.Types)
-                {
-                    var name = baseType.Type switch
-                    {
-                        SimpleNameSyntax simple => simple.Identifier.ValueText,
-                        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-                        _ => null,
-                    };
-
-                    if (name != null)
-                    {
-                        yield return name;
-                    }
-                }
-            }
-        }
-
         // ── Helpers ───────────────────────────────────────────────────────────────────────────────
 
         private static List<AttributeData> GetRelationAttributes(ISymbol symbol)
         {
             return symbol.GetAttributes().Where(a => AnalyzerHelper.GetFullName(a.AttributeClass) == AnalyzerHelper.ServiceRelationAttribute).ToList();
-        }
-
-        private static IEnumerable<INamedTypeSymbol> GetAllTypes(INamespaceOrTypeSymbol symbol)
-        {
-            foreach (var member in symbol.GetMembers())
-            {
-                switch (member)
-                {
-                    case INamespaceSymbol childNamespace:
-                        foreach (var nested in GetAllTypes(childNamespace))
-                        {
-                            yield return nested;
-                        }
-
-                        break;
-                    case INamedTypeSymbol namedType:
-                        yield return namedType;
-
-                        foreach (var nested in GetAllTypes(namedType))
-                        {
-                            yield return nested;
-                        }
-
-                        break;
-                }
-            }
         }
 
         private static Location AttributeLocation(AttributeData attribute, ISymbol fallback)

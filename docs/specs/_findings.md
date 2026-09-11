@@ -23,3 +23,11 @@ rather than reviving a default that resolves to the archive.
 
 Not for: a small area-local defect (the round that finds it fixes it), a stated behavior that merely
 surprises (the spec page states it), or a missing test (that is a `GAP` marker on the page).
+
+**`ServiceRelationAnalyzer`'s by-name reach is the narrow one `AC-ANLZ-014.4` was widened out of.**
+`RelationBearingInterfaces` reads only the property type's own declared base list, so a service-less
+component that reaches a relation-bearing contract interface through a base class or an extending
+interface draws no `DALE045` at all — the binder binds it, and the cloud edge the warning exists to
+predict is missed in silence. Found while fixing VION-194, whose blocker was this same narrow reach
+copied from here into `DALE043`. Not fixed there: a different diagnostic, at advisory severity, whose
+own `AC-ANLZ-021.5` states the narrow reach as the rule, so widening it rewords that criterion too.

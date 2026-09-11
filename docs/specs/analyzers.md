@@ -372,22 +372,42 @@ be the compile-time door onto.
 - `AC-ANLZ-014.2` (Event-driven): WHEN an `[InstantiationParameter]` is declared on a property that is
   not public THE SYSTEM SHALL report `DALE044` as a warning naming the accessibility.
 - `AC-ANLZ-014.3` (Event-driven): WHEN an `[InstantiationParameter]` is assigned outside its declaring type's constructor or object initializer THE SYSTEM SHALL report `DALE044`, and SHALL judge only an assignment written in the declaring type itself. GAP: the first clause is `AC-GATE-011.8`'s and tested there; the second guards against a second report from another type's code, which no single-compilation fixture distinguishes from silence.
-- `AC-ANLZ-014.4` (Ubiquitous): THE SYSTEM SHALL resolve a gated property's interface binding by
-  symbol, so a gate on a property typed as a *generated* contract interface is reported as
-  ungateable in a build where that interface is an error type.
+- `AC-ANLZ-014.4` (Ubiquitous): THE SYSTEM SHALL resolve a gated property's interface binding both by
+  symbol and by the declared base-list names of the property's type, its base classes and the
+  interfaces it implements, matched against this compilation's `[LogicBlockContract]` role interfaces,
+  so a gate on a property whose type implements a *generated* contract interface — directly, through a
+  base class, or through an interface extending it — draws no `DALE043` in a build where that
+  interface is an error type.
+- `AC-ANLZ-014.5` (Unwanted): IF such a base-list name matches a role interface but already resolves to
+  an ancestor of the property's type, THEN THE SYSTEM SHALL report `DALE043` rather than read it as an
+  interface binding.
 
 `AC-ANLZ-013.2` matters to anyone shipping a library of base blocks: skipping abstract declarations
 meant a library's own predicates were validated in its consumers' builds and never in its own.
 A predicate must resolve where it is written, so one naming a property only a subclass declares is
 reported at the abstract declaration — which is the rule, not an accident of it.
 
-`AC-ANLZ-014.4` states a limitation rather than a guarantee, and it is the one place on this page
-where the code is known to be wrong. § 5's error-type problem reaches the gateable test: in a
-Metalama-hosted build a generated contract interface is not in `AllInterfaces`, so a legitimately
-gated binding draws an error saying it cannot be gated. The remedy an author would reach for —
-naming the interface in `[LogicBlockInterfaceBinding(typeof(…))]` — is written in terms of the same
-unresolved type. The fix is the by-name half of the two-way lookup `ServiceRelationAnalyzer` already
-carries; it is tracked as VION-194.
+`AC-ANLZ-014.4` is the two-way lookup § 5 demands of every analyzer keying off a contract interface,
+and the gateable test was the last to gain it. Each half reaches what the other cannot: by symbol is
+the only path to a contract in a *referenced* assembly, and by name the only path to one this
+compilation declares, because in a Metalama-hosted build the interface `LogicClassGenerator` emits is
+an error type. Whether it is in `AllInterfaces` at all depends on how the type reaches it: declared
+directly on a class it is absent, while one inherited through an interface that does resolve is
+present as an error type — which is why `AC-ANLZ-014.5` turns on a name being *resolved*, not on its
+being found.
+
+`AC-ANLZ-014.4`'s two edges are both the binder's. It names a property whose **type implements** the
+interface, which is what `DeclarativeInterfaceBinder` binds; a property typed as the interface itself
+is not a binding and is refused. And it names the whole ancestry, because the binder's
+`Type.GetInterfaces()` is transitive: an endpoint inherited from a base class, or reached through an
+interface extending the generated one, binds like a directly declared one, so reading the property
+type's own base list alone would refuse a gate the runtime then binds.
+
+`AC-ANLZ-014.5` is the other edge, and it is the one that fails silently. `DALE043` is an error, so a
+refusal is loud and an over-acceptance is not: a gate wrongly allowed compiles and then binds nothing.
+A base-list name the compiler already resolved is an ordinary type that happens to share a role's
+spelling — the symbol half ran first and found no `[LogicInterface]` on it — so the by-name half is
+reserved for the names that resolve to nothing, which is what a generated interface does.
 
 ## Service relations
 

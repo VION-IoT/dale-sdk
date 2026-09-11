@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -18,6 +19,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     ///     qualified references and re-gated <c>override</c>/<c>new</c> members, resolves bare references
     ///     against the block's <c>[InstantiationParameter]</c> properties (own + base), and type-checks
     ///     them. The analyzer <b>never evaluates</b> — strict-profile evaluation is the runtime's job.
+    ///     <para>
+    ///         The gateable test resolves a contract interface <b>both ways</b>, as
+    ///         <see href="../../docs/sdk-surface-conventions.md">sdk-surface-conventions</see> § 5 requires of
+    ///         every analyzer that keys off one — see <c>TypeImplementsLogicInterface</c>.
+    ///     </para>
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class IncludedWhenPredicateAnalyzer : DiagnosticAnalyzer
@@ -36,15 +42,53 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSymbolAction(AnalyzeType, SymbolKind.NamedType);
+
+            // The by-name half of the gateable test needs every [LogicBlockContract] in the compilation,
+            // which a per-symbol action cannot see on its own. Collected once, then closed over.
+            context.RegisterCompilationStartAction(start =>
+                                                   {
+                                                       var contractInterfaceNames = CollectContractInterfaceNames(start.Compilation);
+                                                       start.RegisterSymbolAction(symbol => AnalyzeType(symbol, contractInterfaceNames), SymbolKind.NamedType);
+                                                   });
         }
 
-        private static void AnalyzeType(SymbolAnalysisContext context)
+        // The interface names LogicClassGenerator will emit for this compilation's OWN contracts — a
+        // [LogicBlockContract]'s two role strings. A contract in a referenced assembly needs no entry: its
+        // generated interfaces are already in metadata, where the by-symbol half reaches them.
+        private static HashSet<string> CollectContractInterfaceNames(Compilation compilation)
+        {
+            var names = new HashSet<string>(System.StringComparer.Ordinal);
+
+            foreach (var type in AnalyzerHelper.EnumerateDeclaredTypes(compilation.Assembly))
+            {
+                var contract = AnalyzerHelper.GetAttribute(type, AnalyzerHelper.LogicBlockContractAttribute);
+                if (contract is null)
+                {
+                    continue;
+                }
+
+                foreach (var role in new[]
+                                     {
+                                         AnalyzerHelper.GetNamedArgument<string>(contract, "BetweenInterface"),
+                                         AnalyzerHelper.GetNamedArgument<string>(contract, "AndInterface"),
+                                     })
+                {
+                    if (!string.IsNullOrWhiteSpace(role))
+                    {
+                        names.Add(role!);
+                    }
+                }
+            }
+
+            return names;
+        }
+
+        private static void AnalyzeType(SymbolAnalysisContext context, HashSet<string> contractInterfaceNames)
         {
             var type = (INamedTypeSymbol)context.Symbol;
             if (type.TypeKind == TypeKind.Class && AnalyzerHelper.InheritsFromLogicBlockBase(type))
             {
-                AnalyzeBlock(context, type);
+                AnalyzeBlock(context, type, contractInterfaceNames);
                 return;
             }
 
@@ -77,7 +121,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
         }
 
-        private static void AnalyzeBlock(SymbolAnalysisContext context, INamedTypeSymbol block)
+        private static void AnalyzeBlock(SymbolAnalysisContext context, INamedTypeSymbol block, HashSet<string> contractInterfaceNames)
         {
             // [IncludedWhen] on the block class itself → not gateable (whole-block existence is the operator
             // adding the instance or not; a class-implemented interface has no member to carry the gate).
@@ -121,16 +165,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     continue;
                 }
 
-                ValidateProperty(context, property, gate, parameters);
+                ValidateProperty(context, property, gate, parameters, contractInterfaceNames);
             }
         }
 
-        private static void ValidateProperty(SymbolAnalysisContext context, IPropertySymbol property, AttributeData gate, IReadOnlyDictionary<string, PredicateMember> parameters)
+        private static void ValidateProperty(SymbolAnalysisContext context,
+                                             IPropertySymbol property,
+                                             AttributeData gate,
+                                             IReadOnlyDictionary<string, PredicateMember> parameters,
+                                             HashSet<string> contractInterfaceNames)
         {
             var predicate = PredicateOf(gate);
             var location = GateLocation(gate, property);
 
-            if (!IsGateable(property))
+            if (!IsGateable(property, contractInterfaceNames, context.CancellationToken))
             {
                 ReportGate(context,
                            location,
@@ -199,7 +247,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             return members;
         }
 
-        private static bool IsGateable(IPropertySymbol property)
+        private static bool IsGateable(IPropertySymbol property, HashSet<string> contractInterfaceNames, CancellationToken cancellationToken)
         {
             // Contract binding (constructed by the binder → null when excluded).
             if (AnalyzerHelper.HasAttribute(property, AnalyzerHelper.ServiceProviderContractBindingAttribute) || AnalyzerHelper.IsServiceProviderContractType(property.Type))
@@ -208,7 +256,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             // Property-based interface binding (explicit attribute, or the property type implements a [LogicInterface]).
-            if (AnalyzerHelper.HasAttribute(property, AnalyzerHelper.LogicBlockInterfaceBindingAttribute) || TypeImplementsLogicInterface(property.Type))
+            if (AnalyzerHelper.HasAttribute(property, AnalyzerHelper.LogicBlockInterfaceBindingAttribute) ||
+                TypeImplementsLogicInterface(property.Type, contractInterfaceNames, cancellationToken))
             {
                 return true;
             }
@@ -217,9 +266,85 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             return property.Type is INamedTypeSymbol component && AnalyzerHelper.TypeHasServiceMembers(component);
         }
 
-        private static bool TypeImplementsLogicInterface(ITypeSymbol type)
+        /// <summary>
+        ///     Whether <paramref name="type" /> implements a contract interface. Two lookups, because neither
+        ///     alone is complete — the obligation
+        ///     <see href="../../docs/sdk-surface-conventions.md">sdk-surface-conventions</see> § 5 places on
+        ///     every analyzer keying off a contract interface, mirroring
+        ///     <see cref="ServiceRelationAnalyzer" />'s <c>RelationBearingInterfaces</c>.
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <b>By symbol</b> — <c>[LogicInterface]</c> through <see cref="ITypeSymbol.AllInterfaces" />.
+        ///             The accurate path, and the only one that reaches a contract in a <i>referenced</i> assembly.
+        ///         </item>
+        ///         <item>
+        ///             <b>By name</b> — declared base lists against this compilation's own contract role names.
+        ///             Necessary because every logic-block project runs Metalama, in whose pipeline an interface
+        ///             <c>LogicClassGenerator</c> emits is an error type absent from <c>AllInterfaces</c> — so
+        ///             for the common same-library case the symbol path finds nothing and a legitimately gated
+        ///             binding draws <c>DALE043</c>.
+        ///         </item>
+        ///     </list>
+        ///     <para>
+        ///         Both halves are transitive, because <c>DeclarativeInterfaceBinder</c> binds on
+        ///         <c>Type.GetInterfaces()</c> and that is: an endpoint inherited from a base class, or reached
+        ///         through an interface that extends the generated one, binds exactly like a directly declared
+        ///         one. Reading only the property type's own base list would refuse a gate the runtime then
+        ///         binds — the same defect as the symbol-only lookup, one step further out.
+        ///     </para>
+        ///     <para>
+        ///         And no wider than that, because <c>DALE043</c> is an error and over-acceptance is invisible:
+        ///         only a name a <c>[LogicBlockContract]</c> here declares as a role counts, and one that
+        ///         already resolved — to any ancestor, interface or base class — is skipped. The symbol half
+        ///         ran first and found no <c>[LogicInterface]</c>, so a resolved ancestor of that name is an
+        ///         ordinary type sharing a role's spelling, and the binder will not bind it.
+        ///     </para>
+        /// </summary>
+        private static bool TypeImplementsLogicInterface(ITypeSymbol type, HashSet<string> contractInterfaceNames, CancellationToken cancellationToken)
         {
-            return type.AllInterfaces.Any(i => AnalyzerHelper.HasAttribute(i, AnalyzerHelper.LogicInterfaceAttribute));
+            if (type.AllInterfaces.Any(i => AnalyzerHelper.HasAttribute(i, AnalyzerHelper.LogicInterfaceAttribute)))
+            {
+                return true;
+            }
+
+            if (contractInterfaceNames.Count == 0 || type is not INamedTypeSymbol named)
+            {
+                return false;
+            }
+
+            // Lazily, and the role-name test first: IDE live analysis runs this on every keystroke, and a
+            // base list naming a contract role at all is the rare case. Nothing below the first hit is walked.
+            return AncestryDeclaringBaseTypes(named)
+                   .SelectMany(ancestor => AnalyzerHelper.DeclaredBaseTypeNames(ancestor, cancellationToken))
+                   .Where(contractInterfaceNames.Contains)
+                   .Any(name => !ResolvesToAncestor(named, name));
+        }
+
+        // Whether <paramref name="name" /> already names an ancestor of <paramref name="type" /> that the
+        // compiler resolved. TypeKind.Error is excluded deliberately: an unresolved interface still appears in
+        // AllInterfaces when it is inherited through one that resolves, and that is precisely the name the
+        // by-name half exists to find.
+        private static bool ResolvesToAncestor(INamedTypeSymbol type, string name)
+        {
+            return AncestryDeclaringBaseTypes(type).Any(ancestor => ancestor.TypeKind != TypeKind.Error && ancestor.Name == name);
+        }
+
+        // Every type whose declared base list can carry the generated name: the property's type, the base
+        // classes it inherits from, and the interfaces it implements. AllInterfaces is already the transitive
+        // closure of the interfaces and the BaseType chain that of the base classes, so this needs no
+        // recursion of its own. An error-type entry among them contributes nothing rather than needing a
+        // guard: it has no DeclaringSyntaxReferences, so there is no base list to read off it.
+        private static IEnumerable<INamedTypeSymbol> AncestryDeclaringBaseTypes(INamedTypeSymbol type)
+        {
+            for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                yield return current;
+            }
+
+            foreach (var iface in type.AllInterfaces)
+            {
+                yield return iface;
+            }
         }
 
         private static bool HasBaseGateOrParameter(IPropertySymbol property)
