@@ -476,7 +476,7 @@ attribute the generator packs into `lib/` as a reference the consumer compiles a
 carrying no `Microsoft.CodeAnalysis` dependency in the nuspec to resolve it. Nothing else in the
 artifact gate sees it: inside `Vion.Dale.Sdk` the generator's simple name is owned by the package id
 and its stamped version is honest, and inside the eleven siblings it is a foreign assembly, which
-that gate reports without judging. `AC-ANLZ-018.6` is the verdict those two paths lacked.
+that gate reports without judging. The placement criterion is the verdict those two paths lacked.
 
 The probe's own hazard is stated once here and guarded in its suite: it shells a real `dotnet build`,
 and a child build that carries no version stamp will overwrite the outputs `dotnet pack` then ships.
