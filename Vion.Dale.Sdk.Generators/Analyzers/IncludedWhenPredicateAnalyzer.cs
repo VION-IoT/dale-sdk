@@ -294,10 +294,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     </para>
         ///     <para>
         ///         And no wider than that, because <c>DALE043</c> is an error and over-acceptance is invisible:
-        ///         only a name a <c>[LogicBlockContract]</c> here declares as a role counts, and a name that
-        ///         already resolves to an interface this type implements is skipped — that interface is in
-        ///         <c>AllInterfaces</c> without <c>[LogicInterface]</c>, so it is an ordinary type sharing a
-        ///         role's simple name and the binder will not bind it.
+        ///         only a name a <c>[LogicBlockContract]</c> here declares as a role counts, and one that
+        ///         already resolved — to any ancestor, interface or base class — is skipped. The symbol half
+        ///         ran first and found no <c>[LogicInterface]</c>, so a resolved ancestor of that name is an
+        ///         ordinary type sharing a role's spelling, and the binder will not bind it.
         ///     </para>
         /// </summary>
         private static bool TypeImplementsLogicInterface(ITypeSymbol type, HashSet<string> contractInterfaceNames, CancellationToken cancellationToken)
@@ -312,14 +312,21 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return false;
             }
 
-            // TypeKind.Error excluded deliberately: an unresolved interface still appears in AllInterfaces when it
-            // is inherited through one that resolves, and that is precisely the name the by-name half exists
-            // to find. Only a genuinely resolved interface without [LogicInterface] disqualifies a name.
-            var resolved = new HashSet<string>(named.AllInterfaces.Where(i => i.TypeKind != TypeKind.Error).Select(i => i.Name), System.StringComparer.Ordinal);
-
+            // Lazily, and the role-name test first: IDE live analysis runs this on every keystroke, and a
+            // base list naming a contract role at all is the rare case. Nothing below the first hit is walked.
             return AncestryDeclaringBaseTypes(named)
                    .SelectMany(ancestor => AnalyzerHelper.DeclaredBaseTypeNames(ancestor, cancellationToken))
-                   .Any(name => contractInterfaceNames.Contains(name) && !resolved.Contains(name));
+                   .Where(contractInterfaceNames.Contains)
+                   .Any(name => !ResolvesToAncestor(named, name));
+        }
+
+        // Whether <paramref name="name" /> already names an ancestor of <paramref name="type" /> that the
+        // compiler resolved. TypeKind.Error is excluded deliberately: an unresolved interface still appears in
+        // AllInterfaces when it is inherited through one that resolves, and that is precisely the name the
+        // by-name half exists to find.
+        private static bool ResolvesToAncestor(INamedTypeSymbol type, string name)
+        {
+            return AncestryDeclaringBaseTypes(type).Any(ancestor => ancestor.TypeKind != TypeKind.Error && ancestor.Name == name);
         }
 
         // Every type whose declared base list can carry the generated name: the property's type, the base

@@ -378,6 +378,9 @@ be the compile-time door onto.
   so a gate on a property whose type implements a *generated* contract interface — directly, through a
   base class, or through an interface extending it — draws no `DALE043` in a build where that
   interface is an error type.
+- `AC-ANLZ-014.5` (Unwanted): IF such a base-list name matches a role interface but already resolves to
+  an ancestor of the property's type, THEN THE SYSTEM SHALL report `DALE043` rather than read it as an
+  interface binding.
 
 `AC-ANLZ-013.2` matters to anyone shipping a library of base blocks: skipping abstract declarations
 meant a library's own predicates were validated in its consumers' builds and never in its own.
@@ -388,17 +391,23 @@ reported at the abstract declaration — which is the rule, not an accident of i
 and the gateable test was the last to gain it. Each half reaches what the other cannot: by symbol is
 the only path to a contract in a *referenced* assembly, and by name the only path to one this
 compilation declares, because in a Metalama-hosted build the interface `LogicClassGenerator` emits is
-an error type absent from `AllInterfaces`.
+an error type. Whether it is in `AllInterfaces` at all depends on how the type reaches it: declared
+directly on a class it is absent, while one inherited through an interface that does resolve is
+present as an error type — which is why `AC-ANLZ-014.5` turns on a name being *resolved*, not on its
+being found.
 
-Its two edges are both the binder's. The criterion names a property whose **type implements** the
+`AC-ANLZ-014.4`'s two edges are both the binder's. It names a property whose **type implements** the
 interface, which is what `DeclarativeInterfaceBinder` binds; a property typed as the interface itself
 is not a binding and is refused. And it names the whole ancestry, because the binder's
 `Type.GetInterfaces()` is transitive: an endpoint inherited from a base class, or reached through an
 interface extending the generated one, binds like a directly declared one, so reading the property
-type's own base list alone would refuse a gate the runtime then binds. No wider than that, though — a
-name no `[LogicBlockContract]` here declares as a role is no binding, and neither is one that already
-resolves to an interface the type implements without `[LogicInterface]`. `DALE043` is an error, and
-over-accepting one admits a gate that compiles and then binds nothing, which nobody sees.
+type's own base list alone would refuse a gate the runtime then binds.
+
+`AC-ANLZ-014.5` is the other edge, and it is the one that fails silently. `DALE043` is an error, so a
+refusal is loud and an over-acceptance is not: a gate wrongly allowed compiles and then binds nothing.
+A base-list name the compiler already resolved is an ordinary type that happens to share a role's
+spelling — the symbol half ran first and found no `[LogicInterface]` on it — so the by-name half is
+reserved for the names that resolve to nothing, which is what a generated interface does.
 
 ## Service relations
 

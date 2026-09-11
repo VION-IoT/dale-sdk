@@ -81,7 +81,7 @@ public class Endpoint : IGenSink { }";
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-ANLZ-014.4")]
+        [TestProperty("spec", "AC-ANLZ-014.5")]
         [TestProperty("spec", "AC-GATE-011.3")]
         public async Task ReportGateOnPropertyNamingResolvedInterfaceSharingContractRoleName()
         {
@@ -101,6 +101,34 @@ namespace Elsewhere
 }
 
 public class Component : Elsewhere.IGenSink { }
+
+public class MyBlock : LogicBlockBase
+{
+    [InstantiationParameter][ServiceProperty] public bool UseBackup { get; set; }
+
+    [IncludedWhen({|#0:""UseBackup""|})] public Component Backup { get; private set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.5")]
+        [TestProperty("spec", "AC-GATE-011.3")]
+        public async Task ReportGateOnPropertyNamingResolvedBaseClassSharingContractRoleName()
+        {
+            // Arrange / Act / Assert
+            // Same boundary as its sibling above, on the shape that reaches the ancestry as a base class
+            // rather than an interface. Keying the guard on implemented interfaces alone would let this one
+            // through, and a base class is no more an interface binding than an unrelated interface is.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+public class GeneratedContract { }
+
+public class IGenSink { }
+
+public class Component : IGenSink { }
 
 public class MyBlock : LogicBlockBase
 {
