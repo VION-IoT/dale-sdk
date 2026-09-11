@@ -51,12 +51,15 @@ invariants); this change *ships* it and does not evolve it.
   there is no topology-side analogue of the scenario schema's name-path enrichment, and the
   type-loadability half of a topology check (`AC-SCEN-013.3`) needs the loaded catalog, which is
   the host's.
-- `D3` — A wire declared twice, in either order, is an error (brief question 1). The strict parser
-  does not reject it and is not touched; the check lives CLI-side, where the consumer's own guard
-  script already enforces it, so migrating off that script loses nothing.
+- `D3` — A wire declared twice, in either order, is an error (brief question 1) — and it is a
+  **mirror, not an addition**: `ContractPairingResolution.Resolve` refuses it when the topology is
+  built, under `AC-SCEN-014.3`, with the same symmetric key. `DevTopologyFile.Parse` does not, which
+  is what the brief's question was about and what this decision first generalised from. See *Drift
+  checkpoints*.
 - `D4` — A missing `$schema` is a **warning**, promoted to an error only by `--require-schema-ref`
   (brief question 2). The loader declares `$schema` optional, so a hard rule would contradict it;
-  the opt-in flag is what lets the consumer's gate keep the strictness it has.
+  the opt-in flag is what lets the consumer's gate keep the strictness it has. This is the only rule
+  the validator adds to the loader's set.
 - `D5` — `topology schema` takes the same `--out` / `-O` / `-o` trio as `scenario schema`
   (`AC-CLI-010.10`), deprecated alias included, so the two schema verbs are one surface to a script
   that drives both. `-o` is **not** the output-format option on either.
@@ -72,9 +75,12 @@ invariants); this change *ships* it and does not evolve it.
 ### Reviewer's questions
 
 1. *(b) decide-and-document* — Should a duplicate contract pairing be an error, making the CLI
-   validator stricter than `DevTopologyFile.Parse`? Decided `D3`: yes. The asymmetry is deliberate
-   and stated on the page; no file in either corpus declares one, so nothing in flight reddens.
-   **OUTCOME**: accepted as decided; no reviewer change.
+   validator stricter than `DevTopologyFile.Parse`? Decided `D3`: yes.
+   **OUTCOME**: the answer stands and its reason does not. Review round 1 read
+   `ContractPairingResolution.Resolve`, which refuses the duplicate at load under `AC-SCEN-014.3` —
+   so the check is a mirror and the validator is not stricter than the host at all. The question was
+   the wrong question; the code it produced is right. Corrected in `D3` and the first *Drift
+   checkpoint* of that round.
 2. *(b) decide-and-document* — Warning or opt-in error for a missing `$schema`? Decided `D4`: both,
    warning by default and error under `--require-schema-ref`. All 78 corpus files carry `$schema`,
    so the default path is silent today. **OUTCOME**: accepted as decided; no reviewer change.
@@ -134,10 +140,12 @@ The canonical rules live in `Vion.Dale.DevHost/Topologies/DevTopologyFile.cs` �
 | no self-pairing | `Parse:182-187` | yes |
 | contract mapping's two required fields | the schema's `required` on `contractMappings.items` | yes |
 | an instantiation-parameter value is a JSON scalar | the schema's `additionalProperties` on `instantiationParameters` (`AC-SCEN-013.8`) | yes |
-| **no duplicate wire** | nowhere — `D3` | added, CLI-side only |
+| no duplicate wire | `ContractPairingResolution.cs:56-62`, reached from `DevTopologyLoader.cs:204` (`AC-SCEN-014.3`) | yes |
+| contract mapping names a declared instance | `DevTopologyLoader.cs:175-179` (`AC-SCEN-013.5`, first half) | yes |
+| a collection of the wrong JSON kind | `SerializerOptions:35-41` — the strict deserializer throws | yes |
 | **`$schema` present** | nowhere — `Schema` is `string?`, `D4` | added as a warning / opt-in error |
 | instance type is loadable and is a logic block | `AC-SCEN-013.3` — needs the loaded catalog | no, and cannot be |
-| a contract mapping names a contract the block carries | `AC-SCEN-013.5` — needs the catalog | no, and cannot be |
+| a contract mapping names a contract the block carries | `AC-SCEN-013.5`, second half — needs the catalog | no, and cannot be |
 | which pairing directions materialise | `AC-SCEN-014.*` — CLR type identity of two `[ScenarioWire]` halves | no, and cannot be |
 
 The last three are the half no offline text check can reach, which the consumer's own script header
@@ -181,6 +189,27 @@ schema, and the exact failure the consumer's committed copy shows today.
 - 2026-09-11: the mirror table gained a row the design missed — an instantiation-parameter value
   must be a JSON scalar (`AC-SCEN-013.8`). It is offline-decidable and a hand-edited object or
   array there reaches the operator as a config-time gate that silently did not resolve.
+- 2026-09-11 (review round 1): **`D3`'s premise was wrong.** A duplicate wire is refused at load by
+  `ContractPairingResolution.cs:56-62`, with the same symmetric key the validator now uses, and
+  `AC-SCEN-014.3` on the edited page already states it. `DevTopologyFile.Parse` does not refuse it —
+  which is what the brief verified and what this doc generalised from the parser to the loader
+  without reading the loader. The code stands unchanged; `D3`, the mirror table and the
+  `docs/specs/scenarios.md` prose were rewritten, and the message now matches the host's wording. So
+  the validator adds exactly one rule to the loader's set, `AC-SCEN-015.9`, not two.
+- 2026-09-11 (review round 1): two mirror gaps closed. `ValidateContractMappings` did not resolve
+  its block against the declared instances, though `DevTopologyLoader.cs:175-179` does and needs no
+  catalog for it — a renamed instance missed in one `contractMappings` entry validated green and
+  failed at load. And each of the four collections, given a JSON value of the wrong kind, was
+  skipped in silence: the file passed *and* every check over that collection was dropped, which is
+  the shape a hand edit takes when the brackets around a single entry go. Sibling sweep: all four
+  collections and the `$schema` member, each with its own row.
+- 2026-09-11 (review round 1): the wire key joined its two endpoints on `" <-> "`, and a contract
+  identifier may carry a `.` — a collision was unreachable only because instance names are dot-free.
+  It now joins on a character no JSON member name can hold.
+- 2026-09-11 (review round 1): `AC-CLI-020.2` says *ordinal* name order and the walk sorted full
+  paths with `OrdinalIgnoreCase`, inherited from `ScenarioCommand`. The code now sorts file names
+  ordinally, and the test's two rows differ in case so they can tell the two orders apart. The
+  sibling verb's own wording drift (`AC-CLI-010.5`) is left alone — it is not this change's.
 
 ---
 
@@ -204,9 +233,10 @@ schema, and the exact failure the consumer's committed copy shows today.
 
 - **`dale topology validate [--dir topologies] [--require-schema-ref]`** — checks every
   `*.topology.json` in a directory against the rules the host's loader applies, with no host
-  running. Exits 1 on any error. A missing `$schema` is a warning unless `--require-schema-ref`
-  makes it an error. Two checks the host's parser does not make: a wire declared twice, and the
-  `$schema` reference.
+  running. Exits 1 on any error. One thing it reports that the host does not: a missing `$schema`
+  reference, as a warning, or as an error under `--require-schema-ref`. Everything else it reports,
+  the host refuses too — including a wire declared twice, which the loader refuses when it builds
+  the topology.
 - **`dale topology schema [--out <file>]`** — prints the generic topology schema, or writes it.
   `-O` is the short form and `-o` the deprecated alias, matching `dale scenario schema`. The
   conventional destination is `topologies/.dale/topology.schema.json`, what the files' `$schema`

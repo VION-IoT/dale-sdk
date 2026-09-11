@@ -151,9 +151,12 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.6")]
-        [DataRow("""{ "contractIdentifier": "Grid" }""", DisplayName = "a contract mapping naming no block")]
-        [DataRow("""{ "logicBlockName": "Meter" }""", DisplayName = "a contract mapping naming no contract")]
-        public void ReportContractMappingMissingRequiredField(string mapping)
+        [DataRow("""{ "contractIdentifier": "Grid" }""", "logicBlockName and contractIdentifier are both required", DisplayName = "a contract mapping naming no block")]
+        [DataRow("""{ "logicBlockName": "Meter" }""", "logicBlockName and contractIdentifier are both required", DisplayName = "a contract mapping naming no contract")]
+        [DataRow("""{ "logicBlockName": "Ghost", "contractIdentifier": "Grid" }""",
+                 "'Ghost' is not a declared instance",
+                 DisplayName = "a contract mapping naming an undeclared block")]
+        public void ReportContractMappingBreak(string mapping, string expectedFragment)
         {
             // Arrange
             var json = $$"""
@@ -168,7 +171,60 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(error => error.Contains("logicBlockName and contractIdentifier are both required")), string.Join(" | ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains(expectedFragment)),
+                          $"expected an error carrying '{expectedFragment}', got: {string.Join(" | ", outcome.Errors)}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.6")]
+        [DataRow("interfaceMappings", DisplayName = "the interface mappings")]
+        [DataRow("contractPairings", DisplayName = "the contract pairings")]
+        [DataRow("contractMappings", DisplayName = "the contract mappings")]
+        public void ReportOptionalCollectionOfWrongJsonKind(string member)
+        {
+            // Arrange — the brackets around a single entry dropped, which the host's deserializer throws on.
+            // Skipping it would pass the file and silently drop every check over that collection.
+            var json = $$"""
+                         {
+                           "id": "demo",
+                           "logicBlockInstances": [ { "typeFullName": "Acme.Blocks.Meter", "name": "Meter" } ],
+                           "{{member}}": { "logicBlockName": "Meter", "contractIdentifier": "Grid" }
+                         }
+                         """;
+
+            // Act
+            var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains($"{member} must be an array")), string.Join(" | ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.6")]
+        public void ReportInstancesOfWrongJsonKind()
+        {
+            // Arrange
+            var json = """{ "id": "demo", "logicBlockInstances": { "typeFullName": "Acme.Blocks.Meter", "name": "Meter" } }""";
+
+            // Act
+            var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains("logicBlockInstances must be an array")), string.Join(" | ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.6")]
+        public void ReportSchemaReferenceOfWrongJsonKind()
+        {
+            // Arrange
+            var json = """{ "$schema": 42, "id": "demo", "logicBlockInstances": [ { "typeFullName": "T", "name": "N" } ] }""";
+
+            // Act
+            var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains("$schema must be a string")), string.Join(" | ", outcome.Errors));
         }
 
         [TestMethod]
@@ -249,7 +305,7 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = TopologyFileChecks.Validate("demo.topology.json", json);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(error => error.Contains("is already declared")), string.Join(" | ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(error => error.Contains("are already paired")), string.Join(" | ", outcome.Errors));
         }
 
         [TestMethod]

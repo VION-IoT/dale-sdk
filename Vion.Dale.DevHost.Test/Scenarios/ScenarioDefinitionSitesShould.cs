@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Scenarios;
+using Vion.Dale.DevHost.Topologies;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -273,6 +274,34 @@ namespace Vion.Dale.DevHost.Test
             StringAssert.Contains(devHost, @"EmbeddedResource Include=""Scenarios\scenario.schema.json""");
             StringAssert.Contains(devHost, @"EmbeddedResource Include=""Topologies\topology.schema.json""");
             StringAssert.Contains(cli, @"EmbeddedResource Include=""..\Vion.Dale.DevHost\Scenarios\scenario.schema.json""");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.10")]
+        public void ShipCanonicalTopologySchemaToCommandLineTool()
+        {
+            // Arrange
+            var cli = File.ReadAllText(Path.Combine(RepoRoot(), "Vion.Dale.Cli", "Vion.Dale.Cli.csproj"));
+
+            // Act / Assert — `dale topology schema` emits what it carries, so a copy checked into the CLI
+            // instead of this link would emit a document that drifts from the host's with nothing saying so.
+            StringAssert.Contains(cli, @"EmbeddedResource Include=""..\Vion.Dale.DevHost\Topologies\topology.schema.json""");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.13")]
+        public void NameOneSchemaReferenceInValidatorAndLoader()
+        {
+            // Arrange
+            var source = File.ReadAllText(Path.Combine(RepoRoot(), "Vion.Dale.Cli", "Commands", "TopologyFileChecks.cs"));
+
+            // Act
+            var declared = Regex.Match(source, @"DevTopologySchemaRef\s*=\s*""(?<value>[^""]+)""\s*;");
+
+            // Assert — the CLI deliberately does not reference Vion.Dale.DevHost, so the conventional
+            // reference is restated there; nothing but this comparison keeps the two spellings together.
+            Assert.IsTrue(declared.Success, "TopologyFileChecks declares no DevTopologySchemaRef constant");
+            Assert.AreEqual(DevTopologyFile.SchemaRef, declared.Groups["value"].Value);
         }
 
         [TestMethod]

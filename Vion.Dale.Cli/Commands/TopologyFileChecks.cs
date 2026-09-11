@@ -99,7 +99,14 @@ namespace Vion.Dale.Cli.Commands
 
             CheckMembers(topology, RootMembers, null, errors);
 
-            if (topology["$schema"] is null)
+            if (topology["$schema"] is { } schemaRef)
+            {
+                if (AsString(schemaRef) is null)
+                {
+                    errors.Add("$schema must be a string");
+                }
+            }
+            else
             {
                 var message = $"no '$schema' reference (conventionally \"{DevTopologySchemaRef}\", which is what makes an editor check a hand edit)";
                 (requireSchemaRef ? errors : warnings).Add(message);
@@ -124,7 +131,7 @@ namespace Vion.Dale.Cli.Commands
             var names = ValidateInstances(topology, errors);
             ValidateInterfaceMappings(topology, names, errors);
             ValidateContractPairings(topology, names, errors);
-            ValidateContractMappings(topology, errors);
+            ValidateContractMappings(topology, names, errors);
 
             return new TopologyCheckOutcome { Errors = errors, Warnings = warnings };
         }
@@ -136,6 +143,12 @@ namespace Vion.Dale.Cli.Commands
         {
             var names = new HashSet<string>(StringComparer.Ordinal);
             var instances = topology["logicBlockInstances"];
+            if (instances is not null && instances is not JsonArray)
+            {
+                errors.Add("logicBlockInstances must be an array");
+                return names;
+            }
+
             if (instances is not JsonArray { Count: > 0 } declared)
             {
                 errors.Add("logicBlockInstances must declare at least one instance");
@@ -205,7 +218,7 @@ namespace Vion.Dale.Cli.Commands
 
         private static void ValidateInterfaceMappings(JsonObject topology, ICollection<string> names, ICollection<string> errors)
         {
-            if (topology["interfaceMappings"] is not JsonArray mappings)
+            if (OptionalArray(topology, "interfaceMappings", errors) is not { } mappings)
             {
                 return;
             }
@@ -244,12 +257,12 @@ namespace Vion.Dale.Cli.Commands
 
         private static void ValidateContractPairings(JsonObject topology, ICollection<string> names, ICollection<string> errors)
         {
-            if (topology["contractPairings"] is not JsonArray pairings)
+            if (OptionalArray(topology, "contractPairings", errors) is not { } pairings)
             {
                 return;
             }
 
-            var wires = new HashSet<string>(StringComparer.Ordinal);
+            var wires = new HashSet<(string, string)>();
             for (var index = 0; index < pairings.Count; index++)
             {
                 var where = $"contractPairings[{index}]";
@@ -278,13 +291,14 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                // A pairing is symmetric, so a <-> b and b <-> a are the same wire. The strict parser
-                // tolerates the repeat; an author who wrote it meant two wires and has one, which is a
-                // silent half of a topology.
-                var wire = string.CompareOrdinal(a, b) <= 0 ? $"{a} <-> {b}" : $"{b} <-> {a}";
+                // A pairing is symmetric, so a-to-b and b-to-a are the same wire, and a repeat installs the
+                // same forward twice — which the host refuses when it builds the topology. The two endpoints
+                // are held as an ordered pair rather than joined into one key: a contract identifier may
+                // carry a '.', so any separator risks two distinct wires colliding on one string.
+                var wire = string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
                 if (!wires.Add(wire))
                 {
-                    errors.Add($"{where}: the wire '{wire}' is already declared — a pairing is symmetric, so naming it twice in either order declares one wire, not two");
+                    errors.Add($"{where}: '{a}' and '{b}' are already paired — a pairing is symmetric, so declare it once");
                 }
             }
         }
@@ -317,11 +331,12 @@ namespace Vion.Dale.Cli.Commands
             return $"{block}.{contract}";
         }
 
-        // Only the structural half the schema states: a mapping names a block and a contract binding.
-        // Whether either exists is the host's question — it needs the loaded catalog.
-        private static void ValidateContractMappings(JsonObject topology, ICollection<string> errors)
+        // Both halves the loader decides from the file: a mapping names a block and a contract binding, and
+        // the block it names is a declared instance. Whether that block carries that contract needs the loaded
+        // catalog, so only that half stays the host's.
+        private static void ValidateContractMappings(JsonObject topology, ICollection<string> names, ICollection<string> errors)
         {
-            if (topology["contractMappings"] is not JsonArray mappings)
+            if (OptionalArray(topology, "contractMappings", errors) is not { } mappings)
             {
                 return;
             }
@@ -337,11 +352,36 @@ namespace Vion.Dale.Cli.Commands
 
                 CheckMembers(mapping, ContractMappingMembers, where, errors);
 
-                if (string.IsNullOrWhiteSpace(AsString(mapping["logicBlockName"])) || string.IsNullOrWhiteSpace(AsString(mapping["contractIdentifier"])))
+                var block = AsString(mapping["logicBlockName"]);
+                if (string.IsNullOrWhiteSpace(block) || string.IsNullOrWhiteSpace(AsString(mapping["contractIdentifier"])))
                 {
                     errors.Add($"{where}: logicBlockName and contractIdentifier are both required");
                 }
+                else if (!names.Contains(block!))
+                {
+                    errors.Add($"{where}: '{block}' is not a declared instance");
+                }
             }
+        }
+
+        // A collection of the wrong JSON kind is reported, never skipped: the host's strict deserializer
+        // throws on it, and a validator that quietly returns here would pass the file AND silently drop every
+        // check over that collection — the shape a hand edit takes when the brackets around a single entry go.
+        private static JsonArray? OptionalArray(JsonObject topology, string member, ICollection<string> errors)
+        {
+            var node = topology[member];
+            if (node is null)
+            {
+                return null;
+            }
+
+            if (node is JsonArray array)
+            {
+                return array;
+            }
+
+            errors.Add($"{member} must be an array");
+            return null;
         }
 
         private static void CheckMembers(JsonObject node, IReadOnlyCollection<string> declared, string? where, ICollection<string> errors)

@@ -521,7 +521,7 @@ the validators mirror them. The command surface of both is [`cli.md`](cli.md)'s.
   and a member declared twice, at every level of the document, so a hand edit's misspelling is
   reported without a host.
 - `AC-SCEN-015.8` (Ubiquitous): THE SYSTEM SHALL refuse offline a topology that declares one wire
-  twice, whichever order each pairing names its two endpoints in.
+  twice, whichever order each pairing names its two endpoints in, as the loader refuses it.
 - `AC-SCEN-015.9` (Optional): WHERE a topology file carries no schema reference THE SYSTEM SHALL
   report that as a warning, and SHALL refuse the file for it only where the caller asked for the
   reference to be required.
@@ -539,12 +539,13 @@ contract mapping names a binding the block carries (`AC-SCEN-013.5`), and which 
 pairing materialise (`AC-SCEN-014.*`). Those stay the host's, and a committed scenario run is where
 the file is proven to load.
 
-`AC-SCEN-015.8` and `AC-SCEN-015.9` are the two places the offline validator is deliberately not a
-mirror. The loader accepts one wire declared twice and treats a schema reference as optional; an
-author who wrote the wire twice meant two wires and has one, and an author with no schema reference
-gets no editor check at all. Both are reported here — the wire as an error, the reference as a
-warning the caller can promote — without moving the loader, which a topology file's other reader
-also parses.
+`AC-SCEN-015.8` is a mirror like the rest, of `AC-SCEN-014.3` rather than of `AC-SCEN-013.*`: the
+duplicate wire is refused when the topology is built, not when the file is parsed, so an author who
+wrote it twice meant two wires, has one, and learns that from the host today and from the validator
+now. `AC-SCEN-015.9` is the one rule the validator adds: the loader treats a schema reference as
+optional and this leaves that true, reporting its absence as a warning the caller can promote rather
+than a refusal — an author with no reference gets no editor check at all, which is worth saying
+without moving a rule a topology file's other readers also parse.
 
 ## A scenario as a consumer's test
 

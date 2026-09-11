@@ -50,7 +50,7 @@ namespace Vion.Dale.Cli.Commands
                                    var requireSchemaRef = parseResult.GetValue(requireSchemaOption);
                                    var results = new List<object>();
                                    var failed = false;
-                                   foreach (var path in Directory.EnumerateFiles(dir, $"*{TopologyFileChecks.FileSuffix}").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+                                   foreach (var path in Directory.EnumerateFiles(dir, $"*{TopologyFileChecks.FileSuffix}").OrderBy(Path.GetFileName, StringComparer.Ordinal))
                                    {
                                        var fileName = Path.GetFileName(path);
                                        var outcome = TopologyFileChecks.Validate(fileName, File.ReadAllText(path), requireSchemaRef);

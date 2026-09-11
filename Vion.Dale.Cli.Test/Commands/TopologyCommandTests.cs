@@ -49,10 +49,11 @@ namespace Vion.Dale.Cli.Test.Commands
         public async Task ValidateEveryFileInOrdinalNameOrder()
         {
             // Arrange — the JSON document carries the walk's order, which the decorated table lines do not
-            // expose to a writer a test can capture.
+            // expose to a writer a test can capture. The two names differ in case so the row tells ordinal
+            // order from a case-insensitive one: ordinal puts every upper-case initial first.
             var dir = NewDirectory();
-            File.WriteAllText(Path.Combine(dir, "beta.topology.json"), ValidTopology.Replace("\"demo\"", "\"beta\""));
             File.WriteAllText(Path.Combine(dir, "alpha.topology.json"), ValidTopology.Replace("\"demo\"", "\"alpha\""));
+            File.WriteAllText(Path.Combine(dir, "Beta.topology.json"), ValidTopology.Replace("\"demo\"", "\"Beta\""));
             var output = new StringWriter();
             var previousOut = Console.Out;
             Console.SetOut(output);
@@ -74,7 +75,7 @@ namespace Vion.Dale.Cli.Test.Commands
             // Assert
             Assert.AreEqual(0, exit);
             var files = JsonNode.Parse(output.ToString())!["files"]!.AsArray().Select(file => file!["file"]!.GetValue<string>()).ToArray();
-            CollectionAssert.AreEqual(new[] { "alpha.topology.json", "beta.topology.json" }, files);
+            CollectionAssert.AreEqual(new[] { "Beta.topology.json", "alpha.topology.json" }, files);
         }
 
         [TestMethod]
