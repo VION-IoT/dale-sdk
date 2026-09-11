@@ -6,8 +6,7 @@ using Google.FlatBuffers;
 using Moq;
 using Vion.Contracts.FlatBuffers.Hw.Ai;
 using Vion.Contracts.FlatBuffers.Hw.Ao;
-using Vion.Contracts.FlatBuffers.Hw.Di;
-using Vion.Contracts.FlatBuffers.Hw.Do;
+using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Mqtt;
@@ -15,6 +14,13 @@ using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.AnalogIo.Test.TestHelpers
 {
+    /// <summary>
+    ///     A state message's payload as it arrives: the bytes, and the schema name the publisher labelled them
+    ///     with. The two travel together because a handler judges them together — the bytes alone cannot say
+    ///     which contract family they belong to.
+    /// </summary>
+    internal readonly record struct StatePayload(byte[] Bytes, string? Schema);
+
     /// <summary>
     ///     Drives a handler through its own message loop against a recorded actor context — the whole of a
     ///     handler's outward behaviour is what it hands that context, so every suite here arranges through
@@ -71,60 +77,58 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.TestHelpers
             return $"{Installation}/{ServiceProviderIdentifier}/{ServiceIdentifier}/{contractIdentifier}{actionPath}";
         }
 
-        internal static byte[] AnalogStatePayload(double value)
+        internal static StatePayload AnalogStatePayload(double value)
         {
             var builder = new FlatBufferBuilder(64);
             var hardwareBlock = builder.CreateString("hw0");
             var endpoint = builder.CreateString("ep0");
             AiStatePayload.FinishAiStatePayloadBuffer(builder, AiStatePayload.CreateAiStatePayload(builder, hardwareBlock, endpoint, value));
 
-            return builder.SizedByteArray();
+            return new StatePayload(builder.SizedByteArray(), nameof(AiStatePayload));
         }
 
-        internal static byte[] AnalogOutputStatePayload(double value)
+        internal static StatePayload AnalogOutputStatePayload(double value)
         {
             var builder = new FlatBufferBuilder(64);
             var hardwareBlock = builder.CreateString("hw0");
             var endpoint = builder.CreateString("ep0");
             AoStatePayload.FinishAoStatePayloadBuffer(builder, AoStatePayload.CreateAoStatePayload(builder, hardwareBlock, endpoint, value));
 
-            return builder.SizedByteArray();
+            return new StatePayload(builder.SizedByteArray(), nameof(AoStatePayload));
         }
 
         /// <summary>
-        ///     The neighbouring family's input payload — the same layout with a narrower value, so it carries
-        ///     fewer bytes than an analog topic's schema accepts.
+        ///     The first <paramref name="length" /> bytes of a payload — a message cut short in flight. It keeps
+        ///     its label, because a publisher that labelled a message correctly is not what cut it.
         /// </summary>
-        internal static byte[] DigitalStatePayload(bool value)
+        internal static StatePayload Truncated(StatePayload payload, int length)
         {
-            var builder = new FlatBufferBuilder(64);
-            var hardwareBlock = builder.CreateString("hw0");
-            var endpoint = builder.CreateString("ep0");
-            DiStatePayload.FinishDiStatePayloadBuffer(builder, DiStatePayload.CreateDiStatePayload(builder, hardwareBlock, endpoint, value));
-
-            return builder.SizedByteArray();
+            return payload with { Bytes = payload.Bytes.Take(length).ToArray() };
         }
 
-        /// <summary>The neighbouring family's output payload, for the same reason as <see cref="DigitalStatePayload" />.</summary>
-        internal static byte[] DigitalOutputStatePayload(bool value)
+        /// <summary>
+        ///     The same bytes under a different schema label — the one arrangement in which the label is the only
+        ///     thing a handler can refuse on, the payload itself being the one its topic carries.
+        /// </summary>
+        internal static StatePayload Labelled(StatePayload payload, string schema)
         {
-            var builder = new FlatBufferBuilder(64);
-            var hardwareBlock = builder.CreateString("hw0");
-            var endpoint = builder.CreateString("ep0");
-            DoStatePayload.FinishDoStatePayloadBuffer(builder, DoStatePayload.CreateDoStatePayload(builder, hardwareBlock, endpoint, value));
-
-            return builder.SizedByteArray();
+            return payload with { Schema = schema };
         }
 
-        /// <summary>The first <paramref name="length" /> bytes of a payload — a message cut short in flight.</summary>
-        internal static byte[] Truncated(byte[] payload, int length)
+        /// <summary>
+        ///     The same payload with its schema label stripped — what a publisher that sets no label puts on the
+        ///     wire.
+        /// </summary>
+        internal static StatePayload Unlabelled(StatePayload payload)
         {
-            return payload.Take(length).ToArray();
+            return payload with { Schema = null };
         }
 
-        internal static MqttMessageReceived MqttMessage(string topic, byte[] payload)
+        internal static MqttMessageReceived MqttMessage(string topic, StatePayload payload)
         {
-            return new MqttMessageReceived(topic, new ReadOnlySequence<byte>(payload), null, null, []);
+            var userProperties = payload.Schema == null ? new List<MqttUserProperty>() : [new MqttUserProperty(MqttUserProperties.Schema.Name, payload.Schema)];
+
+            return new MqttMessageReceived(topic, new ReadOnlySequence<byte>(payload.Bytes), null, null, userProperties);
         }
 
         /// <summary>Hands the handler one message on its own message loop, the way the actor system would.</summary>

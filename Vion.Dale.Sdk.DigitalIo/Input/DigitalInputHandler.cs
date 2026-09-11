@@ -44,6 +44,16 @@ namespace Vion.Dale.Sdk.DigitalIo.Input
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
+            // The buffer check below accepts the neighbouring family's payload as readily as this one's: the
+            // two layouts agree, so a value of the other family's width decodes here as a value nobody
+            // published, and every bound block acts on it. The schema label the publisher sets beside the
+            // payload is the only thing that separates them, and the far side of this wire refuses on it.
+            if (message.Schema != nameof(DiStatePayload))
+            {
+                LogRejectedForeignSchema(message.ContractId, message.Schema, message.Topic);
+                return;
+            }
+
             // An unverified buffer does not fail loudly: a truncated one reads a value out of whatever
             // survived the cut and forwards it as if a device had sent it, and an empty one throws out of
             // the handler. The generated DiStatePayload.VerifyDiStatePayload wrapper cannot be used — it
@@ -67,5 +77,9 @@ namespace Vion.Dale.Sdk.DigitalIo.Input
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable DI payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
         private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
+
+        [LoggerMessage(Level = LogLevel.Debug,
+                       Message = "Rejected DI payload labelled with another schema (ServiceProviderContractId={ServiceProviderContractId}, Schema={Schema}, Topic={Topic})")]
+        private partial void LogRejectedForeignSchema(ServiceProviderContractId serviceProviderContractId, string? schema, string topic);
     }
 }

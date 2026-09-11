@@ -1,5 +1,7 @@
 using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vion.Contracts.FlatBuffers.Hw.Ai;
+using Vion.Contracts.FlatBuffers.Hw.Do;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Test.TestHelpers;
@@ -113,19 +115,53 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Input
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.2")]
-        public void ForwardValueDecodedFromWiderPayload()
+        [TestProperty("spec", "AC-IO-005.5")]
+        [DataRow(nameof(DoStatePayload), DisplayName = "the sibling contract's payload type")]
+        [DataRow(nameof(AiStatePayload), DisplayName = "the neighbouring family's payload type")]
+        public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
-            // Arrange — the neighbouring family's payload has the same layout with a wider value, so the
-            // schema check passes and the value read is one nothing sent. Only the schema label the wire
-            // carries distinguishes the case, and this side cannot read one.
+            // Arrange — this topic's own payload, well-formed, under a label naming another payload type. The
+            // bytes pass the buffer check, so the label is the only thing left to refuse on.
+            _harness.Link(_sut);
+            var mislabelled = HandlerHarness.Labelled(HandlerHarness.DigitalStatePayload(true), schema);
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), mislabelled));
+
+            // Assert — the refusal is that nothing reached a block.
+            Assert.IsEmpty(_harness.Forwarded<DigitalInputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-005.5")]
+        public void ForwardNothingWhenSchemaMissing()
+        {
+            // Arrange — the same well-formed payload with no label beside it. Every publisher on this wire
+            // sets one, so an unlabelled message is not one this side can vouch for.
+            _harness.Link(_sut);
+            var unlabelled = HandlerHarness.Unlabelled(HandlerHarness.DigitalStatePayload(true));
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), unlabelled));
+
+            // Assert
+            Assert.IsEmpty(_harness.Forwarded<DigitalInputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-005.5")]
+        public void ForwardNothingWhenPayloadWiderThanTopicCarries()
+        {
+            // Arrange — the neighbouring family's payload carries a real number where this topic carries a truth
+            // value, and the layouts agree closely enough that the buffer check accepts it. The label it comes
+            // under is what refuses it.
             _harness.Link(_sut);
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), HandlerHarness.AnalogStatePayload(4.2)));
 
-            // Assert — the stated bound of what a verified payload means, not a behaviour worth having.
-            Assert.IsTrue(_harness.Forwarded<DigitalInputChanged>().Single().Data.Value);
+            // Assert — the reported failure's own shape: this used to forward a value nobody published.
+            Assert.IsEmpty(_harness.Forwarded<DigitalInputChanged>());
         }
 
         [TestMethod]

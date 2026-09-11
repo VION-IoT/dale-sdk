@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Google.FlatBuffers;
+using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
@@ -50,6 +51,35 @@ namespace Vion.Dale.Sdk.Abstractions
         public string? ResponseTopic
         {
             get => _inner.ResponseTopic;
+        }
+
+        /// <summary>
+        ///     The payload type's schema name, as the publisher labelled it, or <c>null</c> when the message
+        ///     carries no such label.
+        /// </summary>
+        public string? Schema
+        {
+            get
+            {
+                // The list is declared non-nullable, but the message is built by an MQTT client outside this
+                // package: one that carries no user properties at all arrives here as a null list, and every
+                // inbound state message would then fault on the decode path instead of being judged.
+                var userProperties = _inner.UserProperties;
+                if (userProperties == null)
+                {
+                    return null;
+                }
+
+                foreach (var userProperty in userProperties)
+                {
+                    if (userProperty.Name == MqttUserProperties.Schema.Name)
+                    {
+                        return userProperty.Value;
+                    }
+                }
+
+                return null;
+            }
         }
 
         /// <summary>
