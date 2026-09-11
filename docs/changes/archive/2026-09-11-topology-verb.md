@@ -1,6 +1,6 @@
 ---
 slug: topology-verb
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: CLI, SCEN
 author: Claude Opus 5 (dispatched, VION-73)
@@ -27,7 +27,7 @@ because the SDK shipped no offline equivalent; this is the SDK half of VION-73.
 
 ### Spec implications
 
-Two pages, along the split [`specs/cli.md`](../specs/cli.md)'s `scenario` section already states:
+Two pages, along the split [`specs/cli.md`](../../specs/cli.md)'s `scenario` section already states:
 the **command surface** is `cli.md`'s, the **file's own rules** are `scenarios.md`'s.
 
 - `cli.md` — a new `AC-CLI-020.*` group for the `topology` command (its two subcommands, the
@@ -39,7 +39,7 @@ the **command surface** is `cli.md`'s, the **file's own rules** are `scenarios.m
 
 No change to `topology.schema.json`, `DevTopologyFile`, `DevTopologyLoader` or the control API. The
 schema file is a cross-repo contract with the dashboard
-([`architecture/libraries/dale-sdk.md`](../../../architecture/libraries/dale-sdk.md) § Key
+([`architecture/libraries/dale-sdk.md`](../../../../architecture/libraries/dale-sdk.md) § Key
 invariants); this change *ships* it and does not evolve it.
 
 ### Decisions
@@ -226,6 +226,7 @@ schema, and the exact failure the consumer's committed copy shows today.
 - ADDED AC-SCEN-015.8 -> docs/specs/scenarios.md : THE SYSTEM SHALL refuse offline a topology that declares one wire twice, whichever order each pairing names its two endpoints in.
 - ADDED AC-SCEN-015.9 -> docs/specs/scenarios.md : WHERE a topology file carries no schema reference THE SYSTEM SHALL report that as a warning, and SHALL refuse the file for it only where the caller asked for the reference to be required.
 - ADDED AC-SCEN-015.10 -> docs/specs/scenarios.md : THE SYSTEM SHALL ship the generic topology schema to the command-line tool as the canonical file itself rather than a copy of it.
+- MODIFIED AC-SCEN-015.8 -> docs/specs/scenarios.md : THE SYSTEM SHALL refuse offline a topology that declares one wire twice, whichever order each pairing names its two endpoints in, as the loader refuses it.
 
 ---
 
