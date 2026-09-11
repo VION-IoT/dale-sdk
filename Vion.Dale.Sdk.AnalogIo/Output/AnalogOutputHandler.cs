@@ -49,10 +49,10 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            // The buffer check below accepts the neighbouring family's payload as readily as this one's: the
-            // two layouts agree, so a value of the other family's width decodes here as a value nobody
-            // published, and every bound block acts on it. The schema label the publisher sets beside the
-            // payload is the only thing that separates them, and the far side of this wire refuses on it.
+            // The buffer check below cannot separate this contract's payload from its sibling's: the two
+            // layouts are identical, so a payload of the other direction decodes here as a value nobody
+            // published and every bound block acts on it. The label the publisher sets beside the payload is
+            // what separates them, and the far side of this wire refuses on the same label.
             if (message.Schema != nameof(AoStatePayload))
             {
                 LogRejectedForeignSchema(message.ContractId, message.Schema, message.Topic);

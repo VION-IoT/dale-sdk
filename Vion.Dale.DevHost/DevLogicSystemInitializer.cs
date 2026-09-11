@@ -310,14 +310,16 @@ namespace Vion.Dale.DevHost
             /* The counterpart of the snapshot request the stop sequence sends and discards, and it is sent for
                the same reason: DevHost has no persistent data store, so the request carries no values and the
                response is thrown away, message-sequence parity with the runtime being the fidelity gap being
-               closed. It also exercises the block's RestorePersistentDataRequest arm — PersistentData.Apply and
-               its uninitialised guard — which no development path reached.
+               closed. An empty request runs the block's restore arm and its acknowledgement; Apply returns on
+               the empty set without reaching a member, so no value a block reads is touched.
 
                The runtime sends the request only to the blocks its store holds values for, so against an empty
                store it would send none. One per block is what puts the message where the runtime puts it when the
                store is not empty, which is the sequence a block's Starting() is written against. */
-            var requests = logicBlockActors.ToDictionary(actor => actor, _ => new RestorePersistentDataRequest([]));
-            var acknowledged = _actorSystem.SendAndWaitForAcknowledgementAsync<RestorePersistentDataRequest, RestorePersistentDataResponse>(requests, RestoreTimeout);
+            var acknowledged =
+                _actorSystem.SendAndWaitForAcknowledgementAsync<RestorePersistentDataRequest, RestorePersistentDataResponse>(logicBlockActors,
+                    new RestorePersistentDataRequest([]),
+                    RestoreTimeout);
 
             /* The wait above is VIRTUAL, for the same reason the start acknowledgement is, so it takes the same
                real-time backstop: on a stepped host nothing advances the fake clock during boot, and a block that

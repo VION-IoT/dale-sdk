@@ -18,10 +18,12 @@ using Vion.Dale.Sdk.Messages;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     DevHost teardown runs the runtime's domain stop sequence — stop acknowledgement, then the
-    ///     persistent-data snapshot, then actor termination — so <c>LogicBlockBase.Stopping()</c> is actually
-    ///     invoked in development. Before the fix <c>DevHost.StopAsync</c> carried a commented-out TODO and no
-    ///     production sender for <see cref="StopLogicBlockRequest" /> existed anywhere in this repo.
+    ///     DevHost runs the runtime's domain message sequence around a block's own lifetime — a
+    ///     persistent-data restore before the start acknowledgement, and stop acknowledgement, then the
+    ///     persistent-data snapshot, then actor termination on the way down — so <c>LogicBlockBase</c>'s hooks
+    ///     are reached at the same points in development as in production. Before the fix
+    ///     <c>DevHost.StopAsync</c> carried a commented-out TODO and no production sender for
+    ///     <see cref="StopLogicBlockRequest" /> existed anywhere in this repo.
     ///     <para>
     ///         Every test here drives a real built host through its own <c>await using</c> / DisposeAsync —
     ///         the seam that was broken. Pushing the message into <c>HandleMessageAsync</c> directly (as

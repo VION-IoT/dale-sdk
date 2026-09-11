@@ -138,7 +138,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), HandlerHarness.AnalogOutputStatePayload(4.2)));
 
-            // Assert — the reported failure's own shape: this used to forward a value nobody published.
+            // Assert — a value of the other family's width is the shape the buffer check alone admits.
             Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());
         }
 
