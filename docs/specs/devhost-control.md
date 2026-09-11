@@ -75,11 +75,25 @@ boot-dump-exit export path rests on — it never starts the host it exports.
   start with a message naming the port.
 - `AC-CTRL-002.7` (Ubiquitous): THE SYSTEM SHALL run a started host until its cancellation token fires,
   then stop it and return without throwing.
+- `AC-CTRL-002.8` (Ubiquitous): THE SYSTEM SHALL run the domain start as a persistent-data restore
+  carrying no values, then the start acknowledgement, so every block is restored before its start hook
+  runs, and SHALL downgrade a restore no block acknowledges to a warning.
 
 `AC-CTRL-002.4` is a real-time budget because the acknowledgement wait itself is virtual: on a stepped
 host nothing advances the clock during a boot, so a block that never answers would leave a due-time
 that never arrives. The block that does not answer is one whose start hook threw — which
 `AC-CTRL-003.*` is how a caller finds out about.
+
+`AC-CTRL-002.8` is `AC-CTRL-004.2`'s counterpart, and it exists for the same reason: message-sequence
+parity with the runtime is the fidelity a development host is for. It carries no values because the
+development host has no persistent store — the same reason the snapshot the teardown collects is
+discarded — so nothing a block reads in its start hook changes, and a persisted value read there is
+still the declared default at the desk. What changes is that the message is now in the sequence, at the
+point the runtime puts it, and that the block's restore arm runs in development at all. The runtime
+sends the request only to the blocks its store holds values for, so one per block is deliberately more
+than a runtime with an empty store would send: the sequence a block's start hook is written against is
+the populated one. The restore is a warning rather than a failure, as in the runtime, because the start
+acknowledgement is what decides whether the host started.
 
 ## Health after a start
 

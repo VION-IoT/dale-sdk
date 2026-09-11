@@ -60,6 +60,30 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.8")]
+        [DataRow(false, DisplayName = "free-running clock")]
+        [DataRow(true, DisplayName = "stepped clock")]
+        public async Task RunRestoreBeforeStartHook(bool stepped)
+        {
+            // Arrange
+            var recorder = new TeardownRecorder();
+
+            await using var host = BuildHost(recorder, stepped);
+
+            // Act
+            await host.StartAsync();
+
+            // Assert
+            var entries = recorder.Entries;
+            var restoreRequest = IndexOfMessage(entries, nameof(RestorePersistentDataRequest));
+            var starting = entries.ToList().IndexOf(TeardownRecorder.Starting);
+            var recorded = "Recorded: " + string.Join(", ", entries);
+
+            Assert.IsGreaterThanOrEqualTo(0, restoreRequest, "The block must receive RestorePersistentDataRequest while the host starts. " + recorded);
+            Assert.IsLessThan(starting, restoreRequest, "The restore must precede Starting(), which is the sequence a block's start hook is written against. " + recorded);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CTRL-004.2")]
         [DataRow(false, DisplayName = "free-running clock")]
         [DataRow(true, DisplayName = "stepped clock")]

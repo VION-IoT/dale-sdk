@@ -89,6 +89,10 @@ namespace Vion.Dale.DevHost
 
         private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(5);
 
+        // The runtime's own restore budget (LogicSystemConfigurationInitializer.RestorePersistentDataAsync),
+        // VIRTUAL like the others, which is why the start path carries its real-time backstop too.
+        private static readonly TimeSpan RestoreTimeout = TimeSpan.FromSeconds(5);
+
         private static readonly TimeSpan TerminateTimeout = TimeSpan.FromSeconds(5);
 
         // The slice termination keeps even when the sequence budget above is already spent.
@@ -177,6 +181,8 @@ namespace Vion.Dale.DevHost
             _logger.LogInformation("Starting {Count} LogicBlocks...", configuration.LogicBlocks.Count);
 
             var logicBlockActors = configuration.LogicBlocks.Select(lb => _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(lb.Name, lb.Id))).ToList();
+
+            await RestorePersistentDataAsync(logicBlockActors);
 
             var acknowledged =
                 _actorSystem.SendAndWaitForAcknowledgementAsync<StartLogicBlockRequest, StartLogicBlockResponse>(logicBlockActors,
@@ -289,6 +295,45 @@ namespace Vion.Dale.DevHost
                                          "waiting for LogicBlock actors to terminate");
 
             _logger.LogInformation("LogicBlocks stopped");
+        }
+
+        /// <summary>
+        ///     Runs the runtime's restore over the logic block actors before they are started, so a block's start
+        ///     hook is reached at the same point in the message sequence in development as in production.
+        ///     <para>
+        ///         A block that does not acknowledge in time is a warning, as in the runtime: the start
+        ///         acknowledgement is what decides whether the host started.
+        ///     </para>
+        /// </summary>
+        private async Task RestorePersistentDataAsync(List<IActorReference> logicBlockActors)
+        {
+            /* The counterpart of the snapshot request the stop sequence sends and discards, and it is sent for
+               the same reason: DevHost has no persistent data store, so the request carries no values and the
+               response is thrown away, message-sequence parity with the runtime being the fidelity gap being
+               closed. It also exercises the block's RestorePersistentDataRequest arm — PersistentData.Apply and
+               its uninitialised guard — which no development path reached.
+
+               The runtime sends the request only to the blocks its store holds values for, so against an empty
+               store it would send none. One per block is what puts the message where the runtime puts it when the
+               store is not empty, which is the sequence a block's Starting() is written against. */
+            var requests = logicBlockActors.ToDictionary(actor => actor, _ => new RestorePersistentDataRequest([]));
+            var acknowledged = _actorSystem.SendAndWaitForAcknowledgementAsync<RestorePersistentDataRequest, RestorePersistentDataResponse>(requests, RestoreTimeout);
+
+            /* The wait above is VIRTUAL, for the same reason the start acknowledgement is, so it takes the same
+               real-time backstop: on a stepped host nothing advances the fake clock during boot, and a block that
+               never answers would leave a due-time that never arrives.
+
+               Only a timeout is downgraded. Anything else is a fault in the actor system rather than in one
+               block, and a start that continues past it would report a healthy host built on it. */
+            try
+            {
+                await acknowledged.WaitAsync(Budgets.StartAcknowledgement);
+            }
+            catch (TimeoutException exception)
+            {
+                Observe(acknowledged);
+                _logger.LogWarning(exception, "Not every logic block acknowledged the persistent-data restore within the budget; continuing to start.");
+            }
         }
 
         // What is left of the sequence-wide wall-clock budget. Never negative: an exhausted budget yields

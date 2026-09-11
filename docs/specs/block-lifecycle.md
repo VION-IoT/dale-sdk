@@ -333,8 +333,9 @@ it. Each promise below is kept by the sequence above rather than by a guard of i
 
 `AC-LIFE-012.1`'s three withholdings are the ones a block author gets wrong: each is silent, not an
 error. `AC-LIFE-012.2`'s "on a host that restores" is exact — the production runtime restores before it
-starts a block and the development host restores nothing, so a persisted value read in the start hook
-is a default in the development lane and the operator's value in the field.
+starts a block, and the development host sends the restore in the same place with nothing in it
+(`devhost-control.md`, `AC-CTRL-002.8`), having no store to read. So a persisted value read in the
+start hook is a default in the development lane and the operator's value in the field.
 
 `AC-LIFE-012.3` says *only* hook because nothing else disposes a block: the pipeline disposes the scope
 a block's dependencies came from and never the block, so a block implementing a disposal interface has
