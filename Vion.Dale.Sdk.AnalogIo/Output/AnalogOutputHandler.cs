@@ -49,10 +49,19 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            // The buffer check below cannot separate this contract's payload from its sibling's: the two
-            // layouts are identical, so a payload of the other direction decodes here as a value nobody
-            // published and every bound block acts on it. The label the publisher sets beside the payload is
-            // what separates them, and the far side of this wire refuses on the same label.
+            /* The buffer check below cannot separate this contract's payload from its sibling's: the two
+               layouts are identical, so a payload of the other direction decodes here as a value nobody
+               published and every bound block acts on it. The label the publisher sets beside the payload is
+               what separates them, and the far side of this wire refuses on the same label.
+
+               Dropping it is a warning and not a debug line, unlike the buffer refusal below: the block's
+               input stays at its last value for as long as the mislabelling lasts, which is an outage nothing
+               else reports, and nothing routine reaches this arm — the topic carries one payload type and
+               every publisher on this wire labels it. Its volume is the publisher's own state-change rate,
+               since state is published on change rather than polled, so a per-message warning cannot outrun
+               the condition it reports. The buffer refusal stays at debug because an empty payload does
+               arrive routinely: state is published retained, so a retained-clear reaches it on a topic
+               nothing is wrong with. */
             if (message.Schema != nameof(AoStatePayload))
             {
                 LogRejectedForeignSchema(message.ContractId, message.Schema, message.Topic);
@@ -148,8 +157,9 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable AO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
         private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "Rejected AO payload labelled with another schema (ServiceProviderContractId={ServiceProviderContractId}, Schema={Schema}, Topic={Topic})")]
+        [LoggerMessage(Level = LogLevel.Warning,
+                       Message =
+                           "Dropped a AO state message labelled with another payload type; no value reached any block and this contract's input holds its last value (ServiceProviderContractId={ServiceProviderContractId}, Schema={Schema}, Topic={Topic})")]
         private partial void LogRejectedForeignSchema(ServiceProviderContractId serviceProviderContractId, string? schema, string topic);
 
         [LoggerMessage(Level = LogLevel.Debug,
