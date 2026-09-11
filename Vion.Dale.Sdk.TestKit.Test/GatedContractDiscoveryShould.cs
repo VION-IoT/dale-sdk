@@ -77,7 +77,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.13")]
-        public void NotMapAContractTheGateExcludes()
+        public void NotMapContractExcludedByGate()
         {
             // Arrange
             var logger = new Mock<ILogger>();
@@ -93,7 +93,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.13")]
-        public void MapAContractTheGateIncludes()
+        public void MapContractIncludedByGate()
         {
             // Arrange
             var logger = new Mock<ILogger>();
@@ -110,7 +110,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.13")]
-        public void KeepMappingTheUngatedContractBesideAnExcludedOne()
+        public void KeepMappingUngatedContractBesideExcludedOne()
         {
             // Dropping the gated entry must not drop the entry beside it: a discovery loop that skipped
             // the wrong property would leave FirstProbe unmapped and this suite's other two cases silent.
