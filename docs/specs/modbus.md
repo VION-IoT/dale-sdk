@@ -513,7 +513,7 @@ the round trip of the operation that established it, which is what the last hand
   client, server, wrappers, proxies, request factory and queue as transients, and the two factories as
   singletons.
 - `AC-MODB-018.2` (Ubiquitous): THE SYSTEM SHALL register a system clock only when the host has not already registered one. GAP: a registration-order fact, grep-enumerable from the extension; the TestKit harness depends on it and would fail loudly if it changed.
-- `AC-MODB-018.3` (Ubiquitous): THE SYSTEM SHALL resolve a factory-created Modbus client or server from the factory's own provider, which is the root, so the block's scope does not reclaim it and the block that created it owns its disposal. GAP: a container-lifetime fact, grep-enumerable from the registrations; the ledger carries the open question.
+- `AC-MODB-018.3` (Ubiquitous): THE SYSTEM SHALL resolve a factory-created Modbus client or server from the factory's own provider, which is the root, so the block's scope does not reclaim it and the block that created it owns its disposal. GAP: a container-lifetime fact, grep-enumerable from the registrations.
 - `AC-MODB-018.4` (Ubiquitous): THE SYSTEM SHALL mark as a shared assembly each Modbus assembly whose
   types cross the plugin boundary inside a contract message, and leave the others unmarked.
 
@@ -521,9 +521,8 @@ the round trip of the operation that established it, which is what the last hand
 A constructor-injected client is reclaimed when the block's actor stops — that is the per-block scope
 [`block-lifecycle.md`](block-lifecycle.md) owns, and it is why a block never disposes an injected
 client itself. The factory is the documented exception: the SDK's own example and twelve consumer
-sites create servers and clients through a factory and dispose them themselves, and whether the
-factory should instead resolve from the ambient block scope is an open DI question in
-[`_findings.md`](_findings.md).
+sites create servers and clients through a factory and dispose them themselves, so an instance a
+factory made outlives the block's scope and is reclaimed at process exit.
 
 `Vion.Dale.Sdk.Modbus.Core` and `Vion.Dale.Sdk.Modbus.Rtu` are marked shared assemblies because the
 RTU actor messages carry their types across the plugin boundary; `Vion.Dale.Sdk.Modbus.Tcp` is
@@ -571,8 +570,6 @@ does publish and which a consumer does inject. That is the mark most open to bei
 an oversight: this package ships no `AddDaleModbusRtuSdk` extension, so a development host — which has
 no plugin loader to discover an `IConfigureServices` — has no other way in, and the SDK's own example
 constructs one by hand (`examples/Vion.Examples.ModbusRtu/Vion.Examples.ModbusRtu.DevHost/Program.cs:27`).
-Whether RTU should ship the extension its two siblings do, and make that hand-call unnecessary, is a
-surface question in the finding ledger rather than one this page answers.
 
 `AC-MODB-019.2` is what makes `AC-MODB-019.1` enforceable rather than aspirational, and this area is
 where the gap was widest: no `DALE` diagnostic judged any declaration in these three projects at all.
