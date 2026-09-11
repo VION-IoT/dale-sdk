@@ -383,6 +383,8 @@ the opt-in: `[Persistent(Exclude = true)]` asks for exactly what a parameter alr
 - `AC-GATE-012.8` (Event-driven): WHEN a topology names an instantiation parameter that is not an
   `[InstantiationParameter]` property of the instance's block type, or supplies a value that will not
   decode into that parameter's type, THE SYSTEM SHALL refuse the topology, naming every such parameter.
+- `AC-GATE-012.13` (Ubiquitous): THE SYSTEM SHALL omit from the test kit's contract mapping set every
+  contract binding the instance's gates exclude, and SHALL keep every binding they include.
 - `AC-GATE-012.9` (Ubiquitous): THE SYSTEM SHALL carry each instance's chosen instantiation-parameter
   values in the development host's configuration output, omitting the field for an instance that chose
   none.
@@ -400,6 +402,15 @@ than one left out — the mapping looks wired and resolves to nothing.
 `AC-GATE-012.1` is why a test sets a parameter through the TestKit's builder rather than by assigning
 the property: the builder goes through the encode and decode path that ships, so a test exercises the
 gates the way a configuration will.
+
+`AC-GATE-012.13` is the same claim as `AC-GATE-012.3` from the kit's side. A mapping set is an
+assertion about the host: a gated-out contract is never bound, so no host produces a mapping for one
+and the cloud refuses such a mapping at activation. A kit that mapped every contract property would
+hand the block a shape nothing in the field hands it — the block skips the mapping and warns, and the
+author's green gating test would say nothing about whether the host agrees. The kit resolves the gate
+against the parameter values the block is about to be given, which is the same context its binders
+will build a moment later. A gate the binder will refuse outright is left to the binder, whose
+refusal names the block and the member; discovery is not a second authority on a broken predicate.
 
 The live view's fail-open is a deliberate exception to fail-closed, and the only one on this page. An
 editor that hid every member whose gate it could not judge would remove wiring the operator still

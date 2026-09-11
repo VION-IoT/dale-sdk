@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Vion.Contracts.Codec;
+using Vion.Contracts.Predicates;
 using Vion.Contracts.Events.CloudToMesh;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.CodeGeneration;
+using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Emission;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
@@ -351,17 +354,30 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     Discovers contract identifiers from properties whose type has [ServiceProviderContractType].
-        ///     Generates a LogicBlockContractId for each so that contracts are fully initialized in tests.
+        ///     Discovers contract identifiers from properties whose type has [ServiceProviderContractType],
+        ///     minus those the block's <c>[IncludedWhen]</c> gates exclude. Generates a LogicBlockContractId
+        ///     for each so that contracts are fully initialized in tests.
+        ///     <para>
+        ///         The gate is honoured because the mapping set is a claim about the host: a gated-out
+        ///         contract is never bound, so no host produces a mapping for one and the cloud rejects such
+        ///         a mapping at activation. A kit that mapped every property would hand the block a shape
+        ///         nothing in the field hands it, and a green gating test would not mean the host agrees.
+        ///     </para>
         /// </summary>
-        private static Dictionary<string, LogicBlockContractId> DiscoverContractIds()
+        private Dictionary<string, LogicBlockContractId> DiscoverContractIds()
         {
             var type = typeof(TLogicBlock);
             var lookup = new Dictionary<string, LogicBlockContractId>();
+            var parameterContext = InstantiationParameterContext();
 
             foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 if (property.PropertyType.GetCustomAttribute<ServiceProviderContractTypeAttribute>() == null || !property.CanWrite)
+                {
+                    continue;
+                }
+
+                if (!IsMapped(InclusionGate.ReadPredicate(property), parameterContext))
                 {
                     continue;
                 }
@@ -372,6 +388,42 @@ namespace Vion.Dale.Sdk.TestKit
             }
 
             return lookup;
+        }
+
+        /// <summary>
+        ///     The <c>[InstantiationParameter]</c> values the block will hold once the configuration channel
+        ///     has applied them, which is what its Live-mode binders resolve the gates against: whatever each
+        ///     property carries now, overwritten by the values <see cref="WithInstantiationParameter{TValue}" />
+        ///     staged. Both sides come from <c>PropertyValueCodec.ClrToJson</c> off the same
+        ///     <c>TypeRef</c>, so the overlay is that shape without decoding onto the CLR properties a second
+        ///     time — which is the block's job and happens after this lookup is handed to it.
+        /// </summary>
+        private IReadOnlyDictionary<string, JsonNode?> InstantiationParameterContext()
+        {
+            var context = new Dictionary<string, JsonNode?>(InclusionGate.BuildParameterContext(_logicBlock), StringComparer.Ordinal);
+
+            foreach (var parameter in _instantiationParameters)
+            {
+                context[parameter.Identifier] = parameter.Value;
+            }
+
+            return context;
+        }
+
+        // A gate the binder will refuse — unparseable, or naming something the block does not declare as an
+        // [InstantiationParameter] — is the binder's finding to report, with a message naming the block and
+        // the member. Discovery maps such a contract so that refusal is what the test sees, instead of a bare
+        // predicate exception out of Build() before the block has run at all.
+        private static bool IsMapped(string? predicate, IReadOnlyDictionary<string, JsonNode?> parameterContext)
+        {
+            try
+            {
+                return InclusionGate.IsIncluded(predicate, BindingMode.Live, parameterContext);
+            }
+            catch (PredicateException)
+            {
+                return true;
+            }
         }
 
         /// <summary>
