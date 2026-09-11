@@ -219,6 +219,47 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
+        ///     Discovers contract identifiers from properties whose type has [ServiceProviderContractType],
+        ///     minus those the block's <c>[IncludedWhen]</c> gates exclude. Generates a LogicBlockContractId
+        ///     for each so that contracts are fully initialized in tests.
+        ///     <para>
+        ///         The gate is honoured because the mapping set is a claim about the deployment: a gated-out
+        ///         contract is never bound, and the cloud rejects a mapping for one at activation. A kit
+        ///         that mapped every property would let a gating test pass against a shape the deployment
+        ///         target refuses.
+        ///     </para>
+        /// </summary>
+
+        // Internal rather than private so the kit's own suite can assert the mapping set itself. The only
+        // other difference a gated-out entry makes is LogicBlockBase's skip-and-warn, and asserting on log
+        // text is what testing-conventions section 15 forbids.
+        internal Dictionary<string, LogicBlockContractId> DiscoverContractIds()
+        {
+            var type = typeof(TLogicBlock);
+            var lookup = new Dictionary<string, LogicBlockContractId>();
+            var parameterContext = InstantiationParameterContext();
+
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (property.PropertyType.GetCustomAttribute<ServiceProviderContractTypeAttribute>() == null || !property.CanWrite)
+                {
+                    continue;
+                }
+
+                if (!IsMapped(InclusionGate.ReadPredicate(property), parameterContext))
+                {
+                    continue;
+                }
+
+                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
+                var identifier = contractAttr?.Identifier ?? property.Name;
+                lookup[identifier] = new LogicBlockContractId(Constants.LogicBlockId, identifier);
+            }
+
+            return lookup;
+        }
+
+        /// <summary>
         ///     When <paramref name="targetType" /> is a class that implements more than one
         ///     <c>[LogicInterface]</c>-decorated contract interface, the existing
         ///     IsAssignableFrom+FirstOrDefault resolution in <see cref="SetLinkedInterfaces" />
@@ -351,43 +392,6 @@ namespace Vion.Dale.Sdk.TestKit
                     registration.ConfigureServices(services);
                 }
             }
-        }
-
-        /// <summary>
-        ///     Discovers contract identifiers from properties whose type has [ServiceProviderContractType],
-        ///     minus those the block's <c>[IncludedWhen]</c> gates exclude. Generates a LogicBlockContractId
-        ///     for each so that contracts are fully initialized in tests.
-        ///     <para>
-        ///         The gate is honoured because the mapping set is a claim about the host: a gated-out
-        ///         contract is never bound, so no host produces a mapping for one and the cloud rejects such
-        ///         a mapping at activation. A kit that mapped every property would hand the block a shape
-        ///         nothing in the field hands it, and a green gating test would not mean the host agrees.
-        ///     </para>
-        /// </summary>
-        private Dictionary<string, LogicBlockContractId> DiscoverContractIds()
-        {
-            var type = typeof(TLogicBlock);
-            var lookup = new Dictionary<string, LogicBlockContractId>();
-            var parameterContext = InstantiationParameterContext();
-
-            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            {
-                if (property.PropertyType.GetCustomAttribute<ServiceProviderContractTypeAttribute>() == null || !property.CanWrite)
-                {
-                    continue;
-                }
-
-                if (!IsMapped(InclusionGate.ReadPredicate(property), parameterContext))
-                {
-                    continue;
-                }
-
-                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
-                var identifier = contractAttr?.Identifier ?? property.Name;
-                lookup[identifier] = new LogicBlockContractId(Constants.LogicBlockId, identifier);
-            }
-
-            return lookup;
         }
 
         /// <summary>

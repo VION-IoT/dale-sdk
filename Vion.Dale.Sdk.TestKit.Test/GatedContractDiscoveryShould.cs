@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Logging;
-using Moq;
+using System.Linq;
+using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
@@ -47,12 +47,10 @@ namespace Vion.Dale.Sdk.TestKit.Test
         // what writes one, so a non-null initializer would let the cleanup profile take the setter off.
         public ITestKitGatingProbe? FirstProbe { get; private set; }
 
-        // Nullable, which is the documented authoring shape for a gated contract: the binder is what
-        // constructs one, so a gated-out property is left null.
         [IncludedWhen("PointCount >= 2")]
         public ITestKitGatingProbe? SecondProbe { get; private set; }
 
-        public TestKitGatedContractBlock(ILogger logger) : base(logger)
+        public TestKitGatedContractBlock() : base(NullLogger.Instance)
         {
         }
 
@@ -64,67 +62,62 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
     /// <summary>
     ///     The kit's contract-id discovery against the inclusion gate the binders resolve
-    ///     (<c>docs/specs/config-gating.md</c>). A kit that maps every contract property hands the block a
-    ///     mapping for a contract the gate excluded — a shape the cloud rejects at activation and no host
-    ///     ever produces — so a green gating test in the kit would not mean the real host agrees.
+    ///     (<c>docs/specs/config-gating.md</c>). A gated-out contract is never bound and the cloud refuses a
+    ///     mapping for one at activation, so a kit that mapped every contract property let an author's
+    ///     gating test pass against a shape the deployment target rejects.
     /// </summary>
     [TestClass]
     public sealed class GatedContractDiscoveryShould
     {
-        private const string MappingForUnboundContract = "is not a bound contract";
-
-        private const string ContractWithoutMapping = "has no contract mapping in configuration";
-
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.13")]
-        public void NotMapContractExcludedByGate()
+        public void OmitContractExcludedByGate()
         {
+            // The mapping set itself, not the block's state afterwards: a gated-out contract property is
+            // left null by the BINDER whether or not discovery mapped it, so an assertion on the property
+            // passes with this fix reverted.
+
             // Arrange
-            var logger = new Mock<ILogger>();
-            var block = new TestKitGatedContractBlock(logger.Object);
+            var builder = new TestKitGatedContractBlock().CreateTestContext();
 
             // Act
-            block.CreateTestContext().WithoutAutoStart().Build();
+            var mapped = builder.DiscoverContractIds();
 
             // Assert
-            Assert.IsNull(block.SecondProbe);
-            logger.VerifyLogContains(MappingForUnboundContract, LogLevel.Warning, Times.Never());
+            CollectionAssert.AreEquivalent(new[] { nameof(TestKitGatedContractBlock.FirstProbe) }, mapped.Keys.ToArray());
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.13")]
-        public void MapContractIncludedByGate()
+        public void KeepContractIncludedByGate()
         {
             // Arrange
-            var logger = new Mock<ILogger>();
-            var block = new TestKitGatedContractBlock(logger.Object);
+            var builder = new TestKitGatedContractBlock().CreateTestContext().WithInstantiationParameter(lb => lb.PointCount, 2);
 
             // Act
-            block.CreateTestContext().WithInstantiationParameter(lb => lb.PointCount, 2).WithoutAutoStart().Build();
+            var mapped = builder.DiscoverContractIds();
 
             // Assert
-            Assert.IsNotNull(block.SecondProbe);
-            logger.VerifyLogContains(ContractWithoutMapping, LogLevel.Warning, Times.Never());
-            logger.VerifyLogContains(MappingForUnboundContract, LogLevel.Warning, Times.Never());
+            CollectionAssert.AreEquivalent(new[] { nameof(TestKitGatedContractBlock.FirstProbe), nameof(TestKitGatedContractBlock.SecondProbe) }, mapped.Keys.ToArray());
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.13")]
-        public void KeepMappingUngatedContractBesideExcludedOne()
+        public void MapContractIdOfEveryKeptBinding()
         {
-            // Dropping the gated entry must not drop the entry beside it: a discovery loop that skipped
-            // the wrong property would leave FirstProbe unmapped and this suite's other two cases silent.
+            // The kept half end to end: dropping the gated entry must not drop the entry beside it, and the
+            // id the block receives must reach the contract it binds.
 
             // Arrange
-            var logger = new Mock<ILogger>();
-            var block = new TestKitGatedContractBlock(logger.Object);
+            var block = new TestKitGatedContractBlock();
 
             // Act
             block.CreateTestContext().WithoutAutoStart().Build();
 
             // Assert
             Assert.IsNotNull(block.FirstProbe);
-            logger.VerifyLogContains(ContractWithoutMapping, LogLevel.Warning, Times.Never());
+            Assert.IsNull(block.SecondProbe);
+            Assert.AreEqual(nameof(TestKitGatedContractBlock.FirstProbe), ((LogicBlockContractBase)block.FirstProbe).Identifier);
         }
     }
 }

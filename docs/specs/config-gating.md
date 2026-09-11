@@ -403,14 +403,21 @@ than one left out — the mapping looks wired and resolves to nothing.
 the property: the builder goes through the encode and decode path that ships, so a test exercises the
 gates the way a configuration will.
 
-`AC-GATE-012.13` is the same claim as `AC-GATE-012.3` from the kit's side. A mapping set is an
-assertion about the host: a gated-out contract is never bound, so no host produces a mapping for one
-and the cloud refuses such a mapping at activation. A kit that mapped every contract property would
-hand the block a shape nothing in the field hands it — the block skips the mapping and warns, and the
-author's green gating test would say nothing about whether the host agrees. The kit resolves the gate
-against the parameter values the block is about to be given, which is the same context its binders
-will build a moment later. A gate the binder will refuse outright is left to the binder, whose
-refusal names the block and the member; discovery is not a second authority on a broken predicate.
+`AC-GATE-012.13` is the same claim as `AC-GATE-012.3` from the kit's side, and the kit follows the
+cloud rather than every host. A gated-out contract is never bound, and the cloud refuses a mapping
+for one at activation — so a kit that mapped every contract property let an author's gating test pass
+against a shape the deployment target rejects. The kit resolves the gate against the parameter values
+the block is about to be given, which is the same context its binders will build a moment later. A
+gate the binder will refuse outright is left to the binder, whose refusal names the block and the
+member; discovery is not a second authority on a broken predicate.
+
+The DevHost is the one host that still emits such a mapping: its default auto-wire adds a contract
+endpoint per contract property and discards the gate
+(`Vion.Dale.DevHost/DevConfigurationBuilder.cs:529`), which is why `LogicBlockBase` skip-and-warns on
+a mapping with no bound contract rather than throwing. That guard is what keeps the DevHost up; it is
+not a licence for the kit to produce the same shape, because the kit's job is to predict the
+deployment the author is writing for. Whether the auto-wire should resolve the gate the way
+`AC-GATE-012.3` resolves the live view is a DevHost question this criterion does not settle.
 
 The live view's fail-open is a deliberate exception to fail-closed, and the only one on this page. An
 editor that hid every member whose gate it could not judge would remove wiring the operator still
