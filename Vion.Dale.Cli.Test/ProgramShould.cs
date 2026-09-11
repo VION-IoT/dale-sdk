@@ -129,7 +129,7 @@ namespace Vion.Dale.Cli.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-002.1")]
-        public void OfferThirteenTopLevelCommands()
+        public void OfferEveryTopLevelCommand()
         {
             // Arrange / Act
             var names = Program.TopLevelCommandNames(Program.BuildRootCommand());
@@ -137,7 +137,8 @@ namespace Vion.Dale.Cli.Test
             // Assert
             CollectionAssert.AreEquivalent(new[]
                                            {
-                                               "new", "build", "test", "dev", "list", "scenario", "add", "pack", "upload", "login", "logout", "whoami", "config",
+                                               "new", "build", "test", "dev", "list", "scenario", "topology", "add", "pack", "upload", "login", "logout", "whoami",
+                                               "config",
                                            },
                                            names.ToArray());
         }

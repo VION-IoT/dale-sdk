@@ -72,10 +72,10 @@ belongs.
 
 ## The command tree
 
-- `AC-CLI-002.1` (Ubiquitous): THE SYSTEM SHALL offer thirteen top-level commands — `new`, `build`,
-  `test`, `dev`, `list`, `scenario`, `add`, `pack`, `upload`, `login`, `logout`, `whoami` and
-  `config` — and SHALL make `--output`, `--project` and `--verbose` available on every one of them
-  and on their subcommands.
+- `AC-CLI-002.1` (Ubiquitous): THE SYSTEM SHALL offer fourteen top-level commands — `new`, `build`,
+  `test`, `dev`, `list`, `scenario`, `topology`, `add`, `pack`, `upload`, `login`, `logout`,
+  `whoami` and `config` — and SHALL make `--output`, `--project` and `--verbose` available on every
+  one of them and on their subcommands.
 - `AC-CLI-002.2` (Event-driven): WHEN no command or an unknown command is given THE SYSTEM SHALL
   refuse and exit 1.
 
@@ -314,6 +314,33 @@ because two committed consumer scripts pass it that way. The schema is also the 
 `AC-CLI-001.10` does not govern: it is written with relaxed escaping, because it is a committed file
 an editor reads and the strict encoder's numeric escapes made every regeneration a phantom diff
 against the apostrophes and dashes the source schema holds literal.
+
+## The `topology` group
+
+Two verbs over `*.topology.json`, and neither addresses a host. The file's own rules are
+[`scenarios.md`](scenarios.md)'s, exactly as the `scenario` group's are, and the validator here is
+the same kind of lite, language-neutral mirror. The command surface is this page's.
+
+- `AC-CLI-020.1` (Ubiquitous): THE SYSTEM SHALL offer two topology subcommands — validate and
+  schema — and SHALL address no running host from either, so both answer with nothing on the port.
+- `AC-CLI-020.2` (Event-driven): WHEN every topology file in a directory is validated THE SYSTEM
+  SHALL check them in ordinal name order and exit 1 where any has an error.
+- `AC-CLI-020.3` (Event-driven): WHEN the topologies directory does not exist or holds no topology
+  file THE SYSTEM SHALL refuse naming it rather than report a successful validation.
+- `AC-CLI-020.4` (Ubiquitous): THE SYSTEM SHALL carry the generic topology schema inside itself and
+  SHALL emit its text unaltered, so the schema can be produced with no host running and a
+  regenerated copy differs from the canonical file in nothing but that file's own drift.
+- `AC-CLI-020.5` (Ubiquitous): THE SYSTEM SHALL take `topology schema`'s destination from `--out`,
+  whose short form is `-O` and whose deprecated alias is `-o`, and SHALL leave `--output` meaning
+  the tool's output format.
+
+`AC-CLI-020.5` is `AC-CLI-010.10`'s asymmetry again, deliberately: a script that drives both schema
+verbs meets one option surface, and `-o` is the file on both of them and the format on neither.
+
+`AC-CLI-020.4` is where this group parts from `AC-CLI-010.8`. The scenario schema is enriched with a
+configuration's name paths, so it is re-serialized and its escaping is its own rule; the topology
+schema is generic and nothing rewrites it, so the embedded file's bytes are what the tool emits. A
+consumer regenerating a committed copy then reads a diff of their drift and nothing else.
 
 ## `dale upload`
 
