@@ -61,6 +61,26 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.4")]
+        public async Task StaySilentOnGateOverPropertyWithResolvedLogicInterface()
+        {
+            // Arrange / Act / Assert
+            // The by-symbol half of the same lookup, on a component with no service surface of its own —
+            // so nothing but the interface can make it gateable. A contract in a REFERENCED assembly
+            // arrives exactly this way, its generated interface already in metadata.
+            var source = Block("[IncludedWhen(\"Count >= 2\")] public Endpoint Leg { get; } = new();") + @"
+public interface IMatching { }
+public interface ISender { }
+public class Contract { }
+
+[Vion.Dale.Sdk.CodeGeneration.LogicInterface(MatchingInterface = typeof(IMatching), SenderInterface = typeof(ISender), ContractType = typeof(Contract))]
+public interface IGenSink { }
+
+public class Endpoint : IGenSink { }";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-ANLZ-002.1")]
         public async Task ResolveGateAndParameterDeclaredOnBaseClass()
         {

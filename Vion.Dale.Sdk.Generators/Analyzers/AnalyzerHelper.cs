@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Vion.Dale.Sdk.Generators.Predicates;
 
 namespace Vion.Dale.Sdk.Generators.Analyzers
@@ -79,6 +81,50 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             return type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Replace("global::", "");
+        }
+
+        /// <summary>
+        ///     Every type <paramref name="assembly" /> declares, nested types included.
+        /// </summary>
+        internal static IEnumerable<INamedTypeSymbol> EnumerateDeclaredTypes(IAssemblySymbol assembly)
+        {
+            return EnumerateTypes(assembly.GlobalNamespace);
+        }
+
+        /// <summary>
+        ///     The simple names in <paramref name="type" />'s declared base list, across all its parts.
+        ///     <para>
+        ///         The by-name half of the two-way contract-interface lookup
+        ///         <see href="../../docs/sdk-surface-conventions.md">sdk-surface-conventions</see> § 5 requires:
+        ///         <c>LogicClassGenerator</c>'s output is not part of the compilation an analyzer sees, so a
+        ///         <c>class ChargePoint : IChargePoint</c> whose interface is generated resolves to an error
+        ///         type and the symbol walk finds nothing. The syntax carries the name regardless.
+        ///     </para>
+        /// </summary>
+        internal static IEnumerable<string> DeclaredBaseTypeNames(INamedTypeSymbol type, CancellationToken cancellationToken)
+        {
+            foreach (var reference in type.DeclaringSyntaxReferences)
+            {
+                if (reference.GetSyntax(cancellationToken) is not TypeDeclarationSyntax declaration || declaration.BaseList is null)
+                {
+                    continue;
+                }
+
+                foreach (var baseType in declaration.BaseList.Types)
+                {
+                    var name = baseType.Type switch
+                    {
+                        SimpleNameSyntax simple => simple.Identifier.ValueText,
+                        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
+                        _ => null,
+                    };
+
+                    if (name != null)
+                    {
+                        yield return name;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -443,6 +489,32 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var category = Categorize(type);
             var enumMembers = category == RefCategory.Enum ? CollectEnumMembers(type) : null;
             return new PredicateMember(category, isServiceProperty, isWriteOnly, enumMembers);
+        }
+
+        private static IEnumerable<INamedTypeSymbol> EnumerateTypes(INamespaceOrTypeSymbol symbol)
+        {
+            foreach (var member in symbol.GetMembers())
+            {
+                switch (member)
+                {
+                    case INamespaceSymbol childNamespace:
+                        foreach (var nested in EnumerateTypes(childNamespace))
+                        {
+                            yield return nested;
+                        }
+
+                        break;
+                    case INamedTypeSymbol namedType:
+                        yield return namedType;
+
+                        foreach (var nested in EnumerateTypes(namedType))
+                        {
+                            yield return nested;
+                        }
+
+                        break;
+                }
+            }
         }
 
         /// <summary>

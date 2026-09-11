@@ -171,8 +171,8 @@ build and will pass either way. `ServiceRelationAnalyzer` /
 the worked example — see `RelationBearingInterfaces` for the two-way lookup and the two `CS0246` tests
 for the pin. The other analyzers that resolve a contract interface are pinned in
 [`UnresolvedContractInterfacePinTests`](../Vion.Dale.Sdk.Generators.Test/UnresolvedContractInterfacePinTests.cs),
-and one of those pins records a live blind spot rather than a rule: the inclusion gate's own
-resolution is by symbol only (`AC-ANLZ-014.4`). Know what the proxy can and cannot say — a fixture
+the inclusion gate's `IncludedWhenPredicateAnalyzer` among them — its gateable test carries the same
+two lookups (`AC-ANLZ-014.4`). Know what the proxy can and cannot say — a fixture
 where the interface is *absent* is harsher than a real build where it exists and is an error type
 only to the analyzer, so no fixture can exercise a remedy written as `typeof(TheInterface)`. The session that found this also tried flipping `ConfigureGeneratedCodeAnalysis` to
 `Analyze` and reported no change, so don't spend a round there.

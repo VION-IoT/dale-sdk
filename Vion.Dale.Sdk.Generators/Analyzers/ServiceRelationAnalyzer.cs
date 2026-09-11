@@ -3,7 +3,6 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Vion.Dale.Sdk.Generators.Analyzers
@@ -253,7 +252,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             if (localRelationInterfaceNames.Count > 0)
             {
-                foreach (var baseTypeName in DeclaredBaseTypeNames(type, cancellationToken))
+                foreach (var baseTypeName in AnalyzerHelper.DeclaredBaseTypeNames(type, cancellationToken))
                 {
                     if (localRelationInterfaceNames.Contains(baseTypeName))
                     {
@@ -263,33 +262,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             return result.OrderBy(n => n, System.StringComparer.Ordinal).ToList();
-        }
-
-        /// <summary>The simple names in <paramref name="type" />'s declared base list, across all its parts.</summary>
-        private static IEnumerable<string> DeclaredBaseTypeNames(INamedTypeSymbol type, CancellationToken cancellationToken)
-        {
-            foreach (var reference in type.DeclaringSyntaxReferences)
-            {
-                if (reference.GetSyntax(cancellationToken) is not TypeDeclarationSyntax declaration || declaration.BaseList is null)
-                {
-                    continue;
-                }
-
-                foreach (var baseType in declaration.BaseList.Types)
-                {
-                    var name = baseType.Type switch
-                    {
-                        SimpleNameSyntax simple => simple.Identifier.ValueText,
-                        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-                        _ => null,
-                    };
-
-                    if (name != null)
-                    {
-                        yield return name;
-                    }
-                }
-            }
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────────────────────
