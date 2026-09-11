@@ -210,7 +210,7 @@ function Test-Package([string]$nupkgPath)
         Checked    = $checked
         Mismatches = $mismatches
         Unchecked  = $unchecked
-        AnalyzersInLib = $analyzersInLib
+        Misplaced  = $analyzersInLib
         Required   = $required
         Missing    = @($missing | ForEach-Object { "  $packageId $packageVersion -> ${_}: absent" })
     }
@@ -254,7 +254,7 @@ function Invoke-Verify([string]$directory)
         $checked += $result.Checked
         $mismatches += $result.Mismatches
         $absent += $result.Missing
-        $misplaced += $result.AnalyzersInLib
+        $misplaced += $result.Misplaced
         $requiredCount += $result.Required.Count
         if ($result.Required.Count -gt 0) { $matchedPackages++ }
 
