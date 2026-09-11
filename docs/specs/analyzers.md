@@ -299,8 +299,10 @@ found in one more place; `AC-ANLZ-011.3` is the target nothing reached — the k
   `GenerateDocumentationFile` — so in such a project the diagnostic fires on a documented type too, and
   the only answer is a suppression. Measured on `Vion.Dale.Sdk.Test`, the first analyzer-armed project
   to declare a `[PublicApi]`: 1 occurrence, 0 under `-p:GenerateDocumentationFile=true`. Nothing published
-  today is affected — every package inside the ratchet sets the property. Which packages do not, and what
-  that means for the passes still to come, is in the ledger.
+  today is affected — every package inside the ratchet sets the property. The five roster packages that
+  do not are `Vion.Dale.DevHost`, `Vion.Dale.DevHost.Web`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor` and
+  `Vion.Dale.Cli`, and none of them declares a mark; the first `[PublicApi]` written in one of them meets
+  this, and setting the property there also arms `CS1591` on every undocumented public member.
 - `AC-ANLZ-012.2` (Event-driven): WHEN a public type in a declared public-API namespace carries
   neither `[PublicApi]` nor `[InternalApi]` THE SYSTEM SHALL report `DALE014`.
 - `AC-ANLZ-012.3` (Event-driven): WHEN a declared public-API namespace matches no public type THE
