@@ -18,6 +18,7 @@ Commands:
   dev         Start the DevHost with web UI (extra arguments are forwarded to the DevHost app)
   list        Show project info (logic blocks, contracts, properties, etc.)
   scenario    Work with *.scenario.json files: run, validate, generate the editor schema, scaffold a C# test, open in the Player
+  topology    Work with *.topology.json files: validate them and generate the editor schema — both with no DevHost running
   add         Add elements to a LogicBlock project
   pack        Pack project into a NuGet package
   upload      Pack and upload library to Vion Cloud
@@ -222,6 +223,55 @@ Arguments:
 
 Options:
   --port <port>              Port of the running DevHost (default 5000). [default: 5000]
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale topology
+Description:
+  Work with *.topology.json files: validate them and generate the editor schema — both with no DevHost running
+
+Usage:
+  Vion.Dale.Cli topology [command] [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+Commands:
+  validate  Validate every topology file against the rules the host's loader applies — structure, ids, instance names, mappings and pairings — with no host running
+  schema    Print the generic topology JSON Schema — commit it as topologies/.dale/topology.schema.json and reference it from topology files via "$schema" for editor completion
+
+---
+## dale topology validate
+Description:
+  Validate every topology file against the rules the host's loader applies — structure, ids, instance names, mappings and pairings — with no host running
+
+Usage:
+  Vion.Dale.Cli topology validate [options]
+
+Options:
+  --dir <dir>                Topologies directory (default ./topologies). [default: topologies]
+  --require-schema-ref       Fail a file that carries no "$schema" reference, instead of warning about it. The loader treats the reference as optional.
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale topology schema
+Description:
+  Print the generic topology JSON Schema — commit it as topologies/.dale/topology.schema.json and reference it from topology files via "$schema" for editor completion
+
+Usage:
+  Vion.Dale.Cli topology schema [options]
+
+Options:
+  -O, -o, --out <out>        Write to this file instead of printing (conventionally topologies/.dale/topology.schema.json, what the files' "$schema" points at). `-o` is a deprecated alias for `--out`; it is the global output-format option everywhere else.
   -?, -h, --help             Show help and usage information
   -o, --output <json|table>  Output format [default: table]
   --project <project>        Path to .csproj file
