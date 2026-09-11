@@ -257,7 +257,8 @@ decision and the catch logs a warning.
   the shipped **library** packages of that list inside the ratchet — the three DevHost ones,
   `Vion.Dale.ProtoActor` and `Vion.Dale.Plugin`. `Vion.Dale.Cli` is on the release roster and out of
   scope (a `dotnet tool`; nothing compiles against it), and `Vion.Dale.LogicBlockParser` is
-  `IsPackable=false`, so neither is. The finding ledger carries what is left to do.
+  `IsPackable=false`, so neither is. What is left is the classification, which that decision scopes
+  and counts.
   (`IDevHostControl` has been described in briefs as `[PublicApi]`; it carries no such attribute, which
   is the only reason DevHost changes have not moved the snapshot.)
 - **Where a package's public types split into surface and plumbing, the wire structs are the surface.**
@@ -302,7 +303,7 @@ Named rather than excused; the conventions above stand.
   is the enumeration, minus the nine conditional examples.) What is still outside: the DevHost packages,
   `Vion.Dale.ProtoActor`, `Vion.Dale.Plugin` and `Vion.Dale.Cli` — decision
   [`0145`](../../architecture/decisions/0145-public-api-ratchet-covers-every-shipped-package.md) says
-  the shipped ones belong inside, and the finding ledger carries what is left. Arming a package surfaces
+  the shipped ones belong inside, and that decision is what carries the rest. Arming a package surfaces
   whatever it has accumulated, so arm and classify it in one change; do not do either as a drive-by.
   `Vion.Dale.Sdk.Generators.Test` references the project as a plain library, so the deliberately illegal
   fixtures in it are judged by nothing, which is why none needs a suppression.

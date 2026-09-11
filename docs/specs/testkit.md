@@ -90,6 +90,12 @@ resolve; the supported answer is `WithServices`, which adds registrations the di
 Widening the discovery would make a test's service graph depend on whatever else happened to be
 loaded, which is why it stays as it is.
 
+`AC-TKIT-002.3`'s fallback is silent, and that is worth knowing before a test rests on it. A name the
+block does not bind as a service property — a typo, or a property that is not persistent at all —
+resolves to a direct key rather than being refused, so the value is restored under a key the block
+never reads and the assertion that follows measures the property's default. Refusing it would need
+the binder's own view of which properties persist, which the kit does not have.
+
 The interface-mapping rule above is the one criterion here the kit's own test project cannot
 reach. A block binds its declared interfaces whether or not a mapping named them, so the
 bound-interface seam is over-determined by the declaration; the mapping is observable only as a
@@ -480,8 +486,7 @@ rediscovered as a surprise. It is not licence for a *test* to do the same
 **What the kits do not offer.** There is no test context for a service-provider handler. A handler
 cannot be hosted by `LogicBlockTestContext<TLogicBlock>`, whose type parameter is a logic block, so
 the SDK's own handler suites each hand-roll a recording actor context — three of them, in three
-shapes. Building one is a new published type family and a refactor of a published generic;
-[`_findings.md`](_findings.md) carries the design and its cost.
+shapes. Building one is a new published type family and a refactor of a published generic.
 
 ## Test discipline
 

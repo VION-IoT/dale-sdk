@@ -336,8 +336,8 @@ diagnostic produced `CS0592` and there was no way to answer it. It surfaced the 
 analyzer was armed over a package that ships one (`Vion.Dale.Sdk.Modbus.Core`'s
 `ModbusServerBufferAccessor`), which is what arming a ratchet over new ground is for. A `[PublicApi]`
 delegate still does not reach the manifest — `generate-api-reference.cjs` scans for the type keywords
-and `delegate` is not among them — and nothing declares one today; that gap is in the finding ledger
-rather than fixed here, because closing it is a change to the generator and its first test harness.
+and `delegate` is not among them — and nothing declares one today. Closing that gap is a change to the
+generator and its first test harness, which is why arming the rule did not also close it.
 
 `AC-ANLZ-012.6` had a sharper edge than "the wrong one": the declarations are held in an unordered
 set, so which of two overlapping ones was credited — and which was then reported stale — was not

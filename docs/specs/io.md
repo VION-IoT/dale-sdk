@@ -191,10 +191,10 @@ a payload truncated anywhere but its last byte, and a payload of a *narrower* va
 topic carries. It does **not** refuse a payload of a wider value type — the two layouts agree, so an
 analog payload read on a digital topic yields a value nothing sent — and it does not refuse trailing
 bytes past a complete message. Distinguishing the remaining case needs the payload's schema label,
-which every publisher on this wire already sets and this area's receiver cannot yet read;
-[`_findings.md`](_findings.md) carries what that needs. The check costs one `Verifier` per inbound
-state message, constructed on the decode path at the option defaults its parameterless constructor
-sets — unmeasured, and stated once here so it is not rediscovered as a surprise. Before the check
+which every publisher on this wire already sets and this area's receiver cannot yet read. The check
+costs one `Verifier` per inbound state message, constructed on the decode path at the option defaults
+its parameterless constructor sets — unmeasured, and stated once here so it is not rediscovered as a
+surprise. Before the check
 existed, an empty payload threw out of the handler (contained by `AC-LIFE-014.2`, so the message was
 dropped and the actor survived) and a truncated one delivered a fabricated value to every mapped
 block — which is why the guard is worth its line.
@@ -227,8 +227,8 @@ on every command and reads none on any message is the asymmetry `AC-IO-005.2` is
 `AC-IO-006.1`'s response topic is where a service provider answers a command — including where it
 answers that the command **failed**. Nothing in the runtime subscribes it. So a set that the far side
 refused is invisible to the block, and the only evidence a command took effect is the retained state
-that follows a successful one, arriving as `AC-IO-002.4`. Subscribing it is a new wire behaviour and
-is carried in [`_findings.md`](_findings.md).
+that follows a successful one, arriving as `AC-IO-002.4`. Subscribing it would be a new wire
+behaviour: a new message type, a new arm, and a decision about what a block observes.
 
 `AC-IO-006.5` states both halves of the cache deliberately. A handler is resolved per actor, so its
 cache lives as long as that actor and holds an entry for every contract it has ever commanded — the
@@ -317,8 +317,9 @@ types of `AC-IO-001.2` cross the plugin boundary on every round-trip.
 reference, so `DALE014` judges a public type that carries neither mark — but only inside a namespace
 the package declares as published surface, and each package declares its two face namespaces and not
 its root. A public type in the root escapes the diagnostic, which is how the registration class went
-unmarked; it is marked now, and the same shape elsewhere in the SDK is recorded in
-[`_findings.md`](_findings.md).
+unmarked; it is marked now. The same shape elsewhere in the SDK is decision
+[`0145`](../../architecture/decisions/0145-public-api-ratchet-covers-every-shipped-package.md)'s to
+close, which arms a declaration rather than marking one type.
 
 The classification is also what the API manifest is drawn from: a `[PublicApi]` type takes a row in
 `docs/snapshots/publicapi-manifest.json` and an `[InternalApi]` one is deliberately kept off it, which

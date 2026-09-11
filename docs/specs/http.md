@@ -82,7 +82,7 @@ anything, so a block cannot observe a redirect through this package. And the coo
 shared by every request every block in **one plugin's container** makes — each plugin composes its
 own container, and `AC-PLUG-005.3` gives each its own copy of this assembly, so two plugins cannot
 collide. Turning either off would mean owning the primary handler, which would move all three of
-those facts from the platform's statement into this package's; the finding ledger carries that ask.
+those facts from the platform's statement into this package's.
 
 ## The eight members
 
@@ -159,8 +159,8 @@ issues a request from its constructor may get its answer before it has an actor;
 refuses the self-send, naming the cause and saying where to schedule from instead, and this package
 catches that refusal and logs it. The block waits forever. Neither cure is this package's to write —
 re-queuing needs an actor it does not have, and refusing at issue time needs to know whether the
-block has one, which `IActorDispatcher` does not expose. The finding ledger carries the ask, owned by
-`LIFE`. **Issue requests from `Ready()` or `Starting()`, never from a constructor.**
+block has one, which `IActorDispatcher` does not expose. **Issue requests from `Ready()` or
+`Starting()`, never from a constructor.**
 
 `AC-HTTP-005.4`'s "not throw to the caller" is narrow and worth reading exactly: this package catches
 only what handing the callback over throws. The callback's own body runs later, on the actor, where
@@ -383,9 +383,6 @@ learn it than reading it here.
   summaries: the transport is the platform's pooled handler and nothing surfaces its state.
 - **No test kit.** `ILogicBlockHttpClient` is an interface and mocks cleanly, but there is no fake
   harness with the byte-level fidelity the Modbus kits give.
-
-The finding ledger carries the first consumer's asks for the second and third, with the note that
-raised them.
 
 ## Test discipline
 
