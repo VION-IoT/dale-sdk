@@ -31,7 +31,6 @@ namespace Vion.Dale.Sdk.Test.Mqtt
                 yield return [new PublishMqttMessageRequest("topic")];
                 yield return [new PublishMqttMessageResponse(true)];
                 yield return [new RegisterMessageToSendOnConnect(new PublishMqttMessage("topic"))];
-                yield return [new RegisterServiceProvider()];
             }
         }
 

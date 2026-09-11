@@ -456,6 +456,7 @@ An analyzer that is referenced is not necessarily running, and
 - `AC-ANLZ-018.3` (Event-driven): WHEN the analyzer assembly is absent at pack time THE SYSTEM SHALL produce a package whose build targets still reference it, and SHALL fail the release run naming that package, which is sooner than the consumer's build that reports the missing file but not before it. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`.
 - `AC-ANLZ-018.4` (Ubiquitous): THE SYSTEM SHALL fail a build of a probed project when the
   analyzer-wiring probe is linked in, and SHALL keep the probe out of an ordinary build.
+- `AC-ANLZ-018.6` (Ubiquitous): THE SYSTEM SHALL ship the analyzer assembly in no package's `lib/` folder, and SHALL fail the release run naming any package that carries it there. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`, asserted by the same script's forbidden-lib-assembly list.
 - `AC-ANLZ-018.5` (Ubiquitous): THE SYSTEM SHALL compile the predicate parser into the analyzer assembly and the runtime assembly from one source. GAP: a build-graph fact; the two compilations agreeing is pinned by the vendored conformance vectors, which are premise tests by design and cite no criterion.
 
 The pack-time criterion above has two halves, and both are deliberate. `Vion.Dale.Sdk.csproj:92`
@@ -468,6 +469,14 @@ package is on a feed. Nothing in a compilation of *this* repository can see it, 
 assertion is a required-content rule in the post-pack artifact gate and the criterion stays `GAP`.
 The gate runs after the push, as its job in `publish.yml` says: it names the package within a minute
 rather than preventing it.
+
+The placement half of the same criterion set is the mirror image. Twelve packable projects reference
+the generator with `ReferenceOutputAssembly="false" OutputItemType="Analyzer"`; without that first
+attribute the generator packs into `lib/` as a reference the consumer compiles and loads against,
+carrying no `Microsoft.CodeAnalysis` dependency in the nuspec to resolve it. Nothing else in the
+artifact gate sees it: inside `Vion.Dale.Sdk` the generator's simple name is owned by the package id
+and its stamped version is honest, and inside the eleven siblings it is a foreign assembly, which
+that gate reports without judging. The placement criterion is the verdict those two paths lacked.
 
 The probe's own hazard is stated once here and guarded in its suite: it shells a real `dotnet build`,
 and a child build that carries no version stamp will overwrite the outputs `dotnet pack` then ships.

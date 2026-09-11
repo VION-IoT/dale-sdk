@@ -1,5 +1,4 @@
 using System;
-using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -29,7 +28,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controllable energy consumer that can be observed by the EnergyManager
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IObservableConsumerController))]
         public interface IObservableConsumer
         {
             // empty, not requesting/commanding anything, only receiving/responding via implementation
@@ -45,7 +43,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controller for an EnergyManager that can send requests to the consumer.
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IObservableConsumer))]
         public interface IObservableConsumerController : ILogicSenderInterface, ISendRequest<ObservableConsumerDataRequest>
         {
         }
@@ -99,7 +96,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controllable energy consumer that can be observed by the EMS (Energy Management System).
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IControllableConsumerController))]
         public interface IControllableConsumer : IObservableConsumer,
                                                  ISendStateUpdate<ControllableConsumerConfigurationStateUpdate>,
                                                  ISendStateUpdate<ControllableConsumerDataStateUpdate>
@@ -116,7 +112,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a controller for an observable energy consumer that can send requests to the consumer.
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IControllableConsumer))]
         public interface IControllableConsumerController : IObservableConsumerController, ISendCommand<ControllableConsumerCommand>
         {
         }

@@ -1,4 +1,3 @@
-using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -22,7 +21,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a provider for tariff information
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IEnergyTariffReceiver))]
         public interface IEnergyTariffProvider : ISendStateUpdate<EnergyTariffStateUpdate>
         {
         }
@@ -38,7 +36,6 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces.V1
         /// <summary>
         ///     Represents a receiver of for tariff information
         /// </summary>
-        [LogicFunctionMatchingInterface(typeof(IEnergyTariffProvider))]
         public interface IEnergyTariffReceiver
         {
             // empty, not requesting/commanding anything, only receiving/responding via implementation
