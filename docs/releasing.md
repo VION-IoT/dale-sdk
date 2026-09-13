@@ -55,7 +55,7 @@ run goes green (PR #134 saw ~5 min, with the last package ~40 s behind the rest;
 check is one loop over the referenced ids:
 
 ```bash
-for p in vion.dale.sdk vion.dale.sdk.http vion.dale.sdk.digitalio vion.dale.sdk.digitalio.testkit          vion.dale.sdk.analogio vion.dale.sdk.analogio.testkit vion.dale.sdk.modbus.core          vion.dale.sdk.modbus.tcp vion.dale.sdk.modbus.tcp.testkit vion.dale.sdk.modbus.rtu          vion.dale.sdk.modbus.rtu.testkit vion.dale.sdk.testkit vion.dale.devhost vion.dale.devhost.web; do
+for p in vion.dale.sdk vion.dale.sdk.http vion.dale.sdk.digitalio vion.dale.sdk.digitalio.testkit          vion.dale.sdk.analogio vion.dale.sdk.analogio.testkit vion.dale.sdk.modbus.core          vion.dale.sdk.modbus.tcp vion.dale.sdk.modbus.tcp.testkit vion.dale.sdk.modbus.rtu          vion.dale.sdk.modbus.rtu.testkit vion.dale.sdk.testkit vion.dale.sdk.http.testkit vion.dale.devhost vion.dale.devhost.web; do
   curl -s "https://api.nuget.org/v3-flatcontainer/$p/index.json" | grep -q '"X.Y.Z"' || echo "missing: $p"
 done
 ```
@@ -71,11 +71,19 @@ git push -u origin HEAD && gh pr create --fill
 ```
 
 `set-version.ps1` covers **templates, examples and `libraries/`** — the same three the paragraph above
-obliges, so no part of the bump is manual. Per project it updates the `Vion.Dale.*` `PackageReference`
+obliges. Per project it updates the `Vion.Dale.*` `PackageReference`
 versions, and for the one packable project per example and per library also its own `<Version>` (the
 DevHost and Test projects do not pack). A library's `<Version>` is what triggers its upload, so it
 tracks the SDK release here rather than being bumped separately — see
 [`upload-libraries.yml`](../.github/workflows/upload-libraries.yml).
+
+**A package's first release is the one manual part.** The script rewrites references that exist and
+only warns on one that does not, so a project whose tests wait for a package no release has carried yet
+compiles them only under `-p:DaleLocalSource=true`, and nothing reddens while it waits. The bump after
+that package's first release adds its `PackageReference` and deletes the exclusion by hand, as the
+project's own comment says. Today that is `Vion.Examples.Energy.Test`: its `Http/` tests wait for
+`Vion.Dale.Sdk.Http.TestKit`, and CI runs none of them until that bump. Before merging any bump, grep
+the examples for `Compile Remove` and check each exclusion's package against the feed.
 
 Then check what the bump should *show*. A release that adds a capability is the moment to demonstrate
 it in an example — several releases in this repo have carried an example change in the same breath

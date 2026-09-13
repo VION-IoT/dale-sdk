@@ -12,7 +12,7 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.Sdk.TestKit.Test
 {
     /// <summary>
-    ///     What the five kits ship, read off the assemblies and the repository rather than off a list.
+    ///     What the test kits ship, read off the assemblies and the repository rather than off a list.
     ///     Rosters drift; these tests derive both sides and compare them, so a kit added or a type left
     ///     unmarked fails here rather than at a consumer.
     /// </summary>
