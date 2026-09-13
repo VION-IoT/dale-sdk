@@ -591,7 +591,10 @@ namespace Vion.Dale.Sdk.Http.Test.Server
                                             NullLogger<LogicBlockHttpServer>.Instance);
         }
 
-        /// <summary>A request whose head — its request line and headers, before the blank line — is exactly <paramref name="length" /> bytes.</summary>
+        /// <summary>
+        ///     A request whose head — its request line and headers, before the blank line — is exactly
+        ///     <paramref name="length" /> bytes.
+        /// </summary>
         private static string HeadOfLength(int length)
         {
             const string prefix = "GET /a HTTP/1.1\r\nX-Padding: ";

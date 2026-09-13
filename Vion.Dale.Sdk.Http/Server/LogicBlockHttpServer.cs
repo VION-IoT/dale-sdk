@@ -71,6 +71,63 @@ namespace Vion.Dale.Sdk.Http.Server
             _logger = logger;
         }
 
+        /// <summary>
+        ///     Looks a request up in what the block last published, on a transport thread, stamping its arrival. The gate is what
+        ///     a running <c>Sync</c> callback holds, so a request arriving mid-republish waits for the table the callback leaves
+        ///     behind. Nothing is recorded yet: the response may never reach the client.
+        /// </summary>
+        HttpServerResponse IHttpServerExchangeHandler.Answer(HttpServerExchange exchange)
+        {
+            lock (_gate)
+            {
+                exchange.ReceivedAt = _timeProvider.GetUtcNow();
+                if (!_routes.TryGetValue(exchange.Path, out var byMethod))
+                {
+                    return HttpServerResponse.NotFound();
+                }
+
+                return byMethod.TryGetValue(exchange.Method, out var response) ? response :
+                           HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
+            }
+        }
+
+        /// <summary>
+        ///     Records a request whose response has been written, dropping the oldest requests kept until both the count and the
+        ///     body-byte budget hold; a request whose body alone is over the budget is dropped itself.
+        /// </summary>
+        void IHttpServerExchangeHandler.Delivered(HttpServerExchange exchange)
+        {
+            lock (_gate)
+            {
+                // Concurrent connections finish in any order, so the most recent arrival is not always the last one recorded.
+                if (exchange.ReceivedAt.UtcTicks > Volatile.Read(ref _lastRequestAtUtcTicks))
+                {
+                    Volatile.Write(ref _lastRequestAtUtcTicks, exchange.ReceivedAt.UtcTicks);
+                }
+
+                if (exchange.Body.Length > ReceivedRequestBodyBudget)
+                {
+                    _droppedRequestCount++;
+
+                    return;
+                }
+
+                while (_received.Count == ReceivedRequestCapacity || _receivedBodyBytes + exchange.Body.Length > ReceivedRequestBodyBudget)
+                {
+                    _receivedBodyBytes -= _received.Dequeue().Body.Length;
+                    _droppedRequestCount++;
+                }
+
+                _received.Enqueue(new HttpServerRequest(exchange.Method,
+                                                        exchange.Path,
+                                                        exchange.Query,
+                                                        exchange.Headers,
+                                                        exchange.Body,
+                                                        exchange.ReceivedAt));
+                _receivedBodyBytes += exchange.Body.Length;
+            }
+        }
+
         /// <inheritdoc />
         public bool IsEnabled
         {
@@ -203,63 +260,6 @@ namespace Vion.Dale.Sdk.Http.Server
             _isEnabled = false;
             _disposed = true;
             _transport.Dispose();
-        }
-
-        /// <summary>
-        ///     Looks a request up in what the block last published, on a transport thread, stamping its arrival. The gate is what
-        ///     a running <c>Sync</c> callback holds, so a request arriving mid-republish waits for the table the callback leaves
-        ///     behind. Nothing is recorded yet: the response may never reach the client.
-        /// </summary>
-        HttpServerResponse IHttpServerExchangeHandler.Answer(HttpServerExchange exchange)
-        {
-            lock (_gate)
-            {
-                exchange.ReceivedAt = _timeProvider.GetUtcNow();
-                if (!_routes.TryGetValue(exchange.Path, out var byMethod))
-                {
-                    return HttpServerResponse.NotFound();
-                }
-
-                return byMethod.TryGetValue(exchange.Method, out var response) ? response :
-                           HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
-            }
-        }
-
-        /// <summary>
-        ///     Records a request whose response has been written, dropping the oldest requests kept until both the count and the
-        ///     body-byte budget hold; a request whose body alone is over the budget is dropped itself.
-        /// </summary>
-        void IHttpServerExchangeHandler.Delivered(HttpServerExchange exchange)
-        {
-            lock (_gate)
-            {
-                // Concurrent connections finish in any order, so the most recent arrival is not always the last one recorded.
-                if (exchange.ReceivedAt.UtcTicks > Volatile.Read(ref _lastRequestAtUtcTicks))
-                {
-                    Volatile.Write(ref _lastRequestAtUtcTicks, exchange.ReceivedAt.UtcTicks);
-                }
-
-                if (exchange.Body.Length > ReceivedRequestBodyBudget)
-                {
-                    _droppedRequestCount++;
-
-                    return;
-                }
-
-                while (_received.Count == ReceivedRequestCapacity || _receivedBodyBytes + exchange.Body.Length > ReceivedRequestBodyBudget)
-                {
-                    _receivedBodyBytes -= _received.Dequeue().Body.Length;
-                    _droppedRequestCount++;
-                }
-
-                _received.Enqueue(new HttpServerRequest(exchange.Method,
-                                                        exchange.Path,
-                                                        exchange.Query,
-                                                        exchange.Headers,
-                                                        exchange.Body,
-                                                        exchange.ReceivedAt));
-                _receivedBodyBytes += exchange.Body.Length;
-            }
         }
 
         private void EnsureDisabled(string propertyName)

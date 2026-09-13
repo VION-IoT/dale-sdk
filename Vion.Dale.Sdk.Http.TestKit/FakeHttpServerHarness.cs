@@ -26,9 +26,10 @@ namespace Vion.Dale.Sdk.Http.TestKit
     /// </summary>
     /// <remarks>
     ///     The client view carries a request straight to the server, so what the socket transport decides on its own — the
-    ///     framing, a <c>HEAD</c> response's missing body, the size caps, a malformed request, closing the connection, the read
-    ///     bound, the connection limit, a response cut short — is not exercised through it: every request it sends is answered
-    ///     and recorded. The server's own lifecycle is: a disposed server refuses to be enabled here exactly as on a gateway.
+    ///     framing, a <c>HEAD</c> response's missing body, the size caps, a malformed request, closing the connection, the
+    ///     read bound, the connection limit, a response cut short — is not exercised through it: every request it sends is
+    ///     answered and recorded. The server's own lifecycle is: a disposed server refuses to be enabled here exactly as on a
+    ///     gateway.
     /// </remarks>
     [PublicApi]
     public sealed class FakeHttpServerHarness : IDisposable
