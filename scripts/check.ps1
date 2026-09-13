@@ -114,7 +114,7 @@ foreach ($line in (Get-Content -LiteralPath $workflow)) {
     }
 }
 if ($derived.Count -eq 0) {
-    Write-Host 'check: FAIL - spec-gates.yml names no ./scripts/*.ps1 step - the derivation is broken, not the repository'
+    Write-Host 'check: FAIL - spec-gates.yml names no ./scripts/*.ps1 step and no shared-workflows action - the derivation is broken, not the repository'
     exit 2
 }
 
