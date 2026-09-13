@@ -207,8 +207,8 @@ would otherwise restate. Its front matter differs from lane 3's in two places:
 - `sections:` is `Deviations, Questions, Friction, Affects others, Gates, Review` — the plugin's
   four plus the two this repo owes. `Gates` is the pasted `/check` output
   ([`.claude/commands/check.md`](../.claude/commands/check.md)); `Review` is the round's findings
-  and what was done with each, the same text the PR body's *Verification* carries on its
-  `Reviewed at` line ([`.github/pull_request_template.md`](../.github/pull_request_template.md)). It stays six, not
+  and what was done with each; the accepted ones, with their reasons, are what the PR body's
+  `Reviewed at` line carries ([`.github/pull_request_template.md`](../.github/pull_request_template.md)). It stays six, not
   seven, for spec ids touched (operator, 2026-09-10): the PR template already carries a *Spec ids
   touched* section (`D14`), which is where a reader looks; a REPORT exists to hand work back to a
   coordinator, and ids ride `Deviations` there.
@@ -588,7 +588,7 @@ ends with `/vion-dispatch:report` and the `Stop` hook files the report under the
 After the REPORT and before any PR, the coordinator runs two fresh-context **Opus** subagents
 concurrently: a **completeness critic** (reads the area's code first, then the page and the table,
 and reports misses by the sweep that should have caught them) and an **adversarial review** of the
-branch diff (`/vion-git:review branch` with the change doc as the spec). Both read every cited
+branch diff (the appendix's prompt, with the change doc as the spec). Both read every cited
 criterion's text against the test that cites it, both start from the REPORT's self-check preamble,
 and both read the doc's Reviewer's questions for an `OUTCOME` left pending and its prose for a
 retired name a rename replaced (a `(→ …)` marker after a current name) — two shapes the session's own

@@ -28,3 +28,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-13 · gate · check.ps1 · /check derived its gate list from ./scripts/*.ps1 steps only, so a spec-gates.yml job using a shared-workflows action would have been invisible to it; shared actions are now derived too and a CI-only one prints SKIP. (self) → codified: scripts/check.ps1
 
 2026-09-13 · review · CLAUDE.md · The review found the rotated window unnamed for the first retro, codify triggered from a third place in the trigger table, and a heading with no blank line above it; the plugin harness skill should have caught the second. (self)
+
+2026-09-13 · review · spec-process · The review found the REPORT's Review section said to be the same text as the Reviewed at line, which holds only accepted findings; the lane-3 adversarial review named as the review skill when the appendix prompt runs; and releasing.md citing a numbered rule the block removed. (self)
