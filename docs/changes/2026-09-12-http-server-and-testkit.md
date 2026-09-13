@@ -113,7 +113,8 @@ classification.
   (`Server/Implementation/IModbusTcpServerProxy.cs:22`), but its fake is `[PublicApi]` because a test
   pre-populates register buffers through it. An HTTP server's content is its route table, which the
   block owns and the real server holds, so a fake transport has nothing for a test to reach: the
-  harness and its client-side view are the whole published surface of the server half.
+  harness and its client-side view are the whole published surface of the server half. *(Implemented
+  one step narrower: the seam is `internal`, not `[InternalApi]` — see Drift checkpoints, 2026-09-13.)*
 - `D9` — **reversed at the classification gate: the kit is demonstrated against
   `Vion.Examples.Energy`'s two HTTP consumers in this round** (`Services/OpenMeteoService.cs`,
   `Services/GeolocationService.cs`), built against the working tree with `-p:DaleLocalSource=true`. They
@@ -476,7 +477,7 @@ artifact.
 | 14 | WHEN `IsEnabled` is set or the server is disposed from inside a `Sync` callback, at any nesting depth, THE SYSTEM SHALL throw an `InvalidOperationException`. | `AC-MODB-013.3`, `AC-MODB-013.4`; `LogicBlockModbusTcpServer.cs:248-258` | GAP | intended | stopping joins connection handlers waiting on the lock the callback holds — a permanent deadlock of the actor |
 | 15 | WHEN a snapshot is used after the callback it was given to has returned THE SYSTEM SHALL throw an `InvalidOperationException`. | `AC-MODB-013.5`; `LogicBlockModbusTcpServer.cs:276-295` | GAP | intended | a captured snapshot would change the table without the lock |
 | 16 | THE SYSTEM SHALL deliver no event or callback to the block from a background thread. | `AC-MODB-013.6` (GAP there: an absence); consumer `:16-22` | GAP | ⚠ propose | *Question 4* — the rule that decides the routing model; as an absence it has no mutation, so it is page prose |
-| 17 | WHEN a request arrives for a method and path with a response set THE SYSTEM SHALL answer with that response's status, content type, headers and body, with a `Content-Length`, and with no body where the status forbids one. | consumer `EmuMCenterHttpFace.cs:144-149` | GAP | intended | the whole of what the consumer's face serves |
+| 17 | WHEN a request arrives for a method and path with a response set THE SYSTEM SHALL answer with that response's status, content type, headers and body, with a `Content-Length`, and with no body where the status forbids one. *(Headers clause dropped at implementation — Drift checkpoints.)* | consumer `EmuMCenterHttpFace.cs:144-149` | GAP | intended | the whole of what the consumer's face serves |
 | 18 | WHEN a request arrives for a path with no response set under any method THE SYSTEM SHALL answer 404 with an empty body. | consumer `:136-142,181` | GAP | intended | the real gateway's answer for a device it never read, and the `NeverRead` knob |
 | 19 | WHEN a request arrives for a path that has a response under another method only THE SYSTEM SHALL answer 405 with an `Allow` header naming those methods. | edge: a `POST` to a `GET` route | GAP | ⚠ propose | *Question 4* — a 404 there would tell a client the path does not exist, which is false |
 | 20 | THE SYSTEM SHALL match a route on the request's path as its request line carries it, before any query string, compared ordinally and case-sensitively, and on nothing else. | consumer `:135` (`Url.AbsolutePath`), `:167,174` (ordinal comparison) | GAP | ⚠ propose | *Question 4* — the edge values: `/a?x=1` matches `/a`; `/A` and `/a/` do not; the `Host` header is not routed on |
@@ -490,7 +491,7 @@ artifact.
 | # | Behavior (EARS) | Evidence | Test today | Rec | Why |
 |---|---|---|---|---|---|
 | 25 | WHEN a request carries a `Content-Length` THE SYSTEM SHALL read exactly that many body bytes. | `D3` | GAP | intended | the only body framing the parser accepts |
-| 26 | WHEN a request carries a body without a `Content-Length`, or with `Transfer-Encoding: chunked`, THE SYSTEM SHALL answer 411 and record nothing. | `D3`; edge | GAP | intended | a stated limit, instead of a hang waiting for a length that never comes |
+| 26 | WHEN a request carries a body without a `Content-Length`, or with `Transfer-Encoding: chunked`, THE SYSTEM SHALL answer 411 and record nothing. *(Narrowed to a declared transfer encoding — Drift checkpoints.)* | `D3`; edge | GAP | intended | a stated limit, instead of a hang waiting for a length that never comes |
 | 27 | WHEN a request's line and headers exceed the header cap THE SYSTEM SHALL answer 431, and WHEN its body exceeds the body cap THE SYSTEM SHALL answer 413, recording neither. | `D3`; edge: an oversized or hostile client | GAP | intended | a gateway process must not allocate what a client claims |
 | 28 | WHEN a request line or a header is malformed, or names a version other than HTTP/1.0 or HTTP/1.1, THE SYSTEM SHALL answer 400, record nothing, and close the connection. | `D3`; edge | GAP | intended | a refusal from the parser is an answer, never an exception inside the server |
 | 29 | THE SYSTEM SHALL answer one request per connection and then close it, sending `Connection: close`. | `D3`; the consumer closes after each response (`:139,149`) | GAP | intended | keep-alive is where a small parser's defects live; clients reconnect |
@@ -625,6 +626,55 @@ Every existing test the round touches maps to a row.
 | `HttpRequestExecutorShould`'s two executor constructions (`:920`, `:941`) | 100 — they gain a clock argument; their assertions do not move |
 
 **Unmapped tests: none.**
+
+## Test to mutation
+
+> One line per criterion: the test, the mutation run against it, and what the run printed. Each mutation was
+> applied by a script that asserted its match count, ran `dotnet test` on the one test by
+> `FullyQualifiedName`, and restored the file. Result lines are the runner's own summaries.
+
+- `AC-HTTP-008.3` — `HttpRequestExecutorShould.MeasurePerRequestTimeoutOnRegisteredClock` × M01 (the source built with `new CancellationTokenSource(timeout)` again) → `Failed: 3, Passed: 0`; `ServiceCollectionExtensionsShould.KeepClockRegisteredBeforeRegistration` × M02 (`AddSingleton` for `TryAddSingleton`) → `Failed: 1`.
+- `AC-HTTP-014.1` (`MODIFIED`) — `HttpPackageSurfaceShould.AddDependencyToEveryPluginTakingIt`'s new row: **no mutation run.** The clock assembly is referenced from three sites (the executor, the registration, the server); no one-line mutation removes the reference, so the row is proven only by its presence.
+- `AC-HTTP-015.1` — `ServiceCollectionExtensionsShould.CreateNewDisabledServerOnEveryCreate` × M03 (the factory caches its first server) → `Failed: 1`.
+- `AC-HTTP-015.2` — `LogicBlockHttpServerShould.ListenOnAllInterfacesAndPort8080UnlessTold` × M04 (default port 80) → `Failed: 1`.
+- `AC-HTTP-015.3` — `LogicBlockHttpServerShould.RefuseListenAddressAndPortWhileEnabled` × M05 (the port's enabled guard removed) → `Failed: 1`.
+- `AC-HTTP-015.4` — `LogicBlockHttpServerShould.RefusePortOutsideValidRange` × M06 (the message in the current culture) → `Failed: 1, Passed: 2` (the `-1` row under `sv-SE`); `.RefuseListenAddressOtherThanIpAddress` × M07 (a host name accepted) → `Failed: 1, Passed: 3`.
+- `AC-HTTP-015.5` — `LogicBlockHttpServerShould.PropagateBindFailureAndStayDisabled` × M08 (enabled before the transport starts) → `Failed: 1`; `TcpHttpServerTransportShould.FailSecondEnableOnHeldPortAndLeaveFirstServing` × M09 (a bind failure swallowed) → `Failed: 1`.
+- `AC-HTTP-015.6` — `LogicBlockHttpServerShould.StartOnEnableAndStopOnDisableOnceEach` × M10 (the repeat guard removed) → `Failed: 1`; `.KeepPublishedResponsesAcrossDisableAndEnable` × M11 (responses cleared on disable) → `Failed: 1`.
+- `AC-HTTP-015.7` — `LogicBlockHttpServerShould.StopAndReportDisabledOnDisposeAndStaySilentOnSecond` × M12 (disposal leaves the flag set) → `Failed: 1`.
+- `AC-HTTP-015.8` — `GAP`, no test.
+- `AC-HTTP-016.1` — `LogicBlockHttpServerShould.AnswerRequestArrivingDuringSyncFromResponsesCallbackLeaves` × M13 (the answer takes no lock) → `Failed: 1` (after the ten-second wait for a requester that never blocked); `.ClearEveryResponse` × M14 (clear is a no-op) → `Failed: 1`.
+- `AC-HTTP-016.2` — `LogicBlockHttpServerShould.AllowSyncWhileDisabled` × M15 (`Sync` refused while disabled) → `Failed: 1`.
+- `AC-HTTP-016.3` — `LogicBlockHttpServerShould.RefuseDisposeInsideSyncAfterNestedSyncReturned` × M16 (the depth reset to zero when a nested call returns) → `Failed: 1`; `.RefuseEnableInsideSyncAtAnyDepth` × M17 (the guard removed from `IsEnabled`) → `Failed: 2`.
+- `AC-HTTP-016.4` — `LogicBlockHttpServerShould.RefuseSnapshotUseAfterCallbackReturned` × M18 (the lifetime check disabled) → `Failed: 1`.
+- `AC-HTTP-016.5` — `LogicBlockHttpServerShould.AnswerWithPublishedStatusContentTypeAndBody` × M19 (every published response replaced by an empty JSON) → `Failed: 1`; `TcpHttpServerTransportShould.ServePublishedResponseToPlatformHttpClient` × M20 (no `Content-Type` written) → `Failed: 1`.
+- `AC-HTTP-016.6` — `LogicBlockHttpServerShould.AnswerMethodNotAllowedNamingPublishedMethods` × M21 (a 404 in place of the 405) → `Failed: 1`; `.AnswerNotFoundForPathWithNoResponse` × M22 (a path left with no method kept) → `Failed: 1, Passed: 1`.
+- `AC-HTTP-016.7` — `LogicBlockHttpServerShould.MatchMethodAndPathOrdinallyIgnoringQuery` × M23 (paths compared ignoring case) → `Failed: 1, Passed: 3`; `TcpHttpServerTransportShould.RouteOnPathAndRecordQueryAndHeadersAsSent` × M24 (the query kept in the path) → `Failed: 1`.
+- `AC-HTTP-016.8` — `LogicBlockHttpServerShould.HandAnsweredRequestsToBlockOnceInArrivalOrder` × M25 (only routed requests recorded) → `Failed: 1`; `TcpHttpServerTransportShould.RouteOnPathAndRecordQueryAndHeadersAsSent` × M26 (a repeated header's last value wins) → `Failed: 1`.
+- `AC-HTTP-016.9` — `LogicBlockHttpServerShould.DropOldestBeyondCapacityAndCountDropsSinceLastTake` × M27 (the count not reset by a take) → `Failed: 1`.
+- `AC-HTTP-016.10` — `LogicBlockHttpServerShould.ReportMostRecentArrivalAndNoneBeforeFirst` × M28 (only the first arrival stamped) → `Failed: 1`.
+- `AC-HTTP-016.11` — `LogicBlockHttpServerShould.RefuseRouteWithUnusablePath` × M29 (a path carrying a query accepted) → `Failed: 1, Passed: 2`; `HttpServerResponseShould.RefuseStatusOutsideHttpRange` × M30 (600 accepted) → `Failed: 1, Passed: 1`.
+- `AC-HTTP-017.1` — `TcpHttpServerTransportShould.ReadBodyOfExactlyContentLength` × M31 (the body sized to what was buffered) → `Failed: 1`; `.SendContentLengthAndNoBodyWhereStatusForbidsOne` × M32 (a 204 given a body) → `Failed: 1, Passed: 1`.
+- `AC-HTTP-017.2` — `TcpHttpServerTransportShould.AnswerLengthRequiredForTransferEncoding` × M33 (the transfer-encoding check removed) → `Failed: 1`.
+- `AC-HTTP-017.3` — `TcpHttpServerTransportShould.AnswerContentTooLargeBeyondBodyCap` × M34 (the body cap removed) → `Failed: 1` (by the class timeout: the server waited for a body that never came); `.AnswerHeaderFieldsTooLargeBeyondHeaderCap` × M35 (the cap while the headers' end is still sought, removed) → `Failed: 1, Passed: 1` and × M35b (the cap once it has been read, removed) → `Failed: 1, Passed: 1` — each row owned by one guard. M35 **survived its first run**, before the second row existed.
+- `AC-HTTP-017.4` — `TcpHttpServerTransportShould.AnswerBadRequestForMalformedRequest` × M36 (HTTP/2.0 accepted) → `Failed: 1, Passed: 5`.
+- `AC-HTTP-017.5` — `TcpHttpServerTransportShould.CloseConnectionAfterOneRequest` × M37 (no `Connection: close`) → `Failed: 1`.
+- `AC-HTTP-017.6` — `TcpHttpServerTransportShould.CloseSilentClientOnceReadBoundElapses` × M38 (the read bound never armed) → `Failed: 1` (by the class timeout).
+- `AC-HTTP-017.7` — `TcpHttpServerTransportShould.ServeOtherClientsAfterClientHangsUp` × M39 (the listener stopped when a client hangs up) → `Failed: 1`. M39 **survived its first run** (the test raced it) and its second "red" was the rewritten test failing on its own; re-proven after the test was fixed, with the suite green five runs in a row.
+- `AC-TKIT-014.1` — `FakeHttpHarnessShould.DeserializeScriptedBodyWithSdkSerializer` × K01 (the harness registers case-insensitive options) → `Failed: 1, Passed: 1`; `.DeliverNonSuccessStatusAsSdkMapsIt` × K02 (the harness raises its own exception for a status) → `Failed: 1`.
+- `AC-TKIT-014.2` — `FakeHttpHarnessShould.RecordRequestAsComposedForWireBeforeMemberReturns` × K03 (the timeout not recorded) → `Failed: 1`; `.RecordSerializedBodyAndContentType` × K04 (the body not recorded) → `Failed: 1`.
+- `AC-TKIT-014.3` — `FakeHttpHarnessShould.AnswerOutstandingRequestsOldestFirst` × K05 (newest first) → `Failed: 1`; `.DeliverScriptedFailureUnchanged` × K06 (the exception wrapped) → `Failed: 1`.
+- `AC-TKIT-014.4` — `FakeHttpHarnessShould.RefuseFailWithoutException` × K07 (the null check after the request is taken) → `Failed: 1`.
+- `AC-TKIT-014.5` — `FakeHttpHarnessShould.QueueCallbackOnBlockBeforeAnswerReturns` × K08 (continuations asynchronous **and** the wait removed) → `Failed: 1`. **Over-determined:** K08b (asynchronous continuations, the wait kept) → `Passed: 1`, and K08c (the wait removed, continuations inline) → `Passed: 1`. The inline completion and the wait each guarantee the order; only removing both reddens it.
+- `AC-TKIT-014.6` — `FakeHttpHarnessShould.KeepEveryRequestInIssueOrderAndCountOutstanding` × K09 (the outstanding count reads the record) → `Failed: 1`.
+- `AC-TKIT-014.7` — `FakeHttpHarnessShould.FailHeldRequestWhenTimeoutElapsesOnHarnessClock` × K10 (the harness's clock not registered) → `Failed: 1`.
+- `AC-TKIT-014.8` — `FakeHttpHarnessShould.HoldRequestPastItsTimeoutWhenNoClockSupplied` × K11 (the default clock is the system clock) → `Failed: 1`.
+- `AC-TKIT-014.9` — `FakeHttpHarnessShould.AbandonOutstandingRequestsOnDispose` × K12 (disposal fails what is outstanding) → `Failed: 1`.
+- `AC-TKIT-015.1` — `FakeHttpServerHarnessShould.HandOutSameServerThroughFactory` × K14 (the factory resolved from the container) → `Failed: 1`; `.StampRequestsFromSuppliedClock` × K15 (the clock not registered) → `Failed: 1`; `.DisposeServerWithHarness` × K13 (the explicit server disposal removed) → `Passed: 1` — **over-determined**: the container that resolved the server disposes it too — and × K13b (both removed) → `Failed: 1`.
+- `AC-TKIT-015.2` — `FakeHttpServerHarnessShould.RecordClientViewRequestAsSent` × K16 (the query dropped) → `Failed: 1`; `.ReturnHeadersServerAdds` × K17 (the server's headers not returned) → `Failed: 1`.
+- `AC-TKIT-015.3` — `FakeHttpServerHarnessShould.RefuseSendWhileServerNotListening` × K18 (a non-listening server answered) → `Failed: 1`.
+- `AC-TKIT-013.1`, `AC-TKIT-013.2`, `SYS-REL-001` (new rows, unchanged text) — before the rosters were updated, `TestKitSurfaceShould.NameEveryPackableProjectInReleaseCacheRoster` → `Failed: 1` against the new packable kit, and once the kit was listed, `.CarryEveryPublishedKitTypeInApiManifest` → `Failed: 1` (`Actual: 5`) until the manifest carried its types.
+- The Energy example's `OpenMeteoServiceShould.RequestHourlyVariablesForLocationInInvariantCulture` cites nothing (a Tier C consumer); its red run against the unfixed example is the demonstration pasted under *Drift checkpoints*.
 
 ---
 
