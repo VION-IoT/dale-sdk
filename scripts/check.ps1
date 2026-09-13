@@ -13,14 +13,16 @@
   deliberate: -RepoRoot is always passed (CI relies on the cwd), and a gate whose arguments
   need something the desk may not have runs without them, reported PARTIAL with what did not
   run. A gate that cannot run at all is reported SKIP with the reason rather than passing
-  vacuously.
+  vacuously. A step using a VION-IoT/shared-workflows action is a gate too, and one whose
+  script lives only in that repository is marked CI-only in the table and always reported SKIP.
 
   Not covered here: the ReSharper style gate (`scripts/cleanup-code.ps1 -Changed`, or the
   /cleanup command) and the packed-artifact gate, whose input is the publish job's .nupkg
   output rather than the working tree.
 
   -CiShape covers the three ways phase 1 of the SDD closeout found a check green at the desk
-  and red on the Linux runner (docs/process-journal.md, 2026-09-03 and 2026-09-07). Only the
+  and red on the Linux runner (docs/retro/journal-2026-08-12-to-2026-09-10.md, 2026-09-03 and
+  2026-09-07). Only the
   first is a reproduction; the second is a scan, and it says so:
 
     1. The hidden-directory walk. On Linux a dot-directory is hidden, so `Get-ChildItem
@@ -88,21 +90,27 @@ $invocation = @{
     'pragma-reason-lint'  = @{ Args = @(); RepoRootArg = $true }
     'bom-lint'            = @{ Args = @(); RepoRootArg = $true }
     'packed-msbuild-lint' = @{ Args = @(); RepoRootArg = $true }
-    'journal-lint'        = @{ Args = @(); RepoRootArg = $true }
     'sweep-residue-lint'  = @{ Args = @(); RepoRootArg = $true }
     'self-reference-lint' = @{ Args = @(); RepoRootArg = $true }
+    'journal-lint'        = @{ CiOnly = 'its script lives in VION-IoT/shared-workflows, so only the CI job runs it' }
 }
 
-# Derive the gate list, in the workflow's own order, from the scripts its steps invoke. The
-# spec-lint step names its script twice (an if/else on GITHUB_BASE_REF), hence the dedupe.
-# Comment lines are skipped: the workflow's header names all eleven scripts in prose, and a
-# comment mentioning a script the workflow does not run would mint a gate that is not one.
+# Derive the gate list, in the workflow's own order, from the scripts its steps invoke and the
+# shared-workflows actions its steps use. The spec-lint step names its script twice (an if/else
+# on GITHUB_BASE_REF), hence the dedupe. Comment lines are skipped: the workflow's header names
+# every gate in prose, and a comment mentioning one the workflow does not run would mint a gate
+# that is not one. Any other action - actions/checkout - is plumbing, not a gate.
 $derived = [System.Collections.Generic.List[string]]::new()
+$source = @{}
 foreach ($line in (Get-Content -LiteralPath $workflow)) {
     if ($line -match '^\s*#') { continue }
-    foreach ($m in [regex]::Matches($line, '\./scripts/([A-Za-z0-9._-]+)\.ps1')) {
-        $name = $m.Groups[1].Value
-        if (-not $derived.Contains($name)) { $derived.Add($name) }
+    foreach ($m in [regex]::Matches($line, '\./scripts/([A-Za-z0-9._-]+)\.ps1|uses:\s*VION-IoT/shared-workflows/actions/([A-Za-z0-9._-]+)@')) {
+        $isScript = $m.Groups[1].Success
+        $name = if ($isScript) { $m.Groups[1].Value } else { $m.Groups[2].Value }
+        if (-not $derived.Contains($name)) {
+            $derived.Add($name)
+            $source[$name] = if ($isScript) { "scripts/$name.ps1" } else { "the shared-workflows action $name" }
+        }
     }
 }
 if ($derived.Count -eq 0) {
@@ -163,7 +171,11 @@ try {
     foreach ($name in $derived) {
         $script = Join-Path $RepoRoot "scripts/$name.ps1"
         if (-not $invocation.ContainsKey($name)) {
-            Add-Result $name 'FAIL' '-' "spec-gates.yml runs scripts/$name.ps1 and check.ps1 knows no local invocation for it - add one to the `$invocation table" '' ''
+            Add-Result $name 'FAIL' '-' "spec-gates.yml runs $($source[$name]) and check.ps1 knows no local invocation for it - add one to the `$invocation table" '' ''
+            continue
+        }
+        if ($invocation[$name].CiOnly) {
+            Add-Result $name 'SKIP' '-' "CI only - $($invocation[$name].CiOnly)" '' ''
             continue
         }
         if (-not (Test-Path -LiteralPath $script)) {
