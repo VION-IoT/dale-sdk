@@ -2,12 +2,15 @@ using System;
 using System.Net.Http;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Http.Server;
 
 namespace Vion.Dale.Sdk.Http
 {
     /// <summary>
-    ///     Extension methods for setting up logic block HTTP client services in an <see cref="IServiceCollection" />.
+    ///     Extension methods for setting up logic block HTTP client and server services in an <see cref="IServiceCollection" />.
     /// </summary>
     [PublicApi]
     public static class ServiceCollectionExtensions
@@ -63,6 +66,14 @@ namespace Vion.Dale.Sdk.Http
             serviceCollection.AddTransient<IHttpRequestExecutor, HttpRequestExecutor>();
             serviceCollection.AddTransient<IHttpContentSerializer, HttpContentSerializer>();
             serviceCollection.AddTransient<ILogicBlockHttpClient, LogicBlockHttpClient>();
+            serviceCollection.AddSingleton<ILogicBlockHttpServerFactory, LogicBlockHttpServerFactory>();
+            serviceCollection.AddTransient<ILogicBlockHttpServer, LogicBlockHttpServer>();
+            serviceCollection.AddTransient<IHttpServerTransport>(serviceProvider => new TcpHttpServerTransport(serviceProvider.GetRequiredService<ILogger<TcpHttpServerTransport>>(),
+                                                                                                            TcpHttpServerTransport.DefaultReadBound));
+
+            // The executor measures a per-request timeout and the server stamps each request on this clock. The
+            // full SDK registers one too; TryAdd keeps that one, and a test kit's controllable clock, authoritative.
+            serviceCollection.TryAddSingleton(TimeProvider.System);
 
             return serviceCollection;
         }

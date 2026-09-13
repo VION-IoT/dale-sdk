@@ -2,9 +2,9 @@
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
         <ImplicitUsings>false</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <IsPublishable>false</IsPublishable>
         <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
     </PropertyGroup>
@@ -14,6 +14,8 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <!-- FakeTimeProvider is the virtual clock a held request's timeout and a request's arrival are measured on. -->
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.0.0"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
         <PackageReference Include="Moq" Version="4.20.72"/>
         <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
@@ -21,19 +23,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
-        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
-        <ProjectReference Include="..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
-        <!-- The other five kits, so TestKitSurfaceShould can read the surface all six ship rather than
-             this one's alone. Nothing else in this project uses them. -->
-        <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo.TestKit\Vion.Dale.Sdk.DigitalIo.TestKit.csproj"/>
-        <ProjectReference Include="..\Vion.Dale.Sdk.AnalogIo.TestKit\Vion.Dale.Sdk.AnalogIo.TestKit.csproj"/>
-        <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Rtu.TestKit\Vion.Dale.Sdk.Modbus.Rtu.TestKit.csproj"/>
-        <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Tcp.TestKit\Vion.Dale.Sdk.Modbus.Tcp.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Http.TestKit\Vion.Dale.Sdk.Http.TestKit.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
         <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>
     </ItemGroup>
+
 </Project>

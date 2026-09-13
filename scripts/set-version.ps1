@@ -251,6 +251,7 @@ function Clear-NuGetPackageCache
     $sdkPackageIds = @(
         "Vion.Dale.Sdk",
         "Vion.Dale.Sdk.Http",
+        "Vion.Dale.Sdk.Http.TestKit",
         "Vion.Dale.Sdk.DigitalIo",
         "Vion.Dale.Sdk.DigitalIo.TestKit",
         "Vion.Dale.Sdk.AnalogIo",

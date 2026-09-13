@@ -4,7 +4,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Net.Sockets;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
+using Vion.Dale.Sdk.Http.Server;
 using Vion.Dale.Sdk.Http.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Http.Test
@@ -207,6 +210,71 @@ namespace Vion.Dale.Sdk.Http.Test
             // Assert — the innermost handler is the platform's own, so redirect following, decompression
             // and the connection pool are its defaults rather than anything this package promises
             Assert.IsInstanceOfType<SocketsHttpHandler>(chain[chain.Count - 1]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.3")]
+        public void RegisterSystemClockWhenNoneRegistered()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddDaleHttpSdk();
+
+            // Assert
+            Assert.AreSame(TimeProvider.System, services.BuildServiceProvider().GetRequiredService<TimeProvider>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.3")]
+        public void KeepClockRegisteredBeforeRegistration()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var clock = new FakeTimeProvider();
+            services.AddSingleton<TimeProvider>(clock);
+
+            // Act
+            services.AddDaleHttpSdk();
+
+            // Assert
+            Assert.AreSame(clock, services.BuildServiceProvider().GetRequiredService<TimeProvider>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.1")]
+        public void CreateNewDisabledServerOnEveryCreate()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddDaleHttpSdk();
+            using var provider = services.BuildServiceProvider();
+            var factory = provider.GetRequiredService<ILogicBlockHttpServerFactory>();
+
+            // Act
+            var server1 = factory.Create();
+            var server2 = factory.Create();
+
+            // Assert — and the composed server is a socket server: enabling it on a free loopback port listens
+            Assert.AreNotSame(server1, server2);
+            Assert.IsFalse(server1.IsEnabled);
+            Assert.IsFalse(server1.IsListening);
+            server1.ListenAddress = "127.0.0.1";
+            server1.Port = FreeLoopbackPort();
+            server1.IsEnabled = true;
+            Assert.IsTrue(server1.IsListening);
+        }
+
+        private static int FreeLoopbackPort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+
+            return port;
         }
     }
 }

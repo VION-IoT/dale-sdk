@@ -198,6 +198,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.DigitalIo.Tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.AnalogIo.Test", "Vion.Dale.Sdk.AnalogIo.Test\Vion.Dale.Sdk.AnalogIo.Test.csproj", "{491AC237-3E39-4B5B-AA40-6781266B147A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.Http.TestKit", "Vion.Dale.Sdk.Http.TestKit\Vion.Dale.Sdk.Http.TestKit.csproj", "{31AA124B-A05C-4C9C-9CC9-53409513ABA2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.Http.TestKit.Test", "Vion.Dale.Sdk.Http.TestKit.Test\Vion.Dale.Sdk.Http.TestKit.Test.csproj", "{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1108,6 +1112,30 @@ Global
 		{491AC237-3E39-4B5B-AA40-6781266B147A}.Release|x64.Build.0 = Release|Any CPU
 		{491AC237-3E39-4B5B-AA40-6781266B147A}.Release|x86.ActiveCfg = Release|Any CPU
 		{491AC237-3E39-4B5B-AA40-6781266B147A}.Release|x86.Build.0 = Release|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Debug|x64.Build.0 = Debug|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Debug|x86.Build.0 = Debug|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Release|x64.ActiveCfg = Release|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Release|x64.Build.0 = Release|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Release|x86.ActiveCfg = Release|Any CPU
+		{31AA124B-A05C-4C9C-9CC9-53409513ABA2}.Release|x86.Build.0 = Release|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Debug|x64.Build.0 = Debug|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Debug|x86.Build.0 = Debug|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Release|x64.ActiveCfg = Release|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Release|x64.Build.0 = Release|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Release|x86.ActiveCfg = Release|Any CPU
+		{CD225D08-1F92-4C91-BE93-DAF9CC25DE18}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
