@@ -1,6 +1,6 @@
 ---
 slug: http-server-and-testkit
-status: in-flight           # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: HTTP, TKIT
 author: lane-3 session (VION-212)
