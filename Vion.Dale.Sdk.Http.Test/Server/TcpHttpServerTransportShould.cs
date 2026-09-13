@@ -254,7 +254,9 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         private static LogicBlockHttpServer Compose(TimeSpan readBound)
         {
-            return new LogicBlockHttpServer(new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance, readBound), TimeProvider.System, NullLogger<LogicBlockHttpServer>.Instance);
+            return new LogicBlockHttpServer(new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance, readBound),
+                                            TimeProvider.System,
+                                            NullLogger<LogicBlockHttpServer>.Instance);
         }
 
         private static int FreePort()

@@ -315,7 +315,9 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         {
             // Arrange
             _sut.IsEnabled = true;
-            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Post, "/app/api/command", new HttpServerResponse(HttpStatusCode.Accepted, "text/plain", Encoding.UTF8.GetBytes("queued"))));
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Post,
+                                                       "/app/api/command",
+                                                       new HttpServerResponse(HttpStatusCode.Accepted, "text/plain", Encoding.UTF8.GetBytes("queued"))));
 
             // Act
             var response = _transport.Send("POST", "/app/api/command");
@@ -404,7 +406,8 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             var takenAgain = _sut.Sync(snapshot => snapshot.TakeReceivedRequests());
 
             // Assert
-            Assert.AreEqual("GET /unknown ?x=1 @0|POST /cmd ? @2", string.Join("|", taken.Select(request => $"{request.Method} {request.Path} ?{request.Query} @{(request.ReceivedAt - Anchor).TotalSeconds}")));
+            Assert.AreEqual("GET /unknown ?x=1 @0|POST /cmd ? @2",
+                            string.Join("|", taken.Select(request => $"{request.Method} {request.Path} ?{request.Query} @{(request.ReceivedAt - Anchor).TotalSeconds}")));
             Assert.AreEqual("{\"Reset\":true}", Encoding.UTF8.GetString(taken[1].Body.ToArray()));
             Assert.IsEmpty(takenAgain);
         }

@@ -32,15 +32,6 @@ namespace Vion.Dale.Sdk.Http.Server
     /// </summary>
     internal sealed class HttpServerExchange
     {
-        public HttpServerExchange(string method, string path, string query, IReadOnlyDictionary<string, string> headers, byte[] body)
-        {
-            Method = method;
-            Path = path;
-            Query = query;
-            Headers = headers;
-            Body = body;
-        }
-
         public string Method { get; }
 
         public string Path { get; }
@@ -50,5 +41,14 @@ namespace Vion.Dale.Sdk.Http.Server
         public IReadOnlyDictionary<string, string> Headers { get; }
 
         public byte[] Body { get; }
+
+        public HttpServerExchange(string method, string path, string query, IReadOnlyDictionary<string, string> headers, byte[] body)
+        {
+            Method = method;
+            Path = path;
+            Query = query;
+            Headers = headers;
+            Body = body;
+        }
     }
 }

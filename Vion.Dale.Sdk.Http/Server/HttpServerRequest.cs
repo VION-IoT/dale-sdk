@@ -26,7 +26,8 @@ namespace Vion.Dale.Sdk.Http.Server
         public string Query { get; }
 
         /// <summary>
-        ///     Gets the request headers by case-insensitive name; a header sent more than once carries its values joined by <c>", "</c>.
+        ///     Gets the request headers by case-insensitive name; a header sent more than once carries its values joined by
+        ///     <c>", "</c>.
         /// </summary>
         public IReadOnlyDictionary<string, string> Headers { get; }
 
@@ -40,7 +41,12 @@ namespace Vion.Dale.Sdk.Http.Server
         /// </summary>
         public DateTimeOffset ReceivedAt { get; }
 
-        internal HttpServerRequest(string method, string path, string query, IReadOnlyDictionary<string, string> headers, byte[] body, DateTimeOffset receivedAt)
+        internal HttpServerRequest(string method,
+                                   string path,
+                                   string query,
+                                   IReadOnlyDictionary<string, string> headers,
+                                   byte[] body,
+                                   DateTimeOffset receivedAt)
         {
             Method = method;
             Path = path;

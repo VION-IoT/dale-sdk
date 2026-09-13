@@ -47,7 +47,8 @@ namespace Vion.Dale.Sdk.Http.Server
         string? ListenAddress { get; set; }
 
         /// <summary>
-        ///     Gets or sets the local port the server listens on, from 1 to 65535. Default is 8080; changeable only while disabled.
+        ///     Gets or sets the local port the server listens on, from 1 to 65535. Default is 8080; changeable only while
+        ///     disabled.
         /// </summary>
         int Port { get; set; }
 

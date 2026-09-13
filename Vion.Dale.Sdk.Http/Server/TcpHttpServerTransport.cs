@@ -17,7 +17,8 @@ namespace Vion.Dale.Sdk.Http.Server
     ///     per connection, <c>Content-Length</c> bodies only, capped sizes, and a bound on how long a client may take to send
     ///     its request.
     ///     <para>
-    ///         It is built on a TCP listener rather than on <see cref="HttpListener" /> because the latter is <c>http.sys</c> on
+    ///         It is built on a TCP listener rather than on <see cref="HttpListener" /> because the latter is <c>http.sys</c>
+    ///         on
     ///         Windows, which refuses to bind every interface to a process that is not elevated.
     ///     </para>
     /// </summary>
@@ -287,8 +288,7 @@ namespace Vion.Dale.Sdk.Http.Server
             }
 
             var contentLength = 0L;
-            if (headers.TryGetValue("Content-Length", out var declaredLength)
-                && (!long.TryParse(declaredLength, NumberStyles.None, CultureInfo.InvariantCulture, out contentLength)))
+            if (headers.TryGetValue("Content-Length", out var declaredLength) && !long.TryParse(declaredLength, NumberStyles.None, CultureInfo.InvariantCulture, out contentLength))
             {
                 return (null, HttpServerResponse.Refusal(HttpStatusCode.BadRequest));
             }

@@ -15,13 +15,13 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
     {
         private readonly ILogicBlockHttpClient _client;
 
+        /// <summary>Every callback that ran, oldest first: the URL it answered and what it delivered.</summary>
+        public List<(string Url, object Outcome)> Settled { get; } = new();
+
         public SampleHttpBlock(ILogicBlockHttpClient client, ILogger logger) : base(logger)
         {
             _client = client;
         }
-
-        /// <summary>Every callback that ran, oldest first: the URL it answered and what it delivered.</summary>
-        public List<(string Url, object Outcome)> Settled { get; } = new();
 
         /// <summary>Issues a GET for a device description.</summary>
         public void FetchDescription(string url, TimeSpan? timeout = null)

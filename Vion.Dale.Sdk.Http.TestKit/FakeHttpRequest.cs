@@ -32,7 +32,12 @@ namespace Vion.Dale.Sdk.Http.TestKit
         /// <summary>Gets the per-request timeout the block passed, or <c>null</c> when it passed none.</summary>
         public TimeSpan? Timeout { get; }
 
-        internal FakeHttpRequest(HttpMethod method, Uri uri, IReadOnlyDictionary<string, string> headers, string? body, string? contentType, TimeSpan? timeout)
+        internal FakeHttpRequest(HttpMethod method,
+                                 Uri uri,
+                                 IReadOnlyDictionary<string, string> headers,
+                                 string? body,
+                                 string? contentType,
+                                 TimeSpan? timeout)
         {
             Method = method;
             Uri = uri;

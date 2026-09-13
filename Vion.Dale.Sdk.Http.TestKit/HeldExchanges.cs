@@ -111,7 +111,9 @@ namespace Vion.Dale.Sdk.Http.TestKit
         {
             lock (_gate)
             {
-                var oldest = _outstanding.First ?? throw new InvalidOperationException($"{member} found no outstanding HTTP request: the block issued none, or every one it issued has already been answered or has timed out.");
+                var oldest = _outstanding.First ??
+                             throw new
+                                 InvalidOperationException($"{member} found no outstanding HTTP request: the block issued none, or every one it issued has already been answered or has timed out.");
                 _outstanding.RemoveFirst();
 
                 return oldest.Value;
@@ -122,14 +124,21 @@ namespace Vion.Dale.Sdk.Http.TestKit
         {
             // The non-validated view renders each header as the platform writes it to the wire, with the separator its
             // grammar uses — a space between User-Agent products, a comma between list values.
-            var headers = request.Headers.NonValidated.Concat(request.Content?.Headers.NonValidated ?? Enumerable.Empty<KeyValuePair<string, HeaderStringValues>>())
+            var headers = request.Headers
+                                 .NonValidated
+                                 .Concat(request.Content?.Headers.NonValidated ?? Enumerable.Empty<KeyValuePair<string, HeaderStringValues>>())
                                  .ToDictionary(header => header.Key, header => header.Value.ToString(), StringComparer.OrdinalIgnoreCase);
 
             // The content is read on the calling thread: the SDK serializes a body into memory before the exchange starts, and
             // a SendRequest caller's content is read the same way the platform would read it to send.
             var body = request.Content == null ? null : Encoding.UTF8.GetString(request.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult());
 
-            return new FakeHttpRequest(request.Method, request.RequestUri!, headers, body, request.Content?.Headers.ContentType?.ToString(), timeout);
+            return new FakeHttpRequest(request.Method,
+                                       request.RequestUri!,
+                                       headers,
+                                       body,
+                                       request.Content?.Headers.ContentType?.ToString(),
+                                       timeout);
         }
 
         /// <summary>
@@ -137,14 +146,14 @@ namespace Vion.Dale.Sdk.Http.TestKit
         /// </summary>
         internal sealed class ExchangeCall
         {
+            public TimeSpan? Timeout { get; }
+
+            public Task? Task { get; set; }
+
             public ExchangeCall(TimeSpan? timeout)
             {
                 Timeout = timeout;
             }
-
-            public TimeSpan? Timeout { get; }
-
-            public Task? Task { get; set; }
         }
 
         /// <summary>
@@ -154,16 +163,16 @@ namespace Vion.Dale.Sdk.Http.TestKit
         {
             private readonly ExchangeCall? _call;
 
-            public HeldExchange(ExchangeCall? call)
-            {
-                _call = call;
-            }
-
             /// <summary>
             ///     Completed with the test's answer. Default options on purpose: completing it runs the SDK's exchange on the
             ///     test's thread, up to the point it hands the callback to the block's dispatcher.
             /// </summary>
             public TaskCompletionSource<HttpResponseMessage> Completion { get; } = new();
+
+            public HeldExchange(ExchangeCall? call)
+            {
+                _call = call;
+            }
 
             /// <summary>
             ///     Waits for the exchange this answer released. It has normally finished before this is reached; where a

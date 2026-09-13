@@ -28,14 +28,16 @@ namespace Vion.Dale.Sdk.Http.TestKit
     /// <remarks>
     ///     <para>
     ///         Requests are answered oldest first, and an answer returns only once the SDK has handed the block's callback to
-    ///         the block's dispatcher, so the next drive of the block's context runs it. A per-request timeout is measured on the
+    ///         the block's dispatcher, so the next drive of the block's context runs it. A per-request timeout is measured on
+    ///         the
     ///         harness's clock: pass the context's clock and advancing it expires a held request exactly as the SDK would.
     ///         Without a clock the harness uses a virtual one nothing advances, so a held request never times out on its own.
     ///     </para>
     ///     <para>
     ///         Replacing the innermost handler takes what the platform's handler does with it: a redirect is not followed (a
     ///         scripted 3xx reaches the block as a non-success status), no cookie is kept, no body is decompressed, and a
-    ///         <c>Content-Length</c> is not checked against its body. The client's own timeout is not applied to a held request.
+    ///         <c>Content-Length</c> is not checked against its body. The client's own timeout is not applied to a held
+    ///         request.
     ///     </para>
     /// </remarks>
     [PublicApi]
@@ -44,6 +46,21 @@ namespace Vion.Dale.Sdk.Http.TestKit
         private readonly HeldExchanges _exchanges = new();
 
         private readonly ServiceProvider _serviceProvider;
+
+        /// <summary>The fully wired client to inject into the block under test.</summary>
+        public ILogicBlockHttpClient Client { get; }
+
+        /// <summary>Every request the block issued, oldest first, answered or not.</summary>
+        public IReadOnlyList<FakeHttpRequest> Requests
+        {
+            get => _exchanges.Requests;
+        }
+
+        /// <summary>How many requests are waiting for an answer.</summary>
+        public int PendingCount
+        {
+            get => _exchanges.PendingCount;
+        }
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="FakeHttpHarness" /> class on a virtual clock nothing advances.
@@ -86,19 +103,12 @@ namespace Vion.Dale.Sdk.Http.TestKit
             Client = _serviceProvider.GetRequiredService<ILogicBlockHttpClient>();
         }
 
-        /// <summary>The fully wired client to inject into the block under test.</summary>
-        public ILogicBlockHttpClient Client { get; }
-
-        /// <summary>Every request the block issued, oldest first, answered or not.</summary>
-        public IReadOnlyList<FakeHttpRequest> Requests
+        /// <summary>
+        ///     Disposes the composed services. A request still outstanding is abandoned: its callbacks never run.
+        /// </summary>
+        public void Dispose()
         {
-            get => _exchanges.Requests;
-        }
-
-        /// <summary>How many requests are waiting for an answer.</summary>
-        public int PendingCount
-        {
-            get => _exchanges.PendingCount;
+            _serviceProvider.Dispose();
         }
 
         /// <summary>
@@ -144,14 +154,6 @@ namespace Vion.Dale.Sdk.Http.TestKit
             var exchange = _exchanges.TakeOldest(nameof(Fail));
             exchange.Completion.TrySetException(exception);
             exchange.Settle();
-        }
-
-        /// <summary>
-        ///     Disposes the composed services. A request still outstanding is abandoned: its callbacks never run.
-        /// </summary>
-        public void Dispose()
-        {
-            _serviceProvider.Dispose();
         }
     }
 }

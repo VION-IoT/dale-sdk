@@ -205,14 +205,20 @@ namespace Vion.Dale.Sdk.Http.Server
                     _droppedRequestCount++;
                 }
 
-                _received.Enqueue(new HttpServerRequest(exchange.Method, exchange.Path, exchange.Query, exchange.Headers, exchange.Body, receivedAt));
+                _received.Enqueue(new HttpServerRequest(exchange.Method,
+                                                        exchange.Path,
+                                                        exchange.Query,
+                                                        exchange.Headers,
+                                                        exchange.Body,
+                                                        receivedAt));
 
                 if (!_routes.TryGetValue(exchange.Path, out var byMethod))
                 {
                     return HttpServerResponse.NotFound();
                 }
 
-                return byMethod.TryGetValue(exchange.Method, out var response) ? response : HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
+                return byMethod.TryGetValue(exchange.Method, out var response) ? response :
+                           HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
             }
         }
 
@@ -346,8 +352,7 @@ namespace Vion.Dale.Sdk.Http.Server
             {
                 if (_ended)
                 {
-                    throw new
-                        InvalidOperationException("This server snapshot belongs to a Sync callback that has already returned. Take a fresh snapshot inside a new Sync call.");
+                    throw new InvalidOperationException("This server snapshot belongs to a Sync callback that has already returned. Take a fresh snapshot inside a new Sync call.");
                 }
             }
         }

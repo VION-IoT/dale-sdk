@@ -33,6 +33,15 @@ namespace Vion.Dale.Sdk.Http.TestKit
     {
         private readonly ServiceProvider _serviceProvider;
 
+        /// <summary>The fully wired server to inject into the block under test, or hand out through <see cref="ServerFactory" />.</summary>
+        public ILogicBlockHttpServer Server { get; }
+
+        /// <summary>A factory handing out <see cref="Server" />, for a block that creates its server from a factory.</summary>
+        public ILogicBlockHttpServerFactory ServerFactory { get; }
+
+        /// <summary>The client-side view that sends requests to <see cref="Server" />.</summary>
+        public FakeHttpServerClient Client { get; }
+
         /// <summary>
         ///     Initializes a new instance of the <see cref="FakeHttpServerHarness" /> class on a virtual clock nothing advances.
         /// </summary>
@@ -66,15 +75,6 @@ namespace Vion.Dale.Sdk.Http.TestKit
             Client = new FakeHttpServerClient(transport);
         }
 
-        /// <summary>The fully wired server to inject into the block under test, or hand out through <see cref="ServerFactory" />.</summary>
-        public ILogicBlockHttpServer Server { get; }
-
-        /// <summary>A factory handing out <see cref="Server" />, for a block that creates its server from a factory.</summary>
-        public ILogicBlockHttpServerFactory ServerFactory { get; }
-
-        /// <summary>The client-side view that sends requests to <see cref="Server" />.</summary>
-        public FakeHttpServerClient Client { get; }
-
         /// <inheritdoc />
         public void Dispose()
         {
@@ -99,7 +99,8 @@ namespace Vion.Dale.Sdk.Http.TestKit
     }
 
     /// <summary>
-    ///     Sends requests to a <see cref="FakeHttpServerHarness" />'s server and returns its answers, as a client on the network
+    ///     Sends requests to a <see cref="FakeHttpServerHarness" />'s server and returns its answers, as a client on the
+    ///     network
     ///     would see them.
     /// </summary>
     [PublicApi]
@@ -155,14 +156,6 @@ namespace Vion.Dale.Sdk.Http.TestKit
     [PublicApi]
     public sealed class FakeHttpServerResponse
     {
-        internal FakeHttpServerResponse(HttpStatusCode statusCode, string? contentType, IReadOnlyDictionary<string, string> headers, string body)
-        {
-            StatusCode = statusCode;
-            ContentType = contentType;
-            Headers = headers;
-            Body = body;
-        }
-
         /// <summary>Gets the response status.</summary>
         public HttpStatusCode StatusCode { get; }
 
@@ -174,6 +167,14 @@ namespace Vion.Dale.Sdk.Http.TestKit
 
         /// <summary>Gets the response body as UTF-8 text.</summary>
         public string Body { get; }
+
+        internal FakeHttpServerResponse(HttpStatusCode statusCode, string? contentType, IReadOnlyDictionary<string, string> headers, string body)
+        {
+            StatusCode = statusCode;
+            ContentType = contentType;
+            Headers = headers;
+            Body = body;
+        }
     }
 
     /// <summary>
