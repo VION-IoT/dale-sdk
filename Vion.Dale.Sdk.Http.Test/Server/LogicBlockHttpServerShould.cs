@@ -93,10 +93,10 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         {
             // Arrange
             var ambientCulture = CultureInfo.CurrentCulture;
-            CultureInfo.CurrentCulture = new CultureInfo("de-CH");
+            CultureInfo.CurrentCulture = new CultureInfo("sv-SE");
             try
             {
-                // Act / Assert — de-CH groups thousands with an apostrophe, so a culture-rendered range would read 65'535
+                // Act / Assert — sv-SE writes a negative number with a true minus sign, so a culture-rendered -1 would not read -1
                 var refusal = Assert.ThrowsExactly<FormatException>(() => _sut.Port = port);
                 Assert.AreEqual($"Port {port.ToString(CultureInfo.InvariantCulture)} is outside the valid range (1-65535).", refusal.Message);
             }
