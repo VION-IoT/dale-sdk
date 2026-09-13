@@ -94,6 +94,68 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-017.1")]
+        public async Task TreatRequestWithNeitherLengthNorEncodingAsBodiless()
+        {
+            // Arrange — the bytes after the blank line are not a body: nothing declared one
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Post, "/cmd", HttpServerResponse.Json("{}")));
+
+            // Act
+            var response = await ExchangeAsync("POST /cmd HTTP/1.1\r\n\r\nhello");
+
+            // Assert
+            StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+            Assert.AreEqual(0, _sut.Sync(snapshot => snapshot.TakeReceivedRequests().Single()).Body.Length);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-016.8")]
+        public async Task KeepRepeatedIdenticalContentLengthOnce()
+        {
+            // Arrange
+
+            // Act
+            await ExchangeAsync("POST /cmd HTTP/1.1\r\nContent-Length: 3\r\nContent-Length: 3\r\n\r\nhello");
+
+            // Assert
+            var request = _sut.Sync(snapshot => snapshot.TakeReceivedRequests().Single());
+            Assert.AreEqual("3", request.Headers["Content-Length"]);
+            Assert.AreEqual("hel", Encoding.UTF8.GetString(request.Body.ToArray()));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.1")]
+        public async Task SendHeadResponseWithLengthAndWithoutBody()
+        {
+            // Arrange
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Head, "/done", new HttpServerResponse(HttpStatusCode.OK, "text/plain", Encoding.UTF8.GetBytes("done"))));
+
+            // Act
+            var response = await ExchangeAsync("HEAD /done HTTP/1.1\r\n\r\n");
+
+            // Assert
+            Assert.AreEqual("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 4\r\nConnection: close\r\n\r\n", response);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.8")]
+        public async Task SendStatusWithoutNamedReasonPhraseWithEmptyOne()
+        {
+            // Arrange
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/rejected", HttpServerResponse.Json("{}", (HttpStatusCode)422)));
+            using var client = new HttpClient();
+
+            // Act
+            var raw = await ExchangeAsync("GET /rejected HTTP/1.1\r\n\r\n");
+            using var response = await client.GetAsync($"http://127.0.0.1:{_port}/rejected").WaitAsync(Timeout);
+
+            // Assert
+            StringAssert.StartsWith(raw, "HTTP/1.1 422 \r\n");
+            Assert.AreEqual(422, (int)response.StatusCode);
+            Assert.AreEqual(string.Empty, response.ReasonPhrase);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.1")]
         [DataRow(HttpStatusCode.OK, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 4\r\nConnection: close\r\n\r\ndone", DisplayName = "a status with a body")]
         [DataRow(HttpStatusCode.NoContent, "HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n", DisplayName = "a status that forbids one")]
         public async Task SendContentLengthAndNoBodyWhereStatusForbidsOne(HttpStatusCode statusCode, string expectedResponse)
@@ -142,10 +204,44 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-017.3")]
-        public async Task AnswerContentTooLargeBeyondBodyCap()
+        [DataRow(-1, DisplayName = "a head one byte under the cap")]
+        [DataRow(0, DisplayName = "a head of exactly the cap")]
+        public async Task ServeHeadAtOrUnderHeaderCap(int offsetFromCap)
+        {
+            // Arrange — the head is everything before the blank line that ends it, and its length alone decides
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+
+            // Act
+            var response = await ExchangeAsync(HeadOfLength(TcpHttpServerTransport.HeaderCap + offsetFromCap));
+
+            // Assert
+            StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+            Assert.HasCount(1, _sut.Sync(snapshot => snapshot.TakeReceivedRequests()));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.3")]
+        public async Task RefuseHeadOneByteOverHeaderCap()
+        {
+            // Arrange
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+
+            // Act
+            var response = await ExchangeAsync(HeadOfLength(TcpHttpServerTransport.HeaderCap + 1));
+
+            // Assert
+            StringAssert.StartsWith(response, "HTTP/1.1 431 ");
+            Assert.IsEmpty(_sut.Sync(snapshot => snapshot.TakeReceivedRequests()));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.3")]
+        [DataRow(1, DisplayName = "a length one byte over the cap")]
+        [DataRow(0, DisplayName = "a length past the largest integer")]
+        public async Task AnswerContentTooLargeBeyondBodyCap(int bytesOverCap)
         {
             // Arrange — the length is declared and no body follows: the refusal is decided on the declaration
-            var declared = (TcpHttpServerTransport.BodyCap + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var declared = bytesOverCap > 0 ? (TcpHttpServerTransport.BodyCap + bytesOverCap).ToString(System.Globalization.CultureInfo.InvariantCulture) : "99999999999999999999";
 
             // Act
             var response = await ExchangeAsync($"POST /cmd HTTP/1.1\r\nContent-Length: {declared}\r\n\r\n");
@@ -163,6 +259,8 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         [DataRow("GET /a HTTP/1.1\r\nBad Header: x\r\n\r\n", DisplayName = "a header name with a space")]
         [DataRow("GET /a HTTP/1.1\r\nNoColon\r\n\r\n", DisplayName = "a header line without a colon")]
         [DataRow("POST /a HTTP/1.1\r\nContent-Length: ten\r\n\r\n", DisplayName = "a length that is not a number")]
+        [DataRow("POST /a HTTP/1.1\r\nContent-Length: -1\r\n\r\n", DisplayName = "a negative length")]
+        [DataRow("POST /a HTTP/1.1\r\nContent-Length: 3\r\nContent-Length: 4\r\n\r\nabcd", DisplayName = "two different lengths")]
         public async Task AnswerBadRequestForMalformedRequest(string request)
         {
             // Arrange
@@ -257,6 +355,14 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             return new LogicBlockHttpServer(new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance, readBound),
                                             TimeProvider.System,
                                             NullLogger<LogicBlockHttpServer>.Instance);
+        }
+
+        /// <summary>A request whose head — its request line and headers, before the blank line — is exactly <paramref name="length" /> bytes.</summary>
+        private static string HeadOfLength(int length)
+        {
+            const string prefix = "GET /a HTTP/1.1\r\nX-Padding: ";
+
+            return prefix + new string('p', length - prefix.Length) + "\r\n\r\n";
         }
 
         private static int FreePort()

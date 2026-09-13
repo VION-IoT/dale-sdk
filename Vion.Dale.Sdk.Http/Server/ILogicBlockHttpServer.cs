@@ -15,8 +15,9 @@ namespace Vion.Dale.Sdk.Http.Server
     ///     </para>
     ///     <para>
     ///         The server is configured via properties and gated by <see cref="IsEnabled" />: configure while disabled,
-    ///         then enable. It listens on all interfaces (<c>0.0.0.0</c>) on port 8080 unless told otherwise; set
-    ///         <see cref="ListenAddress" /> to loopback for a simulator that must not be reachable off the machine.
+    ///         then enable. It listens on loopback (<c>127.0.0.1</c>) on port 8080 unless told otherwise, so nothing off the
+    ///         machine reaches it until the block sets <see cref="ListenAddress" /> to an interface, or to <c>0.0.0.0</c>
+    ///         for all of them.
     ///     </para>
     ///     <para>
     ///         The block publishes responses inside <see cref="Sync(Action{IHttpServerSnapshot})" />, keyed by method and
@@ -41,8 +42,8 @@ namespace Vion.Dale.Sdk.Http.Server
         bool IsEnabled { get; set; }
 
         /// <summary>
-        ///     Gets or sets the local IP address the server listens on. Default is <c>"0.0.0.0"</c> (all interfaces); changeable
-        ///     only while disabled.
+        ///     Gets or sets the local IP address the server listens on. Default is <c>"127.0.0.1"</c> (loopback);
+        ///     <c>"0.0.0.0"</c> listens on all interfaces. Changeable only while disabled.
         /// </summary>
         string? ListenAddress { get; set; }
 

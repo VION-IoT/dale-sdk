@@ -27,7 +27,10 @@ namespace Vion.Dale.Sdk.Http.Server
         /// <summary>The largest request body accepted; a larger declared length is answered 413.</summary>
         internal const int BodyCap = 1024 * 1024;
 
-        /// <summary>The largest request line and header section accepted; a larger one is answered 431.</summary>
+        /// <summary>
+        ///     The longest head accepted — the request line and headers, up to the blank line that ends them; a longer one is
+        ///     answered 431. <see cref="HeadExceedsCap" /> is the one place the boundary is decided.
+        /// </summary>
         internal const int HeaderCap = 16 * 1024;
 
         /// <summary>How long a client has, from connecting, to send a complete request.</summary>
@@ -226,7 +229,7 @@ namespace Vion.Dale.Sdk.Http.Server
                     }
 
                     var response = refusal ?? answer(exchange!);
-                    var bytes = Render(response);
+                    var bytes = Render(response, exchange?.Method == "HEAD");
                     await stream.WriteAsync(bytes, 0, bytes.Length, bound.Token).ConfigureAwait(false);
 
                     // A refusal can leave request bytes unread, and closing a socket with unread input resets the connection,
@@ -257,7 +260,10 @@ namespace Vion.Dale.Sdk.Http.Server
             int headerEnd;
             while ((headerEnd = IndexOf(buffer, filled, HeaderTerminator)) < 0)
             {
-                if (filled >= HeaderCap)
+                // Not found in what has arrived, the blank line can still start in its last three bytes, so the head is at
+                // least that long. Judged on that length rather than on how much has arrived, a head of exactly the cap is
+                // served however the network splits it.
+                if (HeadExceedsCap(filled - (HeaderTerminator.Length - 1)))
                 {
                     return (null, HttpServerResponse.Refusal((HttpStatusCode)431));
                 }
@@ -271,7 +277,7 @@ namespace Vion.Dale.Sdk.Http.Server
                 filled += read;
             }
 
-            if (headerEnd > HeaderCap)
+            if (HeadExceedsCap(headerEnd))
             {
                 return (null, HttpServerResponse.Refusal((HttpStatusCode)431));
             }
@@ -287,10 +293,17 @@ namespace Vion.Dale.Sdk.Http.Server
                 return (null, HttpServerResponse.Refusal(HttpStatusCode.LengthRequired));
             }
 
+            // No Content-Length and no transfer encoding means no body: whatever follows the head is not read as one.
             var contentLength = 0L;
             if (headers.TryGetValue("Content-Length", out var declaredLength) && !long.TryParse(declaredLength, NumberStyles.None, CultureInfo.InvariantCulture, out contentLength))
             {
-                return (null, HttpServerResponse.Refusal(HttpStatusCode.BadRequest));
+                // A length of digits alone that does not fit a long is a declared body over the cap, not a malformed one.
+                if (declaredLength.Length == 0 || !declaredLength.All(character => character is >= '0' and <= '9'))
+                {
+                    return (null, HttpServerResponse.Refusal(HttpStatusCode.BadRequest));
+                }
+
+                contentLength = long.MaxValue;
             }
 
             if (contentLength > BodyCap)
@@ -382,10 +395,19 @@ namespace Vion.Dale.Sdk.Http.Server
             return value.Length > 0 && value.All(character => character > 32 && character < 127 && "()<>@,;:\\\"/[]?={}".IndexOf(character) < 0);
         }
 
-        private static byte[] Render(HttpServerResponse response)
+        private static bool HeadExceedsCap(int headLength)
+        {
+            return headLength > HeaderCap;
+        }
+
+        /// <summary>
+        ///     Renders the status line, the headers and the body. A 204 or 304 carries no body and no length; a response to
+        ///     <c>HEAD</c> carries the length its body has and not the body itself.
+        /// </summary>
+        private static byte[] Render(HttpServerResponse response, bool answersHead)
         {
             var status = (int)response.StatusCode;
-            var carriesBody = status >= 200 && status != 204 && status != 304;
+            var carriesBody = status != 204 && status != 304;
             var head = new StringBuilder();
             head.Append("HTTP/1.1 ").Append(status.ToString(CultureInfo.InvariantCulture)).Append(' ').Append(ReasonPhrase(status)).Append("\r\n");
             if (carriesBody)
@@ -406,7 +428,7 @@ namespace Vion.Dale.Sdk.Http.Server
             head.Append("Connection: close\r\n\r\n");
             var headBytes = Encoding.ASCII.GetBytes(head.ToString());
 
-            if (!carriesBody)
+            if (!carriesBody || answersHead)
             {
                 return headBytes;
             }

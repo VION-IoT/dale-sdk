@@ -45,15 +45,16 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-015.2")]
-        public void ListenOnAllInterfacesAndPort8080UnlessTold()
+        public void ListenOnLoopbackAndPort8080UnlessTold()
         {
             // Arrange
 
             // Act
             _sut.IsEnabled = true;
 
-            // Assert
-            Assert.AreEqual(IPAddress.Any, _transport.LastListenAddress);
+            // Assert — read from what the server handed the transport, so no interface of this machine is involved
+            Assert.AreEqual("127.0.0.1", _sut.ListenAddress);
+            Assert.AreEqual(IPAddress.Loopback, _transport.LastListenAddress);
             Assert.AreEqual(8080, _transport.LastPort);
         }
 
@@ -123,8 +124,8 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         [TestProperty("spec", "AC-HTTP-015.6")]
         public void StartOnEnableAndStopOnDisableOnceEach()
         {
-            // Arrange
-            _sut.ListenAddress = "127.0.0.1";
+            // Arrange — every interface, set explicitly: the address a block opts into, and not the default
+            _sut.ListenAddress = "0.0.0.0";
             _sut.Port = 18080;
 
             // Act
@@ -137,7 +138,7 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             // Assert
             Assert.AreEqual(1, _transport.StartCalls);
             Assert.AreEqual(1, _transport.StopCalls);
-            Assert.AreEqual(IPAddress.Loopback, _transport.LastListenAddress);
+            Assert.AreEqual(IPAddress.Any, _transport.LastListenAddress);
             Assert.AreEqual(18080, _transport.LastPort);
             Assert.IsTrue(listeningWhileEnabled);
             Assert.IsFalse(_sut.IsListening);

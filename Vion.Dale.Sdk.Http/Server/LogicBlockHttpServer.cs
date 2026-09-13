@@ -48,7 +48,7 @@ namespace Vion.Dale.Sdk.Http.Server
         // transport threads and the reader is the block's actor, and a multi-word struct copy could tear.
         private long _lastRequestAtUtcTicks;
 
-        private IPAddress _parsedListenAddress = IPAddress.Any;
+        private IPAddress _parsedListenAddress = IPAddress.Loopback;
 
         // A depth, not a flag: the gate is re-entrant, so a nested Sync returning would clear a flag while the outer
         // callback still holds the gate — and the guard exists for exactly that callback.
@@ -105,7 +105,7 @@ namespace Vion.Dale.Sdk.Http.Server
                 _parsedListenAddress = parsed;
                 field = value;
             }
-        } = "0.0.0.0";
+        } = "127.0.0.1";
 
         /// <inheritdoc />
         public int Port
