@@ -75,7 +75,7 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         [DataRow("", DisplayName = "empty")]
         [DataRow("   ", DisplayName = "whitespace")]
         [DataRow("gateway.local", DisplayName = "a host name")]
-        public void RefuseListenAddressThatIsNotIpAddress(string? listenAddress)
+        public void RefuseListenAddressOtherThanIpAddress(string? listenAddress)
         {
             // Arrange
 

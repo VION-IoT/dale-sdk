@@ -387,7 +387,7 @@ reachable off the machine sets loopback explicitly. The port is not the protocol
 `AC-HTTP-015.5` is where a simulator's degrade-on-failure lives: the server throws and stays disabled,
 and whether a taken port takes the bench down is the block's decision, made in its own `catch`.
 
-`AC-HTTP-015.8` matters more here than for most servers, because this one closes every connection
+The address-reuse bind matters more here than for most servers, because this one closes every connection
 first (`AC-HTTP-017.5`), which leaves the lingering socket on the server's side of each exchange.
 
 ## The hosted server: responses and requests
