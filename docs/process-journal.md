@@ -22,3 +22,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 <!-- retro-1 marker -->
 
 2026-09-13 · brief · process-unification · The brief put the live window at 59 entries; the file held 54 below the retro-1 marker, by the old journal-lint and by a count of dated lines alike, so the archive carries 54.
+
+2026-09-13 · brief · process-unification · The brief repointed every citation of the review command's § 7 at docs/review-checks.md, but § 7 was the pull request body's record of a review round, which the checks file does not hold; those citations now point at the PR template's Verification line.

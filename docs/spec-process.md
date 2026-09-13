@@ -207,8 +207,8 @@ would otherwise restate. Its front matter differs from lane 3's in two places:
 - `sections:` is `Deviations, Questions, Friction, Affects others, Gates, Review` — the plugin's
   four plus the two this repo owes. `Gates` is the pasted `/check` output
   ([`.claude/commands/check.md`](../.claude/commands/check.md)); `Review` is the round's findings
-  and what was done with each, the same text the PR body carries, in the shape
-  [`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 7 sets out. It stays six, not
+  and what was done with each, the same text the PR body's *Verification* carries on its
+  `Reviewed at` line ([`.github/pull_request_template.md`](../.github/pull_request_template.md)). It stays six, not
   seven, for spec ids touched (operator, 2026-09-10): the PR template already carries a *Spec ids
   touched* section (`D14`), which is where a reader looks; a REPORT exists to hand work back to a
   coordinator, and ids ride `Deviations` there.
@@ -240,7 +240,7 @@ is not worth a grep, leave it out or mark it `[assumed]` and say what to check. 
 in from a subagent's summary** — most of what the lane-3 check catches is exactly that: an inventory
 subagent's "thirty-nine analyzers" and "two Moq files" reached briefs as facts and cost a second
 Opus subagent to undo, when the grep that refutes them takes seconds. The `[assumed]` half is the
-cheap half and it works: a task line asserting `/vion-code-review` needed a new scope marker was
+cheap half and it works: a task line asserting the review command needed a new scope marker was
 flagged rather than believed, and the scope turned out to exist already, so the command did not gain
 a keyword duplicating one it had.
 
@@ -248,18 +248,15 @@ a keyword duplicating one it had.
 
 The default, and most backlog items. No change doc: the PR carries the fix, its test proven red
 against the pre-fix code, and the edit to the touched spec page **in the same commit set** — a page
-edit riding a fix is not change narrative, it is the distill. Before the PR: `/cleanup` once and a
-**fresh-context read-only review subagent** (`/vion-code-review branch`, with the touched page as the
-spec), its findings applied or accepted, and the round written into the PR body. A fix that turns out non-local or design-bearing while you implement it **stops and says so**:
+edit riding a fix is not change narrative, it is the distill. The review round runs with the touched
+page as the spec (`/vion-git:pr <page>`). A fix that turns out non-local or design-bearing while you implement it **stops and says so**:
 it becomes lane 2, never a silent absorption. A "bug" that is really a feature band never rides a
 fix.
 
 ### Lane 2 — feature-sized
 
-New or reshaped specified behaviour. One change doc, one implementing session. Before the PR, the
-same round lane 1 runs: `/cleanup` once and a **fresh-context read-only review subagent**
-(`/vion-code-review branch`, with the change doc as the spec), its findings applied or accepted, and
-the round written into the PR body. **Two-phase self-fires:** when the kickoff leaves design points
+New or reshaped specified behaviour. One change doc, one implementing session. The review round runs
+with the change doc as the spec (`/vion-git:pr <change doc>`). **Two-phase self-fires:** when the kickoff leaves design points
 open, or the doc mints decisions beyond what the operator ratified, STOP after the change doc for
 ratification before writing code. Pre-classify every open point: (a) ratified — cite;
 (b) decide-and-document; (c) propose-and-wait.
@@ -286,7 +283,7 @@ front matter (`key`, `unit`, `sections`, `pr`, `branch`, `deps`, `steer`) — la
 launcher's permission model expects — and is a **pointer, not a restatement**: the change-doc path;
 "decisions and review resolutions are binding; contradictions go to Drift checkpoints, not silent
 divergence"; the PR shape; every open point pre-classified; house discipline (branch, tests cite ids,
-`/cleanup` once pre-PR, `/vion-code-review branch` before the PR); and a read-only note per
+`/cleanup` once pre-PR, `/vion-git:review branch` before the PR); and a read-only note per
 additional directory naming the **specific** files to look things up in.
 
 Scope — and test scope — is stated as **folders, projects and descriptor ranges the session
@@ -591,7 +588,7 @@ ends with `/vion-dispatch:report` and the `Stop` hook files the report under the
 After the REPORT and before any PR, the coordinator runs two fresh-context **Opus** subagents
 concurrently: a **completeness critic** (reads the area's code first, then the page and the table,
 and reports misses by the sweep that should have caught them) and an **adversarial review** of the
-branch diff (`/vion-code-review branch` with the change doc as the spec). Both read every cited
+branch diff (`/vion-git:review branch` with the change doc as the spec). Both read every cited
 criterion's text against the test that cites it, both start from the REPORT's self-check preamble,
 and both read the doc's Reviewer's questions for an `OUTCOME` left pending and its prose for a
 retired name a rename replaced (a `(→ …)` marker after a current name) — two shapes the session's own
@@ -624,8 +621,8 @@ implementing session producing amendment items done wrongly, with checkpoints th
 retiring at the REPORT costs one session's ramp-up and saves a further round. The coordinator closes
 the round with targeted reads of every item at its call site, and dispatches a further Opus check
 only when a targeted read finds a blocker. A further check is a **second round**, scoped
-`branch:<the REPORT's hash>` ([`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 1a),
-so it reads what the fix-up session moved and not the round the amendment already dispositioned.
+`since:<the REPORT's hash>`, so it reads what the fix-up session moved and not the round the
+amendment already dispositioned.
 
 **The relay.** The **file** is the artifact, in both directions. A REPORT is filed by the `Stop` hook
 under the coordinator repo's `.claude/briefs/reports/`, and `/vion-dispatch:ingest` reads the latest
@@ -670,10 +667,9 @@ results comparable between rounds, and misses-per-sweep is what feeds the scorec
 
 **They stay here rather than becoming `.claude/commands/` files** (decided by `T-014`, the task that
 rewrote the review command; the closeout doc's reviewer's question 4 carries the reasoning). Three
-reasons, in the order that decided it. The adversarial review below is not a second prompt at all —
-the first instruction of its task is to read
-[`vion-code-review.md`](../.claude/commands/vion-code-review.md) and follow it exactly, so a command file for it would be a wrapper around a command, and a second shelf the review
-rubric could drift off. The completeness critic genuinely has no overlap, but its `<…>` parts are the
+reasons, in the order that decided it. The adversarial review below is not a second rubric at all —
+its first instruction is to review against [`review-checks.md`](review-checks.md) and the convention
+docs, so a command file for it would be a second shelf the rubric could drift off. The completeness critic genuinely has no overlap, but its `<…>` parts are the
 round's prose — the area's one-sentence definition, its edge values, its parity rule, the neighbouring
 pages — which a slash command's arguments cannot carry and a coordinator writes by hand either way.
 And `.claude/commands/` is the shelf for what the **operator types**; both of these are dispatched by
@@ -743,7 +739,9 @@ not edit anything; no git writes. You may run `dotnet test` on a single test pro
 repo's gate scripts (`pwsh -NoProfile -File scripts/<x>.ps1`); they are fast. Report findings
 only.
 
-Read C:\_gh\dale-sdk\.claude\commands\vion-code-review.md and follow it exactly, with:
+Review against C:\_gh\dale-sdk\CLAUDE.md, every convention doc its trigger table points at for the
+areas the diff touches, and C:\_gh\dale-sdk\docs\review-checks.md (its header before its checks),
+with:
 - Scope: branch — <branch> (checked out, committed and pushed at <hash>; N commits, M files).
 - Spec (statement of intent): <the change doc> (the classified behavior table, the consolidation
   map, the drift checkpoints, the test-to-mutation list, the demonstrated evidence),
@@ -754,7 +752,7 @@ Read C:\_gh\dale-sdk\.claude\commands\vion-code-review.md and follow it exactly,
 - The machine baseline was run by the implementing session and pasted in its REPORT: <the pasted
   numbers>. Spot-check cheaply rather than re-running everything.
 
-Review priorities beyond the command's D1–D10 and P1–P4:
+Review priorities beyond the checks in docs/review-checks.md:
 1. The fixes: minimal, correct, matching the classification, red-first per the mutation list?
    <one clause per fix row: what parity or narrowing it is, where the sibling site is, what the
    message must name, whether every site of the shape moved>.
@@ -788,9 +786,9 @@ Review priorities beyond the command's D1–D10 and P1–P4:
    ledger's new lines are parks with reasons and owners (a fixed row has no ledger line).
 
 Every finding states the mechanism you verified at the call site — the line that makes the failure
-happen, quoted — or is marked (inferred). Report per the command's format ([blocker] /
-[convention] / [judgment] / [nit], file:line, the concrete failure, the rule, D-number or
-P-number), ranked; then a "Clean" list of what you verified. Under 1000 words. Your final message
+happen, quoted — or is marked (inferred). Report each finding as [blocker] / [convention] /
+[judgment] / [nit], with file:line, the concrete failure, and the rule or the check's number and
+name from docs/review-checks.md, ranked; then a "Clean" list of what you verified. Under 1000 words. Your final message
 is the review report only.
 ```
 
