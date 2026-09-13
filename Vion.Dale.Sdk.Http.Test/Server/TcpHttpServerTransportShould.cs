@@ -223,9 +223,10 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             using (var leaving = new TcpClient())
             {
                 await leaving.ConnectAsync(IPAddress.Loopback, _port).WaitAsync(Timeout);
-                await leaving.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\nHost: a"));
+                var leavingStream = leaving.GetStream();
+                await leavingStream.WriteAsync(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\nHost: a"));
                 leaving.Client.Shutdown(SocketShutdown.Send);
-                await ReadUntilClosedAsync(leaving.GetStream()).WaitAsync(Timeout);
+                await ReadUntilClosedAsync(leavingStream).WaitAsync(Timeout);
             }
 
             // Act
