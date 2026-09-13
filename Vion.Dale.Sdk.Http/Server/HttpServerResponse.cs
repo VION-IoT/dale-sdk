@@ -62,7 +62,7 @@ namespace Vion.Dale.Sdk.Http.Server
 
             // The content type is written into the header block verbatim, so a line break would end the header there and
             // let whatever follows it — a block deriving the value from a client's request — add headers of its choosing.
-            if (contentType != null && contentType.Any(character => (character < ' ' && character != '	') || character > '~'))
+            if (contentType != null && contentType.Any(character => (character < ' ' && character != '\t') || character > '~'))
             {
                 throw new ArgumentException($"'{contentType}' is not a content type the header block can carry: it holds only printable ASCII and tabs.", nameof(contentType));
             }

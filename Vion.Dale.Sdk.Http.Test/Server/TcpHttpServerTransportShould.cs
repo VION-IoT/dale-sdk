@@ -342,6 +342,7 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-015.9")]
+        [TestProperty("spec", "AC-HTTP-016.8")]
         public async Task AbandonRequestAwaitingItsAnswerOnStopAndRecordNothing()
         {
             // Arrange — a server of its own with a short bound, composed so the test holds its transport: disabling the server
@@ -431,17 +432,33 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
 
-            // Act
+            // Act — the response ends where the server half-closes, which is not the close under test: only once the server has
+            // closed its socket does a byte the client keeps sending come back as a reset
             await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\n\r\n"));
             var response = await ReadUntilClosedAsync(client.GetStream()).WaitAsync(Timeout);
+            var closedByServer = SpinWait.SpinUntil(() =>
+                                                    {
+                                                        try
+                                                        {
+                                                            client.GetStream().Write(new byte[] { 0 });
+
+                                                            return false;
+                                                        }
+                                                        catch (IOException)
+                                                        {
+                                                            return true;
+                                                        }
+                                                    },
+                                                    Timeout);
 
             // Assert
             StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+            Assert.IsTrue(closedByServer, "The server was still reading from the client after the bound should have closed it.");
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-017.9")]
-        public async Task AnswerRequestOnOneConnectionWhileAnotherIsStillArriving()
+        public async Task AnswerRequestOnOneConnectionWhileAnotherStillArrives()
         {
             // Arrange — a bound far past the test's own timeout, so only concurrent serving can answer the second client
             var port = FreePort();
@@ -488,6 +505,33 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
             // Assert
             Assert.AreEqual("HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", response);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.10")]
+        public async Task GoOnAcceptingAfterSocketErrorAcceptingOneConnection()
+        {
+            // Arrange — the first accept fails with a socket error; every later one is the listener's own
+            var port = FreePort();
+            var accepts = 0;
+            var transport = new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance,
+                                                       TcpHttpServerTransport.DefaultReadBound,
+                                                       TcpHttpServerTransport.DefaultConnectionLimit,
+                                                       listener => Interlocked.Increment(ref accepts) == 1 ?
+                                                                       Task.FromException<TcpClient>(new SocketException((int)SocketError.ConnectionReset)) :
+                                                                       listener.AcceptTcpClientAsync());
+            using var server = new LogicBlockHttpServer(transport, TimeProvider.System, NullLogger<LogicBlockHttpServer>.Instance);
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+
+            // Act
+            server.IsEnabled = true;
+            var response = await ExchangeAsync("GET /a HTTP/1.1\r\n\r\n", port);
+
+            // Assert — answered without the server being cycled, by the accept after the failed one
+            StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+            Assert.IsTrue(server.IsListening);
         }
 
         [TestMethod]

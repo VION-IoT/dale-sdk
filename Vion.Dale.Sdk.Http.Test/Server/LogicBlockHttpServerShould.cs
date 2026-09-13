@@ -411,7 +411,7 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-016.8")]
-        public void HandAnsweredRequestsToBlockOnceInArrivalOrder()
+        public void HandAnsweredRequestsToBlockOnceInOrderRecorded()
         {
             // Arrange — the first request is one no response exists for, so recording is not conditional on being routed
             _sut.IsEnabled = true;
