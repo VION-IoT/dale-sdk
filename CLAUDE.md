@@ -33,7 +33,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
 | reviewing a change | `/vion-git:review` — it reads [`docs/review-checks.md`](docs/review-checks.md), this repo's named checks |
-| writing a process-journal line, or codifying a branch's lines before its PR | `/vion-improve:journal` for the line in [`docs/process-journal.md`](docs/process-journal.md); `/vion-improve:codify` for the rules |
+| writing a process-journal line | `/vion-improve:journal` — the line goes in [`docs/process-journal.md`](docs/process-journal.md) |
 | writing or editing a harness file — `CLAUDE.md`, a convention doc, a command, a skill, settings, the journal header | `/vion-improve:harness` |
 
 **Before writing new code, read similar existing files** in the same area and replicate their
@@ -102,6 +102,9 @@ At the start of a task, answer two questions out loud: is the change local? is a
 | the branch is ready for a pull request | `/vion-improve:codify`, then `/vion-git:pr` |
 | codify reports the journal's live window past 40 entries | `/vion-improve:retro`; a DALE analyzer is this repo's top rung of the ladder, above a CI gate |
 
+The first retro also takes `docs/retro/journal-2026-09-10-to-2026-09-11.md`, the window rotated unread when this
+repo adopted the grammar, read whole.
+
 ### Lanes in this repo
 
 The block's two lanes map onto the three of [`docs/spec-process.md`](docs/spec-process.md) § Lanes:
@@ -131,6 +134,7 @@ which adds `## Spec ids touched` and `## Gates` to the base sections.
 
 CI regenerates `docs/snapshots/*` and commits them onto the pull request head. That commit is
 accepted; pull before the next push.
+
 ## Repository Structure
 
 ```
