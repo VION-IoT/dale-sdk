@@ -66,6 +66,9 @@ classification.
   row 2 at the classification gate; the step-3 doc proposed 80). The reason is collision, not privilege:
   this repository already defaults the hosted Modbus server to 502, which is privileged too, and nothing
   has hit it. What makes 80 the wrong default is that it is the port everything else on a host wants.
+  *(Address half reversed by the operator, 2026-09-13: the default is loopback. The Modbus rule rests on a
+  protocol with no transport security by nature; this server serves plaintext by choice through a parser
+  the package wrote. Port 8080 stands — Amendment 1 checkpoint, item 1.)*
 - `D3` — **the transport is a `TcpListener` with the package's own bounded HTTP/1.1 exchange — not
   `HttpListener`, and not Kestrel.** Kestrel needs the ASP.NET Core shared framework, which breaks the
   `netstandard2.1` target `AC-HTTP-014.1` pins
@@ -284,7 +287,7 @@ namespace Vion.Dale.Sdk.Http.Server
     [PublicApi] public interface ILogicBlockHttpServer : IDisposable
     {
         bool IsEnabled { get; set; }            // false; setting true binds, a bind failure throws (row 6)
-        string? ListenAddress { get; set; }     // "0.0.0.0" (D2)
+        string? ListenAddress { get; set; }     // "0.0.0.0" (D2) — "127.0.0.1" since Amendment 1
         int Port { get; set; }                  // 8080 (D2)
         bool IsListening { get; }
         DateTimeOffset? LastRequestAt { get; }  // from the container's TimeProvider (row 23)
@@ -435,7 +438,7 @@ Recorded rather than diverged from silently.
 | implements `GetJson` only; the other seven throw | `:30,61-145` | every member works | 50 |
 | models no timeout | — | a held request's bound expires on the harness's clock | 59 |
 | serves a **snapshot published under a lock**; the listener touches no simulator state | `EmuMCenterHttpFace.cs:16-22,87-95,158-183` | the route table under `Sync` | 12, 16 |
-| **loopback prefixes only**, for a Windows URL-ACL reason | `:23-29,63-64` | all interfaces, on a transport with no URL ACL | 2 |
+| **loopback prefixes only**, for a Windows URL-ACL reason | `:23-29,63-64` | all interfaces, on a transport with no URL ACL *(loopback by default since Amendment 1; all interfaces on the block's word)* | 2 |
 | **catches and degrades on a bind failure**, "like the Modbus face" | `:54-79`; `EmuMCenterSimulator.cs:786-802` | `IsEnabled = true` throws, as the Modbus server's does; degrading stays the block's choice | 6 |
 | 404 for an unknown path, and for every path under `NeverRead` | `:136-142,162-165,181` | 404 for a path with no route; `ClearResponses()` | 18 |
 | 200 `application/json` with a `Content-Length` | `:144-149` | the same | 17 |
@@ -457,7 +460,7 @@ artifact.
 | # | Behavior (EARS) | Evidence | Test today | Rec | Why |
 |---|---|---|---|---|---|
 | 1 | WHEN `AddDaleHttpSdk` is called THE SYSTEM SHALL also register a server factory whose every `Create()` returns a new, disabled hosted HTTP server. | Modbus precedent `Vion.Dale.Sdk.Modbus.Tcp/ServiceCollectionExtensions.cs:34`; `ILogicBlockModbusTcpServerFactory.cs:16` ("Each instance hosts one server on its own port") | GAP | intended | the one call a block author already makes; a simulator serving two APIs creates two servers |
-| 2 | THE SYSTEM SHALL listen on all interfaces and on port 8080 unless told otherwise. | `AC-MODB-011.2` (the binding rule); consumer `EmuMCenterHttpFace.cs:23-29,63-64`; probes P6, P7 | GAP | intended | `D2` — one binding rule for every hosted server; 8080 because 80 is the port everything else on a host wants (operator override) |
+| 2 | THE SYSTEM SHALL listen on all interfaces and on port 8080 unless told otherwise. *(Amendment 1: on loopback — operator decision.)* | `AC-MODB-011.2` (the binding rule); consumer `EmuMCenterHttpFace.cs:23-29,63-64`; probes P6, P7 | GAP | intended | `D2` — one binding rule for every hosted server; 8080 because 80 is the port everything else on a host wants (operator override) |
 | 3 | WHEN a listen address or a port is set while the server is enabled THE SYSTEM SHALL throw an `InvalidOperationException`. | `AC-MODB-011.1`; `LogicBlockModbusTcpServer.cs:239-246` | GAP | intended | a live rebind would drop connections behind the block's back |
 | 4 | WHEN a listen address is null, empty, whitespace or not an IP address THE SYSTEM SHALL throw a `FormatException` naming the value. | `LogicBlockModbusTcpServer.cs:76` | GAP | intended | a host name is the likely mistake, and there is no silent way to bind one |
 | 5 | WHEN a port outside 1–65535 is set THE SYSTEM SHALL throw a `FormatException` naming the range in the invariant culture. | `LogicBlockModbusTcpServer.cs:17,95` | GAP | intended | port 0 binds an ephemeral port no client can be pointed at, and it is what an unset configuration field holds |
@@ -482,7 +485,7 @@ artifact.
 | 19 | WHEN a request arrives for a path that has a response under another method only THE SYSTEM SHALL answer 405 with an `Allow` header naming those methods. | edge: a `POST` to a `GET` route | GAP | ⚠ propose | *Question 4* — a 404 there would tell a client the path does not exist, which is false |
 | 20 | THE SYSTEM SHALL match a route on the request's path as its request line carries it, before any query string, compared ordinally and case-sensitively, and on nothing else. | consumer `:135` (`Url.AbsolutePath`), `:167,174` (ordinal comparison) | GAP | ⚠ propose | *Question 4* — the edge values: `/a?x=1` matches `/a`; `/A` and `/a/` do not; the `Host` header is not routed on |
 | 21 | THE SYSTEM SHALL record every request it answered — method, path, query, headers, body and arrival instant — and hand each to the block once, in arrival order, when the block takes them inside `Sync`. | the Modbus analogue: a client write lands in the buffers the block reads in `Sync` (`ModbusTcpServerProxy.cs:239-242`); the consumer serves only GETs | GAP | ⚠ propose | *Question 4* — how a block reacts to a `POST` without a callback |
-| 22 | WHILE more requests are recorded than the log's capacity THE SYSTEM SHALL drop the oldest, and SHALL report how many it dropped since the block last took them. | edge: a block that serves and never takes | GAP | ⚠ propose | *Question 4* — a log no block drains must not grow without bound on a gateway; the count makes the loss visible |
+| 22 | WHILE more requests are recorded than the log's capacity THE SYSTEM SHALL drop the oldest, and SHALL report how many it dropped since the block last took them. | edge: a block that serves and never takes | GAP | ⚠ propose | *Question 4* — a log no block drains must not grow without bound on a gateway; the count makes the loss visible *(the count alone did not deliver this — 256 entries of up to the 1 MiB body cap; Amendment 1 added a body-byte budget)* |
 | 23 | THE SYSTEM SHALL stamp the most recent request's arrival from the container's `TimeProvider`, and report none until a request arrives. | `AC-MODB-014.5`; `ModbusTcpServerProxy.cs:71` | GAP | intended | the silent-client surveillance the Modbus server offers |
 | 24 | WHEN a request arrives before the block has set any response THE SYSTEM SHALL answer 404, serving independently of the block's lifecycle. | state interaction: enabled in `Starting`, published on the first tick | GAP | intended | a request before the block is started is the brief's edge; nothing waits on an actor |
 
@@ -505,7 +508,7 @@ artifact.
 | 37 | *(implementation shape)* The transport is a TCP listener with a bounded HTTP/1.1 exchange of the package's own. | `D3`; probes P6, P7 | — | out-of-spec | recorded here; the page states its observable limits (rows 25–30, 32) |
 | 38 | THE SYSTEM SHALL ship the server in the same `netstandard2.1` package, adding no package dependency. | `D1`, `D3`; `HttpPackageSurfaceShould.cs:126` | `HttpPackageSurfaceShould.TargetFrameworkEveryPluginCanLoad` | intended | `AC-HTTP-014.1`'s target stays true |
 | 39 | *(absence)* The server reports no connection count. | `ILogicBlockModbusTcpServer.cs:158` has one; with one request per connection (row 29) it would almost always read zero | — | out-of-spec | `LastRequestAt` (row 23) is the liveness a block can use; an absence has no mutation |
-| 42 | WHEN a route is given a null method, a null or empty path, a path not starting with `/`, a null response, or a response whose status lies outside 100–599, THE SYSTEM SHALL throw an `ArgumentException` naming the argument. | edge | GAP | intended | a mistyped route is refused where it is written, not found later as a 404 on the wire |
+| 42 | WHEN a route is given a null method, a null or empty path, a path not starting with `/`, a null response, or a response whose status lies outside 100–599 *(200–599 since Amendment 1: a 1xx is never a final response)*, THE SYSTEM SHALL throw an `ArgumentException` naming the argument. | edge | GAP | intended | a mistyped route is refused where it is written, not found later as a 404 on the wire |
 
 ### The client kit — `FakeHttpHarness`
 
@@ -634,9 +637,9 @@ Every existing test the round touches maps to a row.
 > `FullyQualifiedName`, and restored the file. Result lines are the runner's own summaries.
 
 - `AC-HTTP-008.3` — `HttpRequestExecutorShould.MeasurePerRequestTimeoutOnRegisteredClock` × M01 (the source built with `new CancellationTokenSource(timeout)` again) → `Failed: 3, Passed: 0`; `ServiceCollectionExtensionsShould.KeepClockRegisteredBeforeRegistration` × M02 (`AddSingleton` for `TryAddSingleton`) → `Failed: 1`.
-- `AC-HTTP-014.1` (`MODIFIED`) — `HttpPackageSurfaceShould.AddDependencyToEveryPluginTakingIt`'s new row: **no mutation run.** The clock assembly is referenced from three sites (the executor, the registration, the server); no one-line mutation removes the reference, so the row is proven only by its presence.
+- `AC-HTTP-014.1` (`MODIFIED`) — `HttpPackageSurfaceShould.AddDependencyToEveryPluginTakingIt`'s new row: **no mutation run.** The clock assembly is referenced from three sites (the executor, the registration, the server); no one-line mutation removes the reference, so the row is proven only by its presence. *(Run in Amendment 1 as a multi-site mutation — every reference removed at once — and it reddens that row alone: see the checkpoint, the coordinator's question 3.)*
 - `AC-HTTP-015.1` — `ServiceCollectionExtensionsShould.CreateNewDisabledServerOnEveryCreate` × M03 (the factory caches its first server) → `Failed: 1`.
-- `AC-HTTP-015.2` — `LogicBlockHttpServerShould.ListenOnAllInterfacesAndPort8080UnlessTold` × M04 (default port 80) → `Failed: 1`.
+- `AC-HTTP-015.2` — `LogicBlockHttpServerShould.ListenOnLoopbackAndPort8080UnlessTold` × M04 (default port 80) → `Failed: 1`.
 - `AC-HTTP-015.3` — `LogicBlockHttpServerShould.RefuseListenAddressAndPortWhileEnabled` × M05 (the port's enabled guard removed) → `Failed: 1`.
 - `AC-HTTP-015.4` — `LogicBlockHttpServerShould.RefusePortOutsideValidRange` × M06 (the message in the current culture) → `Failed: 1, Passed: 2` (the `-1` row under `sv-SE`); `.RefuseListenAddressOtherThanIpAddress` × M07 (a host name accepted) → `Failed: 1, Passed: 3`.
 - `AC-HTTP-015.5` — `LogicBlockHttpServerShould.PropagateBindFailureAndStayDisabled` × M08 (enabled before the transport starts) → `Failed: 1`; `TcpHttpServerTransportShould.FailSecondEnableOnHeldPortAndLeaveFirstServing` × M09 (a bind failure swallowed) → `Failed: 1`.
@@ -650,17 +653,17 @@ Every existing test the round touches maps to a row.
 - `AC-HTTP-016.5` — `LogicBlockHttpServerShould.AnswerWithPublishedStatusContentTypeAndBody` × M19 (every published response replaced by an empty JSON) → `Failed: 1`; `TcpHttpServerTransportShould.ServePublishedResponseToPlatformHttpClient` × M20 (no `Content-Type` written) → `Failed: 1`.
 - `AC-HTTP-016.6` — `LogicBlockHttpServerShould.AnswerMethodNotAllowedNamingPublishedMethods` × M21 (a 404 in place of the 405) → `Failed: 1`; `.AnswerNotFoundForPathWithNoResponse` × M22 (a path left with no method kept) → `Failed: 1, Passed: 1`.
 - `AC-HTTP-016.7` — `LogicBlockHttpServerShould.MatchMethodAndPathOrdinallyIgnoringQuery` × M23 (paths compared ignoring case) → `Failed: 1, Passed: 3`; `TcpHttpServerTransportShould.RouteOnPathAndRecordQueryAndHeadersAsSent` × M24 (the query kept in the path) → `Failed: 1`.
-- `AC-HTTP-016.8` — `LogicBlockHttpServerShould.HandAnsweredRequestsToBlockOnceInArrivalOrder` × M25 (only routed requests recorded) → `Failed: 1`; `TcpHttpServerTransportShould.RouteOnPathAndRecordQueryAndHeadersAsSent` × M26 (a repeated header's last value wins) → `Failed: 1`.
+- `AC-HTTP-016.8` — `LogicBlockHttpServerShould.HandAnsweredRequestsToBlockOnceInOrderRecorded` × M25 (only routed requests recorded) → `Failed: 1`; `TcpHttpServerTransportShould.RouteOnPathAndRecordQueryAndHeadersAsSent` × M26 (a repeated header's last value wins) → `Failed: 1`.
 - `AC-HTTP-016.9` — `LogicBlockHttpServerShould.DropOldestBeyondCapacityAndCountDropsSinceLastTake` × M27 (the count not reset by a take) → `Failed: 1`.
 - `AC-HTTP-016.10` — `LogicBlockHttpServerShould.ReportMostRecentArrivalAndNoneBeforeFirst` × M28 (only the first arrival stamped) → `Failed: 1`.
-- `AC-HTTP-016.11` — `LogicBlockHttpServerShould.RefuseRouteWithUnusablePath` × M29 (a path carrying a query accepted) → `Failed: 1, Passed: 2`; `HttpServerResponseShould.RefuseStatusOutsideHttpRange` × M30 (600 accepted) → `Failed: 1, Passed: 1`.
+- `AC-HTTP-016.11` — `LogicBlockHttpServerShould.RefuseRouteWithUnusablePath` × M29 (a path carrying a query accepted) → `Failed: 1, Passed: 2`; `HttpServerResponseShould.RefuseStatusOutsideFinalResponseRange` × M30 (600 accepted) → `Failed: 1, Passed: 1`.
 - `AC-HTTP-017.1` — `TcpHttpServerTransportShould.ReadBodyOfExactlyContentLength` × M31 (the body sized to what was buffered) → `Failed: 1`; `.SendContentLengthAndNoBodyWhereStatusForbidsOne` × M32 (a 204 given a body) → `Failed: 1, Passed: 1`.
 - `AC-HTTP-017.2` — `TcpHttpServerTransportShould.AnswerLengthRequiredForTransferEncoding` × M33 (the transfer-encoding check removed) → `Failed: 1`.
 - `AC-HTTP-017.3` — `TcpHttpServerTransportShould.AnswerContentTooLargeBeyondBodyCap` × M34 (the body cap removed) → `Failed: 1` (by the class timeout: the server waited for a body that never came); `.AnswerHeaderFieldsTooLargeBeyondHeaderCap` × M35 (the cap while the headers' end is still sought, removed) → `Failed: 1, Passed: 1` and × M35b (the cap once it has been read, removed) → `Failed: 1, Passed: 1` — each row owned by one guard. M35 **survived its first run**, before the second row existed.
 - `AC-HTTP-017.4` — `TcpHttpServerTransportShould.AnswerBadRequestForMalformedRequest` × M36 (HTTP/2.0 accepted) → `Failed: 1, Passed: 5`.
 - `AC-HTTP-017.5` — `TcpHttpServerTransportShould.CloseConnectionAfterOneRequest` × M37 (no `Connection: close`) → `Failed: 1`.
 - `AC-HTTP-017.6` — `TcpHttpServerTransportShould.CloseSilentClientOnceReadBoundElapses` × M38 (the read bound never armed) → `Failed: 1` (by the class timeout).
-- `AC-HTTP-017.7` — `TcpHttpServerTransportShould.ServeOtherClientsAfterClientHangsUp` × M39 (the listener stopped when a client hangs up) → `Failed: 1`. M39 **survived its first run** (the test raced it) and its second "red" was the rewritten test failing on its own; re-proven after the test was fixed, with the suite green five runs in a row.
+- `AC-HTTP-017.7` — `TcpHttpServerTransportShould.RecordNothingFromClientHangingUpMidRequestAndServeOthers` × M39 (the listener stopped when a client hangs up) → `Failed: 1`. M39 **survived its first run** (the test raced it) and its second "red" was the rewritten test failing on its own; re-proven after the test was fixed, with the suite green five runs in a row.
 - `AC-TKIT-014.1` — `FakeHttpHarnessShould.DeserializeScriptedBodyWithSdkSerializer` × K01 (the harness registers case-insensitive options) → `Failed: 1, Passed: 1`; `.DeliverNonSuccessStatusAsSdkMapsIt` × K02 (the harness raises its own exception for a status) → `Failed: 1`.
 - `AC-TKIT-014.2` — `FakeHttpHarnessShould.RecordRequestAsComposedForWireBeforeMemberReturns` × K03 (the timeout not recorded) → `Failed: 1`; `.RecordSerializedBodyAndContentType` × K04 (the body not recorded) → `Failed: 1`.
 - `AC-TKIT-014.3` — `FakeHttpHarnessShould.AnswerOutstandingRequestsOldestFirst` × K05 (newest first) → `Failed: 1`; `.DeliverScriptedFailureUnchanged` × K06 (the exception wrapped) → `Failed: 1`.
@@ -686,12 +689,14 @@ Every existing test the round touches maps to a row.
 
 - **`Vion.Dale.Sdk.Http` hosts an HTTP server.** `AddDaleHttpSdk()` now also registers
   `ILogicBlockHttpServerFactory`; a block creates an `ILogicBlockHttpServer`, configures `ListenAddress`
-  (default `0.0.0.0`) and `Port` (default 8080) while disabled, publishes responses by method and path
-  inside `Sync`, reads back the requests it answered there, and enables it. The server answers on its own
-  threads and never calls the block. It speaks plain HTTP/1.1 with no TLS and no authentication — stated
-  on the published type — one request per connection, `Content-Length` bodies only, a 16 KiB header cap,
-  a 1 MiB body cap and a ten-second read bound. No new package dependency, and the package still targets
-  `netstandard2.1`.
+  (default `127.0.0.1` — loopback; `0.0.0.0` for every interface) and `Port` (default 8080) while disabled,
+  publishes responses by method and path inside `Sync`, reads back the requests it answered there, and
+  enables it. The server answers on its own threads and never calls the block. It speaks plain HTTP/1.1
+  with no TLS and no authentication — stated on the published type — one request per connection,
+  `Content-Length` bodies only, a 16 KiB head cap, a 1 MiB body cap, 64 connections served at once (a
+  further one is answered 503) and a ten-second read bound on each half of the client's exchange. A request
+  is recorded once its response has been written in full; the block's log keeps 256 requests and 4 MiB of
+  bodies. No new package dependency, and the package still targets `netstandard2.1`.
 - **A sixth test kit ships: `Vion.Dale.Sdk.Http.TestKit`.** `FakeHttpHarness` drives a block's real HTTP
   client against scripted answers — the SDK's registration, serializer, status mapping and dispatcher
   hop all run, and only the innermost message handler is replaced; `FakeHttpServerHarness` hosts the real
@@ -706,6 +711,12 @@ Every existing test the round touches maps to a row.
   registers (`DevHostBuilder.cs:123`), so a real HTTP request issued from a stepped DevHost now times out
   on virtual time rather than wall time. The client's own 30-second ceiling is unchanged and still wall
   clock.
+- **`HttpServerResponse` refuses a 1xx status and a content type the header block cannot carry**
+  (a control character other than a tab, or anything outside ASCII), each with an `ArgumentException`
+  naming the argument. **A disposed server throws `ObjectDisposedException` when enabled again**, under the
+  kit as on a gateway; `Sync` still runs. A route published under `HEAD` now sends no body, a status the
+  server names no reason phrase for is sent with an empty one, and a declared length too large for any
+  integer is answered 413 rather than 400. `FakeHttpServerClient.Send` documents its two argument refusals.
 - **The Energy example's forecast request is culture-invariant.** `OpenMeteoService` rendered its
   coordinates in the current culture, so a German-locale gateway sent `latitude=47,4992` — found by the
   kit's first test against it. The example also gains tests for both of its HTTP services, compiled only
@@ -759,7 +770,9 @@ Every existing test the round touches maps to a row.
   test raced its mutation, and now waits for the server to close the leaving client's connection before
   the next client arrives).
 - 2026-09-13: **an unspecified behaviour was removed rather than specified.** The transport answered a
-  `HEAD` without a body; no row carried it and no consumer sends one. Deleted.
+  `HEAD` without a body; no row carried it and no consumer sends one. Deleted. *(Amendment 1 reversed
+  this: deleting it left a published route under `HEAD` sending a body, which is the miss and not its
+  cure. `AC-HTTP-017.1` now states it.)*
 - 2026-09-13: **the testing-conventions counts were already stale before this round.** § 1's table said
   16 MSTest and 10 xunit test projects; the tree held 19 and 11 before the kit's test project, 20 and 11
   after (`grep -rlE 'Include="MSTest' --include=*.csproj . | grep -v /obj/ | wc -l` → 20). The table
@@ -796,13 +809,16 @@ Every existing test the round touches maps to a row.
 - ADDED AC-HTTP-008.3 -> docs/specs/http.md : THE SYSTEM SHALL measure a per-request timeout on the clock registered in the container, registering the system clock where none is registered and keeping one registered before it.
 - MODIFIED AC-HTTP-014.1 -> docs/specs/http.md : THE SYSTEM SHALL target the SDK's cross-platform plugin framework and SHALL add logging, JSON, HTTP-factory and clock dependencies to any plugin that takes it.
 - ADDED AC-HTTP-015.1 -> docs/specs/http.md : WHEN `AddDaleHttpSdk` is called THE SYSTEM SHALL register a server factory whose every `Create()` returns a new, disabled HTTP server that listens on a socket once enabled.
-- ADDED AC-HTTP-015.2 -> docs/specs/http.md : THE SYSTEM SHALL listen on all interfaces and on port 8080 unless told otherwise.
+- ADDED AC-HTTP-015.2 -> docs/specs/http.md : THE SYSTEM SHALL listen on loopback and on port 8080 unless told otherwise. (as amended — amendment 1)
 - ADDED AC-HTTP-015.3 -> docs/specs/http.md : WHEN a listen address or a port is set while the server is enabled THE SYSTEM SHALL throw an `InvalidOperationException`.
 - ADDED AC-HTTP-015.4 -> docs/specs/http.md : IF a listen address that is not an IP address, or a port outside 1 to 65535, is set THEN THE SYSTEM SHALL throw a `FormatException` naming the value in the invariant culture.
 - ADDED AC-HTTP-015.5 -> docs/specs/http.md : WHEN enabling the server cannot bind the listener THE SYSTEM SHALL propagate the failure to the caller and leave the server disabled and not listening, and a server already holding that port serving.
 - ADDED AC-HTTP-015.6 -> docs/specs/http.md : WHEN the server is enabled THE SYSTEM SHALL start listening on the configured address and port, WHEN it is disabled THE SYSTEM SHALL stop, and WHEN either is repeated THE SYSTEM SHALL do nothing, keeping the published responses across both.
-- ADDED AC-HTTP-015.7 -> docs/specs/http.md : WHEN the server is disposed THE SYSTEM SHALL stop listening, report itself disabled, and stay silent on a second disposal.
+- ADDED AC-HTTP-015.7 -> docs/specs/http.md : WHEN the server is disposed THE SYSTEM SHALL stop listening, report itself disabled, stay silent on a second disposal, and refuse to be enabled again with an `ObjectDisposedException`, while still running `Sync` callbacks. (as amended — amendment 1)
 - ADDED AC-HTTP-015.8 -> docs/specs/http.md : THE SYSTEM SHALL bind the listener with the address-reuse option, so a redeploy can rebind a port whose previous socket still lingers. GAP: observable only where a server-closed connection's lingering socket blocks a rebind, which is Linux; the Windows desk rebinds such a port with or without the option.
+- ADDED AC-HTTP-015.9 -> docs/specs/http.md : WHEN the server is disabled or disposed while a complete request waits for its answer THE SYSTEM SHALL close that request's connection with no response and record nothing from it. (as amended — amendment 1)
+- ADDED AC-HTTP-015.10 -> docs/specs/http.md : IF accepting a connection fails with anything but a socket error THEN THE SYSTEM SHALL stop listening while the server stays enabled, and SHALL listen again once the server is disabled and enabled, and IF it fails with a socket error THEN THE SYSTEM SHALL go on accepting. (as amended — amendment 1)
+- ADDED AC-HTTP-015.11 -> docs/specs/http.md : THE SYSTEM SHALL register the server factory as a singleton and the server as a transient, and SHALL resolve a factory-created server from the container's root, so a block's scope ending leaves it serving, its block owns its disposal, and the container disposes it at its own disposal whether or not the block already has. (as amended — amendment 1)
 - ADDED AC-HTTP-016.1 -> docs/specs/http.md : THE SYSTEM SHALL let a block set, replace and remove the response for a method and a path, and clear every response, inside a `Sync` callback run on the caller's thread in an action form and a value-returning form, and SHALL answer a request arriving while a callback runs from the responses that callback leaves.
 - ADDED AC-HTTP-016.2 -> docs/specs/http.md : THE SYSTEM SHALL allow `Sync` while the server is disabled.
 - ADDED AC-HTTP-016.3 -> docs/specs/http.md : WHEN `IsEnabled` is set or the server is disposed from inside a `Sync` callback, at any nesting depth, THE SYSTEM SHALL throw an `InvalidOperationException`.
@@ -810,22 +826,26 @@ Every existing test the round touches maps to a row.
 - ADDED AC-HTTP-016.5 -> docs/specs/http.md : WHEN a request arrives for a method and a path with a response set THE SYSTEM SHALL answer with that response's status, content type and body.
 - ADDED AC-HTTP-016.6 -> docs/specs/http.md : WHEN a request arrives for a path with no response under any method THE SYSTEM SHALL answer 404 with no body, and WHEN the path has responses only under other methods THE SYSTEM SHALL answer 405 with an `Allow` header naming them.
 - ADDED AC-HTTP-016.7 -> docs/specs/http.md : THE SYSTEM SHALL match a request to a response by its method and by its path before any query string, both compared ordinally.
-- ADDED AC-HTTP-016.8 -> docs/specs/http.md : THE SYSTEM SHALL record every request it answers with its method, path, query, headers, body and arrival instant from the registered clock, joining the values of a header sent more than once, and SHALL hand each to the block once, in arrival order, when the block takes them.
-- ADDED AC-HTTP-016.9 -> docs/specs/http.md : WHILE more answered requests are untaken than the server keeps THE SYSTEM SHALL drop the oldest, and SHALL report how many it dropped since the block last took them.
-- ADDED AC-HTTP-016.10 -> docs/specs/http.md : THE SYSTEM SHALL report the arrival instant of the most recent request, and none before a request arrives.
-- ADDED AC-HTTP-016.11 -> docs/specs/http.md : IF a response is set or removed with no method, a path that is empty, does not start with `/` or carries a query, or no response, or a response is built with a status outside 100 to 599, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument.
-- ADDED AC-HTTP-017.1 -> docs/specs/http.md : THE SYSTEM SHALL read a request body of exactly its `Content-Length`, and send each response with its `Content-Length` and without a body where its status forbids one.
+- ADDED AC-HTTP-016.8 -> docs/specs/http.md : THE SYSTEM SHALL record every request once its response has been written in full, with its method, path, query, headers, body and arrival instant from the registered clock, joining the values of a header sent more than once except a repeated identical `Content-Length`, which it keeps once, and SHALL hand each to the block once, in the order it recorded them, when the block takes them. (as amended — amendment 1)
+- ADDED AC-HTTP-016.9 -> docs/specs/http.md : WHILE the recorded requests not yet taken are more than the server keeps or carry more body bytes than its budget THE SYSTEM SHALL drop the oldest until both hold, SHALL drop a request whose body alone is over the budget, and SHALL report how many it dropped since the block last took them. (as amended — amendment 1)
+- ADDED AC-HTTP-016.10 -> docs/specs/http.md : THE SYSTEM SHALL report the latest arrival instant among the requests it has recorded, and none before it has recorded one. (as amended — amendment 1)
+- ADDED AC-HTTP-016.11 -> docs/specs/http.md : IF a response is set or removed with no method, a path that is empty, does not start with `/` or carries a query, or no response, or a response is built with a status outside 200 to 599, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument. (as amended — amendment 1)
+- ADDED AC-HTTP-016.12 -> docs/specs/http.md : IF a response is built with a content type carrying a control character other than a tab, or a character outside ASCII, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument. (as amended — amendment 1)
+- ADDED AC-HTTP-017.1 -> docs/specs/http.md : THE SYSTEM SHALL read a request body of exactly its `Content-Length`, taking a request with neither a `Content-Length` nor a transfer encoding to have none, and send each response with its `Content-Length`, without a body where its status forbids one, and without its body in answer to `HEAD`. (as amended — amendment 1)
 - ADDED AC-HTTP-017.2 -> docs/specs/http.md : IF a request declares a transfer encoding THEN THE SYSTEM SHALL answer 411 and record nothing.
-- ADDED AC-HTTP-017.3 -> docs/specs/http.md : IF a request's line and headers exceed the header cap THEN THE SYSTEM SHALL answer 431, and IF its declared body exceeds the body cap THEN THE SYSTEM SHALL answer 413, recording neither.
-- ADDED AC-HTTP-017.4 -> docs/specs/http.md : IF a request line or a header is malformed, or names a version other than HTTP/1.0 or HTTP/1.1, THEN THE SYSTEM SHALL answer 400 and record nothing.
+- ADDED AC-HTTP-017.3 -> docs/specs/http.md : IF a request's head — its line and headers, before the blank line that ends them — is longer than the header cap THEN THE SYSTEM SHALL answer 431, and IF its declared body is longer than the body cap THEN THE SYSTEM SHALL answer 413, recording neither. (as amended — amendment 1)
+- ADDED AC-HTTP-017.4 -> docs/specs/http.md : IF a request line or a header is malformed, a `Content-Length` is anything but digits or is sent twice with different values, or the request names a version other than HTTP/1.0 or HTTP/1.1, THEN THE SYSTEM SHALL answer 400 and record nothing. (as amended — amendment 1)
 - ADDED AC-HTTP-017.5 -> docs/specs/http.md : THE SYSTEM SHALL answer one request per connection and then close it, sending `Connection: close`.
-- ADDED AC-HTTP-017.6 -> docs/specs/http.md : WHEN a client does not complete a request within the read bound THE SYSTEM SHALL close the connection and record nothing.
-- ADDED AC-HTTP-017.7 -> docs/specs/http.md : WHEN a client disconnects before its response is written THE SYSTEM SHALL go on serving other clients.
+- ADDED AC-HTTP-017.6 -> docs/specs/http.md : WHEN a client does not complete its request within the read bound of connecting THE SYSTEM SHALL close the connection and record nothing, WHEN a client has not closed within the read bound of its request being answered THE SYSTEM SHALL close the connection, and THE SYSTEM SHALL NOT count against the bound the time a complete request waits for a `Sync` callback. (as amended — amendment 1)
+- ADDED AC-HTTP-017.7 -> docs/specs/http.md : WHEN a client disconnects before its request is complete THE SYSTEM SHALL record nothing from it and go on serving other clients. (as amended — amendment 1)
+- ADDED AC-HTTP-017.8 -> docs/specs/http.md : THE SYSTEM SHALL send every response's status code on its status line, with an empty reason phrase for a status it names no phrase for. (as amended — amendment 1)
+- ADDED AC-HTTP-017.9 -> docs/specs/http.md : THE SYSTEM SHALL serve connections concurrently, answering a request on one connection while a request on another is still arriving. (as amended — amendment 1)
+- ADDED AC-HTTP-017.10 -> docs/specs/http.md : WHILE the connection limit is reached THE SYSTEM SHALL answer a further connection 503 and close it without reading its request. (as amended — amendment 1)
 - ADDED AC-TKIT-014.1 -> docs/specs/testkit.md : THE SYSTEM SHALL compose a fake HTTP harness from the SDK's real registration, client, executor and serializer, replacing only the innermost message handler, so a scripted answer reaches a block through the SDK's own response handling.
 - ADDED AC-TKIT-014.2 -> docs/specs/testkit.md : WHEN a block issues a request through the harness's client THE SYSTEM SHALL record its method, URI, headers as sent, body, content type and per-request timeout before the member returns, and hold it outstanding.
 - ADDED AC-TKIT-014.3 -> docs/specs/testkit.md : THE SYSTEM SHALL answer outstanding requests oldest first, delivering a scripted status, content type and body as the response the SDK handles and a scripted exception unchanged, as the SDK delivers a transport failure.
 - ADDED AC-TKIT-014.4 -> docs/specs/testkit.md : IF a test answers or fails a request while none is outstanding THEN THE SYSTEM SHALL throw an `InvalidOperationException`, and IF it fails one with no exception THEN THE SYSTEM SHALL throw an `ArgumentNullException`, leaving the request outstanding.
-- ADDED AC-TKIT-014.5 -> docs/specs/testkit.md : WHEN a test answers or fails a request THE SYSTEM SHALL return only once the exchange has handed its callback to the block's dispatcher, running no callback itself.
+- ADDED AC-TKIT-014.5 -> docs/specs/testkit.md : WHEN a test answers or fails a request THE SYSTEM SHALL return only once the exchange has handed its callback to the block's dispatcher, running no callback itself, and SHALL return so on a thread that owns the test's synchronization context. (as amended — amendment 1)
 - ADDED AC-TKIT-014.6 -> docs/specs/testkit.md : THE SYSTEM SHALL report how many requests are outstanding, and keep every request it recorded, answered or not, in the order issued.
 - ADDED AC-TKIT-014.7 -> docs/specs/testkit.md : WHEN an outstanding request's per-request timeout elapses on the harness's clock THE SYSTEM SHALL fail it as the SDK fails an expired per-request bound, and stop holding it.
 - ADDED AC-TKIT-014.8 -> docs/specs/testkit.md : THE SYSTEM SHALL measure a harness on a virtual clock nothing advances unless the caller supplies a clock, and SHALL refuse a null clock.
@@ -833,6 +853,7 @@ Every existing test the round touches maps to a row.
 - ADDED AC-TKIT-015.1 -> docs/specs/testkit.md : THE SYSTEM SHALL wire an in-memory transport into the SDK's real hosted HTTP server, hand that server out directly and through a factory, dispose it with its container, stamp requests on the clock the caller supplies, and refuse a null clock.
 - ADDED AC-TKIT-015.2 -> docs/specs/testkit.md : THE SYSTEM SHALL offer a client-side view that sends a method, a path with its query, headers and a body to the server and returns the server's status, content type, headers and body, the server recording the request as it records one from a socket.
 - ADDED AC-TKIT-015.3 -> docs/specs/testkit.md : WHEN the client-side view sends while the server is not listening THE SYSTEM SHALL throw an `InvalidOperationException`.
+- ADDED AC-TKIT-015.4 -> docs/specs/testkit.md : IF the client-side view is asked to send with no method THEN THE SYSTEM SHALL throw an `ArgumentNullException`, and IF with a target that does not start with `/` THEN THE SYSTEM SHALL throw an `ArgumentException`, naming the argument and reaching no server. (as amended — amendment 1)
 
 ---
 
@@ -850,7 +871,7 @@ Every existing test the round touches maps to a row.
 | 6, 10, 11 | `AC-HTTP-015.5` — 10 as its "a server already holding that port serving" clause, 11 as its "not listening" clause |
 | 7, 9 | `AC-HTTP-015.6` — 9 as its "keeping the published responses" clause |
 | 8 | `AC-HTTP-015.7` |
-| 12, 33 | `AC-HTTP-016.1` — 33 as its second clause: a request is answered from the responses a running callback leaves |
+| 12, 33 | `AC-HTTP-016.1` — 33 as its second clause: a request is answered from the responses a running callback leaves *(Amendment 1: that clause is one request during a callback, not two connections served together — row 33 is `AC-HTTP-017.9`)* |
 | 13 | `AC-HTTP-016.2` |
 | 14 | `AC-HTTP-016.3` |
 | 15 | `AC-HTTP-016.4` |
@@ -970,4 +991,250 @@ at the two band edges; P6 and P7 on Windows 11, unelevated. P6 is evidence for W
 - Modbus TCP kit manifest rows: `grep -c "Modbus.Tcp.TestKit\." docs/snapshots/publicapi-manifest.json` → 13
 - `HttpPackageSurfaceShould` methods: `grep -c "TestMethod" Vion.Dale.Sdk.Http.Test/HttpPackageSurfaceShould.cs` → 6
 - executor constructions in the HTTP suite: `grep -rn "new HttpRequestExecutor(" Vion.Dale.Sdk.Http.Test | wc -l` → 2
-- the kits' shape: `for k in *TestKit; do grep -n "TargetFramework\|IsPackable\|Generators.csproj" $k/$k.csproj; grep assembly $k/PublicApiConfig.cs; done` → five × (`net10.0`, `true`, the analyzer reference, one namespace)
+- the kits' shape: `for k in *TestKit; do grep -n "TargetFramework\|IsPackable\|Generators.csproj" $k/$k.csproj; grep assembly $k/PublicApiConfig.cs; done` → five × (`net10.0`, `true`, the analyzer reference, one namespace) *(stale once the kit existed; re-run in Amendment 1 → six ×, the sixth `[assembly: PublicApiNamespace("Vion.Dale.Sdk.Http.TestKit")]`, and `ls -d *TestKit | wc -l` → 6)*
+
+---
+
+## Amendment 1 checkpoint (the coordinator's two checks after the REPORT)
+
+Twelve items from `amend-VION-212-http-server-and-testkit-1.md`, worked by a fresh session on
+`feat/http-server-and-testkit` off `fbe53da5`. Every premise was read at its call site first; a refuted
+one is said so below and its behaviour was still tested. Every mutation was applied by a script that
+asserted exactly one match, ran `dotnet test` on the named tests by `FullyQualifiedName`, and restored
+the file byte for byte; the lines under each item are the runner's own, per row. A "red run" for a fix is
+either the new test against the pre-fix code (items 1, 3, 11.2–11.4, run before the fix landed) or the
+mutation that reverts the fix, named as such.
+
+**What moved on the pages.** `http.md` now declares 70 `AC-HTTP-` criteria and `testkit.md` 13
+`AC-TKIT-014.*`/`015.*` criteria (`grep -cE '^- \`AC-HTTP-' docs/specs/http.md` → 70;
+`grep -cE '^- \`AC-TKIT-01[45]\.' docs/specs/testkit.md` → 13). Eight criteria are minted
+(`AC-HTTP-015.9`, `.10`, `.11`, `016.12`, `017.8`, `.9`, `.10`, `AC-TKIT-015.4`) and twelve reworded
+(`AC-HTTP-015.2`, `.7`, `016.8`–`.11`, `017.1`, `.3`, `.4`, `.6`, `.7`, `AC-TKIT-014.5`). None had shipped,
+so the *Spec delta* above is rewritten in place and each touched line carries `(as amended — amendment 1)`;
+`grep -cE '^- (ADDED|MODIFIED) ' <this doc>` → 48. Containment was checked by running
+`scripts/spec-change.ps1 archive http-server-and-testkit -RepoRoot <a scratch copy of the doc and the
+specs>`, whose refusal is the text check: `spec-change: archived 2026-09-12-http-server-and-testkit.md ->
+archive/ (staged)` — every delta line is carried by its declaring bullet.
+
+### The items
+
+**1 — done (operator decision).** Premise confirmed at `LogicBlockHttpServer.cs` (the default was
+`IPAddress.Any` / `"0.0.0.0"`). The default is now `127.0.0.1`; port 8080 stands. `AC-HTTP-015.2` reads
+"on loopback", the page states the divergence from `AC-MODB-011.2` with its reason, and `D2`, row 2 and
+the relay note are annotated. Proof: `LogicBlockHttpServerShould.ListenOnLoopbackAndPort8080UnlessTold`
+reads what the server hands the stub transport, so no interface of the machine is involved, and
+`.StartOnEnableAndStopOnDisableOnceEach` now sets `0.0.0.0` explicitly, so the explicit path is not the
+default. Red against the old default: `Failed ListenOnLoopbackAndPort8080UnlessTold`. M40 (the parsed
+default back to `IPAddress.Any`) → `Failed ListenOnLoopbackAndPort8080UnlessTold`.
+
+**2 — done: a byte budget beside the count.** Premise confirmed (the enqueue sat before the route lookup,
+bounded by count only). Recording moved to delivery (item 5), and it now drops the oldest until 256
+requests *and* 4 MiB of bodies both hold; a body alone over the budget is dropped on arrival, which only a
+transport without the socket's 1 MiB body cap can deliver. Not recording unmatched requests was not
+chosen: `AC-HTTP-016.8` records a 404'd request on purpose, and it would bound nothing a matched route
+cannot also carry. Two clauses, two proofs:
+- count — `DropOldestBeyondCapacityAndCountDropsSinceLastTake` × M65 (the count clause removed) →
+  `Failed DropOldestBeyondCapacityAndCountDropsSinceLastTake`, `Passed DropOldestUntilKeptBodiesFitByteBudget`;
+- bytes — `DropOldestUntilKeptBodiesFitByteBudget` (five quarter-budget bodies: one dropped, the four kept
+  summing within the budget) × M63 (the byte clause removed) → `Failed DropOldestUntilKeptBodiesFitByteBudget`,
+  `Passed DropOldestBeyondCapacityAndCountDropsSinceLastTake`; `DropRequestWhoseBodyAloneExceedsByteBudget`
+  × M64 (the on-arrival guard disabled) → `Failed`.
+
+**3 — done.** Premise confirmed (`HttpServerResponse` stored `contentType` as given; the transport wrote it
+verbatim and rendered the head as ASCII). The constructor refuses a control character other than a tab and
+anything outside printable ASCII, beside the status refusal; `AC-HTTP-016.12` is minted. Red against the
+old constructor: all five rows of `HttpServerResponseShould.RefuseContentTypeHeaderBlockCannotCarry`
+failed. Mutations, one clause each:
+- M42 (the control-character clause removed) → `Failed` CR+LF, bare LF, bare CR, NUL; `Passed` non-ASCII,
+  `Passed AcceptContentTypeWithParametersAndTab`. CR and LF share one clause, so one mutation reddens both.
+- M43 (the non-ASCII clause removed) → `Failed a character outside ASCII`; the four others `Passed`.
+- M44 (the tab exemption removed) → `Failed AcceptContentTypeWithParametersAndTab`; the five refusals `Passed`.
+
+**4 — done.** Premise confirmed (`filled >= HeaderCap` in the loop, `headerEnd > HeaderCap` after it). One
+predicate, `HeadExceedsCap(length)`, decides both: after the terminator it gets the head's length, and
+while the terminator is still sought it gets the least length the head can still have (`filled - 3`).
+`AC-HTTP-017.3` names the head. Proof: `ServeHeadAtOrUnderHeaderCap` (cap − 1, cap) and
+`RefuseHeadOneByteOverHeaderCap` (cap + 1), each written in one segment.
+- M45 (`>=`) → `Failed a head of exactly the cap`, the rest `Passed`; M46 (`> HeaderCap + 1`) →
+  `Failed RefuseHeadOneByteOverHeaderCap`, the rest `Passed`.
+- **M47 survives, reported as a window** (§ 5): the loop guard put back to `filled >= HeaderCap` → all five
+  `Passed`. It differs only when a read ends at exactly the cap before the blank line arrives, and loopback
+  delivered each test's single write whole; no seam constructs the split. Against the old code the
+  exact-cap row passed for the same reason. The carried observable is the one predicate. The criterion
+  does not claim "however it arrives" for that reason; the page's prose does, as the reason for the shape.
+
+**5 — done: record on delivery, and a stop abandons.** Premise confirmed (`Answer` logged and stamped
+before the transport wrote; the connection's bound was linked to the stop). The contradiction is resolved
+toward "abandoned": the transport asks the server for the response (`Answer`, which stamps the arrival)
+and reports `Delivered` only after the response is written in full; only then is it recorded and
+`LastRequestAt` moved. `IHttpServerTransport.Stop`'s summary, the in-line comment under the cancel, the
+page and the new `AC-HTTP-015.9` agree. Proof: `TcpHttpServerTransportShould.AbandonRequestAwaitingItsAnswerOnStopAndRecordNothing`
+— the request is read and waiting for a `Sync` callback, the transport's stop closes its connection,
+the client reads nothing, the log is empty and `LastRequestAt` is null. M55 (delivery reported before the
+write) → `Failed AbandonRequestAwaitingItsAnswerOnStopAndRecordNothing`.
+**Deviation, recorded:** the brief's shape is a response *being written*. Windows loopback took a
+128 MiB response in full into its buffers while the client read none of it (the first version of the test
+failed with `Actual value <134217833> is not less than expected value <134217728>` — the whole body
+arrived after the stop), so no write stays in flight on this desk. The test stops a request at the gate
+instead, which the same close and the same record-on-delivery decide. It drives the transport's `Stop`
+directly because disabling the server from a second thread while a callback runs is refused by
+`AC-HTTP-016.3`'s guard; `Stop` is the whole of what disabling does to the transport.
+
+**6 — done: re-armed per half.** Premise confirmed (the bound armed once at connect governed read, answer,
+write and drain). The bound now runs from connecting until the request is complete, stops while the
+server answers (the `Sync` wait is the block's time), and is armed again from the answer until the client
+closes. `AC-HTTP-017.6` states all three clauses. Proofs, each built to fail under the other reading:
+- `LeaveReadBoundUncountedWhileRequestWaitsForSyncCallback` — a 300 ms bound; a silent client connected
+  after the waiting one is closed by the bound, which proves the bound elapsed, and the waiting request
+  still gets its 200. M56 (the disarm removed) → `Failed LeaveReadBoundUncountedWhileRequestWaitsForSyncCallback`
+  and `Failed AbandonRequestAwaitingItsAnswerOnStopAndRecordNothing` (its precondition reads the same rule).
+- `CloseClientKeepingConnectionOpenOnceReadBoundElapsesAfterAnswer` — M57 (no re-arm after the answer)
+  **survived its first run** (`Passed … [21 ms]`): the test read the response to its end, which is the
+  server's half-close and not the close under test. The test now keeps writing after the response until a
+  write comes back reset; re-run → `Failed CloseClientKeepingConnectionOpenOnceReadBoundElapsesAfterAnswer [10 s]`.
+
+**7 — done.** Premise confirmed (`grep -n -i "concurrent" docs/specs/http.md` found only the per-request
+timeout; no test had two requests in flight). `AC-HTTP-017.9` is minted. Proof:
+`AnswerRequestOnOneConnectionWhileAnotherStillArrives` — one client sends a head and two of five body
+bytes, a second client is answered in full, the table is republished, the first completes and is answered
+from the new table. M59 (the accept loop awaits each connection) → `Failed … [10 s]`. "Each from the table
+as it stood when matched" is `AC-HTTP-016.1`'s second clause, already proven; the test asserts it too
+(`{"Version":1}` then `{"Version":2}`) and mints nothing for it.
+
+**8 — done.** Premise confirmed (only cancellation-shaped and `SocketException` were caught; `IsListening`
+read the listener field). Anything else now closes the listener, logs, and sets `IsListening` false while
+`IsEnabled` stays true; disabling and enabling listens again. `IsListening` reads a flag the loop clears.
+The accept call is a constructor seam of the transport (production passes the listener's own accept),
+because nothing a client does makes a listener's accept throw — named on the page's § Test discipline.
+`AC-HTTP-015.10` states both arms. Proofs:
+- `StopListeningWhileEnabledWhenAcceptFailsUnexpectedly` × M61 (the flag not cleared) → `Failed … [10 s]`;
+  × M62 (the catch narrowed to `ObjectDisposedException`) → `Failed … [10 s]`.
+- `GoOnAcceptingAfterSocketErrorAcceptingOneConnection` × M72 (a socket error ends the loop) →
+  `Failed GoOnAcceptingAfterSocketErrorAcceptingOneConnection [10 s]`, `Passed StopListeningWhileEnabledWhenAcceptFailsUnexpectedly`.
+
+**9 — premise refuted for the shipped code; the claim replaced and the shape tested.** The wait is still
+unbounded, and a bound was not added: `testkit.md` § Time has no timeout anywhere in the kits. The case the
+brief names does not hang today, because every await between the handler and the dispatcher is
+`ConfigureAwait(false)` (`HttpRequestExecutor.cs:142,143,184,220,315`) and the held response completes
+inline. `ThreadOwnedSynchronizationContext` gives a test body a context only its own thread can run;
+`FakeHttpHarnessShould.ReturnAnswerToAsyncTestOnThreadOwnedSynchronizationContext` answers from that
+thread after resuming on it and passes. K23 (the executor's two `GetJson` awaits capture the context) →
+`Failed ReturnAnswerToAsyncTestOnThreadOwnedSynchronizationContext [10 s]` with "The answer never returned",
+`Passed QueueCallbackOnBlockBeforeAnswerReturns` — the hang the brief describes, and the clause
+`AC-TKIT-014.5` now carries. `HeldExchanges.Settle`'s comment states the claim the kit holds.
+
+**10 — done.** Premise confirmed (`grep -c "AC-MODB-01[5-9]"` over this doc → 0 before the amendment; the
+registration adds the factory, the server and the transport). The reverse question of `AC-MODB-018.*`:
+`.1`'s lifetimes → `AC-HTTP-015.11`'s first clause; `.2`'s clock-only-when-absent → already
+`AC-HTTP-008.3`; `.3`'s root resolution and block-owned disposal → `AC-HTTP-015.11`'s second clause;
+`.4`'s shared-assembly marking → already `AC-HTTP-013.3`. The transport's own registration is internal and
+states nothing. `AC-HTTP-001.1` keeps its text: it never claimed the whole registration. Proofs:
+- `ServiceCollectionExtensionsShould.RegisterServerFactoryAsSingletonAndServerAsTransient` and
+  `.KeepFactoryCreatedServerPastBlockScopeAndDisposeItWithContainer` × M68 (the factory scoped) →
+  `Failed (…ILogicBlockHttpServerFactory,Singleton)`, `Passed (…ILogicBlockHttpServer,Transient)`,
+  `Failed a server its block never disposed`, `Failed a server its block already disposed`.
+- × M69 (the factory builds an untracked instance) → `Failed a server its block never disposed`,
+  `Passed a server its block already disposed`. The kit's `K13`/`K13b` over-determination rests on this.
+
+**11 — each smaller answer:**
+1. *Stated.* Premise confirmed. `AC-HTTP-016.8` keeps a repeated identical `Content-Length` once and
+   `AC-HTTP-017.4` refuses two different ones. `KeepRepeatedIdenticalContentLengthOnce` × M51 (the two
+   joined) → `Failed`; the "two different lengths" row × M50 (the comparison removed) → `Failed two different lengths`.
+2. *Fixed.* Premise confirmed. A length of digits alone that no integer holds is a declared body over the
+   cap: 413. Red before the fix: `Failed a length past the largest integer`. × M48 (400 again) → `Failed a length past the largest integer`.
+3. *Stated, with a fix beside it.* Premise confirmed. `AC-HTTP-017.8` states the empty reason phrase;
+   `SendStatusWithoutNamedReasonPhraseWithEmptyOne` reads the raw status line and the platform client's
+   422. × M54 → `Failed`. **Found beside it and fixed:** the same range check accepted 100–199, and a 1xx
+   is never a final response — a client waits past it for one this server never sends.
+   `AC-HTTP-016.11` now reads 200 to 599; red before the fix: `Failed an interim status…`,
+   `Failed the last interim status`; × M41 (100 again) → the same two `Failed`, `past the last status` and
+   both edge rows `Passed`.
+4. *Fixed.* Premise confirmed (the body decision read the status alone). A response to `HEAD` carries its
+   `Content-Length` and no body; `AC-HTTP-017.1`. Red before the fix: `Failed SendHeadResponseWithLengthAndWithoutBody`.
+   × M53 → `Failed SendHeadResponseWithLengthAndWithoutBody`, both status rows `Passed`.
+5. *Stated.* Premise confirmed. `AC-HTTP-017.1` takes a request with neither header to have no body.
+   `TreatRequestWithNeitherLengthNorEncodingAsBodiless` × M52 (the body sized to what was buffered) →
+   `Failed`, `Passed ReadBodyOfExactlyContentLength`.
+6. *Stated.* Premise **partly refuted**: `modbus.md:356-357` closed a disposed server reporting itself
+   enabled, not `Sync` after disposal — the Modbus server's `Sync` has no disposed guard at all
+   (`grep -rn "_disposed\|ObjectDisposed" Vion.Dale.Sdk.Modbus.Tcp/Server/LogicBlock/ | wc -l` → 0).
+   HTTP keeps that parity: `Sync` runs; enabling throws. `AC-HTTP-015.7` states both.
+   `RefuseEnableAfterDisposeWhileSyncStillRuns` × M66 (the refusal disabled) → `Failed`; × M67 (`Sync`
+   refused after disposal) → `Failed`.
+7. *Fixed.* Premise confirmed. The refusal moved from the socket transport into the server, so both
+   transports agree; the kit's remarks now say so. `FakeHttpServerHarnessShould.RefuseEnableAfterDisposeAsSocketServerDoes`
+   (cites `AC-HTTP-015.7`) × K20 → `Failed`.
+8. *Fixed — a limit, since an absence mints nothing.* Premise confirmed. At 64 connections served at once a
+   further one is answered 503 and closed before its request is read; a client that has already written
+   may see a reset, which the page says. `AC-HTTP-017.10`. `AnswerServiceUnavailableToConnectionPastLimit`
+   (a limit of two, set through the same constructor seam as item 8) × M60 → `Failed … [10 s]`.
+9. *Stated.* Premise confirmed. `AC-TKIT-015.4`. `RefuseSendWithoutMethod` × K21 → `Failed`;
+   `RefuseSendToTargetNotStartingWithSlash` × K22 (only null refused) → `Failed an empty target`,
+   `Failed a target without its leading slash`, `Passed no target` — the null row is that clause's own.
+
+**12 — hygiene:**
+1. `TestKitSurfaceShould`'s class summary said "the five kits"; it now states the rule ("the test kits").
+2. The pasted "five ×" under *Self-check* is annotated with the re-run above (six).
+3. The mid-body return is exercised: `RecordNothingFromClientHangingUpMidRequestAndServeOthers` gained a
+   mid-body row and asserts nothing is recorded from the leaving client, so `AC-HTTP-017.7` reads "before
+   its request is complete … record nothing from it". × M58 (the mid-body return turned into `break`) →
+   `Failed halfway through its body`, `Passed halfway through its headers`.
+4. The malformed-length rows gained `-1` (400) and the body-cap test a value past `long.MaxValue` (413,
+   item 11.2). × M49 (only an empty length is malformed) → `Failed a length that is not a number`,
+   `Failed a negative length`.
+
+### The coordinator's three answers
+
+1. **The stepped-DevHost clock** — kept; one paragraph under `AC-HTTP-008.3` states it.
+2. **The example tests excluded from the default build** — `docs/releasing.md` § After a release now names
+   the first-release step: the manual `PackageReference` and exclusion removal, the grep that finds every
+   waiting exclusion, and the kit in the wait loop.
+3. **The unproven dependency row** — run, as one mutation removing every `TimeProvider` reference in
+   `Vion.Dale.Sdk.Http` (the executor's and the server's fields and constructor parameters to `object`, the
+   bound to a plain `CancellationTokenSource`, the stamp to `DateTimeOffset.UtcNow`, the registration line
+   deleted; seven edits, three files; `remaining TimeProvider mentions outside obj/: []`). The row reddens
+   alone: `Failed AddDependencyToEveryPluginTakingIt ("Microsoft.Bcl.TimeProvider")`, the other four rows
+   `Passed`. It stays minted.
+
+### Re-derived after the move to record-on-delivery
+
+The earlier mutations whose code moved were re-run: M25's shape (only routed requests recorded, now in
+`Delivered`) as M71 → `Failed HandAnsweredRequestsToBlockOnceInOrderRecorded`; M28's shape (only the first
+arrival stamped) as M70 → `Failed ReportMostRecentArrivalAndNoneBeforeFirst`. Renamed in this round, every
+occurrence in this doc rewritten from the declaration: `ListenOnAllInterfacesAndPort8080UnlessTold` →
+`ListenOnLoopbackAndPort8080UnlessTold`; `HandAnsweredRequestsToBlockOnceInArrivalOrder` →
+`HandAnsweredRequestsToBlockOnceInOrderRecorded` (the order is the order recorded, which for concurrent
+connections is not arrival order); `RefuseStatusOutsideHttpRange` → `RefuseStatusOutsideFinalResponseRange`;
+`ServeOtherClientsAfterClientHangsUp` → `RecordNothingFromClientHangingUpMidRequestAndServeOthers`
+(M39's mutation was not re-run under the new name).
+
+### Consolidation for the new and reworded criteria
+
+| Brief item | Criterion |
+| --- | --- |
+| 1 | `AC-HTTP-015.2` (reworded) |
+| 2 | `AC-HTTP-016.9` (reworded) |
+| 3 | `AC-HTTP-016.12` |
+| 4, 12.4 | `AC-HTTP-017.3`, `AC-HTTP-017.4` (reworded) |
+| 5 | `AC-HTTP-015.9`, `AC-HTTP-016.8` (reworded), `AC-HTTP-016.10` (reworded) |
+| 6 | `AC-HTTP-017.6` (reworded) |
+| 7 (row 33) | `AC-HTTP-017.9` |
+| 8 | `AC-HTTP-015.10` |
+| 9 | `AC-TKIT-014.5` (reworded) |
+| 10 | `AC-HTTP-015.11` |
+| 11.1 | `AC-HTTP-016.8`, `AC-HTTP-017.4` |
+| 11.2 | `AC-HTTP-017.3` |
+| 11.3 | `AC-HTTP-017.8`; the 1xx found beside it `AC-HTTP-016.11` |
+| 11.4, 11.5 | `AC-HTTP-017.1` (reworded) |
+| 11.6, 11.7 | `AC-HTTP-015.7` (reworded) |
+| 11.8 | `AC-HTTP-017.10` |
+| 11.9 | `AC-TKIT-015.4` |
+| 12.3 | `AC-HTTP-017.7` (reworded) |
+
+### Surviving mutations and uncited behaviour
+
+- **M47** — the header-cap loop guard's arithmetic; a window no seam constructs (item 4).
+- **A response cut short mid-write** has no test on this desk (item 5); `AC-HTTP-016.8`'s rule decides it
+  and `AC-HTTP-015.9` states only the waiting case.
+- `TcpHttpServerTransport`'s refusal path for a connection past the limit swallows a failed write; a
+  client too slow to take the 503 is not observable and states nothing.

@@ -36,7 +36,8 @@ cancelled) and `AC-LIFE-014.7` (a self-send carries neither sender nor headers);
 package's own declarations (`AC-ANLZ-012.1`, `AC-ANLZ-012.2`); [`testkit.md`](testkit.md) for the
 surface-and-arming shape this package now follows (`AC-TKIT-013.1`, `AC-TKIT-013.2`) and for the HTTP
 test kit that drives both halves (`AC-TKIT-014.*`, `AC-TKIT-015.*`); [`modbus.md`](modbus.md) for the
-hosted Modbus server whose binding rule the hosted HTTP server shares (`AC-MODB-011.2`);
+hosted Modbus server, whose binding rule the hosted HTTP server departs from (`AC-MODB-011.2`) and whose
+factory ownership rule it shares (`AC-MODB-018.3`);
 [`../simulator-authoring.md`](../simulator-authoring.md) for what a socket means to a bench.
 
 Not this area: the `dale` CLI's own hand-rolled HTTP client, which is [`cli.md`](cli.md)'s and does
@@ -271,6 +272,10 @@ changes nothing a block can see; under a controllable clock — the HTTP test ki
 clock expires a held request's bound, and the expiry arrives exactly as `AC-HTTP-008.1` states. The
 client's own bound is a timer inside the platform and is not measured on this clock.
 
+The development host in deterministic stepping registers such a clock too, so there a real request's
+per-request bound elapses when the stepper advances time, as every other timer in that mode does. A
+request that nothing steps past its bound is still ended on wall time by the client's own bound.
+
 That inner exception is the platform's, not this package's, and it is what tells the ceiling apart
 from any other cancellation rather than leaving it guessed at: the client has set it since .NET 5.
 The runtime this SDK's plugins load into is past that, and it is the host `AC-HTTP-008.2` is stated
@@ -362,7 +367,7 @@ like the hosted Modbus server — configure while disabled, then enable.
 - `AC-HTTP-015.1` (Event-driven): WHEN `AddDaleHttpSdk` is called THE SYSTEM SHALL register a server
   factory whose every `Create()` returns a new, disabled HTTP server that listens on a socket once
   enabled.
-- `AC-HTTP-015.2` (Ubiquitous): THE SYSTEM SHALL listen on all interfaces and on port 8080 unless told
+- `AC-HTTP-015.2` (Ubiquitous): THE SYSTEM SHALL listen on loopback and on port 8080 unless told
   otherwise.
 - `AC-HTTP-015.3` (Event-driven): WHEN a listen address or a port is set while the server is enabled THE
   SYSTEM SHALL throw an `InvalidOperationException`.
@@ -376,19 +381,58 @@ like the hosted Modbus server — configure while disabled, then enable.
   configured address and port, WHEN it is disabled THE SYSTEM SHALL stop, and WHEN either is repeated
   THE SYSTEM SHALL do nothing, keeping the published responses across both.
 - `AC-HTTP-015.7` (Event-driven): WHEN the server is disposed THE SYSTEM SHALL stop listening, report
-  itself disabled, and stay silent on a second disposal.
+  itself disabled, stay silent on a second disposal, and refuse to be enabled again with an
+  `ObjectDisposedException`, while still running `Sync` callbacks.
 - `AC-HTTP-015.8` (Ubiquitous): THE SYSTEM SHALL bind the listener with the address-reuse option, so a redeploy can rebind a port whose previous socket still lingers. GAP: observable only where a server-closed connection's lingering socket blocks a rebind, which is Linux; the Windows desk rebinds such a port with or without the option.
+- `AC-HTTP-015.9` (Event-driven): WHEN the server is disabled or disposed while a complete request waits
+  for its answer THE SYSTEM SHALL close that request's connection with no response and record nothing
+  from it.
+- `AC-HTTP-015.10` (Unwanted): IF accepting a connection fails with anything but a socket error THEN THE
+  SYSTEM SHALL stop listening while the server stays enabled, and SHALL listen again once the server is
+  disabled and enabled, and IF it fails with a socket error THEN THE SYSTEM SHALL go on accepting.
+- `AC-HTTP-015.11` (Ubiquitous): THE SYSTEM SHALL register the server factory as a singleton and the
+  server as a transient, and SHALL resolve a factory-created server from the container's root, so a
+  block's scope ending leaves it serving, its block owns its disposal, and the container disposes it at
+  its own disposal whether or not the block already has.
 
-`AC-HTTP-015.2` is `AC-MODB-011.2`'s rule, and the SDK keeps one binding rule for every server it hosts:
-a logic-block-hosted server exists to be reached from the network, so a simulator that must not be
-reachable off the machine sets loopback explicitly. The port is not the protocol's standard 80 because
-80 is the port everything else on a host already wants.
+`AC-HTTP-015.2` departs from `AC-MODB-011.2`, which binds every interface, and the reason is the
+protocol. Modbus has no transport security by nature, so a hosted Modbus server that serves the network
+in clear is the protocol working as designed. This server serves plaintext **by choice**, where HTTP has
+TLS and authentication as the norm, and every request it receives meets a request parser the package
+wrote itself. Reaching it from off the machine is therefore something a block asks for — setting
+`ListenAddress` to an interface, or to `0.0.0.0` for all of them — and not something a block gets by
+omission. Nothing about what a production block can do changes; only what it does without saying. The
+port is not the protocol's standard 80 because 80 is the port everything else on a host already wants.
 
 `AC-HTTP-015.5` is where a simulator's degrade-on-failure lives: the server throws and stays disabled,
 and whether a taken port takes the bench down is the block's decision, made in its own `catch`.
 
 The address-reuse bind matters more here than for most servers, because this one closes every connection
 first (`AC-HTTP-017.5`), which leaves the lingering socket on the server's side of each exchange.
+
+`AC-HTTP-015.7`'s last clause is the hosted Modbus server's too: disposal ends the socket and not the
+route table, so a block's late tick publishing into a disposed server changes a table nothing serves and
+throws nothing. Enabling is what a disposed server refuses, and the refusal is the server's own rather
+than its transport's, so the HTTP test kit's in-memory transport refuses it exactly as a gateway's socket
+does.
+
+`AC-HTTP-015.9` is `AC-HTTP-016.8`'s "once its response has been written in full" met by a stop. A stop
+does not wait for a slow client to take a response: it closes every connection still open, so a request
+that was waiting for a `Sync` callback was never answered and is not recorded. A response still being
+written when the stop comes is cut short by the same close and goes unrecorded by the same rule; that
+case is stated by `AC-HTTP-016.8` rather than here, because no test on this suite's desk can hold a
+write open (§ Test discipline).
+
+`AC-HTTP-015.10` is what keeps the listener from dying in silence. A socket error accepting one connection
+is that connection's problem, and the next is accepted. Anything else is not understood, and retrying it
+could spin, so the listener closes and `IsListening` says so while `IsEnabled` still reads true — the pair
+a health property compares. Disabling and enabling starts a fresh listener.
+
+`AC-HTTP-015.11` is `AC-MODB-018.3`'s rule for the HTTP server. The factory is a singleton, so the provider
+it resolves from is the root, and a server it creates outlives the scope of the block that asked for it:
+the block that created a server disposes it, typically in `Stopping`, and the container disposes it again
+at process exit, which a second disposal tolerates (`AC-HTTP-015.7`). A server resolved directly into a
+block's constructor instead is that block's scope's, as every transient is.
 
 ## The hosted server: responses and requests
 
@@ -408,17 +452,23 @@ first (`AC-HTTP-017.5`), which leaves the lingering socket on the server's side 
   THE SYSTEM SHALL answer 405 with an `Allow` header naming them.
 - `AC-HTTP-016.7` (Ubiquitous): THE SYSTEM SHALL match a request to a response by its method and by its
   path before any query string, both compared ordinally.
-- `AC-HTTP-016.8` (Ubiquitous): THE SYSTEM SHALL record every request it answers with its method, path,
-  query, headers, body and arrival instant from the registered clock, joining the values of a header
-  sent more than once, and SHALL hand each to the block once, in arrival order, when the block takes
-  them.
-- `AC-HTTP-016.9` (State-driven): WHILE more answered requests are untaken than the server keeps THE
-  SYSTEM SHALL drop the oldest, and SHALL report how many it dropped since the block last took them.
-- `AC-HTTP-016.10` (Ubiquitous): THE SYSTEM SHALL report the arrival instant of the most recent
-  request, and none before a request arrives.
+- `AC-HTTP-016.8` (Ubiquitous): THE SYSTEM SHALL record every request once its response has been
+  written in full, with its method, path, query, headers, body and arrival instant from the registered
+  clock, joining the values of a header sent more than once except a repeated identical
+  `Content-Length`, which it keeps once, and SHALL hand each to the block once, in the order it recorded
+  them, when the block takes them.
+- `AC-HTTP-016.9` (State-driven): WHILE the recorded requests not yet taken are more than the server
+  keeps or carry more body bytes than its budget THE SYSTEM SHALL drop the oldest until both hold, SHALL
+  drop a request whose body alone is over the budget, and SHALL report how many it dropped since the
+  block last took them.
+- `AC-HTTP-016.10` (Ubiquitous): THE SYSTEM SHALL report the latest arrival instant among the requests it
+  has recorded, and none before it has recorded one.
 - `AC-HTTP-016.11` (Unwanted): IF a response is set or removed with no method, a path that is empty,
   does not start with `/` or carries a query, or no response, or a response is built with a status
-  outside 100 to 599, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument.
+  outside 200 to 599, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument.
+- `AC-HTTP-016.12` (Unwanted): IF a response is built with a content type carrying a control character
+  other than a tab, or a character outside ASCII, THEN THE SYSTEM SHALL throw an `ArgumentException`
+  naming the argument.
 
 The model is the hosted Modbus server's with register buffers replaced by responses. The block
 publishes what the server serves, on its own cadence, and reads back what was asked the same way; the
@@ -436,38 +486,83 @@ request being answered waits for the callback that is holding them off.
 `AC-HTTP-016.7`'s edges are the ones an author gets wrong: `/a?x=1` is answered by `/a`, while `/A` and
 `/a/` are not, and neither is a `get` for a `GET`. The `Host` header plays no part.
 
-`AC-HTTP-016.9` is what keeps a server a block never drains from growing on a gateway. The count is
-the visible half: a block that must see every request reads it before it takes them, in the same
-callback.
+`AC-HTTP-016.8` records on delivery rather than on arrival, so the log is a list of requests a client
+was actually answered, and "arrival order" is not a promise it can keep: two connections served at once
+finish in either order. For requests one client sends one after another the two orders are the same.
+
+`AC-HTTP-016.9` is what keeps a server a block never drains from growing on a gateway, and it takes both
+limits to do it: 256 requests, and four mebibytes of body between them. The count alone would let 256
+bodies of the one-mebibyte body cap sit in a gateway's memory; the budget is four times the body cap, so
+any body the socket accepts fits it on its own, and only a transport without that cap — none a block
+meets — can deliver a body the server drops on arrival. A request's head is bounded by the header cap
+and so by the count. The dropped count is the visible half: a block that must see every request reads it
+before it takes them, in the same callback.
+
+`AC-HTTP-016.11` refuses 1xx because a 1xx is an interim response: a client receiving one keeps waiting
+for the final response, which a server that closes after one response never sends.
+
+`AC-HTTP-016.12` exists because the content type is written into the response's header block as given.
+A line break would end that header there and let whatever follows it add headers of its own — which,
+for a block that derives the content type from anything a client sent, is response splitting on a
+published constructor. A character outside ASCII has no single meaning in a header block at all.
 
 ## The hosted server: the wire
 
 - `AC-HTTP-017.1` (Ubiquitous): THE SYSTEM SHALL read a request body of exactly its `Content-Length`,
-  and send each response with its `Content-Length` and without a body where its status forbids one.
+  taking a request with neither a `Content-Length` nor a transfer encoding to have none, and send each
+  response with its `Content-Length`, without a body where its status forbids one, and without its body
+  in answer to `HEAD`.
 - `AC-HTTP-017.2` (Unwanted): IF a request declares a transfer encoding THEN THE SYSTEM SHALL answer 411
   and record nothing.
-- `AC-HTTP-017.3` (Unwanted): IF a request's line and headers exceed the header cap THEN THE SYSTEM
-  SHALL answer 431, and IF its declared body exceeds the body cap THEN THE SYSTEM SHALL answer 413,
-  recording neither.
-- `AC-HTTP-017.4` (Unwanted): IF a request line or a header is malformed, or names a version other than
-  HTTP/1.0 or HTTP/1.1, THEN THE SYSTEM SHALL answer 400 and record nothing.
+- `AC-HTTP-017.3` (Unwanted): IF a request's head — its line and headers, before the blank line that
+  ends them — is longer than the header cap THEN THE SYSTEM SHALL answer 431, and IF its declared body is
+  longer than the body cap THEN THE SYSTEM SHALL answer 413, recording neither.
+- `AC-HTTP-017.4` (Unwanted): IF a request line or a header is malformed, a `Content-Length` is anything
+  but digits or is sent twice with different values, or the request names a version other than HTTP/1.0
+  or HTTP/1.1, THEN THE SYSTEM SHALL answer 400 and record nothing.
 - `AC-HTTP-017.5` (Ubiquitous): THE SYSTEM SHALL answer one request per connection and then close it,
   sending `Connection: close`.
-- `AC-HTTP-017.6` (Event-driven): WHEN a client does not complete a request within the read bound THE
-  SYSTEM SHALL close the connection and record nothing.
-- `AC-HTTP-017.7` (Event-driven): WHEN a client disconnects before its response is written THE SYSTEM
-  SHALL go on serving other clients.
+- `AC-HTTP-017.6` (Event-driven): WHEN a client does not complete its request within the read bound of
+  connecting THE SYSTEM SHALL close the connection and record nothing, WHEN a client has not closed within
+  the read bound of its request being answered THE SYSTEM SHALL close the connection, and THE SYSTEM
+  SHALL NOT count against the bound the time a complete request waits for a `Sync` callback.
+- `AC-HTTP-017.7` (Event-driven): WHEN a client disconnects before its request is complete THE SYSTEM
+  SHALL record nothing from it and go on serving other clients.
+- `AC-HTTP-017.8` (Ubiquitous): THE SYSTEM SHALL send every response's status code on its status line,
+  with an empty reason phrase for a status it names no phrase for.
+- `AC-HTTP-017.9` (Ubiquitous): THE SYSTEM SHALL serve connections concurrently, answering a request on
+  one connection while a request on another is still arriving.
+- `AC-HTTP-017.10` (State-driven): WHILE the connection limit is reached THE SYSTEM SHALL answer a further
+  connection 503 and close it without reading its request.
 
 The wire is deliberately small, and each criterion here is a refusal where a larger server would accept
 more. A chunked body, keep-alive and pipelining are all what a device's REST face does not need and a
-small parser gets wrong. The caps are sixteen kibibytes of request line and headers and one mebibyte of
-body; the read bound is ten seconds from connecting, a wall-clock bound, because this is the one place
-the server meets a real network.
+small parser gets wrong. The limits are sixteen kibibytes of head, one mebibyte of body, sixty-four
+connections served at once, and a read bound of ten seconds — a wall-clock bound, because this is the
+one place the server meets a real network.
+
+`AC-HTTP-017.3`'s head is decided on its length alone, in one place, so a head of exactly the cap is
+served however the network splits it: judged on what had arrived so far, a read that happened to end at
+the cap would have refused a head another split served. A declared length too long for any integer is a
+body over the cap, not a malformed length.
+
+`AC-HTTP-017.6`'s bound covers the client's two halves of the exchange and not the server's: ten seconds
+from connecting to send the request, and ten again from the answer to take the response and close. The
+wait for a `Sync` callback between them is the block's time — `AC-HTTP-016.1` lets a request wait for
+one — so a callback holding its request up does not cost that request its response.
+
+`AC-HTTP-017.8`'s empty phrase is valid HTTP, and a client reads the code alone; the phrases the server
+does name are for the statuses a device face commonly sends and for its own refusals. `AC-HTTP-017.10`
+answers before it reads, so a client that has already written its request may see the connection reset
+rather than the 503. The limit is local pressure more than remote, since the server listens on loopback
+unless told otherwise (`AC-HTTP-015.2`); it exists because every connection holds a header buffer from
+the moment it is served.
 
 The server speaks **plain HTTP and authenticates nobody**. That is a choice rather than the protocol's
 nature, and it is stated on the published server type as well as here: anything that can reach the port
-can read every response and send any request. A block serving something a network peer must not see
-binds a trusted interface.
+can read every response and send any request. That is why it listens on loopback until a block names an
+interface, and a block serving something a network peer must not see keeps it there or binds a trusted
+interface.
 
 A block hosting a server holds a socket the development host's stepping cannot see, so a bench over it
 runs on the wall clock — the simulator guide's statement for any socket.
@@ -521,7 +616,8 @@ learn it than reading it here.
 - **No link or connection diagnostics.** There is no HTTP analogue of the Modbus link and socket
   summaries: the transport is the platform's pooled handler and nothing surfaces its state.
 - **No TLS and no authentication on the hosted server.** It speaks plain HTTP/1.1 and serves anyone
-  who can reach the port, which its published type's own documentation says where an author meets it.
+  who can reach the port — loopback only, until a block names an interface — which its published type's
+  own documentation says where an author meets it.
 
 ## Test discipline
 
@@ -556,9 +652,18 @@ handler the platform composes:
   connect.
 
 The hosted server's rules are proven over a transport with no socket, which records how the server
-drove it and carries a request straight to the server's answer; its wire criteria are proven over real
-loopback sockets against the real server, so "record nothing" is read from the server's own log. The
-read bound's test gives its server a short bound of its own and makes the bound's expiry the observable.
+drove it and carries a request straight to the server's answer and delivers its response; its wire
+criteria are proven over real loopback sockets against the real server, so "record nothing" is read from
+the server's own log. The read bound's tests give their server a short bound of its own and make the
+bound's expiry the observable — including as the synchronisation point, where a silent client closed by
+the bound is the proof that the bound has elapsed for a request waiting beside it. Two rows reach the
+socket transport through a seam of its own: the connection limit, which a test sets low, and the accept
+call, which a test makes fail, since nothing a client does can make a listener's accept throw.
+
+A response cut short mid-write has no deterministic test on the desk this suite runs on: Windows loopback
+accepted a 128-mebibyte response in full into its buffers while the client read none of it, so no write
+stays in flight long enough to stop. `AC-HTTP-015.9`'s test stops a request waiting for its answer
+instead, which the same stop, and the same record-on-delivery, decide.
 
 Two behaviours are stated on this page and proven by no test in this suite, by rule rather than by
 omission. The unhandled-exception continuation that logs a fault escaping a request's own error

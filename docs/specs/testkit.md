@@ -465,7 +465,8 @@ bytes reaches the caller before the complaint that the server is not listening.
   SYSTEM SHALL throw an `InvalidOperationException`, and IF it fails one with no exception THEN THE
   SYSTEM SHALL throw an `ArgumentNullException`, leaving the request outstanding.
 - `AC-TKIT-014.5` (Event-driven): WHEN a test answers or fails a request THE SYSTEM SHALL return only
-  once the exchange has handed its callback to the block's dispatcher, running no callback itself.
+  once the exchange has handed its callback to the block's dispatcher, running no callback itself, and
+  SHALL return so on a thread that owns the test's synchronization context.
 - `AC-TKIT-014.6` (Ubiquitous): THE SYSTEM SHALL report how many requests are outstanding, and keep
   every request it recorded, answered or not, in the order issued.
 - `AC-TKIT-014.7` (Event-driven): WHEN an outstanding request's per-request timeout elapses on the
@@ -487,6 +488,13 @@ exchange on the test's thread up to the point it hands the callback to the block
 answer waits for that to finish, so the flush that follows finds the callback queued — never a callback
 still on its way, which would make a test asserting its effect pass or fail by timing. The answer runs
 no callback itself: the block's context does, when the test drives it.
+
+The wait is unbounded, as every wait in the kits is, and what keeps it from hanging is the SDK's own
+exchange: every await between the handler and the dispatcher declines the caller's synchronization
+context, so nothing released by the answer is ever queued behind the thread the answer blocks. That is
+the clause for the consumer whose test body runs on a context only its own thread can run — a UI test,
+a single-threaded async runner. An await in the exchange that captured the context would turn the
+answer into a hang with no diagnostic, and the clause's test is what fails first.
 
 `AC-TKIT-014.7` and `AC-TKIT-014.8` are `AC-HTTP-008.3` seen from a test. The harness registers its
 clock for the SDK to measure per-request timeouts on, so passing the context's clock makes an advance of
@@ -515,14 +523,20 @@ untouched by any of this — the kit replaces the primary handler in its own con
   headers and body, the server recording the request as it records one from a socket.
 - `AC-TKIT-015.3` (Event-driven): WHEN the client-side view sends while the server is not listening THE
   SYSTEM SHALL throw an `InvalidOperationException`.
+- `AC-TKIT-015.4` (Unwanted): IF the client-side view is asked to send with no method THEN THE SYSTEM
+  SHALL throw an `ArgumentNullException`, and IF with a target that does not start with `/` THEN THE
+  SYSTEM SHALL throw an `ArgumentException`, naming the argument and reaching no server.
 
 `AC-TKIT-015.1` is `AC-TKIT-011.1`'s second clause for HTTP: only the transport is fake, so the route
-table, the request log and every configuration refusal a simulator meets are the SDK's own. Without a
-clock the server harness stamps requests on a virtual clock of its own, as the client harness does.
+table, the request log with its limits, and every configuration and lifecycle refusal a simulator meets
+are the SDK's own — a disposed server refuses to be enabled again under the kit exactly as on a gateway
+(`AC-HTTP-015.7`), which is what keeps a simulator's restart path honest. Without a clock the server
+harness stamps requests on a virtual clock of its own, as the client harness does.
 
-What the client-side view does not model is the wire: framing, the size caps, a malformed request,
-closing the connection and the read bound all belong to the socket transport the fake replaces, and
-`http.md` proves them over real sockets.
+What the client-side view does not model is the wire: framing, a `HEAD` response's missing body, the size
+caps, a malformed request, closing the connection, the read bound, the connection limit and a response
+cut short all belong to the socket transport the fake replaces, and `http.md` proves them over real
+sockets. Every request the view sends is therefore answered and recorded.
 
 ## The published surface
 
