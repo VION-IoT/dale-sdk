@@ -32,8 +32,9 @@ the work they govern — **read the linked doc before doing the matching work, a
 | touching `Vion.Dale.Sdk.Modbus.*` or either Modbus example | the `modbus-smoke` skill ([`.claude/skills/modbus-smoke/`](.claude/skills/modbus-smoke/SKILL.md)) — the link policy over a real socket pair on `127.0.0.1:15020`; real clock, ~1 min |
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
-| reviewing a change before a PR | `/vion-code-review branch` — [`.claude/commands/vion-code-review.md`](.claude/commands/vion-code-review.md); a second round is `branch:<the first round's hash>`, and § 7 is the shape the round takes in the PR body |
-| writing or editing a harness file — `CLAUDE.md`, a convention doc, a command, a skill, settings, the journal header | [`docs/harness-conventions.md`](docs/harness-conventions.md) — a file describes itself and never its callers, every rule has one owner, state the principle and illustrate with examples, walk through the change before handing it back |
+| reviewing a change | `/vion-git:review` — it reads [`docs/review-checks.md`](docs/review-checks.md), this repo's named checks |
+| writing a process-journal line | `/vion-improve:journal` — the line goes in [`docs/process-journal.md`](docs/process-journal.md) |
+| writing or editing a harness file — `CLAUDE.md`, a convention doc, a command, a skill, settings, the journal header | `/vion-improve:harness` |
 
 **Before writing new code, read similar existing files** in the same area and replicate their
 structure. Do not invent new patterns; name the precedent you followed.
@@ -43,48 +44,96 @@ structure. Do not invent new patterns; name the precedent you followed.
 [`docs/specs/`](docs/specs/). `docs/rfcs/` is **gone** — the last two, on the test kits, were absorbed
 by the `TKIT` pass and the directory went with them. Git history keeps them; the corpus is where
 current truth lives, and there is nowhere left to add an RFC to.
-`docs/superpowers/` is **gitignored** (`.gitignore:300`) per architecture decision 0011, so anything
+`docs/superpowers/` is **gitignored** (`.gitignore:301`) per architecture decision 0011, so anything
 a planning skill writes there cannot be committed — `git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs
 live in `../architecture/specs/`, never here.
 
 ## Working agreement
 
-How a change is sized, how a session starts and where the operator decides is
-[`docs/spec-process.md`](docs/spec-process.md) § Lanes; the rules below hold in every lane.
+### Lanes
 
-1. **Branch and PR, never straight to main.** Work on a feature branch and open a PR. (Exceptions are
-   explicit and rare — the user says "do it right on main".)
-2. **Commit on the task branch as you go — no diff pause — and never push to `main`.** The PR is
-   where the operator reads the diff, so a commit needs no approval and the branch is where the work
-   accumulates. When the operator wants the diff earlier they ask for it, and a dispatched session
-   waits only where its brief names a STOP.
-3. **Merge `main` in before opening the PR**, and again before pushing if `main` moved. This repo
-   releases every other day; a branch is stale fast.
-4. **Run `pwsh scripts/cleanup-code.ps1 -Changed` before `gh pr create`** — automatically, without
-   being asked. Style drift is this repo's most repeated CI failure.
-5. **The snapshot bot commits to your PR head.** CI regenerates `docs/snapshots/*` and pushes them
-   onto the branch. Pull and reconcile before pushing again; never force-push over it.
-6. **Push back when a request violates a convention here**, and say which one. A defence of a
-   deliberate exception is welcome; silently complying is not.
-7. **When the user corrects produced work in-session** — a convention violation, approach pushback, a
-   behaviour fix, or a reply choosing which review findings to apply — append a one-line `review` entry
-   to [`docs/process-journal.md`](docs/process-journal.md) **in the commit that carries the fix**.
-   Format and triggers: that file's header. It is the only durable record; transcripts age out and
-   assistant memory does not leave one machine.
-8. **Verify before claiming done.** Say what you actually ran — build, tests, cleanup, the
-   `devhost-smoke` skill, `gh pr checks` after each push. A green local run says nothing about CI, and
-   a DevHost change is shown working, not asserted.
-9. **After a release, bump the examples, template and libraries** ([`docs/releasing.md`](docs/releasing.md)).
-   A release without its bump leaves the next commit shipping inconsistent references.
-10. **A change to specified behavior carries its spec, in the lane its size names**
-    ([`docs/spec-process.md`](docs/spec-process.md) § Lanes). Fix-sized: update the touched
-    [`docs/specs/`](docs/specs/) page in the same PR. Feature-sized: the full change-doc cycle —
-    scaffold, implement with tests citing the delta's ids, distill, archive. Every area of the
-    roster carries a traced page today, so there is no lane in which a page edit is optional.
-11. **A commit subject is imperative and states only what changed, with no verb list and no body
-    beyond it** — the squash merge keeps only the PR title, so the subject is what a reviewer of the
-    commit history actually reads, not a rationale or a to-do list. Enforced by whatever commits;
-    there is no grouping-and-confirm command in this repo.
+At the start of a task, answer two questions out loud: is the change local? is a design point open?
+
+- **Fix-sized** — local, nothing open: branch, commit, review, pull request. No document. A change
+  that turns out not to be local stops and says so, and becomes feature-sized.
+- **Feature-sized** — a change doc first, in `docs/changes/`. Ratified before code when a question
+  in it is open. Archived in the pull request that lands it.
+
+### STOPs
+
+- A STOP is named up front — by the brief, by an open question in the change doc, or by the lane
+  answer — and there is no other. With none named, the human review is on the pull request.
+- A STOP is a `partial` REPORT with a question in it.
+- A decision nobody named is surfaced, not taken. A hedge in a brief is a STOP when it fails.
+- Scope does not widen on its own: a design or naming question is answered with options and changes
+  nothing until the human chooses; work nobody asked for is proposed, not produced.
+- A question from the human is a question, not an instruction.
+- Anything committed after a `done` REPORT needs a new REPORT.
+- A request that breaks a convention of this repo is pushed back on before complying, naming the
+  convention.
+- Verification only a human can do is not a STOP: it is written as "not run, routes to a human" under
+  the pull request's Verification.
+
+### Communication
+
+- Say what was run, not that it worked.
+- A count is pasted with the command that produced it.
+- Expand an initialism the first time it is used.
+- Promise no notification that cannot be subscribed to.
+- A finding cites the line, or says it is inferred.
+
+### Never
+
+- Push to or commit on the default branch.
+- Force-push.
+- Delete a remote branch.
+- Merge a pull request.
+- Write to Jira without saying so first.
+- Paste a secret into chat.
+
+## Skills in this repo
+
+`.claude/settings.json` enables `vion-git` and `vion-improve` from the `vion` marketplace in the sibling `../architecture` checkout.
+
+| moment | skill |
+|---|---|
+| starting work on a change | `/vion-git:branch` |
+| a unit of work lands — a task, an acceptance criterion, a fixed review finding | `/vion-git:commit` |
+| the branch is ready for a pull request | `/vion-improve:codify`, then `/vion-git:pr` |
+| codify reports the journal's live window past 40 entries | `/vion-improve:retro`; a DALE analyzer is this repo's top rung of the ladder, above a CI gate |
+
+The first retro also takes `docs/retro/journal-2026-09-10-to-2026-09-11.md`, the window rotated unread when this
+repo adopted the grammar, read whole.
+
+### Lanes in this repo
+
+The block's two lanes map onto the three of [`docs/spec-process.md`](docs/spec-process.md) § Lanes:
+
+- **Fix-sized** is lane 1: the pull request carries the edit to the touched [`docs/specs/`](docs/specs/)
+  page in the same commit set.
+- **Feature-sized** is lane 2: the change doc is written from `docs/changes/_template.md`, its
+  Spec-delta section names the ids, the tests cite them, and the doc is distilled and archived.
+- **Lane 3**, a whole contract brought to current truth in one round, is the spec process's own.
+
+Every area carries a traced page, so a change to specified behaviour edits a page in every lane. Kind
+is not lane: the branch prefix names what the change is for release notes, the lane names its process
+weight.
+
+### Pre-PR obligations
+
+In this order:
+
+1. `/cleanup`; commit what it changes.
+2. `/check`, with `-Build` and `-Test` when the change touches C#.
+3. `/vion-improve:codify`.
+
+The pull request body follows [`.github/pull_request_template.md`](.github/pull_request_template.md),
+which adds `## Spec ids touched` and `## Gates` to the base sections.
+
+### The snapshot bot
+
+CI regenerates `docs/snapshots/*` and commits them onto the pull request head. That commit is
+accepted; pull before the next push.
 
 ## Repository Structure
 
@@ -108,7 +157,7 @@ Vion.Dale.Cli.Test/         CLI unit tests
 templates/                  Project template bundled as content inside Vion.Dale.Cli (source used by `dale new`)
 examples/                   Example LogicBlock libraries — in Vion.Dale.Sdk.sln, referencing published packages
 libraries/                  First-party LogicBlock libraries shipped from here (Vion.Diagnostics)
-docs/                       Conventions, the spec corpus (specs/) + change docs (changes/), frozen RFCs, migrations, snapshots, the process journal/metrics and retro notes
+docs/                       Conventions, the spec corpus (specs/) + change docs (changes/), frozen RFCs, migrations, snapshots, the review checks, the process journal and retro notes
 scripts/                    Build / versioning / docs generation scripts
 ```
 
@@ -222,13 +271,5 @@ its history is in that repo's git, and the numbers survive as `Origin` lines on 
 ## How this file stays true
 
 One owner per rule: where a convention doc owns the subject, the rule lives there and this file links
-to it rather than restating it. Corrections and process friction go to
-[`docs/process-journal.md`](docs/process-journal.md) as they happen; `/vion-codify`
-([`.claude/commands/vion-codify.md`](.claude/commands/vion-codify.md)) writes the rule a branch's own
-lines already make clear, in prose, into the file that owns it; and a periodic retro — `/vion-retro`
-([`.claude/commands/vion-retro.md`](.claude/commands/vion-retro.md)), recorded under
-[`docs/retro/`](docs/retro/) — reads the journal over a window and promotes recurrences down the
-enforcement ladder — **a DALE analyzer or a CI gate > a `/vion-code-review` check > prose here**. This repo has the analyzer
-rung the sibling repos lack, and it is the cheapest of all: a diagnostic fires in the consumer's build,
-not only in ours. A rule that exists only as prose and keeps drawing the same correction is an
-enforcement gap, not a documentation gap.
+to it. The journal, codify and retro loop is the `vion-improve` plugin's (§ Skills in this repo), and
+the checks a review runs are [`docs/review-checks.md`](docs/review-checks.md).

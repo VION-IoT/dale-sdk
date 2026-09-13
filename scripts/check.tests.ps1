@@ -27,7 +27,7 @@ $workflow = Join-Path $tmp '.github/workflows/spec-gates.yml'
 # because check.ps1's invocation table is keyed on them.
 $gates = @(
     'run-script-tests', 'spec-lint', 'spec-trace', 'test-style-lint', 'doc-comment-lint',
-    'pragma-reason-lint', 'bom-lint', 'journal-lint', 'sweep-residue-lint'
+    'pragma-reason-lint', 'bom-lint', 'packed-msbuild-lint', 'sweep-residue-lint'
 )
 
 function Write-File([string]$path, [string[]]$lines) {
@@ -132,7 +132,7 @@ try {
     Write-Workflow $gates
 
     # Case 2: the order printed is the workflow's, not the invocation table's.
-    $reordered = @('bom-lint', 'journal-lint') + ($gates | Where-Object { $_ -notin @('bom-lint', 'journal-lint') })
+    $reordered = @('bom-lint', 'packed-msbuild-lint') + ($gates | Where-Object { $_ -notin @('bom-lint', 'packed-msbuild-lint') })
     Write-Workflow $reordered
     Expect 0 'Case 2 (workflow order)' @('check: OK')
     $printed = @([regex]::Matches($script:out, '(?m)^\s+PASS\s+(\S+)') | ForEach-Object { $_.Groups[1].Value })
@@ -256,6 +256,25 @@ try {
     Write-File $workflow @('name: Spec Gates', 'jobs:', '  spec-gates:', '    steps:', '      - run: echo hi')
     Expect 2 'Case 12 (nothing derived)' @('the derivation is broken, not the repository')
 
+    # Case 13: a job using a shared-workflows action whose script lives only in that repository
+    # is a gate, reported SKIP with the reason and never run. The checkout step beside it is
+    # plumbing and mints no row.
+    $shared = @('name: Spec Gates', 'jobs:', '  spec-gates:', '    steps:')
+    foreach ($n in $gates) { $shared += @("      - name: $n", "        run: ./scripts/$n.ps1") }
+    $shared += @('  journal-lint:', '    steps:', '      - uses: actions/checkout@v4',
+        '      - uses: VION-IoT/shared-workflows/actions/journal-lint@v1')
+    Write-File $workflow $shared
+    Expect 0 'Case 13 (CI-only shared action)' @(
+        'check: 10 gate(s)', 'SKIP  journal-lint', 'CI only - its script lives in VION-IoT/shared-workflows',
+        'check: OK - 9 step(s) passed, 3 skipped')
+    if ($script:out -match 'checkout') { throw "Case 13 minted a gate from actions/checkout`n$script:out" }
+
+    # Case 13b: a shared action the invocation table does not know fails like an unknown script,
+    # naming the action rather than a script path that does not exist.
+    Write-File $workflow ($shared + @('      - uses: VION-IoT/shared-workflows/actions/brand-new-action@v1'))
+    Expect 1 'Case 13b (unknown shared action)' @(
+        'FAIL  brand-new-action', 'runs the shared-workflows action brand-new-action and check.ps1 knows no local invocation')
+    Write-Workflow $gates
     Write-Host 'check.tests: PASS'
     exit 0
 }
