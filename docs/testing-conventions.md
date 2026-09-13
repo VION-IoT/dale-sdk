@@ -8,8 +8,8 @@ written or rewritten — a lane-3 round ([`spec-process.md`](spec-process.md)) b
 
 | Where | Framework | Count today |
 | --- | --- | --- |
-| SDK-internal test projects (`Vion.Dale.*.Test`) | **MSTest** | 16 (all of them) |
-| Consumer-facing — `examples/*.Test`, `libraries/*.Test`, `templates/*.Test` | **xunit.v3** | 10 |
+| SDK-internal test projects (`Vion.Dale.*.Test`) | **MSTest** | 20 (all of them) |
+| Consumer-facing — `examples/*.Test`, `libraries/*.Test`, `templates/*.Test` | **xunit.v3** | 11 |
 
 Both are present in the solution on purpose: the second group models what a library author writes, and
 the shipped `Vion.Dale.DevHost.Xunit` integration exists to serve them. A new SDK test project written

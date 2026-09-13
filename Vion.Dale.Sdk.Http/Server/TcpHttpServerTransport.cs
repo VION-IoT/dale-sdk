@@ -225,7 +225,7 @@ namespace Vion.Dale.Sdk.Http.Server
                     }
 
                     var response = refusal ?? answer(exchange!);
-                    var bytes = Render(response, exchange?.Method);
+                    var bytes = Render(response);
                     await stream.WriteAsync(bytes, 0, bytes.Length, bound.Token).ConfigureAwait(false);
 
                     // A refusal can leave request bytes unread, and closing a socket with unread input resets the connection,
@@ -382,7 +382,7 @@ namespace Vion.Dale.Sdk.Http.Server
             return value.Length > 0 && value.All(character => character > 32 && character < 127 && "()<>@,;:\\\"/[]?={}".IndexOf(character) < 0);
         }
 
-        private static byte[] Render(HttpServerResponse response, string? method)
+        private static byte[] Render(HttpServerResponse response)
         {
             var status = (int)response.StatusCode;
             var carriesBody = status >= 200 && status != 204 && status != 304;
@@ -406,8 +406,7 @@ namespace Vion.Dale.Sdk.Http.Server
             head.Append("Connection: close\r\n\r\n");
             var headBytes = Encoding.ASCII.GetBytes(head.ToString());
 
-            // A HEAD request is answered with the headers a GET would get and without the body, which is what its client reads.
-            if (!carriesBody || method == "HEAD")
+            if (!carriesBody)
             {
                 return headBytes;
             }

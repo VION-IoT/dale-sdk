@@ -124,10 +124,13 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-017.3")]
-        public async Task AnswerHeaderFieldsTooLargeBeyondHeaderCap()
+        [DataRow(0, DisplayName = "headers that end just past the cap")]
+        [DataRow(8192, DisplayName = "headers that do not end before the read buffer is full")]
+        public async Task AnswerHeaderFieldsTooLargeBeyondHeaderCap(int extraPadding)
         {
-            // Arrange
-            var oversized = "GET /a HTTP/1.1\r\nX-Padding: " + new string('p', TcpHttpServerTransport.HeaderCap) + "\r\n\r\n";
+            // Arrange — the two rows reach the two places the cap is decided: once the headers' end has been read, and while
+            // it is still being looked for
+            var oversized = "GET /a HTTP/1.1\r\nX-Padding: " + new string('p', TcpHttpServerTransport.HeaderCap + extraPadding) + "\r\n\r\n";
 
             // Act
             var response = await ExchangeAsync(oversized);
@@ -214,12 +217,15 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         [TestProperty("spec", "AC-HTTP-017.7")]
         public async Task ServeOtherClientsAfterClientHangsUp()
         {
-            // Arrange
+            // Arrange — the leaving client stops sending halfway through its request, and the server's closing its side is
+            // the synchronisation point: the hang-up has been handled before the next client arrives
             _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
             using (var leaving = new TcpClient())
             {
                 await leaving.ConnectAsync(IPAddress.Loopback, _port).WaitAsync(Timeout);
                 await leaving.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\nHost: a"));
+                leaving.Client.Shutdown(SocketShutdown.Send);
+                await ReadUntilClosedAsync(leaving.GetStream()).WaitAsync(Timeout);
             }
 
             // Act

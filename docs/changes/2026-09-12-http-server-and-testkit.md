@@ -30,17 +30,18 @@ park row `64a` of the archived HTTP pass, and it succeeds if the consumer could 
 
 ### Spec implications
 
-`docs/specs/http.md` gains the server's sections (configuration, lifecycle, the route table, the
-wire) and loses its "No test kit" absence (`http.md:384`); `AC-HTTP-001.1` (what the registration
-adds), `AC-HTTP-013.1` (the published set) and `AC-HTTP-014.1` (the dependency set) are `MODIFIED`.
-`docs/specs/testkit.md` gains an HTTP kit section (a client harness and a server harness), and its
-five-kit roster becomes six — `AC-TKIT-013.1`/`.2` range over "the test kits" already, so their tests
-gain a `[DataRow]` and their text does not move. The roster is also stated in
-`docs/spec-process.md:37`, `CLAUDE.md:31`, `docs/sdk-surface-conventions.md:279,306` and
-`docs/specs/analyzers.md:475`, where only the analyzers GAP line's probe tally sits on a criterion.
-`SYS-REL-001` gains a name in `scripts/set-version.ps1`. The client's own criteria stand; the one
-production change beneath them — the per-request bound measured on a registered clock — is invisible
-on the system clock.
+`docs/specs/http.md` gains three sections for the hosted server — configuration and lifecycle
+(`AC-HTTP-015.*`), responses and requests (`AC-HTTP-016.*`) and the wire (`AC-HTTP-017.*`) — one
+criterion for the clock a per-request timeout is measured on (`AC-HTTP-008.3`), and a reworded
+`AC-HTTP-014.1` that names the clock among a plugin's inherited dependencies (`MODIFIED`). Its "No test
+kit" absence is gone and a plain-HTTP limit stands in its place. `AC-HTTP-001.1` and `AC-HTTP-013.1` keep
+their text: the first never claimed to be the whole registration, and the second's test carries the new
+published set in its expectation, not in the criterion. `docs/specs/testkit.md` gains an HTTP kit section
+(`AC-TKIT-014.*` for the client harness, `AC-TKIT-015.*` for the server harness) and names six kits;
+`AC-TKIT-013.1`/`.2` range over "the test kits" already, so their tests gain a sixth `[DataRow]` and their
+text does not move. The roster is also restated in `docs/spec-process.md:37`, `CLAUDE.md:31`,
+`docs/sdk-surface-conventions.md` and `docs/specs/analyzers.md`, and `SYS-REL-001`'s roster in
+`scripts/set-version.ps1` names the kit. `docs/specs/_findings.md` gains one park line.
 
 ### Decisions
 
@@ -631,7 +632,34 @@ Every existing test the round touches maps to a row.
 
 > Written as each change lands. The PR body quotes this section verbatim and nothing else.
 
-_(none yet — nothing has landed; the doc is at the classification gate)_
+**Consumer-visible changes this round lands.**
+
+- **`Vion.Dale.Sdk.Http` hosts an HTTP server.** `AddDaleHttpSdk()` now also registers
+  `ILogicBlockHttpServerFactory`; a block creates an `ILogicBlockHttpServer`, configures `ListenAddress`
+  (default `0.0.0.0`) and `Port` (default 8080) while disabled, publishes responses by method and path
+  inside `Sync`, reads back the requests it answered there, and enables it. The server answers on its own
+  threads and never calls the block. It speaks plain HTTP/1.1 with no TLS and no authentication — stated
+  on the published type — one request per connection, `Content-Length` bodies only, a 16 KiB header cap,
+  a 1 MiB body cap and a ten-second read bound. No new package dependency, and the package still targets
+  `netstandard2.1`.
+- **A sixth test kit ships: `Vion.Dale.Sdk.Http.TestKit`.** `FakeHttpHarness` drives a block's real HTTP
+  client against scripted answers — the SDK's registration, serializer, status mapping and dispatcher
+  hop all run, and only the innermost message handler is replaced; `FakeHttpServerHarness` hosts the real
+  server over an in-memory transport with a client-side view. The kit is on the release roster.
+- **The API manifest gains ten types and one assembly**: the five `Vion.Dale.Sdk.Http.Server` types and
+  the five `Vion.Dale.Sdk.Http.TestKit` types. Committed in this branch because the kit's own manifest test
+  reads the file; CI may still regenerate it on the PR head.
+- **A per-request timeout is measured on the container's registered `TimeProvider`.** `AddDaleHttpSdk()`
+  registers `TimeProvider.System` with `TryAdd`, keeping one registered earlier. On the system clock
+  nothing a block sees changes. **Where a container registers a controllable clock, per-request timeouts
+  now elapse on it** — that is what the kit uses, and it is also what a DevHost in deterministic mode
+  registers (`DevHostBuilder.cs:123`), so a real HTTP request issued from a stepped DevHost now times out
+  on virtual time rather than wall time. The client's own 30-second ceiling is unchanged and still wall
+  clock.
+- **The Energy example's forecast request is culture-invariant.** `OpenMeteoService` rendered its
+  coordinates in the current culture, so a German-locale gateway sent `latitude=47,4992` — found by the
+  kit's first test against it. The example also gains tests for both of its HTTP services, compiled only
+  under `-p:DaleLocalSource=true` until a release carries the kit.
 
 ---
 
@@ -643,17 +671,190 @@ _(none yet — nothing has landed; the doc is at the classification gate)_
 
 - 2026-09-12: the corrections to the brief found at extraction are recorded under *Drift checkpoints
   against the brief* in the Full design, because they precede any implementation.
+- 2026-09-13: **`D8` implemented one step narrower.** The transport seam is `internal`, not an
+  `[InternalApi]` public interface: with `D7`'s grant the kit reaches it without its being public, so the
+  package ships no marked plumbing type for it. The fake transport is `internal` as `D8` said. Sibling
+  sweep: the other internals the kit reaches (the executor, the client name) were already `internal`.
+- 2026-09-13: **row 17 lost its "headers" clause.** A response carries no block-set headers — no consumer
+  sets one, and a header surface is a public member with no reader (`sdk-surface-conventions.md` § 1). The
+  only header the server adds itself is a 405's `Allow`, which `AC-HTTP-016.6` states.
+- 2026-09-13: **row 26 narrowed.** It read "a body without a `Content-Length`, or with
+  `Transfer-Encoding: chunked`, answers 411". In HTTP/1.1 a request with neither header has no body at
+  all, so there is nothing to refuse; the refusal is for a declared transfer encoding, which is what
+  `AC-HTTP-017.2` states.
+- 2026-09-13: **the reuse-address bind does not let a second listener take a held port.** Probe on this
+  workstation, two `TcpListener`s on one port: `ExclusiveAddressUse=false x2: second refused
+  AddressAlreadyInUse`, `defaults x2: second refused AddressAlreadyInUse`, `ReuseAddress x2: SECOND
+  BOUND`. The transport uses the Modbus spelling (`ExclusiveAddressUse = false`), which keeps
+  `AC-HTTP-015.5`'s second-server clause true on Windows. **`AC-HTTP-015.8` is `GAP`:** its observable —
+  rebinding a port whose server-side socket lingers after the server closed a connection — does not
+  exist on Windows, where such a rebind succeeds with or without the option, so no test here can redden
+  its mutation. The Linux runner could; that test is not written.
+- 2026-09-13: **`D6` reaches further than its *Why* said.** "On the system clock nothing observable
+  moves" is true, but a container can register another clock, and a DevHost in deterministic mode
+  registers a `FakeTimeProvider` (`Vion.Dale.DevHost/DevHostBuilder.cs:123`). A real HTTP request issued
+  from a stepped DevHost now has its per-request timeout measured on virtual time. DevHost is out of this
+  round's scope and nothing there was changed; the consequence is a relay note and a question in the
+  REPORT. A socket was already invisible to that host's stepping (`docs/simulator-authoring.md:154-155`).
+- 2026-09-13: **the kit recorded headers with the wrong separator.** Its first run failed
+  `RecordRequestAsComposedForWireBeforeMemberReturns`: the validated header view re-renders a
+  `User-Agent`'s products joined by `", "`. It now reads the non-validated view, which renders each header
+  as the platform writes it.
+- 2026-09-13: **the port refusal's culture row could not redden.** It ran under `de-CH`, where an integer
+  renders exactly as in the invariant culture; the mutation to the current culture would have survived.
+  It runs under `sv-SE`, whose minus sign is not ASCII, and the `-1` row reddens.
+- 2026-09-13: **two mutations survived their first run and were made red by fixing the test** (M35: the
+  header cap is decided in two places — while the headers' end is still being looked for and once it has
+  been read — and the test reached only the second, so it gained a row for the first; M39: the hang-up
+  test raced its mutation, and now waits for the server to close the leaving client's connection before
+  the next client arrives).
+- 2026-09-13: **an unspecified behaviour was removed rather than specified.** The transport answered a
+  `HEAD` without a body; no row carried it and no consumer sends one. Deleted.
+- 2026-09-13: **the testing-conventions counts were already stale before this round.** § 1's table said
+  16 MSTest and 10 xunit test projects; the tree held 19 and 11 before the kit's test project, 20 and 11
+  after (`grep -rlE 'Include="MSTest' --include=*.csproj . | grep -v /obj/ | wc -l` → 20). The table
+  carries 20 and 11, and `testkit.md`'s own sentence counting them now states the rule without the numbers.
+- 2026-09-13: **how the Energy example's tests land without a published kit (the amendment's choice).**
+  Chosen: *land them now, in a form whose default build stays green, completed by the post-release bump.*
+  The tests live under `Vion.Examples.Energy.Test/Http/`; in the default build that folder is removed from
+  compilation, and under `-p:DaleLocalSource=true` the test project references the kit's project. The
+  release that first ships `Vion.Dale.Sdk.Http.TestKit` adds its `PackageReference` and deletes the removal
+  group, which the csproj's own comment says. Not the in-round-only demonstration, because the tests are
+  the durable part — ten tests against the only real consumers of the faked surface — and a follow-up
+  would rebuild them. Not a published-version reference now, because no such version exists and the
+  default restore would fail. The cost is that CI does not run these ten tests until that bump. Neither
+  `scripts/set-version.ps1` entry for the project names the kit yet: the script only rewrites references
+  that exist, and warns on one that does not.
+- 2026-09-13: **the demonstration, pasted.** Before the example's fix, under the working tree:
+  `Failed Vion.Examples.Energy.Test.Http.OpenMeteoServiceShould.RequestHourlyVariablesForLocationInInvariantCulture(culture: "de-DE")` —
+  `Expected: ···"m/v1/forecast?latitude=47.4992&longitude=8.7291&ho"···` /
+  `Actual:   ···"m/v1/forecast?latitude=47,4992&longitude=8,7291&ho"···` —
+  `Failed!  - Failed:     1, Passed:    49, Skipped:     0, Total:    50`. After it:
+  `Passed!  - Failed:     0, Passed:    50, Skipped:     0, Total:    50` (`-p:DaleLocalSource=true`) and
+  `Passed!  - Failed:     0, Passed:    40, Skipped:     0, Total:    40` (the default build). The fix renders
+  the coordinates with `FormattableString.Invariant` in `BuildApiUrl` and in the cache key beside it —
+  the sibling of the same shape in the same file.
 
 ---
 
 ## Spec delta (to distill)
 
 > The machine-readable change, one line per id. Grammar:
-> `<OP> <ID> -> <target> : <payload>`
->
-> Minted after the operator's classification (§ Lane 3 step 5), with the consolidation map beside it.
+> `<OP> <ID> -> <target> : <payload>`. Generated from the distilled pages' declaring bullets, so each
+> payload is the page's text.
 
-_(minted after classification)_
+- ADDED AC-HTTP-008.3 -> docs/specs/http.md : THE SYSTEM SHALL measure a per-request timeout on the clock registered in the container, registering the system clock where none is registered and keeping one registered before it.
+- MODIFIED AC-HTTP-014.1 -> docs/specs/http.md : THE SYSTEM SHALL target the SDK's cross-platform plugin framework and SHALL add logging, JSON, HTTP-factory and clock dependencies to any plugin that takes it.
+- ADDED AC-HTTP-015.1 -> docs/specs/http.md : WHEN `AddDaleHttpSdk` is called THE SYSTEM SHALL register a server factory whose every `Create()` returns a new, disabled HTTP server that listens on a socket once enabled.
+- ADDED AC-HTTP-015.2 -> docs/specs/http.md : THE SYSTEM SHALL listen on all interfaces and on port 8080 unless told otherwise.
+- ADDED AC-HTTP-015.3 -> docs/specs/http.md : WHEN a listen address or a port is set while the server is enabled THE SYSTEM SHALL throw an `InvalidOperationException`.
+- ADDED AC-HTTP-015.4 -> docs/specs/http.md : IF a listen address that is not an IP address, or a port outside 1 to 65535, is set THEN THE SYSTEM SHALL throw a `FormatException` naming the value in the invariant culture.
+- ADDED AC-HTTP-015.5 -> docs/specs/http.md : WHEN enabling the server cannot bind the listener THE SYSTEM SHALL propagate the failure to the caller and leave the server disabled and not listening, and a server already holding that port serving.
+- ADDED AC-HTTP-015.6 -> docs/specs/http.md : WHEN the server is enabled THE SYSTEM SHALL start listening on the configured address and port, WHEN it is disabled THE SYSTEM SHALL stop, and WHEN either is repeated THE SYSTEM SHALL do nothing, keeping the published responses across both.
+- ADDED AC-HTTP-015.7 -> docs/specs/http.md : WHEN the server is disposed THE SYSTEM SHALL stop listening, report itself disabled, and stay silent on a second disposal.
+- ADDED AC-HTTP-015.8 -> docs/specs/http.md : THE SYSTEM SHALL bind the listener with the address-reuse option, so a redeploy can rebind a port whose previous socket still lingers. GAP: observable only where a server-closed connection's lingering socket blocks a rebind, which is Linux; the Windows desk rebinds such a port with or without the option.
+- ADDED AC-HTTP-016.1 -> docs/specs/http.md : THE SYSTEM SHALL let a block set, replace and remove the response for a method and a path, and clear every response, inside a `Sync` callback run on the caller's thread in an action form and a value-returning form, and SHALL answer a request arriving while a callback runs from the responses that callback leaves.
+- ADDED AC-HTTP-016.2 -> docs/specs/http.md : THE SYSTEM SHALL allow `Sync` while the server is disabled.
+- ADDED AC-HTTP-016.3 -> docs/specs/http.md : WHEN `IsEnabled` is set or the server is disposed from inside a `Sync` callback, at any nesting depth, THE SYSTEM SHALL throw an `InvalidOperationException`.
+- ADDED AC-HTTP-016.4 -> docs/specs/http.md : WHEN a snapshot is used after the callback it was given to has returned THE SYSTEM SHALL throw an `InvalidOperationException`.
+- ADDED AC-HTTP-016.5 -> docs/specs/http.md : WHEN a request arrives for a method and a path with a response set THE SYSTEM SHALL answer with that response's status, content type and body.
+- ADDED AC-HTTP-016.6 -> docs/specs/http.md : WHEN a request arrives for a path with no response under any method THE SYSTEM SHALL answer 404 with no body, and WHEN the path has responses only under other methods THE SYSTEM SHALL answer 405 with an `Allow` header naming them.
+- ADDED AC-HTTP-016.7 -> docs/specs/http.md : THE SYSTEM SHALL match a request to a response by its method and by its path before any query string, both compared ordinally.
+- ADDED AC-HTTP-016.8 -> docs/specs/http.md : THE SYSTEM SHALL record every request it answers with its method, path, query, headers, body and arrival instant from the registered clock, joining the values of a header sent more than once, and SHALL hand each to the block once, in arrival order, when the block takes them.
+- ADDED AC-HTTP-016.9 -> docs/specs/http.md : WHILE more answered requests are untaken than the server keeps THE SYSTEM SHALL drop the oldest, and SHALL report how many it dropped since the block last took them.
+- ADDED AC-HTTP-016.10 -> docs/specs/http.md : THE SYSTEM SHALL report the arrival instant of the most recent request, and none before a request arrives.
+- ADDED AC-HTTP-016.11 -> docs/specs/http.md : IF a response is set or removed with no method, a path that is empty, does not start with `/` or carries a query, or no response, or a response is built with a status outside 100 to 599, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument.
+- ADDED AC-HTTP-017.1 -> docs/specs/http.md : THE SYSTEM SHALL read a request body of exactly its `Content-Length`, and send each response with its `Content-Length` and without a body where its status forbids one.
+- ADDED AC-HTTP-017.2 -> docs/specs/http.md : IF a request declares a transfer encoding THEN THE SYSTEM SHALL answer 411 and record nothing.
+- ADDED AC-HTTP-017.3 -> docs/specs/http.md : IF a request's line and headers exceed the header cap THEN THE SYSTEM SHALL answer 431, and IF its declared body exceeds the body cap THEN THE SYSTEM SHALL answer 413, recording neither.
+- ADDED AC-HTTP-017.4 -> docs/specs/http.md : IF a request line or a header is malformed, or names a version other than HTTP/1.0 or HTTP/1.1, THEN THE SYSTEM SHALL answer 400 and record nothing.
+- ADDED AC-HTTP-017.5 -> docs/specs/http.md : THE SYSTEM SHALL answer one request per connection and then close it, sending `Connection: close`.
+- ADDED AC-HTTP-017.6 -> docs/specs/http.md : WHEN a client does not complete a request within the read bound THE SYSTEM SHALL close the connection and record nothing.
+- ADDED AC-HTTP-017.7 -> docs/specs/http.md : WHEN a client disconnects before its response is written THE SYSTEM SHALL go on serving other clients.
+- ADDED AC-TKIT-014.1 -> docs/specs/testkit.md : THE SYSTEM SHALL compose a fake HTTP harness from the SDK's real registration, client, executor and serializer, replacing only the innermost message handler, so a scripted answer reaches a block through the SDK's own response handling.
+- ADDED AC-TKIT-014.2 -> docs/specs/testkit.md : WHEN a block issues a request through the harness's client THE SYSTEM SHALL record its method, URI, headers as sent, body, content type and per-request timeout before the member returns, and hold it outstanding.
+- ADDED AC-TKIT-014.3 -> docs/specs/testkit.md : THE SYSTEM SHALL answer outstanding requests oldest first, delivering a scripted status, content type and body as the response the SDK handles and a scripted exception unchanged, as the SDK delivers a transport failure.
+- ADDED AC-TKIT-014.4 -> docs/specs/testkit.md : IF a test answers or fails a request while none is outstanding THEN THE SYSTEM SHALL throw an `InvalidOperationException`, and IF it fails one with no exception THEN THE SYSTEM SHALL throw an `ArgumentNullException`, leaving the request outstanding.
+- ADDED AC-TKIT-014.5 -> docs/specs/testkit.md : WHEN a test answers or fails a request THE SYSTEM SHALL return only once the exchange has handed its callback to the block's dispatcher, running no callback itself.
+- ADDED AC-TKIT-014.6 -> docs/specs/testkit.md : THE SYSTEM SHALL report how many requests are outstanding, and keep every request it recorded, answered or not, in the order issued.
+- ADDED AC-TKIT-014.7 -> docs/specs/testkit.md : WHEN an outstanding request's per-request timeout elapses on the harness's clock THE SYSTEM SHALL fail it as the SDK fails an expired per-request bound, and stop holding it.
+- ADDED AC-TKIT-014.8 -> docs/specs/testkit.md : THE SYSTEM SHALL measure a harness on a virtual clock nothing advances unless the caller supplies a clock, and SHALL refuse a null clock.
+- ADDED AC-TKIT-014.9 -> docs/specs/testkit.md : WHEN a harness is disposed with requests outstanding THE SYSTEM SHALL abandon them without scheduling a callback.
+- ADDED AC-TKIT-015.1 -> docs/specs/testkit.md : THE SYSTEM SHALL wire an in-memory transport into the SDK's real hosted HTTP server, hand that server out directly and through a factory, dispose it with its container, stamp requests on the clock the caller supplies, and refuse a null clock.
+- ADDED AC-TKIT-015.2 -> docs/specs/testkit.md : THE SYSTEM SHALL offer a client-side view that sends a method, a path with its query, headers and a body to the server and returns the server's status, content type, headers and body, the server recording the request as it records one from a socket.
+- ADDED AC-TKIT-015.3 -> docs/specs/testkit.md : WHEN the client-side view sends while the server is not listening THE SYSTEM SHALL throw an `InvalidOperationException`.
+
+---
+
+## Consolidation map
+
+> Row → criterion, or row → the line saying why it mints nothing. All **81** rows appear. **40 delta lines**
+> (39 `ADDED`, 1 `MODIFIED`) come from them, plus rows carried by criteria that already exist.
+
+| Rows | Criterion |
+| --- | --- |
+| 1 | `AC-HTTP-015.1` |
+| 2 | `AC-HTTP-015.2` |
+| 3 | `AC-HTTP-015.3` |
+| 4, 5 | `AC-HTTP-015.4` — one rule over the two configuration values |
+| 6, 10, 11 | `AC-HTTP-015.5` — 10 as its "a server already holding that port serving" clause, 11 as its "not listening" clause |
+| 7, 9 | `AC-HTTP-015.6` — 9 as its "keeping the published responses" clause |
+| 8 | `AC-HTTP-015.7` |
+| 12, 33 | `AC-HTTP-016.1` — 33 as its second clause: a request is answered from the responses a running callback leaves |
+| 13 | `AC-HTTP-016.2` |
+| 14 | `AC-HTTP-016.3` |
+| 15 | `AC-HTTP-016.4` |
+| 17 | `AC-HTTP-016.5` (status, content type, body) and `AC-HTTP-017.1` (the `Content-Length`, no body where forbidden) |
+| 18, 19, 24 | `AC-HTTP-016.6` — 24 is its 404 before anything is published |
+| 20 | `AC-HTTP-016.7` |
+| 21 | `AC-HTTP-016.8` |
+| 22 | `AC-HTTP-016.9` |
+| 23 | `AC-HTTP-016.10` (the most recent arrival) and `AC-HTTP-016.8` (each request's arrival) |
+| 25 | `AC-HTTP-017.1` |
+| 26 | `AC-HTTP-017.2` — narrowed at implementation: see the drift checkpoint on row 26 |
+| 27 | `AC-HTTP-017.3` |
+| 28 | `AC-HTTP-017.4` |
+| 29 | `AC-HTTP-017.5` |
+| 30 | `AC-HTTP-017.6` |
+| 31 | `AC-HTTP-017.7` |
+| 36 | `AC-HTTP-015.8` — `GAP`: its observable is Linux's; see its drift checkpoint |
+| 38, 92, 93 | `AC-HTTP-014.1` — `MODIFIED` to name the clock; its dependency test gains a row |
+| 42 | `AC-HTTP-016.11` |
+| 50 | `AC-TKIT-014.1` |
+| 51 | `AC-TKIT-014.2` |
+| 52, 53, 54, 63, 67 | `AC-TKIT-014.3` — 53 also `AC-TKIT-014.1` |
+| 55, 69 | `AC-TKIT-014.4` |
+| 56, 57 | `AC-TKIT-014.5` |
+| 58 | `AC-TKIT-014.6` |
+| 59 | `AC-TKIT-014.7` |
+| 62 | `AC-TKIT-014.8` |
+| 66 | `AC-TKIT-014.9` |
+| 80, 81 | `AC-TKIT-015.1` |
+| 82, 84 | `AC-TKIT-015.2` — 84's stamping clause is `AC-TKIT-015.1`'s "stamp requests on the clock the caller supplies" |
+| 83 | `AC-TKIT-015.3` |
+| 90 | `AC-TKIT-013.1`, `AC-TKIT-013.2` — unchanged text, a sixth `[DataRow]` on each of their tests |
+| 91 | `AC-HTTP-013.1` — unchanged text; its exact published-list test carries the new set |
+| 94 | `AC-HTTP-013.3` — unchanged, re-read against the new types |
+| 96 | `SYS-REL-001` — unchanged; the roster names the kit |
+| 99, 100 | `AC-HTTP-008.3` |
+
+**Rows that mint nothing, and why**
+
+| Row | Why it mints no criterion |
+| --- | --- |
+| 16 | an absence — no member delivers a callback — with no mutation to redden; page prose, as `AC-MODB-013.6` is a `GAP` for the same reason |
+| 32 | an absence of TLS and authentication; page prose and the published server type's XML documentation, the operator's condition on this row |
+| 34 | an absence of a gate; page prose |
+| 35, 37, 39, 86, 95 | `out-of-spec` — implementation shape or an absence; 35 and 95 are page sentences |
+| 60 | a consequence of `AC-TKIT-008.4`'s existing rule met through the HTTP kit; page prose citing it |
+| 61 | the client's wall-clock ceiling not applied to a held request: observable only by holding a request past thirty real seconds, so it is a stated limit, not a criterion |
+| 64 | an absence (no socket); dropped from `AC-TKIT-014.1`'s text at implementation |
+| 65 | per-harness state is per instance by construction; the mutation that reddens it is a static, which is not a behaviour anyone would write; page-silent |
+| 68, 85 | stated limits of the fakes; page prose |
+| 97 | `TestKitSurfaceShould.ReachNoRuntimeBrokerDeviceOrDevelopmentHostFromKitSuite` is a premise test by its own summary; it gains a row and cites nothing |
+| 98 | the manifest is `SYS-API-001`'s, a snapshot; `TestKitSurfaceShould.CarryEveryPublishedKitTypeInApiManifest` (`AC-TKIT-013.1`) reads it, and the manifest gains the ten types in this branch |
+| 101, 102 | documentation |
+| 103 | **park** — the ledger line in `docs/specs/_findings.md` |
 
 ---
 

@@ -34,7 +34,7 @@ instances (those live in git, the archived change docs, and the process journal)
 | Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
 | Runtime semantics | Modbus family — Core binding model, TCP client + server, RTU, link policy (link verdicts, socket lifetime; anchors: modbus-smoke, the Link/Connection structs, committed scenarios) | `MODB` | A |
 | Contract families | DigitalIo / AnalogIo | `IO` | B |
-| Contract families | the five test kits ([`specs/testkit.md`](specs/testkit.md)) | `TKIT` | B |
+| Contract families | the six test kits ([`specs/testkit.md`](specs/testkit.md)) | `TKIT` | B |
 | Contract families | Http | `HTTP` | B |
 
 Plus [`specs/_invariants.md`](specs/_invariants.md) (`SYS-` ids, cross-cutting rules pages cite

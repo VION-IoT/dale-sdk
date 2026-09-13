@@ -5,29 +5,31 @@ trace: enforced
 # The test kits: what the SDK ships so a block can be tested without a runtime
 
 What the SDK guarantees a logic-block author who wants to test a block on their own machine, with no
-runtime, no broker, no device and no development host. Five packable packages ship it — the core kit
+runtime, no broker, no device and no development host. Six packable packages ship it — the core kit
 `Vion.Dale.Sdk.TestKit`, the two I/O kits `Vion.Dale.Sdk.DigitalIo.TestKit` and
-`Vion.Dale.Sdk.AnalogIo.TestKit`, and the two Modbus kits `Vion.Dale.Sdk.Modbus.Rtu.TestKit` and
-`Vion.Dale.Sdk.Modbus.Tcp.TestKit`. Area code `TKIT`. Process:
-[`../spec-process.md`](../spec-process.md).
+`Vion.Dale.Sdk.AnalogIo.TestKit`, the two Modbus kits `Vion.Dale.Sdk.Modbus.Rtu.TestKit` and
+`Vion.Dale.Sdk.Modbus.Tcp.TestKit`, and the HTTP kit `Vion.Dale.Sdk.Http.TestKit`. Area code `TKIT`.
+Process: [`../spec-process.md`](../spec-process.md).
 
-The core kit is the substrate and the other four extend it. `LogicBlockTestContext<TLogicBlock>` is
+The core kit is the substrate and the other five extend it. `LogicBlockTestContext<TLogicBlock>` is
 an actor context that records what a block sends and hosts a controllable clock; the I/O kits add a
 raise helper per face and a verification per direction; the Modbus kits add response simulation, a
-fake client, two harnesses and a synchronous request queue. **A kit is a published package**, so
+fake client, two harnesses and a synchronous request queue; the HTTP kit adds a client harness that
+holds every request for a scripted answer and a server harness over an in-memory transport. **A kit is a published package**, so
 every helper, default, exception type and message shape below is a contract with readers outside this
 repository.
 
 The spine is the order an author meets the machinery: constructing a block, what `Build()` does to
 it, the knobs, what the context records, the verification family, the raise helpers, the value
-comparison, time, the Modbus kits, the surface, and the test discipline.
+comparison, time, the Modbus kits, the HTTP kit, the surface, and the test discipline.
 
 Cited rather than restated: [`block-lifecycle.md`](block-lifecycle.md) for the phases the builder
 drives (`AC-LIFE-*`); [`emission.md`](emission.md) for the emission policy the kit can force on
 (`AC-EMIT-001.3`, `AC-EMIT-001.4`); [`config-gating.md`](config-gating.md) for what an instantiation
 parameter resolves against (`AC-GATE-012.1`); [`contracts.md`](contracts.md) for the binder's own
 rules (`AC-BIND-*`); [`modbus.md`](modbus.md) for the client, the queue and the link policy the fakes
-stand in for (`AC-MODB-*`); [`io.md`](io.md) for the four faces and the value contract (`AC-IO-*`).
+stand in for (`AC-MODB-*`); [`io.md`](io.md) for the four faces and the value contract (`AC-IO-*`);
+[`http.md`](http.md) for the client pipeline and the hosted server the HTTP kit composes (`AC-HTTP-*`).
 Architecture decision
 [`0081`](../../architecture/decisions/0081-inclusion-gates-resolve-at-bind.md) is the design authority
 for where a kit's own discovery diverges from a host's, and is cited, never re-argued. Two more name
@@ -287,7 +289,7 @@ not for "not finite".
   expression, refusing an unregistered identifier from either query with the registered identifiers
   named.
 
-**No kit waits on wall time.** There is no timeout anywhere in the five packages: a delay is virtual
+**No kit waits on wall time.** There is no timeout anywhere in the six packages: a delay is virtual
 time a driver consumes, and a test that wants to wait advances the clock.
 
 `AC-TKIT-008.1`'s last clause is a trap worth stating plainly. `WithTimeProvider` binds one clock to
@@ -448,6 +450,80 @@ a round trip.
 `AC-TKIT-012.2`'s two guards fire in argument-then-state order: an alignment complaint about the
 bytes reaches the caller before the complaint that the server is not listening.
 
+## The HTTP kit
+
+- `AC-TKIT-014.1` (Ubiquitous): THE SYSTEM SHALL compose a fake HTTP harness from the SDK's real
+  registration, client, executor and serializer, replacing only the innermost message handler, so a
+  scripted answer reaches a block through the SDK's own response handling.
+- `AC-TKIT-014.2` (Event-driven): WHEN a block issues a request through the harness's client THE SYSTEM
+  SHALL record its method, URI, headers as sent, body, content type and per-request timeout before the
+  member returns, and hold it outstanding.
+- `AC-TKIT-014.3` (Ubiquitous): THE SYSTEM SHALL answer outstanding requests oldest first, delivering a
+  scripted status, content type and body as the response the SDK handles and a scripted exception
+  unchanged, as the SDK delivers a transport failure.
+- `AC-TKIT-014.4` (Unwanted): IF a test answers or fails a request while none is outstanding THEN THE
+  SYSTEM SHALL throw an `InvalidOperationException`, and IF it fails one with no exception THEN THE
+  SYSTEM SHALL throw an `ArgumentNullException`, leaving the request outstanding.
+- `AC-TKIT-014.5` (Event-driven): WHEN a test answers or fails a request THE SYSTEM SHALL return only
+  once the exchange has handed its callback to the block's dispatcher, running no callback itself.
+- `AC-TKIT-014.6` (Ubiquitous): THE SYSTEM SHALL report how many requests are outstanding, and keep
+  every request it recorded, answered or not, in the order issued.
+- `AC-TKIT-014.7` (Event-driven): WHEN an outstanding request's per-request timeout elapses on the
+  harness's clock THE SYSTEM SHALL fail it as the SDK fails an expired per-request bound, and stop
+  holding it.
+- `AC-TKIT-014.8` (Ubiquitous): THE SYSTEM SHALL measure a harness on a virtual clock nothing advances
+  unless the caller supplies a clock, and SHALL refuse a null clock.
+- `AC-TKIT-014.9` (Event-driven): WHEN a harness is disposed with requests outstanding THE SYSTEM SHALL
+  abandon them without scheduling a callback.
+
+`AC-TKIT-014.1` is the reason the kit exists rather than a mock of `ILogicBlockHttpClient`. A block
+tested against a mock never meets the SDK's serializer, its status mapping or its dispatcher hop, so the
+mock has to reproduce them — and a reproduction drifts. Here a 404 reaches the block as the SDK's own
+`HttpRequestException`, a body deserializes with the SDK's case-sensitive defaults, and the request
+carries the SDK's own `User-Agent`, because each of those is the SDK's code running.
+
+`AC-TKIT-014.5` is what makes the next drive discriminating. Releasing a held response runs the SDK's
+exchange on the test's thread up to the point it hands the callback to the block's dispatcher, and an
+answer waits for that to finish, so the flush that follows finds the callback queued — never a callback
+still on its way, which would make a test asserting its effect pass or fail by timing. The answer runs
+no callback itself: the block's context does, when the test drives it.
+
+`AC-TKIT-014.7` and `AC-TKIT-014.8` are `AC-HTTP-008.3` seen from a test. The harness registers its
+clock for the SDK to measure per-request timeouts on, so passing the context's clock makes an advance of
+the context expire a held request with the SDK's own `TimeoutException`. Without a clock the harness
+uses a virtual one of its own that nothing advances, so a held request never times out behind a test's
+back — the rule this page's § Time states for every kit, which the Modbus client harness's system-clock
+default is the exception to rather than the precedent for.
+
+One trap sits between this kit and the core context. The context fires timers when it sets its clock,
+and an advance sets the clock to its target only after dispatching the actions it reached
+(`AC-TKIT-008.4`). A request timeout that no queued action's deadline reached therefore expires at the
+end of the advance, and its error callback waits for the next drive: advance, then flush.
+
+**What the client harness does not model**, because the handler it replaces is the one that does it: a
+redirect is not followed (a scripted 3xx reaches the block as a non-success status), no cookie is kept,
+no body is decompressed, and a `Content-Length` is not checked against its body. The client's own
+thirty-second timeout is not applied to a held request either; it is a wall-clock timer inside the
+platform, and a block's path through it is not testable through the kit. The production client is
+untouched by any of this — the kit replaces the primary handler in its own container only.
+
+- `AC-TKIT-015.1` (Ubiquitous): THE SYSTEM SHALL wire an in-memory transport into the SDK's real hosted
+  HTTP server, hand that server out directly and through a factory, dispose it with its container, stamp
+  requests on the clock the caller supplies, and refuse a null clock.
+- `AC-TKIT-015.2` (Ubiquitous): THE SYSTEM SHALL offer a client-side view that sends a method, a path
+  with its query, headers and a body to the server and returns the server's status, content type,
+  headers and body, the server recording the request as it records one from a socket.
+- `AC-TKIT-015.3` (Event-driven): WHEN the client-side view sends while the server is not listening THE
+  SYSTEM SHALL throw an `InvalidOperationException`.
+
+`AC-TKIT-015.1` is `AC-TKIT-011.1`'s second clause for HTTP: only the transport is fake, so the route
+table, the request log and every configuration refusal a simulator meets are the SDK's own. Without a
+clock the server harness stamps requests on a virtual clock of its own, as the client harness does.
+
+What the client-side view does not model is the wire: framing, the size caps, a malformed request,
+closing the connection and the read bound all belong to the socket transport the fake replaces, and
+`http.md` proves them over real sockets.
+
 ## The published surface
 
 - `AC-TKIT-013.1` (Ubiquitous): THE SYSTEM SHALL ship the test kits as packable packages targeting
@@ -460,7 +536,7 @@ bytes reaches the caller before the complaint that the server is not listening.
   provider in the published signature of the core kit.
 
 The release roster is not this page's rule and is no longer stated here: it is `SYS-REL-001`
-([`_invariants.md`](_invariants.md)), a repository-wide release rule of which the five kits are five
+([`_invariants.md`](_invariants.md)), a repository-wide release rule of which the six kits are six
 named packages.
 
 `AC-TKIT-013.2` is what makes `AC-TKIT-013.1` enforceable rather than aspirational. Each kit declares
@@ -473,13 +549,14 @@ is the diagnostic each kit's probe build emits and not a failed build.
 `AC-TKIT-013.3` is a cost a consumer inherits rather than chooses: taking a kit takes the mocking
 library and the controllable time provider with it, because both are in the signature — an occurrence
 count on every verification, a mock logger from the construction helper and the log assertions, and
-the clock on the context. No kit pins a test framework, which is what lets the ten consumer-facing
-suites in this repository be xunit while the sixteen inside it are MSTest.
+the clock on the context. No kit pins a test framework, which is what lets the consumer-facing
+suites in this repository be xunit while the SDK's own are MSTest.
 
-The kits reach into the SDK for three things a runtime would otherwise hand over: an emission-policy
-marker and a bound-services accessor through `InternalsVisibleTo`, and three private fields by
+The kits reach into the SDK for four things a runtime would otherwise hand over: an emission-policy
+marker and a bound-services accessor through `InternalsVisibleTo`, three private fields by
 reflection — the service binder and the interface map on the builder, the timer callbacks on the
-timer helpers. That is what standing in for a runtime costs, and it is stated here so it is not
+timer helpers — and, for the HTTP kit, the internal request executor it wraps, the client name it
+configures and the server transport it replaces, through the HTTP package's own `InternalsVisibleTo`. That is what standing in for a runtime costs, and it is stated here so it is not
 rediscovered as a surprise. It is not licence for a *test* to do the same
 ([`../testing-conventions.md`](../testing-conventions.md) § 7).
 
