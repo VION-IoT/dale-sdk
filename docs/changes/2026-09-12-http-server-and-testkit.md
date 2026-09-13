@@ -1,11 +1,11 @@
 ---
 slug: http-server-and-testkit
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight           # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: HTTP, TKIT
 author: lane-3 session (VION-212)
 created: 2026-09-12
-updated: 2026-09-12
+updated: 2026-09-13
 supersedes: none           # path of a superseded change doc, or none
 ---
 
@@ -61,8 +61,10 @@ classification.
   workstation, unelevated: `http://+:18089/` and `http://*:18089/` →
   `HttpListenerException: Access is denied.`, while `http://localhost:18089/` and
   `http://127.0.0.1:18089/` start. `D3` removes that cause, so the SDK keeps one binding rule for every
-  server it hosts rather than one per transport. The default port is 80, the protocol's standard port,
-  as 502 is Modbus's — flagged in *Question 5*, because 80 is privileged on Linux.
+  server it hosts rather than one per transport. **The default port is 8080** (operator override of
+  row 2 at the classification gate; the step-3 doc proposed 80). The reason is collision, not privilege:
+  this repository already defaults the hosted Modbus server to 502, which is privileged too, and nothing
+  has hit it. What makes 80 the wrong default is that it is the port everything else on a host wants.
 - `D3` — **the transport is a `TcpListener` with the package's own bounded HTTP/1.1 exchange — not
   `HttpListener`, and not Kestrel.** Kestrel needs the ASP.NET Core shared framework, which breaks the
   `netstandard2.1` target `AC-HTTP-014.1` pins
@@ -111,24 +113,26 @@ classification.
   pre-populates register buffers through it. An HTTP server's content is its route table, which the
   block owns and the real server holds, so a fake transport has nothing for a test to reach: the
   harness and its client-side view are the whole published surface of the server half.
-- `D9` — **`Vion.Examples.Energy`'s test project is not grown this round.** Its HTTP consumers
-  (`Services/OpenMeteoService.cs`, `Services/GeolocationService.cs`) are real, but the example
-  references **published** packages — "an example that references a published package is a consumer to
-  read, not a test bed" (`spec-process.md` § Lane 3 step 3) — so a kit test there cannot build until the
-  kit ships, and it belongs to the post-release bump (`docs/releasing.md`). It has no HTTP test today:
-  `grep -rin "http" examples/Vion.Examples.Energy/Vion.Examples.Energy.Test/ --include=*.cs
-  --include=*.csproj | grep -v /obj/` → no output.
+- `D9` — **reversed at the classification gate: the kit is demonstrated against
+  `Vion.Examples.Energy`'s two HTTP consumers in this round** (`Services/OpenMeteoService.cs`,
+  `Services/GeolocationService.cs`), built against the working tree with `-p:DaleLocalSource=true`. They
+  are the only committed, real, untested consumers of the surface the kit fakes — neither has a test
+  today: `grep -rin "http" examples/Vion.Examples.Energy/Vion.Examples.Energy.Test/ --include=*.cs
+  --include=*.csproj | grep -v /obj/` → no output. The step-3 doc had declined it because the example
+  references published packages; how the tests land without a published kit is a drift checkpoint.
 
 ### Reviewer's questions
 
 1. **(a) ratified — cite, don't relitigate.** Both halves in one round (operator, 2026-09-12); lane 3;
    the kit fakes at the innermost handler; kit and server ship together, with both clauses of
    `AC-TKIT-011.1` as the precedent.
-   **OUTCOME: (pending classification)**
+   **OUTCOME: ratified as cited (amendment `amend-VION-212-dale-sdk-classification.md`).**
 2. **(b) decide-and-document** — `D1` (where the server lives); `D2` and `D3` (the binding default and
    the transport that lets it hold on Windows); `D4`, `D5` and `D6` (the determinism seam); `D7` (the
    grant); `D8` (the fake transport's visibility); `D9` (the example).
-   **OUTCOME: (pending classification)**
+   **OUTCOME: accepted, with two changes from the classification — `D2`'s default port is 8080, not 80
+   (row 2 overridden), and `D9` is reversed: the Energy example's two HTTP services are covered in this
+   round.**
 3. **(c) propose-and-wait — production-capable or development-only (rows 32, 34).** *Recommendation:
    production-capable, with the standing of the hosted Modbus TCP server, which carries no
    development-only gate either.* Provider faces declare `DevelopmentOnly = true` because they would
@@ -138,7 +142,13 @@ classification.
    sizes. A block serving a device-style local API on a gateway is the production case, as a block
    serving Modbus to a building controller is today. A development-only surface would need a gate the
    package cannot place: `DevelopmentOnly` is a declaration on a contract, not on a DI service.
-   **OUTCOME: (pending classification)**
+   **OUTCOME: accepted — production-capable, on the operator's decision and not on the Modbus
+   precedent.** The precedent does not transfer: Modbus TCP has no encryption and no authentication *in
+   the protocol*, so an unauthenticated Modbus server is the protocol's nature, while for HTTP both are
+   the norm and their absence is a choice. The Modbus reference stays only where it carries — the
+   binding rule (row 2). **Row 32 is accepted with a condition: the plaintext-and-no-authentication
+   limit is stated in the XML documentation of the published server type, where a block author meets
+   it, and not only on the page.**
 4. **(c) propose-and-wait — the routing model (rows 12, 16, 19, 20, 21, 22).** *Recommendation: a
    route table the block publishes inside `Sync`, answered by the transport on its own threads under
    the server lock, plus a bounded log of received requests the block takes inside `Sync` on its own
@@ -152,19 +162,24 @@ classification.
    timeout of its own. A block that needs a computed answer republishes its route; one that must react
    to a `POST` takes the received requests on its next tick, as a Modbus simulator reads a client
    write. Sketch under *The server surface*.
-   **OUTCOME: (pending classification)**
+   **OUTCOME: accepted as recommended.**
 5. **(c) propose-and-wait — the fidelity limits the fake handler creates (rows 61, 62, 68).**
    *Recommendation: state every one on the kit's section of `testkit.md`, and keep row `6c` of the
    archived pass declined for production* — the kit replaces the primary handler in **its own
    container only**, so who owns the production handler does not move. Three recommendations ride
    these rows: the kit disables the client's wall-clock ceiling rather than letting it fire on a timer
    thread (row 61); the kit defaults to a virtual clock nothing advances rather than the system clock
-   (row 62, a deliberate departure from `AC-TKIT-011.3`'s precedent); and redirects, cookies,
+   (row 62); and redirects, cookies,
    decompression and `Content-Length` validation are named as not modelled (row 68).
    One flag beside them, not a proposal: the server's default port 80 (`D2`, row 2) is privileged on
    Linux, where a runtime without `CAP_NET_BIND_SERVICE` fails the bind at enable. Say "port 8080" to
    change it.
-   **OUTCOME: (pending classification)**
+   **OUTCOME: accepted — rows 61, 62 and 68 as recommended, and archived row `6c` stays declined for
+   production; the port flag became an override (8080, for collision rather than privilege — `D2`).
+   Row 62 is better founded than its step-3 *Why* said: it is not a departure from `AC-TKIT-011.3` but
+   closer to a correction of it. `testkit.md` § Time states that no kit waits on wall time and that there
+   is no timeout anywhere in the kit packages, which makes a virtual default the kits' own rule and the
+   Modbus client harness's system-clock default the outlier.**
 
 ---
 
@@ -268,7 +283,7 @@ namespace Vion.Dale.Sdk.Http.Server
     {
         bool IsEnabled { get; set; }            // false; setting true binds, a bind failure throws (row 6)
         string? ListenAddress { get; set; }     // "0.0.0.0" (D2)
-        int Port { get; set; }                  // 80 (D2, Question 5)
+        int Port { get; set; }                  // 8080 (D2)
         bool IsListening { get; }
         DateTimeOffset? LastRequestAt { get; }  // from the container's TimeProvider (row 23)
         void Sync(Action<IHttpServerSnapshot> access);
@@ -424,7 +439,7 @@ Recorded rather than diverged from silently.
 | 200 `application/json` with a `Content-Length` | `:144-149` | the same | 17 |
 | swallows a client hanging up mid-response | `:122-129` | the same, and other clients go on being served | 31 |
 | its own background thread, joined for one second on dispose | `:47-52,98-103` | the server's own accept loop, stopped on disable and on dispose | 7, 8 |
-| a hidden `GatewayApiPort` knob, because port 80 needed an ACL unelevated | the consumer's change doc, drift checkpoint 12 | not needed for the ACL; still needed where a Linux runtime cannot bind 80 | *Question 5* |
+| a hidden `GatewayApiPort` knob, because port 80 needed an ACL unelevated | the consumer's change doc, drift checkpoint 12 | not needed for the ACL; the server defaults to 8080 and a simulator sets the port its bench configures | `D2` |
 
 ---
 
@@ -440,7 +455,7 @@ artifact.
 | # | Behavior (EARS) | Evidence | Test today | Rec | Why |
 |---|---|---|---|---|---|
 | 1 | WHEN `AddDaleHttpSdk` is called THE SYSTEM SHALL also register a server factory whose every `Create()` returns a new, disabled hosted HTTP server. | Modbus precedent `Vion.Dale.Sdk.Modbus.Tcp/ServiceCollectionExtensions.cs:34`; `ILogicBlockModbusTcpServerFactory.cs:16` ("Each instance hosts one server on its own port") | GAP | intended | the one call a block author already makes; a simulator serving two APIs creates two servers |
-| 2 | THE SYSTEM SHALL listen on all interfaces and on port 80 unless told otherwise. | `AC-MODB-011.2`; consumer `EmuMCenterHttpFace.cs:23-29,63-64`; probes P6, P7 | GAP | intended | `D2` — one binding rule for every hosted server; the port is *Question 5*'s flag |
+| 2 | THE SYSTEM SHALL listen on all interfaces and on port 8080 unless told otherwise. | `AC-MODB-011.2` (the binding rule); consumer `EmuMCenterHttpFace.cs:23-29,63-64`; probes P6, P7 | GAP | intended | `D2` — one binding rule for every hosted server; 8080 because 80 is the port everything else on a host wants (operator override) |
 | 3 | WHEN a listen address or a port is set while the server is enabled THE SYSTEM SHALL throw an `InvalidOperationException`. | `AC-MODB-011.1`; `LogicBlockModbusTcpServer.cs:239-246` | GAP | intended | a live rebind would drop connections behind the block's back |
 | 4 | WHEN a listen address is null, empty, whitespace or not an IP address THE SYSTEM SHALL throw a `FormatException` naming the value. | `LogicBlockModbusTcpServer.cs:76` | GAP | intended | a host name is the likely mistake, and there is no silent way to bind one |
 | 5 | WHEN a port outside 1–65535 is set THE SYSTEM SHALL throw a `FormatException` naming the range in the invariant culture. | `LogicBlockModbusTcpServer.cs:17,95` | GAP | intended | port 0 binds an ephemeral port no client can be pointed at, and it is what an unset configuration field holds |
@@ -482,7 +497,7 @@ artifact.
 | 31 | WHEN a client disconnects before its response is written THE SYSTEM SHALL go on serving other clients and raise nothing to the block. | consumer `:122-129`; `AC-MODB-011.5`'s analogue | GAP | intended | a client hanging up is not the block's problem |
 | 32 | THE SYSTEM SHALL serve plain HTTP only, with no TLS and no authentication. | `D3` | GAP | ⚠ propose | *Question 3* — the limit a production use must be told |
 | 33 | THE SYSTEM SHALL answer concurrent connections, each from the route table as it stood when that request was matched. | the lock of row 12 | GAP | intended | two blocks polling one simulator at once |
-| 34 | THE SYSTEM SHALL offer the hosted server to any logic block, requiring no development-only declaration. | `docs/simulator-authoring.md:46` (why provider faces are development-only); the Modbus server carries no such gate | GAP | ⚠ propose | *Question 3* — production-capable or development-only |
+| 34 | THE SYSTEM SHALL offer the hosted server to any logic block, requiring no development-only declaration. | `docs/simulator-authoring.md:46` (why provider faces are development-only — a reason a socket does not share) | GAP | ⚠ propose | *Question 3* — production-capable on the operator's decision; plain, unauthenticated HTTP is a choice here rather than the protocol's nature, so row 32's limit is stated on the published type |
 | 35 | *(scope)* A block that hosts a server holds a socket the development host's stepping cannot see, so a bench over it runs on the wall clock. | `docs/simulator-authoring.md:154-155` | — | out-of-spec | the simulator guide already states this for any socket; the page cites it |
 | 36 | THE SYSTEM SHALL bind the listener with the address-reuse option, so a redeploy can rebind a port whose previous socket still lingers. | `AC-MODB-014.4`; `ModbusTcpServerProxy.cs:109` | GAP | intended | the same-version redeploy the Modbus server was fixed for |
 | 37 | *(implementation shape)* The transport is a TCP listener with a bounded HTTP/1.1 exchange of the package's own. | `D3`; probes P6, P7 | — | out-of-spec | recorded here; the page states its observable limits (rows 25–30, 32) |
@@ -506,7 +521,7 @@ artifact.
 | 59 | WHEN an outstanding request's per-request timeout elapses on the harness's clock THE SYSTEM SHALL fail it as the SDK fails an expired per-request bound, and stop holding it. | probe P4; `D6`; `AC-HTTP-008.1` | GAP | intended | a block's timeout path under test, with the SDK's own exception, on virtual time |
 | 60 | WHEN a per-request timeout expires in an advance of the block's context that reaches no queued action THE SYSTEM SHALL leave its error callback queued for the next drive. | `LogicBlockTestContext.cs:339-354` (the clock set to the target in the `finally`, after the loop) | GAP | intended | a trap worth stating: `AdvanceTime(5s)` followed by an assertion sees nothing until a flush |
 | 61 | THE SYSTEM SHALL not apply the client's own timeout to a request the harness holds. | `HttpClient.Timeout` is a wall-clock timer inside the platform (`AC-HTTP-008.2`) | GAP | ⚠ propose | *Question 5* — held past thirty seconds under a debugger it would fail on a timer thread; disabling it buys determinism with one unmodelled bound |
-| 62 | THE SYSTEM SHALL measure a harness on a virtual clock nothing advances unless the caller supplies a clock, and SHALL refuse a null clock. | `AC-TKIT-011.3` (the Modbus client harness defaults to the system clock) | GAP | ⚠ propose | *Question 5* — on the system clock a held request's timeout fires on wall time; "no kit waits on wall time" (`testkit.md:290`) argues for a virtual default |
+| 62 | THE SYSTEM SHALL measure a harness on a virtual clock nothing advances unless the caller supplies a clock, and SHALL refuse a null clock. | `testkit.md:290` ("No kit waits on wall time. There is no timeout anywhere"); `AC-TKIT-011.3` (the Modbus client harness defaults to the system clock) | GAP | ⚠ propose | *Question 5* — the kits' own stated rule; the Modbus harness's system-clock default is the outlier, not this |
 | 63 | WHEN a test answers a request the block issued through `SendRequest` THE SYSTEM SHALL hand its callback a response carrying the scripted status, content type and body. | `AC-HTTP-004.1`, `AC-HTTP-004.2` | GAP | intended | the escape hatch is the member a device API with a form body needs |
 | 64 | THE SYSTEM SHALL open no socket. | `testkit.md:8` ("no runtime, no broker, no device") | GAP | intended | a unit-tier kit |
 | 65 | THE SYSTEM SHALL share one record and one outstanding queue across every client its container resolves, and keep them apart from another harness's. | the executor is transient (`ServiceCollectionExtensions.cs:120`) | GAP | intended | two blocks on one harness interleave into one queue in issue order; two harnesses never see each other's |
@@ -565,8 +580,8 @@ artifact.
   *Recommendation: the route table under `Sync` with a bounded request log, 405 on a method mismatch,
   and ordinal path matching before the query — as sketched under* The server surface.
 - **32 (propose)** — a block serving a local API on a gateway is reachable by anything on that network,
-  in clear text, unauthenticated. *Recommendation: state it on the page as the limit, as the Modbus
-  server's plain transport is; TLS is a change of its own when a consumer needs it.*
+  in clear text, unauthenticated. *Recommendation: state it on the page as the limit; TLS is a change of
+  its own when a consumer needs it.* Accepted, with the limit also stated on the published server type.
 - **34 (propose)** — the surface ships to every consumer. Marked development-only it would need a gate
   the package cannot place; unmarked, a production block can serve. *Recommendation: production-capable,
   with row 32's limits stated.*
