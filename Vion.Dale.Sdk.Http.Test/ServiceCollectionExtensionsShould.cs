@@ -243,6 +243,59 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.11")]
+        [DataRow(typeof(ILogicBlockHttpServerFactory), ServiceLifetime.Singleton)]
+        [DataRow(typeof(ILogicBlockHttpServer), ServiceLifetime.Transient)]
+        public void RegisterServerFactoryAsSingletonAndServerAsTransient(Type serviceType, ServiceLifetime expectedLifetime)
+        {
+            // Arrange
+            var serviceCollection = new ServiceCollection();
+
+            // Act
+            serviceCollection.AddDaleHttpSdk();
+
+            // Assert
+            var descriptor = serviceCollection.SingleOrDefault(service => service.ServiceType == serviceType);
+            Assert.IsNotNull(descriptor, $"{serviceType.Name} was not registered.");
+            Assert.AreEqual(expectedLifetime, descriptor.Lifetime);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.11")]
+        [DataRow(false, DisplayName = "a server its block never disposed")]
+        [DataRow(true, DisplayName = "a server its block already disposed")]
+        public void KeepFactoryCreatedServerPastBlockScopeAndDisposeItWithContainer(bool disposedByBlock)
+        {
+            // Arrange — the factory is reached from a scope, as a block's own dependencies are
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddDaleHttpSdk();
+            var provider = services.BuildServiceProvider();
+            ILogicBlockHttpServer server;
+            using (var blockScope = provider.CreateScope())
+            {
+                server = blockScope.ServiceProvider.GetRequiredService<ILogicBlockHttpServerFactory>().Create();
+                server.ListenAddress = "127.0.0.1";
+                server.Port = FreeLoopbackPort();
+                server.IsEnabled = true;
+            }
+
+            var listeningAfterScope = server.IsListening;
+            if (disposedByBlock)
+            {
+                server.Dispose();
+            }
+
+            // Act
+            provider.Dispose();
+
+            // Assert
+            Assert.IsTrue(listeningAfterScope);
+            Assert.IsFalse(server.IsListening);
+            Assert.IsFalse(server.IsEnabled);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-015.1")]
         public void CreateNewDisabledServerOnEveryCreate()
         {

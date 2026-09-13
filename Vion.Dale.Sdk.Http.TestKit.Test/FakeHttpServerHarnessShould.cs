@@ -156,6 +156,48 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-015.4")]
+        public void RefuseSendWithoutMethod()
+        {
+            // Arrange
+            using var harness = new FakeHttpServerHarness();
+            harness.Server.IsEnabled = true;
+
+            // Act / Assert
+            Assert.AreEqual("method", Assert.ThrowsExactly<ArgumentNullException>(() => harness.Client.Send(null!, "/status")).ParamName);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-015.4")]
+        [DataRow(null, DisplayName = "no target")]
+        [DataRow("", DisplayName = "an empty target")]
+        [DataRow("status?unit=3", DisplayName = "a target without its leading slash")]
+        public void RefuseSendToTargetNotStartingWithSlash(string? pathAndQuery)
+        {
+            // Arrange
+            using var harness = new FakeHttpServerHarness();
+            harness.Server.IsEnabled = true;
+
+            // Act / Assert
+            Assert.AreEqual("pathAndQuery", Assert.ThrowsExactly<ArgumentException>(() => harness.Client.Send(HttpMethod.Get, pathAndQuery!)).ParamName);
+            Assert.IsEmpty(harness.Server.Sync(snapshot => snapshot.TakeReceivedRequests()));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.7")]
+        public void RefuseEnableAfterDisposeAsSocketServerDoes()
+        {
+            // Arrange — the in-memory transport has no lifecycle of its own to refuse with; the refusal is the server's
+            using var harness = new FakeHttpServerHarness();
+            harness.Server.IsEnabled = true;
+            harness.Server.Dispose();
+
+            // Act / Assert
+            Assert.ThrowsExactly<ObjectDisposedException>(() => harness.Server.IsEnabled = true);
+            Assert.IsFalse(harness.Server.IsListening);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-TKIT-015.3")]
         public void RefuseSendWhileServerNotListening()
         {

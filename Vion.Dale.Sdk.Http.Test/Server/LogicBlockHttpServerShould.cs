@@ -178,6 +178,24 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.7")]
+        public void RefuseEnableAfterDisposeWhileSyncStillRuns()
+        {
+            // Arrange
+            _sut.Dispose();
+
+            // Act
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+            var takenAfterDispose = _sut.Sync(snapshot => snapshot.TakeReceivedRequests());
+
+            // Assert
+            Assert.IsEmpty(takenAfterDispose);
+            Assert.ThrowsExactly<ObjectDisposedException>(() => _sut.IsEnabled = true);
+            Assert.IsFalse(_sut.IsEnabled);
+            Assert.AreEqual(0, _transport.StartCalls);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-016.1")]
         public void PublishInsideSyncInActionAndValueForms()
         {
@@ -438,6 +456,44 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             Assert.AreEqual(0, droppedAfterTake);
             Assert.HasCount(LogicBlockHttpServer.ReceivedRequestCapacity, taken);
             Assert.AreEqual("/r3", taken[0].Path);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-016.9")]
+        public void DropOldestUntilKeptBodiesFitByteBudget()
+        {
+            // Arrange — five bodies of a quarter of the budget each, far fewer requests than the count allows
+            _sut.IsEnabled = true;
+            var quarter = new byte[LogicBlockHttpServer.ReceivedRequestBodyBudget / 4];
+            for (var index = 0; index < 5; index++)
+            {
+                _transport.Send("POST", "/r" + index.ToString(CultureInfo.InvariantCulture), body: quarter);
+            }
+
+            // Act
+            var (dropped, taken) = _sut.Sync(snapshot => (snapshot.DroppedRequestCount, snapshot.TakeReceivedRequests()));
+
+            // Assert
+            Assert.AreEqual(1, dropped);
+            Assert.AreEqual("/r1, /r2, /r3, /r4", string.Join(", ", taken.Select(request => request.Path)));
+            Assert.IsLessThanOrEqualTo(LogicBlockHttpServer.ReceivedRequestBodyBudget, taken.Sum(request => request.Body.Length));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-016.9")]
+        public void DropRequestWhoseBodyAloneExceedsByteBudget()
+        {
+            // Arrange — only a transport with no body cap of its own can deliver such a body
+            _sut.IsEnabled = true;
+            _transport.Send("POST", "/small", body: new byte[16]);
+
+            // Act
+            _transport.Send("POST", "/huge", body: new byte[LogicBlockHttpServer.ReceivedRequestBodyBudget + 1]);
+
+            // Assert
+            var (dropped, taken) = _sut.Sync(snapshot => (snapshot.DroppedRequestCount, snapshot.TakeReceivedRequests()));
+            Assert.AreEqual(1, dropped);
+            Assert.AreEqual("/small", taken.Single().Path);
         }
 
         [TestMethod]

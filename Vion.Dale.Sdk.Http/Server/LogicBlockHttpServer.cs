@@ -10,8 +10,14 @@ using Microsoft.Extensions.Logging;
 namespace Vion.Dale.Sdk.Http.Server
 {
     /// <inheritdoc />
-    internal sealed partial class LogicBlockHttpServer : ILogicBlockHttpServer
+    internal sealed partial class LogicBlockHttpServer : ILogicBlockHttpServer, IHttpServerExchangeHandler
     {
+        /// <summary>
+        ///     How many body bytes the answered requests the server keeps may hold between them. The count alone would let a
+        ///     block that never takes its requests keep <see cref="ReceivedRequestCapacity" /> full-sized bodies.
+        /// </summary>
+        internal const int ReceivedRequestBodyBudget = 4 * 1024 * 1024;
+
         /// <summary>
         ///     How many answered requests the server keeps for a block that has not taken them. A block that serves and never
         ///     takes would otherwise grow the log for as long as clients keep asking.
@@ -40,6 +46,8 @@ namespace Vion.Dale.Sdk.Http.Server
 
         private readonly IHttpServerTransport _transport;
 
+        private bool _disposed;
+
         private int _droppedRequestCount;
 
         private bool _isEnabled;
@@ -49,6 +57,8 @@ namespace Vion.Dale.Sdk.Http.Server
         private long _lastRequestAtUtcTicks;
 
         private IPAddress _parsedListenAddress = IPAddress.Loopback;
+
+        private long _receivedBodyBytes;
 
         // A depth, not a flag: the gate is re-entrant, so a nested Sync returning would clear a flag while the outer
         // callback still holds the gate — and the guard exists for exactly that callback.
@@ -76,7 +86,13 @@ namespace Vion.Dale.Sdk.Http.Server
 
                 if (value)
                 {
-                    _transport.Start(_parsedListenAddress, Port, Answer);
+                    // Owned here rather than by each transport, so the kit's in-memory transport refuses exactly as the socket does.
+                    if (_disposed)
+                    {
+                        throw new ObjectDisposedException(nameof(ILogicBlockHttpServer), "A disposed HTTP server cannot be enabled again; create a new one from the factory.");
+                    }
+
+                    _transport.Start(_parsedListenAddress, Port, this);
                     LogEnabled(ListenAddress!, Port);
                 }
                 else
@@ -185,23 +201,54 @@ namespace Vion.Dale.Sdk.Http.Server
 
             // Set directly rather than through the setter: disposal is not a disable, and the transport stops itself.
             _isEnabled = false;
+            _disposed = true;
             _transport.Dispose();
         }
 
         /// <summary>
-        ///     Answers one request on a transport thread: records it, then looks its path and method up in what the block last
-        ///     published. The gate is what a running <c>Sync</c> callback holds, so a request arriving mid-republish waits for
-        ///     the table the callback leaves behind.
+        ///     Looks a request up in what the block last published, on a transport thread, stamping its arrival. The gate is what
+        ///     a running <c>Sync</c> callback holds, so a request arriving mid-republish waits for the table the callback leaves
+        ///     behind. Nothing is recorded yet: the response may never reach the client.
         /// </summary>
-        private HttpServerResponse Answer(HttpServerExchange exchange)
+        HttpServerResponse IHttpServerExchangeHandler.Answer(HttpServerExchange exchange)
         {
             lock (_gate)
             {
-                var receivedAt = _timeProvider.GetUtcNow();
-                Volatile.Write(ref _lastRequestAtUtcTicks, receivedAt.UtcTicks);
-                if (_received.Count == ReceivedRequestCapacity)
+                exchange.ReceivedAt = _timeProvider.GetUtcNow();
+                if (!_routes.TryGetValue(exchange.Path, out var byMethod))
                 {
-                    _received.Dequeue();
+                    return HttpServerResponse.NotFound();
+                }
+
+                return byMethod.TryGetValue(exchange.Method, out var response) ? response :
+                           HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
+            }
+        }
+
+        /// <summary>
+        ///     Records a request whose response has been written, dropping the oldest requests kept until both the count and the
+        ///     body-byte budget hold; a request whose body alone is over the budget is dropped itself.
+        /// </summary>
+        void IHttpServerExchangeHandler.Delivered(HttpServerExchange exchange)
+        {
+            lock (_gate)
+            {
+                // Concurrent connections finish in any order, so the most recent arrival is not always the last one recorded.
+                if (exchange.ReceivedAt.UtcTicks > Volatile.Read(ref _lastRequestAtUtcTicks))
+                {
+                    Volatile.Write(ref _lastRequestAtUtcTicks, exchange.ReceivedAt.UtcTicks);
+                }
+
+                if (exchange.Body.Length > ReceivedRequestBodyBudget)
+                {
+                    _droppedRequestCount++;
+
+                    return;
+                }
+
+                while (_received.Count == ReceivedRequestCapacity || _receivedBodyBytes + exchange.Body.Length > ReceivedRequestBodyBudget)
+                {
+                    _receivedBodyBytes -= _received.Dequeue().Body.Length;
                     _droppedRequestCount++;
                 }
 
@@ -210,15 +257,8 @@ namespace Vion.Dale.Sdk.Http.Server
                                                         exchange.Query,
                                                         exchange.Headers,
                                                         exchange.Body,
-                                                        receivedAt));
-
-                if (!_routes.TryGetValue(exchange.Path, out var byMethod))
-                {
-                    return HttpServerResponse.NotFound();
-                }
-
-                return byMethod.TryGetValue(exchange.Method, out var response) ? response :
-                           HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
+                                                        exchange.ReceivedAt));
+                _receivedBodyBytes += exchange.Body.Length;
             }
         }
 
@@ -320,6 +360,7 @@ namespace Vion.Dale.Sdk.Http.Server
                 EnsureLive();
                 var taken = _server._received.ToArray();
                 _server._received.Clear();
+                _server._receivedBodyBytes = 0;
                 _server._droppedRequestCount = 0;
 
                 return taken;

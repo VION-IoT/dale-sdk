@@ -11,7 +11,7 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
     /// </summary>
     internal sealed class StubHttpServerTransport : IHttpServerTransport
     {
-        private Func<HttpServerExchange, HttpServerResponse>? _answer;
+        private IHttpServerExchangeHandler? _handler;
 
         public int StartCalls { get; private set; }
 
@@ -28,10 +28,10 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
 
         public bool IsListening
         {
-            get => _answer != null;
+            get => _handler != null;
         }
 
-        public void Start(IPAddress listenAddress, int port, Func<HttpServerExchange, HttpServerResponse> answer)
+        public void Start(IPAddress listenAddress, int port, IHttpServerExchangeHandler handler)
         {
             if (ThrowOnStart != null)
             {
@@ -41,27 +41,30 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
             StartCalls++;
             LastListenAddress = listenAddress;
             LastPort = port;
-            _answer = answer;
+            _handler = handler;
         }
 
         public void Stop()
         {
             StopCalls++;
-            _answer = null;
+            _handler = null;
         }
 
         public void Dispose()
         {
             DisposeCalls++;
-            _answer = null;
+            _handler = null;
         }
 
-        /// <summary>Sends one request to the server through the answer it started the transport with.</summary>
+        /// <summary>Sends one request to the server through the handler it started the transport with, and delivers its response.</summary>
         public HttpServerResponse Send(string method, string path, string query = "", byte[]? body = null)
         {
-            var answer = _answer ?? throw new InvalidOperationException("The server has not started this transport.");
+            var handler = _handler ?? throw new InvalidOperationException("The server has not started this transport.");
+            var exchange = new HttpServerExchange(method, path, query, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), body ?? Array.Empty<byte>());
+            var response = handler.Answer(exchange);
+            handler.Delivered(exchange);
 
-            return answer(new HttpServerExchange(method, path, query, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), body ?? Array.Empty<byte>()));
+            return response;
         }
     }
 }

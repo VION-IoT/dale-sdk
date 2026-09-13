@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.Sdk.TestKit;
 
@@ -235,6 +236,38 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
             // Assert — nothing ran during the answer, and the one flush that follows found the callback already queued
             Assert.AreEqual(0, settledDuringAnswer);
             Assert.HasCount(1, sut.Settled);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-014.5")]
+        public void ReturnAnswerToAsyncTestOnThreadOwnedSynchronizationContext()
+        {
+            // Arrange — the test body resumes on a context only its own thread can run, then answers on that thread; an
+            // exchange that resumed on the captured context would wait for the very thread the answer blocks
+            var settledBeforeFlush = -1;
+            var settledAfterFlush = -1;
+
+            // Act
+            var returned = ThreadOwnedSynchronizationContext.TryRun(async () =>
+                                                                    {
+                                                                        await Task.Yield();
+                                                                        using var harness = new FakeHttpHarness();
+                                                                        var sut = new SampleHttpBlock(harness.Client, LogicBlockTestHelper.CreateLoggerMock().Object);
+                                                                        var ctx = sut.CreateTestContext().Build();
+                                                                        sut.FetchDescription(DescriptionUrl);
+                                                                        harness.Respond("{\"Value\":42}");
+                                                                        settledBeforeFlush = sut.Settled.Count;
+                                                                        ctx.FlushPendingActions();
+                                                                        settledAfterFlush = sut.Settled.Count;
+                                                                    },
+                                                                    TimeSpan.FromSeconds(10),
+                                                                    out var failure);
+
+            // Assert
+            Assert.IsTrue(returned, "The answer never returned: the exchange waited for the thread the answer was blocking.");
+            Assert.IsNull(failure);
+            Assert.AreEqual(0, settledBeforeFlush);
+            Assert.AreEqual(1, settledAfterFlush);
         }
 
         [TestMethod]

@@ -16,15 +16,33 @@ namespace Vion.Dale.Sdk.Http.Server
         bool IsListening { get; }
 
         /// <summary>
-        ///     Starts accepting requests on the address and port, answering each through <paramref name="answer" />. A bind
+        ///     Starts accepting requests on the address and port, answering each through <paramref name="handler" />. A bind
         ///     failure propagates to the caller.
         /// </summary>
-        void Start(IPAddress listenAddress, int port, Func<HttpServerExchange, HttpServerResponse> answer);
+        void Start(IPAddress listenAddress, int port, IHttpServerExchangeHandler handler);
 
         /// <summary>
-        ///     Stops accepting requests; a request already being answered finishes or is abandoned with its connection.
+        ///     Stops accepting requests and closes every connection still open: a response not yet written in full is abandoned
+        ///     with its connection, and its request is never reported delivered.
         /// </summary>
         void Stop();
+    }
+
+    /// <summary>
+    ///     What a transport asks of the server for each request it has read.
+    /// </summary>
+    internal interface IHttpServerExchangeHandler
+    {
+        /// <summary>
+        ///     Returns the response to send, stamping the request's arrival on the exchange.
+        /// </summary>
+        HttpServerResponse Answer(HttpServerExchange exchange);
+
+        /// <summary>
+        ///     Reports that the response <see cref="Answer" /> returned for <paramref name="exchange" /> has been written in
+        ///     full. A transport calls it at most once per exchange, and never for a response it could not write.
+        /// </summary>
+        void Delivered(HttpServerExchange exchange);
     }
 
     /// <summary>
@@ -41,6 +59,9 @@ namespace Vion.Dale.Sdk.Http.Server
         public IReadOnlyDictionary<string, string> Headers { get; }
 
         public byte[] Body { get; }
+
+        /// <summary>When the server answered the request, on its clock; set by <see cref="IHttpServerExchangeHandler.Answer" />.</summary>
+        public DateTimeOffset ReceivedAt { get; set; }
 
         public HttpServerExchange(string method, string path, string query, IReadOnlyDictionary<string, string> headers, byte[] body)
         {

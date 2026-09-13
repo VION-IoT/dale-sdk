@@ -175,8 +175,11 @@ namespace Vion.Dale.Sdk.Http.TestKit
             }
 
             /// <summary>
-            ///     Waits for the exchange this answer released. It has normally finished before this is reached; where a
-            ///     handler in the pipeline moved it to another thread, what remains is work the answer already let through.
+            ///     Waits for the exchange this answer released. The answer completes the held response inline, and every await
+            ///     between the handler and the block's dispatcher declines the caller's synchronization context, so the exchange
+            ///     has normally finished before this is reached, and whatever remains runs on the thread pool. Nothing of it can
+            ///     be waiting for the thread this call blocks, even where that thread owns the test's context; an await in the
+            ///     SDK's exchange that captured the context would break that, and hang here without a diagnostic.
             /// </summary>
             public void Settle()
             {

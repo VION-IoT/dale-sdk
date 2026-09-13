@@ -14,12 +14,11 @@ namespace Vion.Dale.Sdk.Http.Server
 {
     /// <summary>
     ///     The socket a hosted HTTP server answers on: a TCP listener and a deliberately small HTTP/1.1 exchange — one request
-    ///     per connection, <c>Content-Length</c> bodies only, capped sizes, and a bound on how long a client may take to send
-    ///     its request.
+    ///     per connection, <c>Content-Length</c> bodies only, capped sizes, a bound on how long a client may take over each
+    ///     half of its exchange, and a limit on how many connections are served at once.
     ///     <para>
     ///         It is built on a TCP listener rather than on <see cref="HttpListener" /> because the latter is <c>http.sys</c>
-    ///         on
-    ///         Windows, which refuses to bind every interface to a process that is not elevated.
+    ///         on Windows, which refuses to bind every interface to a process that is not elevated.
     ///     </para>
     /// </summary>
     internal sealed partial class TcpHttpServerTransport : IHttpServerTransport
@@ -28,15 +27,28 @@ namespace Vion.Dale.Sdk.Http.Server
         internal const int BodyCap = 1024 * 1024;
 
         /// <summary>
+        ///     How many connections are served at once. Each holds a header buffer from the moment it is served, so a
+        ///     connection past the limit is answered 503 and closed before anything of its request is read.
+        /// </summary>
+        internal const int DefaultConnectionLimit = 64;
+
+        /// <summary>
         ///     The longest head accepted — the request line and headers, up to the blank line that ends them; a longer one is
         ///     answered 431. <see cref="HeadExceedsCap" /> is the one place the boundary is decided.
         /// </summary>
         internal const int HeaderCap = 16 * 1024;
 
-        /// <summary>How long a client has, from connecting, to send a complete request.</summary>
+        /// <summary>
+        ///     How long a client has, from connecting, to send a complete request — and, once the server has its answer, to
+        ///     take the response and close.
+        /// </summary>
         internal static readonly TimeSpan DefaultReadBound = TimeSpan.FromSeconds(10);
 
         private static readonly byte[] HeaderTerminator = "\r\n\r\n"u8.ToArray();
+
+        private readonly Func<TcpListener, Task<TcpClient>> _accept;
+
+        private readonly int _connectionLimit;
 
         private readonly HashSet<Task> _connections = new();
 
@@ -52,12 +64,24 @@ namespace Vion.Dale.Sdk.Http.Server
 
         private TcpListener? _listener;
 
+        private bool _listening;
+
         private CancellationTokenSource? _stopping;
 
-        public TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound)
+        public TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound) : this(logger, readBound, DefaultConnectionLimit, listener => listener.AcceptTcpClientAsync())
+        {
+        }
+
+        /// <param name="logger">The logger.</param>
+        /// <param name="readBound">The bound on each half of a client's exchange.</param>
+        /// <param name="connectionLimit">How many connections are served at once.</param>
+        /// <param name="accept">Accepts the next connection: the listener's own accept, except where a test makes it fail.</param>
+        internal TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound, int connectionLimit, Func<TcpListener, Task<TcpClient>> accept)
         {
             _logger = logger;
             _readBound = readBound;
+            _connectionLimit = connectionLimit;
+            _accept = accept;
         }
 
         /// <inheritdoc />
@@ -67,13 +91,13 @@ namespace Vion.Dale.Sdk.Http.Server
             {
                 lock (_gate)
                 {
-                    return _listener != null;
+                    return _listening;
                 }
             }
         }
 
         /// <inheritdoc />
-        public void Start(IPAddress listenAddress, int port, Func<HttpServerExchange, HttpServerResponse> answer)
+        public void Start(IPAddress listenAddress, int port, IHttpServerExchangeHandler handler)
         {
             if (_disposed)
             {
@@ -99,8 +123,9 @@ namespace Vion.Dale.Sdk.Http.Server
             lock (_gate)
             {
                 _listener = listener;
+                _listening = true;
                 _stopping = stopping;
-                _acceptLoop = Task.Run(() => AcceptAsync(listener, answer, stopping.Token));
+                _acceptLoop = Task.Run(() => AcceptAsync(listener, handler, stopping.Token));
             }
 
             LogListening(listenAddress, port);
@@ -118,6 +143,7 @@ namespace Vion.Dale.Sdk.Http.Server
                 stopping = _stopping;
                 acceptLoop = _acceptLoop;
                 _listener = null;
+                _listening = false;
                 _stopping = null;
                 _acceptLoop = null;
             }
@@ -131,8 +157,9 @@ namespace Vion.Dale.Sdk.Http.Server
             listener.Stop();
             WaitQuietly(acceptLoop!);
 
-            // Only once the accept loop has ended is the set of connections final; each one's read is cancelled with the
-            // loop, so what is left is a response being written or a request waiting for the server's gate.
+            // Only once the accept loop has ended is the set of connections final. The cancellation above closed each one's
+            // socket, so what is left is a connection unwinding: a read or a write failing, or a request finishing its wait
+            // for the server's gate and then failing to write its response — which the server therefore never records.
             Task[] connections;
             lock (_gate)
             {
@@ -171,14 +198,14 @@ namespace Vion.Dale.Sdk.Http.Server
             }
         }
 
-        private async Task AcceptAsync(TcpListener listener, Func<HttpServerExchange, HttpServerResponse> answer, CancellationToken stopping)
+        private async Task AcceptAsync(TcpListener listener, IHttpServerExchangeHandler handler, CancellationToken stopping)
         {
             while (!stopping.IsCancellationRequested)
             {
                 TcpClient client;
                 try
                 {
-                    client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                    client = await _accept(listener).ConfigureAwait(false);
                 }
                 catch (Exception) when (stopping.IsCancellationRequested)
                 {
@@ -189,10 +216,32 @@ namespace Vion.Dale.Sdk.Http.Server
                     LogAcceptFailed(exception);
                     continue;
                 }
+                catch (Exception exception)
+                {
+                    // Nothing else is expected here, and retrying an unknown failure could spin. The listener is closed and
+                    // reported as not listening, so a block reading IsListening sees what a client sees: no answer. Disabling
+                    // and enabling the server starts a fresh listener.
+                    lock (_gate)
+                    {
+                        _listening = false;
+                    }
 
-                var connection = ServeAsync(client, answer, stopping);
+                    listener.Stop();
+                    LogAcceptLoopFailed(exception);
+
+                    return;
+                }
+
+                Task connection;
                 lock (_gate)
                 {
+                    if (_connections.Count >= _connectionLimit)
+                    {
+                        _ = RefuseAsync(client);
+                        continue;
+                    }
+
+                    connection = ServeAsync(client, handler, stopping);
                     _connections.Add(connection);
                 }
 
@@ -208,10 +257,37 @@ namespace Vion.Dale.Sdk.Http.Server
         }
 
         /// <summary>
-        ///     Answers one connection within the read bound. Disposing the client is what ends a read the stream does not cancel
-        ///     on its own, so the bound's expiry and the server stopping both close the socket.
+        ///     Answers a connection past the limit with 503 and closes it, reading nothing of its request: a client that has
+        ///     already sent one may see the connection reset rather than the answer.
         /// </summary>
-        private async Task ServeAsync(TcpClient client, Func<HttpServerExchange, HttpServerResponse> answer, CancellationToken stopping)
+        private async Task RefuseAsync(TcpClient client)
+        {
+            await Task.Yield();
+            using (client)
+            {
+                using var bound = new CancellationTokenSource(_readBound);
+                using var closeOnExpiry = bound.Token.Register(client.Dispose);
+                try
+                {
+                    var bytes = Render(HttpServerResponse.Refusal(HttpStatusCode.ServiceUnavailable), false);
+                    await client.GetStream().WriteAsync(bytes, 0, bytes.Length, bound.Token).ConfigureAwait(false);
+                    client.Client.Shutdown(SocketShutdown.Send);
+                }
+                catch (Exception exception) when (exception is IOException or SocketException or ObjectDisposedException or OperationCanceledException)
+                {
+                    // The refused client is gone or too slow to take the answer; nothing more is owed to it.
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Answers one connection. The read bound runs from connecting until the request is complete, and again from the
+        ///     answer until the client has closed. The wait for the answer itself — which waits for any <c>Sync</c> callback
+        ///     running — is the block's time and not the client's, so the bound is not counting then. Disposing the client is
+        ///     what ends a read the stream does not cancel on its own, so the bound's expiry and the server stopping both close
+        ///     the socket.
+        /// </summary>
+        private async Task ServeAsync(TcpClient client, IHttpServerExchangeHandler handler, CancellationToken stopping)
         {
             await Task.Yield();
             using (client)
@@ -228,9 +304,23 @@ namespace Vion.Dale.Sdk.Http.Server
                         return;
                     }
 
-                    var response = refusal ?? answer(exchange!);
+                    var response = refusal;
+                    if (response == null)
+                    {
+                        bound.CancelAfter(Timeout.InfiniteTimeSpan);
+                        response = handler.Answer(exchange!);
+                        bound.CancelAfter(_readBound);
+                    }
+
                     var bytes = Render(response, exchange?.Method == "HEAD");
                     await stream.WriteAsync(bytes, 0, bytes.Length, bound.Token).ConfigureAwait(false);
+
+                    // Recorded only once the whole response is written: a request whose response a hang-up, the bound or a
+                    // stop cut short was never answered.
+                    if (exchange != null)
+                    {
+                        handler.Delivered(exchange);
+                    }
 
                     // A refusal can leave request bytes unread, and closing a socket with unread input resets the connection,
                     // which discards the response the client has not read yet. Half-closing and draining until the client
@@ -479,6 +569,9 @@ namespace Vion.Dale.Sdk.Http.Server
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "HTTP server could not accept a connection")]
         partial void LogAcceptFailed(Exception exception);
+
+        [LoggerMessage(Level = LogLevel.Error, Message = "HTTP server stopped accepting connections after an unexpected failure; disable and enable it to listen again")]
+        partial void LogAcceptLoopFailed(Exception exception);
 
         [LoggerMessage(Level = LogLevel.Error, Message = "HTTP server failed while answering a connection")]
         partial void LogConnectionFailed(Exception exception);

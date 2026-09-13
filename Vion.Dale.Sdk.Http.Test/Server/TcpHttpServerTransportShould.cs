@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Http.Server;
@@ -313,25 +314,211 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-017.7")]
-        public async Task ServeOtherClientsAfterClientHangsUp()
+        [DataRow("POST /a HTTP/1.1\r\nHost: a", DisplayName = "halfway through its headers")]
+        [DataRow("POST /a HTTP/1.1\r\nContent-Length: 10\r\n\r\nabc", DisplayName = "halfway through its body")]
+        public async Task RecordNothingFromClientHangingUpMidRequestAndServeOthers(string partialRequest)
         {
-            // Arrange — the leaving client stops sending halfway through its request, and the server's closing its side is
-            // the synchronisation point: the hang-up has been handled before the next client arrives
-            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+            // Arrange — the server's closing its side is the synchronisation point: the hang-up has been handled before the
+            // log is read and the next client arrives
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Post, "/a", HttpServerResponse.Json("{}")));
             using (var leaving = new TcpClient())
             {
                 await leaving.ConnectAsync(IPAddress.Loopback, _port).WaitAsync(Timeout);
                 var leavingStream = leaving.GetStream();
-                await leavingStream.WriteAsync(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\nHost: a"));
+                await leavingStream.WriteAsync(Encoding.ASCII.GetBytes(partialRequest));
                 leaving.Client.Shutdown(SocketShutdown.Send);
                 await ReadUntilClosedAsync(leavingStream).WaitAsync(Timeout);
             }
 
+            var recordedFromLeaving = _sut.Sync(snapshot => snapshot.TakeReceivedRequests());
+
             // Act
-            var response = await ExchangeAsync("GET /a HTTP/1.1\r\n\r\n");
+            var response = await ExchangeAsync("POST /a HTTP/1.1\r\nContent-Length: 0\r\n\r\n");
+
+            // Assert
+            Assert.IsEmpty(recordedFromLeaving);
+            StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.9")]
+        public async Task AbandonRequestAwaitingItsAnswerOnStopAndRecordNothing()
+        {
+            // Arrange — a server of its own with a short bound, composed so the test holds its transport: disabling the server
+            // from another thread while a callback runs is refused, and stopping the transport is exactly what disabling does
+            var port = FreePort();
+            var transport = new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance, TimeSpan.FromMilliseconds(300));
+            using var server = new LogicBlockHttpServer(transport, TimeProvider.System, NullLogger<LogicBlockHttpServer>.Instance);
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.IsEnabled = true;
+            using var waiting = new TcpClient();
+            Task? stopping = null;
+            var awaitingAnswer = false;
+            var closedByStop = false;
+
+            // Act — a silent client that connected after the waiting one being closed by the bound shows the bound has
+            // elapsed, so the waiting connection still being open shows its request was read and is waiting for the callback.
+            // The stop then closes it while the callback still holds its answer back
+            server.Sync(snapshot =>
+                        {
+                            snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}"));
+                            waiting.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout).GetAwaiter().GetResult();
+                            waiting.GetStream().Write(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\n\r\n"));
+                            using (var silent = new TcpClient())
+                            {
+                                silent.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout).GetAwaiter().GetResult();
+                                ReadUntilClosedAsync(silent.GetStream()).WaitAsync(Timeout).GetAwaiter().GetResult();
+                            }
+
+                            awaitingAnswer = !IsClosedByPeer(waiting);
+                            stopping = Task.Run(transport.Stop);
+                            closedByStop = SpinWait.SpinUntil(() => IsClosedByPeer(waiting), Timeout);
+                        });
+            await stopping!.WaitAsync(Timeout);
+            var received = await ReadUntilClosedAsync(waiting.GetStream()).WaitAsync(Timeout);
+
+            // Assert
+            Assert.IsTrue(awaitingAnswer, "The waiting connection was closed by its bound, so its request was never read.");
+            Assert.IsTrue(closedByStop, "The stop never closed the waiting connection.");
+            Assert.AreEqual(string.Empty, received);
+            Assert.IsEmpty(server.Sync(snapshot => snapshot.TakeReceivedRequests()));
+            Assert.IsNull(server.LastRequestAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.6")]
+        public async Task LeaveReadBoundUncountedWhileRequestWaitsForSyncCallback()
+        {
+            // Arrange — a server of its own with a short bound
+            var port = FreePort();
+            using var server = Compose(TimeSpan.FromMilliseconds(300));
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.IsEnabled = true;
+            using var waiting = new TcpClient();
+            Task<string>? waitingResponse = null;
+
+            // Act — the waiting request is complete and blocked on the callback. A silent client that connected after it
+            // being closed by the bound is the proof the bound has elapsed for the waiting request as well
+            server.Sync(snapshot =>
+                        {
+                            waiting.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout).GetAwaiter().GetResult();
+                            waiting.GetStream().Write(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\n\r\n"));
+                            waitingResponse = ReadUntilClosedAsync(waiting.GetStream());
+                            using var silent = new TcpClient();
+                            silent.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout).GetAwaiter().GetResult();
+                            ReadUntilClosedAsync(silent.GetStream()).WaitAsync(Timeout).GetAwaiter().GetResult();
+                            snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}"));
+                        });
+            var response = await waitingResponse!.WaitAsync(Timeout);
 
             // Assert
             StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.6")]
+        public async Task CloseClientKeepingConnectionOpenOnceReadBoundElapsesAfterAnswer()
+        {
+            // Arrange — the client takes its response and never closes; only the bound, armed again for the response, ends it
+            var port = FreePort();
+            using var server = Compose(TimeSpan.FromMilliseconds(300));
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.IsEnabled = true;
+            server.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+
+            // Act
+            await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\n\r\n"));
+            var response = await ReadUntilClosedAsync(client.GetStream()).WaitAsync(Timeout);
+
+            // Assert
+            StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.9")]
+        public async Task AnswerRequestOnOneConnectionWhileAnotherIsStillArriving()
+        {
+            // Arrange — a bound far past the test's own timeout, so only concurrent serving can answer the second client
+            var port = FreePort();
+            using var server = Compose(TimeSpan.FromSeconds(60));
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.IsEnabled = true;
+            server.Sync(snapshot => snapshot.SetResponse(HttpMethod.Post, "/cmd", HttpServerResponse.Json("{\"Version\":1}")));
+            using var slow = new TcpClient();
+            await slow.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+            await slow.GetStream().WriteAsync(Encoding.ASCII.GetBytes("POST /cmd HTTP/1.1\r\nContent-Length: 5\r\n\r\nhe"));
+            var slowResponse = ReadUntilClosedAsync(slow.GetStream());
+
+            // Act
+            var fastResponse = await ExchangeAsync("POST /cmd HTTP/1.1\r\nContent-Length: 0\r\n\r\n", port);
+            server.Sync(snapshot => snapshot.SetResponse(HttpMethod.Post, "/cmd", HttpServerResponse.Json("{\"Version\":2}")));
+            await slow.GetStream().WriteAsync(Encoding.ASCII.GetBytes("llo"));
+
+            // Assert — each answered from the responses published when its own request was complete
+            StringAssert.EndsWith(fastResponse, "{\"Version\":1}");
+            StringAssert.EndsWith(await slowResponse.WaitAsync(Timeout), "{\"Version\":2}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-017.10")]
+        public async Task AnswerServiceUnavailableToConnectionPastLimit()
+        {
+            // Arrange — two silent clients fill a limit of two; connections are accepted in the order they arrive, so both
+            // are being served when the third is accepted
+            var port = FreePort();
+            using var server = Compose(TimeSpan.FromSeconds(60), 2);
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.IsEnabled = true;
+            using var first = new TcpClient();
+            using var second = new TcpClient();
+            using var third = new TcpClient();
+            await first.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+            await second.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+
+            // Act
+            await third.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+            var response = await ReadUntilClosedAsync(third.GetStream()).WaitAsync(Timeout);
+
+            // Assert
+            Assert.AreEqual("HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", response);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.10")]
+        public async Task StopListeningWhileEnabledWhenAcceptFailsUnexpectedly()
+        {
+            // Arrange — the first accept fails in a way the loop does not expect; every later one is the listener's own
+            var port = FreePort();
+            var accepts = 0;
+            var transport = new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance,
+                                                       TcpHttpServerTransport.DefaultReadBound,
+                                                       TcpHttpServerTransport.DefaultConnectionLimit,
+                                                       listener => Interlocked.Increment(ref accepts) == 1 ?
+                                                                       Task.FromException<TcpClient>(new InvalidOperationException("accept failed")) :
+                                                                       listener.AcceptTcpClientAsync());
+            using var server = new LogicBlockHttpServer(transport, TimeProvider.System, NullLogger<LogicBlockHttpServer>.Instance);
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+
+            // Act
+            server.IsEnabled = true;
+            var stoppedListening = SpinWait.SpinUntil(() => !server.IsListening, Timeout);
+            var enabledAfterFailure = server.IsEnabled;
+            server.IsEnabled = false;
+            server.IsEnabled = true;
+
+            // Assert — the block sees the failure, and cycling the server listens again
+            Assert.IsTrue(stoppedListening, "The server still reported listening after its accept loop failed.");
+            Assert.IsTrue(enabledAfterFailure);
+            StringAssert.StartsWith(await ExchangeAsync("GET /a HTTP/1.1\r\n\r\n", port), "HTTP/1.1 200 OK\r\n");
         }
 
         [TestMethod]
@@ -350,9 +537,12 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             Assert.IsTrue(_sut.IsListening);
         }
 
-        private static LogicBlockHttpServer Compose(TimeSpan readBound)
+        private static LogicBlockHttpServer Compose(TimeSpan readBound, int connectionLimit = TcpHttpServerTransport.DefaultConnectionLimit)
         {
-            return new LogicBlockHttpServer(new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance, readBound),
+            return new LogicBlockHttpServer(new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance,
+                                                                       readBound,
+                                                                       connectionLimit,
+                                                                       listener => listener.AcceptTcpClientAsync()),
                                             TimeProvider.System,
                                             NullLogger<LogicBlockHttpServer>.Instance);
         }
@@ -363,6 +553,12 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             const string prefix = "GET /a HTTP/1.1\r\nX-Padding: ";
 
             return prefix + new string('p', length - prefix.Length) + "\r\n\r\n";
+        }
+
+        /// <summary>Whether the server has closed or reset <paramref name="client" />'s connection, with nothing left unread.</summary>
+        private static bool IsClosedByPeer(TcpClient client)
+        {
+            return client.Client.Poll(0, SelectMode.SelectRead) && client.Client.Available == 0;
         }
 
         private static int FreePort()
@@ -390,10 +586,10 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             return Encoding.ASCII.GetString(received.ToArray());
         }
 
-        private async Task<string> ExchangeAsync(string request)
+        private async Task<string> ExchangeAsync(string request, int? port = null)
         {
             using var client = new TcpClient();
-            await client.ConnectAsync(IPAddress.Loopback, _port).WaitAsync(Timeout);
+            await client.ConnectAsync(IPAddress.Loopback, port ?? _port).WaitAsync(Timeout);
             var stream = client.GetStream();
             await stream.WriteAsync(Encoding.ASCII.GetBytes(request)).AsTask().WaitAsync(Timeout);
 

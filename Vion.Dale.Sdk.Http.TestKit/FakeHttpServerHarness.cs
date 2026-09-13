@@ -26,7 +26,9 @@ namespace Vion.Dale.Sdk.Http.TestKit
     /// </summary>
     /// <remarks>
     ///     The client view carries a request straight to the server, so what the socket transport decides on its own — the
-    ///     framing, the size caps, a malformed request, closing the connection, the read bound — is not exercised through it.
+    ///     framing, a <c>HEAD</c> response's missing body, the size caps, a malformed request, closing the connection, the read
+    ///     bound, the connection limit, a response cut short — is not exercised through it: every request it sends is answered
+    ///     and recorded. The server's own lifecycle is: a disposed server refuses to be enabled here exactly as on a gateway.
     /// </remarks>
     [PublicApi]
     public sealed class FakeHttpServerHarness : IDisposable
@@ -121,6 +123,8 @@ namespace Vion.Dale.Sdk.Http.TestKit
         /// <param name="body">The request body as UTF-8 text, or <c>null</c> for none.</param>
         /// <param name="headers">The request headers, or <c>null</c> for none.</param>
         /// <returns>The server's answer.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="method" /> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="pathAndQuery" /> does not start with <c>/</c>.</exception>
         /// <exception cref="InvalidOperationException">Thrown when the server is not listening.</exception>
         public FakeHttpServerResponse Send(HttpMethod method, string pathAndQuery, string? body = null, IReadOnlyDictionary<string, string>? headers = null)
         {
@@ -134,14 +138,17 @@ namespace Vion.Dale.Sdk.Http.TestKit
                 throw new ArgumentException($"'{pathAndQuery}' is not a request target: a target starts with '/'.", nameof(pathAndQuery));
             }
 
-            var answer = _transport.Answer ?? throw new InvalidOperationException("The HTTP server is not listening: a block enables it before a client can reach it.");
+            var handler = _transport.Handler ?? throw new InvalidOperationException("The HTTP server is not listening: a block enables it before a client can reach it.");
             var queryStart = pathAndQuery.IndexOf('?');
             var exchange = new HttpServerExchange(method.Method,
                                                   queryStart < 0 ? pathAndQuery : pathAndQuery.Substring(0, queryStart),
                                                   queryStart < 0 ? string.Empty : pathAndQuery.Substring(queryStart + 1),
                                                   new Dictionary<string, string>(headers ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase),
                                                   body == null ? Array.Empty<byte>() : Encoding.UTF8.GetBytes(body));
-            var response = answer(exchange);
+            var response = handler.Answer(exchange);
+
+            // No wire can cut the response short, so every answer is delivered.
+            handler.Delivered(exchange);
 
             return new FakeHttpServerResponse(response.StatusCode,
                                               response.ContentType,
@@ -178,30 +185,30 @@ namespace Vion.Dale.Sdk.Http.TestKit
     }
 
     /// <summary>
-    ///     A transport with no wire: it holds the server's answer while listening, and the client view calls it directly.
+    ///     A transport with no wire: it holds the server while listening, and the client view hands it each request directly.
     /// </summary>
     internal sealed class InMemoryHttpServerTransport : IHttpServerTransport
     {
-        public Func<HttpServerExchange, HttpServerResponse>? Answer { get; private set; }
+        public IHttpServerExchangeHandler? Handler { get; private set; }
 
         public bool IsListening
         {
-            get => Answer != null;
+            get => Handler != null;
         }
 
-        public void Start(IPAddress listenAddress, int port, Func<HttpServerExchange, HttpServerResponse> answer)
+        public void Start(IPAddress listenAddress, int port, IHttpServerExchangeHandler handler)
         {
-            Answer = answer;
+            Handler = handler;
         }
 
         public void Stop()
         {
-            Answer = null;
+            Handler = null;
         }
 
         public void Dispose()
         {
-            Answer = null;
+            Handler = null;
         }
     }
 }
