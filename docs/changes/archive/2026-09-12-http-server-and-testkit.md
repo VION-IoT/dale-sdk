@@ -1238,3 +1238,18 @@ connections is not arrival order); `RefuseStatusOutsideHttpRange` → `RefuseSta
   and `AC-HTTP-015.9` states only the waiting case.
 - `TcpHttpServerTransport`'s refusal path for a connection past the limit swallows a failed write; a
   client too slow to take the 503 is not observable and states nothing.
+
+---
+
+## Scorecard (lane 3 — one classification amendment, one fix-up amendment, zero reverts)
+
+Values supplied by the coordinator's brief 2; the fix-up session's duration corrected from its commits.
+
+| Measure | Value |
+|---|---|
+| Gates (build/test/lint/trace/style/doc-comment/bom/self-tests/cleanup/CI) | green at `e78110b1`; re-run after merging `main` (`6f2e08eb`) — pasted in the pull request's Gates |
+| Completeness-critic misses | 11 (state-interaction 4, edge-value 5, consumer 2) + 3 hygiene; all carried, rows and criteria added in Amendment 1 |
+| Evidence errors found in review | 5: the page and row 22 claiming log growth was handled; `IHttpServerTransport.Stop`'s summary and the in-line stop comment promising a request finishes; `AC-HTTP-017.6`'s read-bound text; row 34's *Why* resting on a Modbus precedent that does not transfer; the pasted "five ×" count |
+| Mutation evidence | list complete; over-determined `AC-TKIT-014.5`, `AC-TKIT-015.1` stated; M47 survives as a reported window |
+| Operator corrections (table + PR) | 2, both row 2: port 80→8080 at the gate; all interfaces → loopback after the checks |
+| Cost | implementing session Opus·High (step 3 ≈ 23 min, implementation ≈ 67 min, one duplicated process from an `-AmendFile` resume); fix-up session Opus·High ≈ 2 h (brief 2026-09-13T08:30Z → push 10:31Z, the brief's ≈ 50 min corrected from the commit times); coordinator: 3 Opus Explore subagents (pre-dispatch brief check, completeness critic, adversarial review); amendments 2 (classification, fix-up); wall time 2026-09-12T19:13Z → 2026-09-13T10:34Z, most of it the overnight gate |
