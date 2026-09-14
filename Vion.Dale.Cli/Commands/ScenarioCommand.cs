@@ -26,6 +26,10 @@ namespace Vion.Dale.Cli.Commands
     /// </summary>
     public static class ScenarioCommand
     {
+        // Said wherever a verb finds no host on the port: a second host is not on 5000, and nothing here can
+        // find which port it walked to — the host printed it.
+        private const string WalkedPortHint = "A host started while its preferred port was taken serves on the next free one: pass the port it printed with --port.";
+
         public static Command Create()
         {
             var command = new Command("scenario", "Work with *.scenario.json files: run, validate, generate the editor schema, scaffold a C# test, open in the Player");
@@ -141,10 +145,6 @@ namespace Vion.Dale.Cli.Commands
         {
             return report.ToJsonString(JsonDefaults.Options);
         }
-
-        // Said wherever a verb finds no host on the port: a second host is not on 5000, and nothing here can
-        // find which port it walked to — the host printed it.
-        private const string WalkedPortHint = "A host started while its preferred port was taken serves on the next free one: pass the port it printed with --port.";
 
         private static Option<int> PortOption()
         {

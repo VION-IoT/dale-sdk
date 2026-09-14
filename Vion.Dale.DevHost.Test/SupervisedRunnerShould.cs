@@ -35,6 +35,7 @@ namespace Vion.Dale.DevHost.Test
             // A line naming either number instead of the bound one is the defect.
             var preferred = FreePort();
             using var holder = Hold(IPAddress.Loopback, preferred);
+
             // Below the preferred port, never inside the walk: consecutive ephemeral ports would hand it the very
             // port the walk lands on.
             var unrelated = preferred - 100;
@@ -623,9 +624,9 @@ namespace Vion.Dale.DevHost.Test
         // rather than by one port — still a filter, so a sibling suite's receipt for another port does not match.
         private static async Task<string> WaitForWalkedReceiptAsync(ConsoleCapture captured, string token, int preferred)
         {
+            var walkedPorts = Enumerable.Range(preferred + 1, 19).Select(p => $"\"port\":{p},").ToList();
             return await WaitForReceiptLineAsync(captured,
-                                                 line => line.Contains(token, StringComparison.Ordinal) &&
-                                                         Enumerable.Range(preferred + 1, 19).Any(p => line.Contains($"\"port\":{p},", StringComparison.Ordinal)));
+                                                 line => line.Contains(token, StringComparison.Ordinal) && walkedPorts.Any(p => line.Contains(p, StringComparison.Ordinal)));
         }
 
         private static async Task<string> WaitForReceiptAsync(ConsoleCapture captured, string token)

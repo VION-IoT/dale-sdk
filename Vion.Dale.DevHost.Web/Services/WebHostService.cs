@@ -27,6 +27,9 @@ namespace Vion.Dale.DevHost.Web.Services
     /// </summary>
     public class WebHostService : IHostedService
     {
+        // How far a host walks from its preferred port: the preferred port and the nineteen above it.
+        private const int PortWalk = 20;
+
         private readonly DevBlockCatalog _blockCatalog;
 
         private readonly DevHostBudgets _budgets;
@@ -43,9 +46,6 @@ namespace Vion.Dale.DevHost.Web.Services
         // the wire-type identity rule, which needs introspected blocks and so cannot live in the
         // host-independent DevTopologyLoader.Build.
         private readonly DevHostIntrospection _introspection;
-
-        // How far a host walks from its preferred port: the preferred port and the nineteen above it.
-        private const int PortWalk = 20;
 
         private WebApplication? _app;
 
@@ -115,6 +115,18 @@ namespace Vion.Dale.DevHost.Web.Services
             {
                 Console.WriteLine(scenario.Error is null ? $"  scenario {scenario.Id}: http://localhost:{binding.BoundPort}/#/scenario/{scenario.Id}" :
                                       $"  scenario {scenario.Id}: INVALID — {scenario.Error}");
+            }
+        }
+
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            if (_app != null)
+            {
+                // A scenario run must not keep driving a host that is being torn down (reset recycles
+                // the whole generation underneath it).
+                _app.Services.GetRequiredService<ScenarioRunRegistry>().Shutdown();
+                await _app.StopAsync(cancellationToken);
+                await _app.DisposeAsync();
             }
         }
 
@@ -190,22 +202,22 @@ namespace Vion.Dale.DevHost.Web.Services
             // require a loopback Host (DNS-rebinding guard) and, when a browser declares an Origin, a
             // loopback Origin. Headless local tools (curl, agents) send no Origin and pass.
             app.Use(async (context, next) =>
-                     {
-                         var method = context.Request.Method;
-                         var safe = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsOptions(method);
-                         if (!safe && !IsLocalRequest(context.Request))
-                         {
-                             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                             await context.Response.WriteAsJsonAsync(new
-                                                                     {
-                                                                         error =
-                                                                             "cross-origin mutation rejected — the DevHost accepts state changes from localhost pages and local headless tools only",
-                                                                     });
-                             return;
-                         }
+                    {
+                        var method = context.Request.Method;
+                        var safe = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsOptions(method);
+                        if (!safe && !IsLocalRequest(context.Request))
+                        {
+                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                            await context.Response.WriteAsJsonAsync(new
+                                                                    {
+                                                                        error =
+                                                                            "cross-origin mutation rejected — the DevHost accepts state changes from localhost pages and local headless tools only",
+                                                                    });
+                            return;
+                        }
 
-                         await next(context);
-                     });
+                        await next(context);
+                    });
 
             // Map endpoints
             app.MapControllers();
@@ -216,9 +228,9 @@ namespace Vion.Dale.DevHost.Web.Services
             var embeddedProvider = new EmbeddedFileProvider(assembly, "Vion.Dale.DevHost.Web.wwwroot");
 
             app.UseDefaultFiles(new DefaultFilesOptions
-                                 {
-                                     FileProvider = embeddedProvider,
-                                 });
+                                {
+                                    FileProvider = embeddedProvider,
+                                });
 
             // Dev host on localhost: correctness over caching. The no-build discipline rules out
             // content-hashed asset filenames, so every SPA file lives at a stable URL (/components.js, …).
@@ -231,42 +243,30 @@ namespace Vion.Dale.DevHost.Web.Services
             }
 
             app.UseStaticFiles(new StaticFileOptions
-                                {
-                                    FileProvider = embeddedProvider,
-                                    OnPrepareResponse = NoStaleSpaCache,
-                                });
+                               {
+                                   FileProvider = embeddedProvider,
+                                   OnPrepareResponse = NoStaleSpaCache,
+                               });
 
             // The API's own catch-all, registered BEFORE the SPA's so the more specific pattern wins: without
             // it, `{*path:nonfile}` matches /api/anything (no file extension, so the constraint does not
             // exclude it) and a mistyped route answers 200 text/html. A caller that checks the status code
             // then reports the host healthy, and one that parses JSON gets a parse error naming a `<`.
             app.MapFallback("/api/{**rest}",
-                             (HttpContext context) => Results.NotFound(new
-                                                                       {
-                                                                           error = $"no such route: {context.Request.Method} {context.Request.Path}",
-                                                                           reason = "unknownRoute",
-                                                                       }));
+                            (HttpContext context) => Results.NotFound(new
+                                                                      {
+                                                                          error = $"no such route: {context.Request.Method} {context.Request.Path}",
+                                                                          reason = "unknownRoute",
+                                                                      }));
 
             app.MapFallbackToFile("index.html",
-                                   new StaticFileOptions
-                                   {
-                                       FileProvider = embeddedProvider,
-                                       OnPrepareResponse = NoStaleSpaCache,
-                                   });
+                                  new StaticFileOptions
+                                  {
+                                      FileProvider = embeddedProvider,
+                                      OnPrepareResponse = NoStaleSpaCache,
+                                  });
 
             return app;
-        }
-
-        public async Task StopAsync(CancellationToken cancellationToken)
-        {
-            if (_app != null)
-            {
-                // A scenario run must not keep driving a host that is being torn down (reset recycles
-                // the whole generation underneath it).
-                _app.Services.GetRequiredService<ScenarioRunRegistry>().Shutdown();
-                await _app.StopAsync(cancellationToken);
-                await _app.DisposeAsync();
-            }
         }
 
         // Mutations must target a loopback Host and, when the browser declares one, come from a loopback
