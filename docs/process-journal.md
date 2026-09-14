@@ -72,3 +72,13 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · gate · PowerShell tool · A string Replace keyed on "`r`n" inserted nothing into an LF file and reported no error, so a using directive was missing until the build failed. (self)
 
 2026-09-14 · review · ActorSystem · The review found the forcing test missing its // Arrange marker, its comment reading as forcing the fixed code, the zero branch's reason parked on the timeout guard, the held actor never released, and block-lifecycle.md still saying both waits always arm a timeout. comment-conventions.md's claim rule should have prevented the last three. (self)
+
+2026-09-14 · review · scenario-in-flight-reads · The start-publication test released its held handler when start completed, so the handler cached the value before the read and the test passed against the pre-fix host 3 of 3; the release had to follow the read. testing-conventions.md § 11 caught it through the red run it asks for. (self)
+
+2026-09-14 · gate · dotnet test · Three test projects run in one background command were killed for low memory with no output written, so nothing said which had run; one project at a time completed. (self)
+
+2026-09-14 · review · scenario-in-flight-reads · The review found a 250 ms fallback a slow runner could let decide the red run, a start-failure half called untestable that the branch's own hold reaches, a warn-only test that checked no warning, and a count citing a scratchpad script. testing-conventions.md § 16 and review-checks.md P1/P5 should have prevented them. (self)
+
+2026-09-14 · review · process-journal · A 436-character entry was pushed and failed journal-lint on the pull request; the 400 limit is in the journal's header and a length count is one command, and /check prints journal-lint as SKIP, so nothing local ran it.
+
+2026-09-14 · review · scenario-in-flight-reads · The correction review found the barrier-failure test on a 500 ms budget the start acknowledgement had to beat, unable to redden a removed backstop, and a before/after test comment. testing-conventions.md § 16 and comment-conventions.md should have prevented them. (self)

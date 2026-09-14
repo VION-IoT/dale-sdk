@@ -17,4 +17,13 @@ namespace Vion.Dale.DevHost.Mocking
     public readonly record struct MockSetServicePropertyValue(IActorReference LogicBlock, SetServicePropertyValueRequest Request);
 
     public readonly record struct MockPublishAllStatesMessage;
+
+    /// <summary>
+    ///     Asks a value handler to answer once it has handled everything already queued for it. Start sends it
+    ///     after the start acknowledgement, so the answer means every value a block published while starting
+    ///     has been cached.
+    /// </summary>
+    internal readonly record struct StartPublicationsDrainedRequest;
+
+    internal readonly record struct StartPublicationsDrainedResponse;
 }

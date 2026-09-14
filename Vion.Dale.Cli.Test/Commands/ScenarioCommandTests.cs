@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Commands;
+using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli.Test.Commands
 {
@@ -98,6 +99,45 @@ namespace Vion.Dale.Cli.Test.Commands
             {
                 Directory.Delete(root, true);
             }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.11")]
+        public async Task ReportWarningAndExitZeroForScenarioThatOnlyWarns()
+        {
+            // Arrange — an expect right behind a drive, with nothing waiting on the member it reads.
+            var originalOut = Console.Out;
+            var standardOutput = new StringWriter();
+            var root = Path.Combine(Path.GetTempPath(), $"dale-warn-{Guid.NewGuid():N}");
+            var scenariosDir = Path.Combine(root, "scenarios");
+            Directory.CreateDirectory(scenariosDir);
+            File.WriteAllText(Path.Combine(scenariosDir, "drive.scenario.json"),
+                              """
+                              { "version": 1, "id": "drive", "topology": "elsewhere",
+                                "steps": [ { "serviceProviderSet": { "logicBlock": "B", "contract": "C" }, "value": true },
+                                           { "expect": { "property": "B.P", "equals": true } } ] }
+                              """);
+            var configPath = Path.Combine(root, "config.json");
+            File.WriteAllText(configPath, """{ "topologyName": "demo", "logicBlocks": [] }""");
+
+            // Act
+            int exit;
+            Console.SetOut(standardOutput);
+            try
+            {
+                exit = await Program.Main(new[] { "scenario", "validate", "--dir", scenariosDir, "--config", configPath, "--output", "json" });
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                DaleConsole.JsonMode = false;
+                Directory.Delete(root, true);
+            }
+
+            // Assert
+            Assert.AreEqual(0, exit);
+            var warnings = JsonNode.Parse(standardOutput.ToString())!["files"]![0]!["warnings"]!.AsArray();
+            StringAssert.StartsWith(warnings.Single()!.GetValue<string>(), "steps[1]: expect reads B.P right after the drive at steps[0]");
         }
 
         [TestMethod]

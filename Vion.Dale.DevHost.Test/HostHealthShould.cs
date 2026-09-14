@@ -1,8 +1,12 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Mocking;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Messages;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -94,6 +98,62 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.10")]
+        public async Task ReadInitialStateOnceStartReturns()
+        {
+            // Arrange — the property handler is held on the block's start publication, so the value is still
+            // queued when the block acknowledges start. The hold ends once the read below is taken, or after a
+            // fallback that a start which waits for the handler always reaches. A start that does not wait
+            // returns while the value is held, so its read misses unless the awaits before the read outlast the
+            // fallback.
+            var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter", TimeSpan.FromSeconds(2));
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<TestDependencyInjection>()
+                                                 .WithConfiguration(configuration)
+                                                 .ConfigureServices(services => services.AddSingleton<IActorMessageObserver>(hold))
+                                                 .Build();
+
+            // Act
+            var start = host.StartAsync();
+            Assert.IsTrue(await hold.Entered.WaitAsync(TimeSpan.FromSeconds(20)), "the start publication must reach the handler and be held there");
+            await start;
+            var value = host.Control.GetProperty("counter", "Counter");
+            hold.ReadTaken.TrySetResult();
+
+            // Assert
+            Assert.IsNotNull(value, "a read right after start must see the value the block published while starting, not a cache miss");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.4")]
+        public async Task FailStartWhenStartPublicationsAreNotHandledWithinRealTimeBudget()
+        {
+            /* Arrange — the property handler is held past the start budget, so it cannot answer for the values the
+               block published while starting. The same budget bounds the start acknowledgement, which has to
+               arrive within it first; a block with no start hook acknowledges in milliseconds, so the budget is
+               the margin a loaded runner gets. The host runs on the real clock because a hold on a stepped host
+               blocks the one serial dispatcher before the acknowledgement is handled, and the start then fails on
+               the acknowledgement instead. On the real clock the barrier's own timeout is the same span, so this
+               test cannot tell the real-time backstop from it. */
+            var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter", TimeSpan.FromSeconds(60));
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<TestDependencyInjection>()
+                                                 .WithConfiguration(configuration)
+                                                 .WithSafetyBudgets(new DevHostBudgets { StartAcknowledgement = TimeSpan.FromSeconds(3) })
+                                                 .ConfigureServices(services => services.AddSingleton<IActorMessageObserver>(hold))
+                                                 .Build();
+
+            // Act
+            var refusal = await Assert.ThrowsExactlyAsync<TimeoutException>(() => host.StartAsync().WaitAsync(TimeSpan.FromSeconds(60)));
+            hold.ReadTaken.TrySetResult();
+
+            // Assert
+            StringAssert.Contains(refusal.Message, "published while starting");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CTRL-002.5")]
         public async Task RefuseSecondStartOfOneHost()
         {
@@ -143,6 +203,49 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsLessThan(260, failures.Count, "the recorded failures must be bounded");
             StringAssert.Contains(failures[^1].Error, "failure 259", "the newest failure is kept");
             Assert.IsFalse(failures.Any(f => f.Error.Contains("failure 0", StringComparison.Ordinal)), "the oldest is what is dropped");
+        }
+
+        /// <summary>
+        ///     Holds one handler before it handles a block's publication of one property, until the test has taken
+        ///     its read or the fallback passes. The observer is called before dispatch, so the value is not cached while
+        ///     held, and a start that waits for the handler returns only after the fallback has released it.
+        /// </summary>
+        private sealed class StartPublicationHold : IActorMessageObserver
+        {
+            private readonly TimeSpan _fallback;
+
+            private readonly string _handlerName;
+
+            private readonly string _propertyIdentifier;
+
+            private int _held;
+
+            public SemaphoreSlim Entered { get; } = new(0);
+
+            public TaskCompletionSource ReadTaken { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public StartPublicationHold(string handlerName, string propertyIdentifier, TimeSpan fallback)
+            {
+                _fallback = fallback;
+                _handlerName = handlerName;
+                _propertyIdentifier = propertyIdentifier;
+            }
+
+            public void OnReceived(string actorName, object message)
+            {
+                if (actorName != _handlerName || message is not ServicePropertyValueChanged changed || changed.PropertyIdentifier != _propertyIdentifier ||
+                    Interlocked.Exchange(ref _held, 1) == 1)
+                {
+                    return;
+                }
+
+                Entered.Release();
+                ReadTaken.Task.Wait(_fallback);
+            }
+
+            public void OnHandled(string actorName, object message, TimeSpan elapsed, Exception? exception)
+            {
+            }
         }
     }
 }

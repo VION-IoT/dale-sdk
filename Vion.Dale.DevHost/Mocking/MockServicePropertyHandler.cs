@@ -64,6 +64,10 @@ namespace Vion.Dale.DevHost.Mocking
                     PublishAllStates();
                     break;
 
+                case StartPublicationsDrainedRequest:
+                    actorContext.RespondToSender(new StartPublicationsDrainedResponse());
+                    break;
+
                 default:
                     _logger.LogDebug("Received message: {MessageType}", message.GetType().Name);
                     break;

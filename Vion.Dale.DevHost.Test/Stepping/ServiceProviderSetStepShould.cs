@@ -143,12 +143,15 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                                   { "serviceProviderExpect": { "logicBlock": "io", "contract": "ActiveOutput", "equals": true } },
                                                   { "serviceProviderSet": { "logicBlock": "io", "contract": "ActiveOutput" }, "value": true },
                                                   { "waitUntil": { "property": "io.ConfirmedActive", "equals": true }, "timeoutSeconds": 5 },
+                                                  { "settle": { "until": ["io.ConfirmationMismatch"] } },
                                                   { "expect": { "property": "io.ConfirmationMismatch", "equals": false } },
                                                   { "serviceProviderSet": { "logicBlock": "io", "contract": "EchoOutput" }, "value": 3.3 },
                                                   { "waitUntil": { "property": "io.ConfirmedEcho", "equals": 3.3, "tolerance": 0.001 }, "timeoutSeconds": 5 },
+                                                  { "settle": { "until": ["io.ConfirmationMismatch"] } },
                                                   { "expect": { "property": "io.ConfirmationMismatch", "equals": false } },
                                                   { "serviceProviderSet": { "logicBlock": "io", "contract": "ActiveOutput" }, "value": false },
                                                   { "waitUntil": { "property": "io.ConfirmationMismatch", "equals": true }, "timeoutSeconds": 5 },
+                                                  { "waitUntil": { "property": "io.ConfirmedActive", "equals": false }, "timeoutSeconds": 5 },
                                                   { "expect": { "property": "io.ConfirmedActive", "equals": false } },
                                                   { "serviceProviderExpect": { "logicBlock": "io", "contract": "ActiveOutput", "equals": true } }
                                                 ]
@@ -166,7 +169,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // The last step is the separation guard: a confirmation is an INBOUND and must not touch the output
             // cache. serviceProviderExpect still reads what the BLOCK commanded (true), not the false the
             // provider last confirmed — if the two ever shared a slot, that step fails and the run is red.
-            Assert.AreEqual("== true", report.Steps[14].Argument);
+            Assert.AreEqual("== true", report.Steps[17].Argument);
         }
 
         private static IDevHost BuildSteppedIoHost()

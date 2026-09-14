@@ -266,7 +266,7 @@ namespace Vion.Dale.Cli.Commands
                                        var fileName = Path.GetFileName(path);
                                        var outcome = ScenarioFileChecks.Validate(fileName, File.ReadAllText(path), config);
                                        failed |= outcome.Errors.Count > 0;
-                                       results.Add(new { file = fileName, skipped = outcome.SkippedForTopology, errors = outcome.Errors });
+                                       results.Add(new { file = fileName, skipped = outcome.SkippedForTopology, errors = outcome.Errors, warnings = outcome.Warnings });
 
                                        if (!DaleConsole.JsonMode)
                                        {
@@ -278,10 +278,18 @@ namespace Vion.Dale.Cli.Commands
                                                    DaleConsole.Info($"    ✗ {error}");
                                                }
                                            }
+                                           else if (outcome.SkippedForTopology is not null)
+                                           {
+                                               DaleConsole.Info($"  - {fileName} (topology '{outcome.SkippedForTopology}' is not the exported one — paths not checked)");
+                                           }
                                            else
                                            {
-                                               DaleConsole.Info(outcome.SkippedForTopology is null ? $"  ✓ {fileName}" :
-                                                                    $"  - {fileName} (topology '{outcome.SkippedForTopology}' is not the exported one — paths not checked)");
+                                               DaleConsole.Info(outcome.Warnings.Count == 0 ? $"  ✓ {fileName}" : $"  ! {fileName}");
+                                           }
+
+                                           foreach (var warning in outcome.Warnings)
+                                           {
+                                               DaleConsole.Info($"    ! {warning}");
                                            }
                                        }
                                    }

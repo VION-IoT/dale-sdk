@@ -32,6 +32,9 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                                   { "serviceProviderSet": { "logicBlock": "grid", "contract": "Demand" },
                                                     "value": { "valid": true, "scope": "PerPhase", "limits": { "activePowerW": 1500, "reactivePowerVar": 200 } } },
                                                   { "waitUntil": { "property": "grid.DemandValid", "equals": true }, "timeoutSeconds": 5 },
+                                                  { "waitUntil": { "property": "grid.Scope", "equals": "PerPhase" }, "timeoutSeconds": 5 },
+                                                  { "waitUntil": { "property": "grid.ActivePowerW", "equals": 1500, "tolerance": 0.01 }, "timeoutSeconds": 5 },
+                                                  { "waitUntil": { "property": "grid.ReactivePowerVar", "equals": 200, "tolerance": 0.01 }, "timeoutSeconds": 5 },
                                                   { "expect": { "property": "grid.Scope", "equals": "PerPhase" } },
                                                   { "expect": { "property": "grid.ActivePowerW", "equals": 1500, "tolerance": 0.01 } },
                                                   { "expect": { "property": "grid.ReactivePowerVar", "equals": 200, "tolerance": 0.01 } }

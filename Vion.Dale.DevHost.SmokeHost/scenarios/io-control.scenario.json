@@ -10,6 +10,7 @@
     { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "EnableInput" }, "value": true, "label": "drive the digital input high" },
     { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "LevelInput" }, "value": 3.3, "label": "drive the analog input to 3.3" },
     { "waitUntil": { "property": "IoBlock.IsEnabled", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the digital input" },
+    { "waitUntil": { "property": "IoBlock.CurrentLevel", "equals": 3.3, "tolerance": 0.001 }, "timeoutSeconds": 5, "label": "wait until the block observes the analog input" },
     { "expect": { "property": "IoBlock.IsEnabled", "equals": true }, "label": "the digital input reached the block", "spec": "hal" },
     { "expect": { "property": "IoBlock.CurrentLevel", "equals": 3.3, "tolerance": 0.001 }, "label": "the analog input reached the block", "spec": "hal" },
     { "advance": { "seconds": 1 }, "label": "fire the [Timer(1)] so the block mirrors the inputs onto the outputs" },

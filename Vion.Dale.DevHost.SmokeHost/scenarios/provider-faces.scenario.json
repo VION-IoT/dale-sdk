@@ -9,6 +9,7 @@
   "steps": [
     { "serviceProviderSet": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider" }, "value": true, "label": "a digital output commands the simulated contactor closed" },
     { "waitUntil": { "property": "DeviceSimBlock.LastCommand", "equals": true }, "timeoutSeconds": 5, "label": "wait until the simulator observes the command" },
+    { "waitUntil": { "property": "DeviceSimBlock.Applied", "equals": true }, "timeoutSeconds": 5, "label": "wait until the simulator applies it" },
     { "expect": { "property": "DeviceSimBlock.Applied", "equals": true }, "label": "the simulated equipment applied it", "spec": "provider" },
     { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider", "equals": true }, "label": "the provider confirmed the value it applied", "spec": "provider" },
     { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "FeedbackProvider", "equals": true }, "label": "the auxiliary contact was driven closed", "spec": "provider" },
@@ -16,6 +17,7 @@
     { "waitUntil": { "property": "DeviceSimBlock.Applied", "equals": false }, "timeoutSeconds": 5, "label": "wait until the simulator releases" },
     { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider", "equals": false }, "label": "the confirmation follows the release", "spec": "provider" },
     { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "FeedbackProvider", "equals": false }, "label": "and so does the auxiliary contact", "spec": "provider" },
+    { "waitUntil": { "property": "DeviceSimBlock.ConfirmationCount", "equals": 2 }, "timeoutSeconds": 5, "label": "wait until the second confirmation is counted" },
     { "expect": { "property": "DeviceSimBlock.ConfirmationCount", "equals": 2 }, "label": "two commands, two confirmations", "spec": "provider" },
     { "serviceProviderSet": { "logicBlock": "DeviceSimBlock", "contract": "SetpointProvider" }, "value": 4.2, "label": "an analog output commands a setpoint — the same trio, the double twin" },
     { "waitUntil": { "property": "DeviceSimBlock.AppliedSetpoint", "equals": 4.2, "tolerance": 0.001 }, "timeoutSeconds": 5, "label": "wait until the simulator applies the setpoint" },
@@ -25,6 +27,7 @@
     { "waitUntil": { "property": "DeviceSimBlock.TakesUpCommands", "equals": false }, "timeoutSeconds": 5, "label": "wait until the knob is applied, so the next command lands on the changed behaviour" },
     { "serviceProviderSet": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider" }, "value": true, "label": "the output commands it closed again" },
     { "waitUntil": { "property": "DeviceSimBlock.LastCommand", "equals": true }, "timeoutSeconds": 5, "label": "wait until the simulator observes the command it will ignore" },
+    { "settle": { "until": ["DeviceSimBlock.Applied", "DeviceSimBlock.ConfirmationCount"] }, "label": "let the ignored command play out — a wait on either would pass on its unchanged value" },
     { "expect": { "property": "DeviceSimBlock.Applied", "equals": false }, "label": "non-take-up — the command arrived and was not applied", "spec": "provider" },
     { "expect": { "property": "DeviceSimBlock.ConfirmationCount", "equals": 2 }, "label": "and nothing was confirmed for it", "spec": "provider" },
     { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider", "equals": false }, "label": "the last confirmation still reads the released value", "spec": "provider" },

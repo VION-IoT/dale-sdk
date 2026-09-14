@@ -527,6 +527,7 @@ the validators mirror them. The command surface of both is [`cli.md`](cli.md)'s.
   reference to be required.
 - `AC-SCEN-015.10` (Ubiquitous): THE SYSTEM SHALL ship the generic topology schema to the
   command-line tool as the canonical file itself rather than a copy of it.
+- `AC-SCEN-015.11` (Event-driven): WHEN an `expect` reads a member after a `serviceProviderSet` with no `waitUntil` on that member, `settle` covering it or `advance` between them THE SYSTEM SHALL report a warning in the offline validator naming both steps, and SHALL not refuse the file for it.
 
 `AC-SCEN-015.4` is the enricher's half of `AC-SCEN-005.5`: the schema must not autocomplete a path the
 runner would refuse.
@@ -542,10 +543,21 @@ the file is proven to load.
 `AC-SCEN-015.8` is a mirror like the rest, of `AC-SCEN-014.3` rather than of `AC-SCEN-013.*`: the
 duplicate wire is refused when the topology is built, not when the file is parsed, so an author who
 wrote it twice meant two wires, has one, and learns that from the host today and from the validator
-now. `AC-SCEN-015.9` is the one rule the validator adds: the loader treats a schema reference as
-optional and this leaves that true, reporting its absence as a warning the caller can promote rather
-than a refusal — an author with no reference gets no editor check at all, which is worth saying
-without moving a rule a topology file's other readers also parse.
+now. `AC-SCEN-015.9` is one of the two rules the validators add rather than mirror: the loader treats
+a schema reference as optional and this leaves that true, reporting its absence as a warning the
+caller can promote rather than a refusal — an author with no reference gets no editor check at all,
+which is worth saying without moving a rule a topology file's other readers also parse.
+
+`AC-SCEN-015.11` is the other, and it is a warning because the runner is right to run the file: a
+drive completes before the block has seen the value (`AC-CTRL-009.5`) and an `expect` is a
+point-in-time read, so a read right behind a drive passes or fails by how fast the machine is. A wait
+counts only when it targets the member read — a `waitUntil` on it, a `settle` whose targets include it,
+or an `advance` — because a block may publish the member waited on before the one read. Paths compare as
+written, so two spellings of one member warn; the check reads no configuration and holds for a scenario
+whose topology is not the exported one. A read of a value the drive should leave unchanged is the case
+a `waitUntil` cannot fix, since the wait passes on the old value; a `settle` covering it is the remedy.
+On a stepped host a `settle` and an `advance` let every in-flight value land; on the real clock both
+are a window of time — a `settle` a few unchanged polls — so they narrow the race rather than close it.
 
 ## A scenario as a consumer's test
 

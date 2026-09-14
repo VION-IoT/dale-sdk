@@ -310,6 +310,77 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.11")]
+        [DataRow("""[ { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""", "Counter.Counter", "steps[1]", DisplayName = "no wait at all")]
+        [DataRow("""[ { "waitUntil": { "property": "Counter.CounterDoubled", "above": 1 } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""",
+                 "Counter.Counter",
+                 "steps[2]",
+                 DisplayName = "a wait on another member")]
+        [DataRow("""[ { "settle": { "until": [ "Counter.CounterDoubled" ] } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""",
+                 "Counter.Counter",
+                 "steps[2]",
+                 DisplayName = "a settle on another member")]
+        [DataRow("""[ { "waitUntil": { "property": "Counter.Counter", "above": 0 } }, { "expect": { "property": "Counter.Counter", "below": { "path": "DualPoint.PointA.Limit" } } } ]""",
+                 "DualPoint.PointA.Limit",
+                 "steps[2]",
+                 DisplayName = "a relational comparand nobody waited on")]
+        public void WarnWhenExpectReadsMemberNoWaitCoversAfterDrive(string stepsAfterDrive, string expectedRead, string expectedReadStep)
+        {
+            // Arrange
+            var steps = stepsAfterDrive.Insert(1, """ { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" }, "value": true }, """);
+
+            // Act
+            var outcome = ScenarioFileChecks.Validate("drive.scenario.json", $$"""{ "version": 1, "id": "drive", "topology": "demo", "steps": {{steps}} }""", Config);
+
+            // Assert
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+            Assert.AreEqual($"{expectedReadStep}: expect reads {expectedRead} right after the drive at steps[0], which completes before the block has seen the value — " +
+                            $"wait for it first with a waitUntil on {expectedRead}, a settle covering it, or an advance",
+                            outcome.Warnings.Single());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.11")]
+        [DataRow("""[ { "waitUntil": { "property": "Counter.Counter", "above": 0 } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""",
+                 DisplayName = "a waitUntil on the member")]
+        [DataRow("""[ { "settle": { "until": [ "Counter.Counter" ] } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""",
+                 DisplayName = "a settle naming the member")]
+        [DataRow("""[ { "settle": {} }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""", DisplayName = "a settle over a watch list holding the member")]
+        [DataRow("""[ { "advance": { "seconds": 1 } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""", DisplayName = "an advance")]
+        public void StayQuietWhenWaitCoversReadMemberAfterDrive(string stepsAfterDrive)
+        {
+            // Arrange
+            var steps = stepsAfterDrive.Insert(1, """ { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" }, "value": true }, """);
+
+            // Act
+            var outcome = ScenarioFileChecks.Validate("drive.scenario.json",
+                                                      $$"""{ "version": 1, "id": "drive", "topology": "demo", "watch": [ "Counter.Counter" ], "steps": {{steps}} }""",
+                                                      Config);
+
+            // Assert
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+            Assert.IsEmpty(outcome.Warnings, string.Join("; ", outcome.Warnings));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.11")]
+        public void WarnWhenExpectFollowsDriveStagedInSetup()
+        {
+            // Arrange
+            const string scenario = """
+                                    { "version": 1, "id": "staged", "topology": "demo",
+                                      "setup": [ { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" }, "value": true } ],
+                                      "steps": [ { "expect": { "property": "Counter.Counter", "equals": 1 } } ] }
+                                    """;
+
+            // Act
+            var outcome = ScenarioFileChecks.Validate("staged.scenario.json", scenario, Config);
+
+            // Assert
+            StringAssert.StartsWith(outcome.Warnings.Single(), "steps[0]: expect reads Counter.Counter right after the drive at setup[0]");
+        }
+
+        [TestMethod]
         public void RejectsMalformedSteps()
         {
             // Arrange / Act
