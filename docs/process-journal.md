@@ -112,3 +112,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · sdk-followups · The review found AGENTS.md saying the validator cannot see a sibling read after a drive, which it warns on after a serviceProviderSet; step (4) omitting waitUntil; and the path-case marker's docs silent on a path sharing its line. review-checks.md D2 should have prevented the first. (self)
 
 2026-09-14 · decision · publish.yml · A trial proposed a feature-branch push trigger so Linux CI runs before a PR opens; the operator dismissed it: vion-git:commit pushes per commit, so a run per commit for a failure seen once, and shared publish-nuget.yml:145-151 pushes packages on every non-pull_request event, so it would publish unreviewed branch builds.
+
+2026-09-14 · review · spec-process · The review found the archive rule still owing a map row from any post-archive fix, lane 2 included, after the edit scoped the map to rounds with a classified table; the clause is now scoped too. (self)

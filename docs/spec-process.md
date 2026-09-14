@@ -83,8 +83,8 @@ losing one), so a round that produced a classified behavior table — lane 3's s
 **consolidation map** in its change doc: row → criterion, or row → the line saying why it mints
 nothing; a row with neither is a blocker. A round with no classified rows, such as lane 2, owes no
 map. **A `park` row appears in the map by name and is never folded into a criterion**; a folded park
-is a lost ledger line, and one round wrote its ledger line late for exactly that. No criterion's subject is a test suite: a page states what a consumer
-observes, and test discipline is [`testing-conventions.md`](testing-conventions.md)'s.
+is a lost ledger line, and one round wrote its ledger line late for exactly that. No criterion's
+subject is a test suite: a page states what a consumer observes, and test discipline is [`testing-conventions.md`](testing-conventions.md)'s.
 
 An AC is **covered** when its id appears as a quoted string literal in a test artifact:
 
@@ -173,10 +173,11 @@ delta declares unreachable carries its `GAP: <reason>` marker **on the delta lin
 honours it there exactly as on a page.
 
 **The archive commit is the last commit that touches the page or the delta.** A fix that lands after
-it carries its criterion, its delta line and its map row in the same commit and re-runs the gate
-against a slug-renamed copy placed back under `docs/changes/` (the archived file cannot be archived
-twice without doubling its relative links) — or it waits for the next round. One change shipped a
-consumer-visible refusal in its last commit with none of the three, and the review found it by
+it carries its criterion, its delta line and, where the round owes a consolidation map, its map row
+in the same commit and re-runs the gate against a slug-renamed copy placed back under
+`docs/changes/` (the archived file cannot be archived twice without doubling its relative links) —
+or it waits for the next round. One change shipped a consumer-visible refusal in its last commit
+with none of the three, and the review found it by
 reading `git show --stat` of the head against the doc's own claim of a "second half".
 
 ## Lanes — how a change gets made
