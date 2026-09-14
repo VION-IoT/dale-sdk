@@ -77,12 +77,13 @@ label.
 behavior table over-produces rows on purpose, and the page states one criterion per **rule**, with
 the fields, tokens or sites the rule ranges over as its test's `[DataRow]`s — never one criterion per
 field. A family of schema mirrors folds into the rule they mirror; a doc-comment defect is a fix
-without a criterion; a behavior another page owns is cited there, never re-minted. Roughly half the
-classified rows become criteria (230 rows became 135 in one area without losing one), so a
-**consolidation map** — row → criterion, or row → the line saying why it mints nothing — goes in the
-change doc: a row with neither is a blocker. **A `park` row appears in the map by name and is never
-folded into a criterion**; a folded park is a lost ledger line, and one round wrote its ledger line
-late for exactly that. No criterion's subject is a test suite: a page states what a consumer
+without a criterion; a behavior another page owns is cited there, never re-minted. That holds in
+every lane. Roughly half the classified rows become criteria (230 rows became 135 in one area without
+losing one), so a round that produced a classified behavior table — lane 3's step 3 — owes a
+**consolidation map** in its change doc: row → criterion, or row → the line saying why it mints
+nothing; a row with neither is a blocker. A round with no classified rows, such as lane 2, owes no
+map. **A `park` row appears in the map by name and is never folded into a criterion**; a folded park
+is a lost ledger line, and one round wrote its ledger line late for exactly that. No criterion's subject is a test suite: a page states what a consumer
 observes, and test discipline is [`testing-conventions.md`](testing-conventions.md)'s.
 
 An AC is **covered** when its id appears as a quoted string literal in a test artifact:
