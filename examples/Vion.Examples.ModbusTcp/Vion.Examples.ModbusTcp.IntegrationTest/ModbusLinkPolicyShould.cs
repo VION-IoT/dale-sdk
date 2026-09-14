@@ -50,15 +50,18 @@ namespace Vion.Examples.ModbusTcp.IntegrationTest
 
             var report = await ScenarioRunner.RunAsync(id, host.Control, Path.Combine(exampleRoot, "scenarios"), cancellationToken: TestContext.Current.CancellationToken);
 
-            // The failing step's own detail is the diagnosis — "expected Link above 1, but was 1" — so put it
-            // in the assertion message rather than making the reader re-run the scenario to find out.
-            var failures = report.ValidationErrors.Concat(report.Setup
-                                                                .Concat(report.Steps)
-                                                                .Where(step => step.Status == ScenarioStepStatus.Failed)
-                                                                .Select(step => $"{step.Label ?? step.Target}: {step.Detail}"));
+            // The failing step's own detail is the diagnosis — "expected Link above 1, but was 1" — so it is the
+            // assertion message, whole, and it is checked before the run status, which would name no step. Assert.Empty
+            // would print the collection cut to its first fifty characters, which ends before the detail starts.
+            var failures = report.ValidationErrors
+                                 .Concat(report.Setup
+                                               .Concat(report.Steps)
+                                               .Where(step => step.Status == ScenarioStepStatus.Failed)
+                                               .Select(step => $"{step.Label ?? step.Target}: {step.Detail}"))
+                                 .ToList();
 
+            Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
             Assert.Equal(ScenarioRunStatus.Succeeded, report.Status);
-            Assert.Empty(failures);
         }
 
         /// <summary>

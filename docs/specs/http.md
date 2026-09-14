@@ -308,7 +308,7 @@ produces a fully populated response and a completely empty value, and nothing an
 
 There are two cures, both the author's. Configure
 `services.Configure<JsonSerializerOptions>(…)` — case-insensitive matching, or a naming policy — which
-`AC-HTTP-011.1` applies to every member. Or annotate the type, which is what the in-repo example does.
+`AC-HTTP-011.1` applies to every member. Or annotate the type, which is what `Vion.Examples.Energy`'s `OpenMeteoService` does.
 A block whose values are suspiciously zero should suspect this first.
 
 ## Lifetime and disposal
@@ -620,7 +620,7 @@ Stated because a consumer evaluating it will look for each, and finding nothing 
 learn it than reading it here.
 
 - **No retries, no backoff, no circuit breaker.** A failure is one callback; a block that wants
-  another attempt schedules it. The in-repo example's answer is a cache with a fifteen-minute life
+  another attempt schedules it. `Vion.Examples.Energy`'s `OpenMeteoService` answers with a cache with a fifteen-minute life
   rather than a retry.
 - **No link or connection diagnostics.** There is no HTTP analogue of the Modbus link and socket
   summaries: the transport is the platform's pooled handler and nothing surfaces its state.
