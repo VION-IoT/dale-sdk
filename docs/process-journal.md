@@ -97,6 +97,14 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-14 · review · process-journal · A codify stamp pushed an entry measured at 347 characters to 458, and journal-lint failed on the pull request again; /check printed journal-lint as SKIP, so nothing local ran it. (second ask) → codified: scripts/check.ps1
 
-2026-09-14 · gate · check.ps1 · check.ps1 -CiShape's path-case scan fails on main at packed-msbuild-lint.ps1:79, whose lowercase file names are compared against ToLowerInvariant() on purpose, so every -CiShape run is red for a script that is right. (self)
+2026-09-14 · gate · check.ps1 · check.ps1 -CiShape's path-case scan fails on main at packed-msbuild-lint.ps1:79, whose lowercase file names are compared against ToLowerInvariant() on purpose, so every -CiShape run is red for a script that is right. (self) → codified: scripts/check.ps1
 
 2026-09-14 · review · check.ps1 · The review found the journal-lint pin compared against the local v1, a major tag each release moves, a missing checkout still reporting check: OK, and the default checkout location untested; testing-conventions.md § 9 should have prevented the last. (self) → codified: scripts/check.ps1
+
+2026-09-14 · brief · sdk-followups · The brief assumed a free-running host refuses advance, so nothing could close a serviceProviderExpect race; AC-SCEN-011.4 runs it as a real-time wait, and the real gap was that no step can target a service-provider output. (self)
+
+2026-09-14 · brief · sdk-followups · The brief counted eight expects in modbus-healthy on members no wait names; six read fields of the Link and Connection structs an earlier waitUntil had already waited on, so two needed a wait. (self)
+
+2026-09-14 · gate · dotnet test · check.ps1 -Build -Test and then a solution dotnet test with -m:1 were each killed for low memory mid-run; running the test projects one command at a time completed. (second ask) (self)
+
+2026-09-14 · gate · cleanupcode · A doc comment line lengthened by one word was rewrapped with that word alone on the next line, mid-sentence; the paragraph had to be reflowed by hand before cleanup left it alone. (self)
