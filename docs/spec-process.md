@@ -207,8 +207,8 @@ would otherwise restate. Its front matter differs from lane 3's in two places:
 - `sections:` is `Deviations, Questions, Friction, Affects others, Gates, Review` — the plugin's
   four plus the two this repo owes. `Gates` is the pasted `/check` output
   ([`.claude/commands/check.md`](../.claude/commands/check.md)); `Review` is the round's findings
-  and what was done with each, the same text the PR body carries, in the shape
-  [`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 7 sets out. It stays six, not
+  and what was done with each; the accepted ones, with their reasons, are what the PR body's
+  `Reviewed at` line carries ([`.github/pull_request_template.md`](../.github/pull_request_template.md)). It stays six, not
   seven, for spec ids touched (operator, 2026-09-10): the PR template already carries a *Spec ids
   touched* section (`D14`), which is where a reader looks; a REPORT exists to hand work back to a
   coordinator, and ids ride `Deviations` there.
@@ -240,7 +240,7 @@ is not worth a grep, leave it out or mark it `[assumed]` and say what to check. 
 in from a subagent's summary** — most of what the lane-3 check catches is exactly that: an inventory
 subagent's "thirty-nine analyzers" and "two Moq files" reached briefs as facts and cost a second
 Opus subagent to undo, when the grep that refutes them takes seconds. The `[assumed]` half is the
-cheap half and it works: a task line asserting `/vion-code-review` needed a new scope marker was
+cheap half and it works: a task line asserting the review command needed a new scope marker was
 flagged rather than believed, and the scope turned out to exist already, so the command did not gain
 a keyword duplicating one it had.
 
@@ -248,18 +248,15 @@ a keyword duplicating one it had.
 
 The default, and most backlog items. No change doc: the PR carries the fix, its test proven red
 against the pre-fix code, and the edit to the touched spec page **in the same commit set** — a page
-edit riding a fix is not change narrative, it is the distill. Before the PR: `/cleanup` once and a
-**fresh-context read-only review subagent** (`/vion-code-review branch`, with the touched page as the
-spec), its findings applied or accepted, and the round written into the PR body. A fix that turns out non-local or design-bearing while you implement it **stops and says so**:
+edit riding a fix is not change narrative, it is the distill. The review round runs with the touched
+page as the spec (`/vion-git:pr <page>`). A fix that turns out non-local or design-bearing while you implement it **stops and says so**:
 it becomes lane 2, never a silent absorption. A "bug" that is really a feature band never rides a
 fix.
 
 ### Lane 2 — feature-sized
 
-New or reshaped specified behaviour. One change doc, one implementing session. Before the PR, the
-same round lane 1 runs: `/cleanup` once and a **fresh-context read-only review subagent**
-(`/vion-code-review branch`, with the change doc as the spec), its findings applied or accepted, and
-the round written into the PR body. **Two-phase self-fires:** when the kickoff leaves design points
+New or reshaped specified behaviour. One change doc, one implementing session. The review round runs
+with the change doc as the spec (`/vion-git:pr <change doc>`). **Two-phase self-fires:** when the kickoff leaves design points
 open, or the doc mints decisions beyond what the operator ratified, STOP after the change doc for
 ratification before writing code. Pre-classify every open point: (a) ratified — cite;
 (b) decide-and-document; (c) propose-and-wait.
@@ -286,7 +283,7 @@ front matter (`key`, `unit`, `sections`, `pr`, `branch`, `deps`, `steer`) — la
 launcher's permission model expects — and is a **pointer, not a restatement**: the change-doc path;
 "decisions and review resolutions are binding; contradictions go to Drift checkpoints, not silent
 divergence"; the PR shape; every open point pre-classified; house discipline (branch, tests cite ids,
-`/cleanup` once pre-PR, `/vion-code-review branch` before the PR); and a read-only note per
+`/cleanup` once pre-PR, `/vion-git:review branch` before the PR); and a read-only note per
 additional directory naming the **specific** files to look things up in.
 
 Scope — and test scope — is stated as **folders, projects and descriptor ranges the session
@@ -569,7 +566,7 @@ not move; a number carried from an earlier run is stale by default and a compose
 defect: `dotnet build` + `dotnet test` on the full solution, `scripts/spec-lint.ps1`,
 `scripts/spec-trace.ps1`, `scripts/test-style-lint.ps1`, `scripts/doc-comment-lint.ps1`,
 `scripts/pragma-reason-lint.ps1`, `scripts/bom-lint.ps1`, `scripts/packed-msbuild-lint.ps1`,
-`scripts/journal-lint.ps1`, `scripts/sweep-residue-lint.ps1`, `scripts/self-reference-lint.ps1`,
+`scripts/sweep-residue-lint.ps1`, `scripts/self-reference-lint.ps1`,
 `scripts/run-script-tests.ps1`, and
 `/cleanup` once. Where a fixture asserts a build-time literal, add a run under CI's shape
 ([`testing-conventions.md`](testing-conventions.md) § 8). Stryker.NET is
@@ -591,7 +588,7 @@ ends with `/vion-dispatch:report` and the `Stop` hook files the report under the
 After the REPORT and before any PR, the coordinator runs two fresh-context **Opus** subagents
 concurrently: a **completeness critic** (reads the area's code first, then the page and the table,
 and reports misses by the sweep that should have caught them) and an **adversarial review** of the
-branch diff (`/vion-code-review branch` with the change doc as the spec). Both read every cited
+branch diff (the appendix's prompt, with the change doc as the spec). Both read every cited
 criterion's text against the test that cites it, both start from the REPORT's self-check preamble,
 and both read the doc's Reviewer's questions for an `OUTCOME` left pending and its prose for a
 retired name a rename replaced (a `(→ …)` marker after a current name) — two shapes the session's own
@@ -624,8 +621,8 @@ implementing session producing amendment items done wrongly, with checkpoints th
 retiring at the REPORT costs one session's ramp-up and saves a further round. The coordinator closes
 the round with targeted reads of every item at its call site, and dispatches a further Opus check
 only when a targeted read finds a blocker. A further check is a **second round**, scoped
-`branch:<the REPORT's hash>` ([`vion-code-review.md`](../.claude/commands/vion-code-review.md) § 1a),
-so it reads what the fix-up session moved and not the round the amendment already dispositioned.
+`since:<the REPORT's hash>`, so it reads what the fix-up session moved and not the round the
+amendment already dispositioned.
 
 **The relay.** The **file** is the artifact, in both directions. A REPORT is filed by the `Stop` hook
 under the coordinator repo's `.claude/briefs/reports/`, and `/vion-dispatch:ingest` reads the latest
@@ -670,10 +667,9 @@ results comparable between rounds, and misses-per-sweep is what feeds the scorec
 
 **They stay here rather than becoming `.claude/commands/` files** (decided by `T-014`, the task that
 rewrote the review command; the closeout doc's reviewer's question 4 carries the reasoning). Three
-reasons, in the order that decided it. The adversarial review below is not a second prompt at all —
-the first instruction of its task is to read
-[`vion-code-review.md`](../.claude/commands/vion-code-review.md) and follow it exactly, so a command file for it would be a wrapper around a command, and a second shelf the review
-rubric could drift off. The completeness critic genuinely has no overlap, but its `<…>` parts are the
+reasons, in the order that decided it. The adversarial review below is not a second rubric at all —
+its first instruction is to review against [`review-checks.md`](review-checks.md) and the convention
+docs, so a command file for it would be a second shelf the rubric could drift off. The completeness critic genuinely has no overlap, but its `<…>` parts are the
 round's prose — the area's one-sentence definition, its edge values, its parity rule, the neighbouring
 pages — which a slash command's arguments cannot carry and a coordinator writes by hand either way.
 And `.claude/commands/` is the shelf for what the **operator types**; both of these are dispatched by
@@ -743,7 +739,9 @@ not edit anything; no git writes. You may run `dotnet test` on a single test pro
 repo's gate scripts (`pwsh -NoProfile -File scripts/<x>.ps1`); they are fast. Report findings
 only.
 
-Read C:\_gh\dale-sdk\.claude\commands\vion-code-review.md and follow it exactly, with:
+Review against C:\_gh\dale-sdk\CLAUDE.md, every convention doc its trigger table points at for the
+areas the diff touches, and C:\_gh\dale-sdk\docs\review-checks.md (its header before its checks),
+with:
 - Scope: branch — <branch> (checked out, committed and pushed at <hash>; N commits, M files).
 - Spec (statement of intent): <the change doc> (the classified behavior table, the consolidation
   map, the drift checkpoints, the test-to-mutation list, the demonstrated evidence),
@@ -754,7 +752,7 @@ Read C:\_gh\dale-sdk\.claude\commands\vion-code-review.md and follow it exactly,
 - The machine baseline was run by the implementing session and pasted in its REPORT: <the pasted
   numbers>. Spot-check cheaply rather than re-running everything.
 
-Review priorities beyond the command's D1–D10 and P1–P4:
+Review priorities beyond the checks in docs/review-checks.md:
 1. The fixes: minimal, correct, matching the classification, red-first per the mutation list?
    <one clause per fix row: what parity or narrowing it is, where the sibling site is, what the
    message must name, whether every site of the shape moved>.
@@ -788,9 +786,9 @@ Review priorities beyond the command's D1–D10 and P1–P4:
    ledger's new lines are parks with reasons and owners (a fixed row has no ledger line).
 
 Every finding states the mechanism you verified at the call site — the line that makes the failure
-happen, quoted — or is marked (inferred). Report per the command's format ([blocker] /
-[convention] / [judgment] / [nit], file:line, the concrete failure, the rule, D-number or
-P-number), ranked; then a "Clean" list of what you verified. Under 1000 words. Your final message
+happen, quoted — or is marked (inferred). Report each finding as [blocker] / [convention] /
+[judgment] / [nit], with file:line, the concrete failure, and the rule or the check's number and
+name from docs/review-checks.md, ranked; then a "Clean" list of what you verified. Under 1000 words. Your final message
 is the review report only.
 ```
 
@@ -817,7 +815,7 @@ is the review report only.
 | `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids; an id-sequence hole (a leaf missing below its umbrella's highest) that no change doc records with a `REMOVED <id> ->` delta line — prose naming the id is not that record, and neither is the `ADDED` line that minted it |
 | `scripts/bom-lint.ps1` | `spec-gates.yml` + on demand | a `.cs`, `.md`, `.js`, `.mjs`, `.cjs`, `.json`, `.yml`, `.yaml`, `.html`, `.css`, `.targets` or `.props` file carrying a UTF-8 byte-order mark — no file of these kinds has one here, and a helper writing `utf-8-sig` once stamped 46 — **or a NUL byte**: one makes git call the whole file binary, so the line-ending policy never normalises it and every `grep` and reference sweep skips it (`wwwroot/components.js` carried one inside a comment, with 22 RFC citations behind it); **and zero files, or zero `.cs`, reaching the scan** — the anti-vacuous floors `pragma-reason-lint` also carries, the second because dropping `.cs` leaves every other kind still checked. A floor only catches a count reaching zero, so the report also prints the file, kind and `.cs` tallies: a scan narrowed to a pathspec that still returns C# clears both floors and shows only in the numbers. C# joined the kinds once its marked files were normalised; `.csproj`, the solution, `.DotSettings` and the `.scriban` generator template stay mixed and out of scope — an IDE rewrites the first three on its own terms, and the template's mark is stripped by the `StreamReader` that renders it |
 | `scripts/packed-msbuild-lint.ps1` | `spec-gates.yml` + on demand | an MSBuild file this repository packs under `build/`, `buildTransitive/` or `buildMultiTargeting/` is not well-formed XML, so a consumer's first build fails at import with `MSB4024` and nothing else. The founding shape is `--` inside an XML comment, which XML forbids and which both offending comments reached by beginning on a switch's literal name — `--exclude-development-only` in one pass, `--package-id` in the INTRO area pass, and the second shipped as 0.12.0. Nothing else here sees it: no project imports its own `build/*.targets` (the SDK's own projects use `ProjectReference` and `examples/` reference a published package), so the solution build, the suite, the style gate and `verify-packages` were all green with the file unloadable. What it scans is **derived**, not listed — every `Pack="true"` item whose `PackagePath` lands in one of those folders — so a file added there is covered the day it is packed. It reads the four spellings MSBuild honours, because a derivation matching only the spelling in the tree today covers today and nothing anyone adds tomorrow: `Include=` and `Update=` (the packed file is already a `None` item through the SDK's default glob, so `Update=` is how metadata is most naturally attached to it), metadata as attributes and as child elements (the form an IDE writes), a `PackagePath` carrying several `;`-separated targets (every one tested, not the first), and the item declared in `Directory.Build.props`/`.targets` as well as in a project — this repository already packs its shared readme from one. It also fails on an `Include` that resolves to no file, whether literal or a pattern matching nothing, and on a declaration file that is itself malformed. **Where it stops:** a project kind other than `.csproj`, an `Include` composed from an MSBuild property, and a `.nuspec` driving the pack — the first two are named in the report rather than assumed, and none exists here. **And three anti-vacuous floors**: zero project files, zero packed entries, or entries resolving to zero MSBuild files. The middle one is the one it needs — the whole scan hangs off one attribute pair, and a rename of either would leave the gate green forever. **What it gives up:** well-formed is necessary, not sufficient. A file that parses can still fail to import (an unknown element is `MSB4067`), and no file scan can see a package that restores but does not work. Only a pack-and-consume round trip proves that, and it belongs in a pre-public release regression suite rather than in `verify-packages`, which runs after both pushes and so can report a bad release without preventing one (operator, 2026-09-10) |
-| `scripts/journal-lint.ps1` | `spec-gates.yml` + on demand | a line under `docs/process-journal.md`'s `## Entries` that is not one dated entry in the header's shape and vocabulary, two entries sharing a line (an append that did not end the previous one), or an entry dated below the one above it |
+| `VION-IoT/shared-workflows/actions/journal-lint` | `spec-gates.yml`'s `journal-lint` job, CI only | an entry in `docs/process-journal.md`'s live window off the grammar its header states; the action owns the rules |
 | `scripts/sweep-residue-lint.ps1` | `spec-gates.yml` + on demand | prose — Markdown outside code, tables and headings; `//` and `///` comment text in C# and JavaScript — carrying what a scripted reference sweep leaves behind: an empty `()` on its own, two spaces inside a sentence, a Markdown line ending on `(`; frozen RFCs, the append-only logs, snapshots and vendored scripts are out of scope |
 | `scripts/self-reference-lint.ps1` | `spec-gates.yml` + on demand | a Markdown table cell that **is** `this PR`, `this commit`, `this branch` or `the current PR` once emphasis, backticks and surrounding punctuation are stripped — a pointer column filled with a phrase that only resolves before the merge, and is read after it. Cells only, so narrative saying "this PR touches `scripts/`" is untouched; whole-cell rather than a length bound, because a bound survived being doubled with every self-test still green and false-fired on a description cell. **What it gives up:** a cell that *mentions* the phrase inside a sentence is not caught, so `landed in this PR` passes — the founding shape, a bare `(this PR)` in an *Implementation state* row, does not. The append-only logs, `docs/changes/archive/` and the snapshots are out of scope, and the scan fails on reaching zero markdown files. Two rows shipped the founding shape one commit after the journal line recording it |
 | `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target, or an `ADDED`/`MODIFIED` line whose EARS text the target's declaring bullet no longer carries (backticks, brackets, type arguments, wrapping, a `GAP` tail and a trailing parenthetical set aside) |
@@ -829,7 +827,7 @@ is the review report only.
 `spec-gates.yml` runs on every PR (it is file-greps only — no build), because `publish.yml`
 ignores `docs/**` and a docs-only PR must still be gated.
 
-**Run the eleven with `pwsh -File scripts/check.ps1`, or the `/check` command.** It derives them
+**Run them with `pwsh -File scripts/check.ps1`, or the `/check` command.** It derives them
 from `spec-gates.yml` rather than repeating the table above — a gate added to the workflow with
 no local invocation fails `check.ps1` instead of quietly not running — and prints one pass/fail
 line per gate, carrying that gate's own summary line. `-Build` and `-Test` add the solution
@@ -839,7 +837,8 @@ dot-directories hidden, a scan for path literals in `scripts/*.ps1` whose casing
 the git index, and `-p:Version=0.0.0-ci.1` on the build and test.
 
 A gate that cannot run at the desk is reported **skipped** with the reason, and one that ran
-without part of itself is reported **partial** naming what did not run. Neither is a pass. The
-live case is `spec-lint`: without `origin/main` fetched its narrative rule would compare nothing
+without part of itself is reported **partial** naming what did not run. Neither is a pass.
+`journal-lint` is always skipped: its script lives in the shared-workflows repository. The partial
+case is `spec-lint`: without `origin/main` fetched its narrative rule would compare nothing
 and still report OK, so `check.ps1` runs the gate without `-Diff` and says so rather than either
 skipping eight working rules or reporting a vacuous green.

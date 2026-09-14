@@ -1,10 +1,10 @@
 name: Spec Gates
 # The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint, spec-trace,
 # test-style-lint, doc-comment-lint, pragma-reason-lint, bom-lint, packed-msbuild-lint,
-# journal-lint, sweep-residue-lint, self-reference-lint. Its own workflow — not a publish.yml
-# job — because publish.yml ignores docs/** on both triggers and a docs-only PR (a spec
-# page, a change doc) must still be gated. Pure file scans, no dotnet build: cheap
-# enough to run on every PR.
+# sweep-residue-lint, self-reference-lint, and the shared journal-lint action as its own job.
+# Its own workflow — not a publish.yml job — because publish.yml ignores docs/** on both triggers
+# and a docs-only PR (a spec page, a change doc) must still be gated. Pure file scans, no dotnet
+# build: cheap enough to run on every PR.
 
 on:
   push:
@@ -74,12 +74,6 @@ jobs:
         shell: pwsh
         run: ./scripts/packed-msbuild-lint.ps1
 
-      # One dated entry per line under "## Entries", in order: an append that does not end the
-      # previous line glues two entries together, and the retro counts entries by line.
-      - name: Journal lint
-        shell: pwsh
-        run: ./scripts/journal-lint.ps1
-
       # No sweep residue in prose: a scripted reference sweep leaves an orphaned `()`, a doubled
       # space or a line ending on `(` behind; one pass left five such sentences that no gate saw.
       - name: Sweep-residue lint
@@ -91,3 +85,13 @@ jobs:
       - name: Self-reference lint
         shell: pwsh
         run: ./scripts/self-reference-lint.ps1
+
+  journal-lint:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: VION-IoT/shared-workflows/actions/journal-lint@v1

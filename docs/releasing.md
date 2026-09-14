@@ -60,8 +60,7 @@ for p in vion.dale.sdk vion.dale.sdk.http vion.dale.sdk.digitalio vion.dale.sdk.
 done
 ```
 
-It is still a change like any other, so it goes on a branch and through a PR (working agreement
-rule 1) — never straight to `main`:
+It is still a change like any other, so it goes on a branch and through a PR — never straight to `main`:
 
 ```bash
 git switch -c chore/bump-refs-X.Y.Z
