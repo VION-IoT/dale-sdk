@@ -43,7 +43,8 @@
        Windows and false on the runner. It reads scripts/*.ps1 and nothing else — both sites
        that bit were there — and it cannot see a path a script composes rather than quotes.
        A line holding keys compared after ToLowerInvariant() carries `# path-case: folded`,
-       which releases its lower-case literals and nothing else.
+       which releases its lower-case literals and nothing else — so such a line holds only the
+       folded keys, never a path it hands to the file system.
     3. `-p:Version=0.0.0-ci.1`. CI passes Version as a global MSBuild property, which beats a
        project's own <Version>; a fixture pinning a build literal reads 0.0.0-ci.N there and
        its own value here. Applied to -Build and -Test.

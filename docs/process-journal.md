@@ -108,3 +108,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · gate · dotnet test · check.ps1 -Build -Test and then a solution dotnet test with -m:1 were each killed for low memory mid-run; running the test projects one command at a time completed. (second ask) (self)
 
 2026-09-14 · gate · cleanupcode · A doc comment line lengthened by one word was rewrapped with that word alone on the next line, mid-sentence; the paragraph had to be reflowed by hand before cleanup left it alone. (self)
+
+2026-09-14 · review · sdk-followups · The review found AGENTS.md saying the validator cannot see a sibling read after a drive, which it warns on after a serviceProviderSet; step (4) omitting waitUntil; and the path-case marker's docs silent on a path sharing its line. review-checks.md D2 should have prevented the first. (self)
