@@ -54,3 +54,11 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-13 · gate · Bash tool · C# edits passed through a Bash heredoc lost one backslash level, landing a literal tab and three real CRLFs in string literals, and Git Bash grep -c $'\r' reported zero for the file. (self)
 
 2026-09-13 · gate · TcpHttpServerTransportShould · Windows loopback took a 128 MiB response in full while the client read none of it, so a stop mid-write could not be held for a test and the test was rebuilt on a request waiting at the gate. (self)
+
+2026-09-14 · review · VION-212 · Both listener comments and a Windows-only probe claimed ExclusiveAddressUse=false maps to SO_REUSEADDR and refuses a second listener; two checks and Amendment 1 passed it, Linux CI failed AC-HTTP-015.5, and a Linux probe showed the option adds SO_REUSEPORT.
+
+2026-09-14 · review · VION-212 · The adversarial review's first judgment item questioned the ExclusiveAddressUse comment; the coordinator routed it to not carried, and that comment was the Linux defect Amendment 3 fixed.
+
+2026-09-14 · brief · DF-46 · RFC 0018 said FluentModbus's default bind hits EADDRINUSE over a lingering socket and left the option to a redeploy repro nothing shows ran; probes show a plain bind rebinds on Linux and Windows, and its planned regression test was port sharing. (self)
+
+2026-09-14 · gate · Linux mutation run · A mutation calling SetRawSocketOption did not compile under netstandard2.1, and the run's output filter dropped the build error, so the mutated project printed no test line at all. (self)
