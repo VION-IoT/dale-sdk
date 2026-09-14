@@ -1,0 +1,57 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "http-failures",
+  "title": "HTTP — every way a request can go wrong, told apart",
+  "description": "Drives the debug client through each outcome it distinguishes, against a real simulator on 127.0.0.1:18080: a route edited to 503 answers as an HTTP error with its status; a route edited to a status the server refuses stops being served while the simulator stays up, so the client meets a 404; a URL that is not absolute is refused before anything is sent; a port nothing listens on fails with no status; a simulator switched off fails the same way; and switching it back on brings the next request through with no action on the client. Real clock — the server holds a socket the host cannot step. Every value a drive changes is read with a wait on a value only that drive can produce, so no step reads a verdict left over from the one before, or a sibling property not yet published.",
+  "topology": "default",
+  "setup": [],
+  "steps": [
+    { "label": "the simulator is listening", "waitUntil": { "property": "SimServer.IsListening", "equals": true }, "timeoutSeconds": 20 },
+    { "label": "and its status route is published", "waitUntil": { "property": "SimServer.Route1.Status", "equals": "Serving GET /api/status → 200." }, "timeoutSeconds": 20 },
+
+    { "label": "http error — edit the status route to 503", "set": "SimServer.Route1.StatusCode", "value": 503 },
+    { "label": "http error — republished on the next tick", "waitUntil": { "property": "SimServer.Route1.Status", "equals": "Serving GET /api/status → 503." }, "timeoutSeconds": 20 },
+    { "label": "http error — send", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "http error — the client shows the status", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 503 }, "timeoutSeconds": 20 },
+    { "label": "http error — as an HTTP error, not a failure", "waitUntil": { "property": "DebugClient.Outcome", "equals": "HttpError" }, "timeoutSeconds": 20 },
+
+    { "label": "invalid route — a status the server refuses", "set": "SimServer.Route1.StatusCode", "value": 99 },
+    { "label": "invalid route — the slot says it is not served", "waitUntil": { "property": "SimServer.Route1.Status", "notEquals": "Serving GET /api/status → 503." }, "timeoutSeconds": 20 },
+    { "label": "invalid route — and the simulator stays up", "expect": { "property": "SimServer.IsListening", "equals": true } },
+    { "label": "invalid route — send", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "invalid route — nothing answers the path any more", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 404 }, "timeoutSeconds": 20 },
+    { "label": "invalid route — the simulator counts it unmatched", "waitUntil": { "property": "SimServer.UnmatchedRequestCount", "equals": 1 }, "timeoutSeconds": 20 },
+
+    { "label": "invalid url — not absolute", "set": "DebugClient.Url", "value": "/api/status" },
+    { "label": "invalid url — send", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "invalid url — refused before anything is sent", "waitUntil": { "property": "DebugClient.Outcome", "equals": "Invalid" }, "timeoutSeconds": 20 },
+    { "label": "invalid url — saying why", "waitUntil": { "property": "DebugClient.LastError", "equals": "'/api/status' is not an absolute http:// or https:// URL." }, "timeoutSeconds": 20 },
+
+    { "label": "refused — a port nothing listens on", "set": "DebugClient.Url", "value": "http://127.0.0.1:18081/api/status" },
+    { "label": "refused — send", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "refused — no answer arrives, so there is no status", "waitUntil": { "property": "DebugClient.Outcome", "equals": "Failed" }, "timeoutSeconds": 40 },
+
+    { "label": "restore — the route", "set": "SimServer.Route1.StatusCode", "value": 200 },
+    { "label": "restore — republished", "waitUntil": { "property": "SimServer.Route1.Status", "equals": "Serving GET /api/status → 200." }, "timeoutSeconds": 20 },
+    { "label": "restore — the URL", "set": "DebugClient.Url", "value": "http://127.0.0.1:18080/api/status" },
+    { "label": "restore — send", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "restore — succeeds", "waitUntil": { "property": "DebugClient.Outcome", "equals": "Succeeded" }, "timeoutSeconds": 20 },
+
+    { "label": "peer gone — switch the simulator off", "set": "SimServer.ServerEnabled", "value": false },
+    { "label": "peer gone — it stops listening", "waitUntil": { "property": "SimServer.IsListening", "equals": false }, "timeoutSeconds": 20 },
+    { "label": "peer gone — send", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "peer gone — the request fails", "waitUntil": { "property": "DebugClient.Outcome", "equals": "Failed" }, "timeoutSeconds": 40 },
+
+    { "label": "recovery — switch the simulator back on", "set": "SimServer.ServerEnabled", "value": true },
+    { "label": "recovery — it listens again", "waitUntil": { "property": "SimServer.IsListening", "equals": true }, "timeoutSeconds": 20 },
+    { "label": "recovery — send, with nothing changed on the client", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "recovery — the request comes through", "waitUntil": { "property": "DebugClient.Outcome", "equals": "Succeeded" }, "timeoutSeconds": 20 },
+    { "label": "recovery — with the restored route's status", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 200 }, "timeoutSeconds": 20 }
+  ],
+  "watch": ["DebugClient.Outcome", "DebugClient.StatusCode", "DebugClient.LastError", "SimServer.IsListening", "SimServer.Route1.Status", "SimServer.UnmatchedRequestCount"],
+  "judge": [
+    { "text": "An HTTP error and a failure read differently in the Status pill: the first means the server was reached and answered outside 2xx, the second that no answer arrived at all." },
+    { "text": "A timeout is deliberately not driven: the simulator answers every request it accepts, so nothing on this bench holds a request open. The unit tests drive it on a virtual clock." }
+  ]
+}
