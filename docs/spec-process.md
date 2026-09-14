@@ -844,8 +844,9 @@ the git index, and `-p:Version=0.0.0-ci.1` on the build and test.
 A gate that cannot run at the desk is reported **skipped** with the reason, and one that ran
 without part of itself is reported **partial** naming what did not run. Neither is a pass.
 `journal-lint`'s script lives in the shared-workflows repository, so `check.ps1` runs it from a
-checkout beside this one, or from `-SharedWorkflowsRoot`: skipped when there is none, partial when
-the checkout is not at the ref `spec-gates.yml` pins. The other partial
+checkout beside this one, or from `-SharedWorkflowsRoot`. With no checkout it **fails** instead of
+skipping, because a skipped journal check reads as a green run; it is partial when the checkout is
+not at the commit its origin's copy of the ref `spec-gates.yml` pins names. The other partial
 case is `spec-lint`: without `origin/main` fetched its narrative rule would compare nothing
 and still report OK, so `check.ps1` runs the gate without `-Diff` and says so rather than either
 skipping eight working rules or reporting a vacuous green.

@@ -15,8 +15,10 @@
   run. A gate that cannot run at all is reported SKIP with the reason rather than passing
   vacuously. A step using a VION-IoT/shared-workflows action is a gate too. Its script lives in
   that repository, so it runs from a local checkout of it — beside this repository unless
-  -SharedWorkflowsRoot names another — and is reported SKIP when there is none, and PARTIAL when
-  the checkout is not at the ref the workflow pins, because its rules may then differ from CI's.
+  -SharedWorkflowsRoot names another. With no checkout the gate FAILS rather than skipping: a
+  skipped gate reads as a green check, and a journal nothing checked has failed the PR run twice.
+  It is reported PARTIAL when the checkout is not at the commit the workflow's ref names on the
+  checkout's origin, or when that origin cannot be asked, because its rules may differ from CI's.
 
   Not covered here: the ReSharper style gate (`scripts/cleanup-code.ps1 -Changed`, or the
   /cleanup command) and the packed-artifact gate, whose input is the publish job's .nupkg
@@ -186,17 +188,25 @@ try {
         if ($invocation[$name].Shared) {
             $sharedScript = Join-Path $SharedWorkflowsRoot $invocation[$name].Shared
             if (-not (Test-Path -LiteralPath $sharedScript)) {
-                Add-Result $name 'SKIP' '-' "no VION-IoT/shared-workflows checkout at '$SharedWorkflowsRoot' - clone it there, or pass -SharedWorkflowsRoot, to run it" '' ''
+                Add-Result $name 'FAIL' '-' "no VION-IoT/shared-workflows checkout at '$SharedWorkflowsRoot' - clone it there, or pass -SharedWorkflowsRoot, to run it" '' ''
                 continue
             }
             # A checkout at another commit runs another version of the rules, so a pass there says
             # nothing certain about CI's verdict. It still runs: an older checkout catches most of
-            # what CI would, and a skip would catch nothing.
+            # what CI would, and a skip would catch nothing. The ref is resolved on the origin, not
+            # locally: the workflow pins a major tag that each release moves, and a fetch does not
+            # overwrite a tag the checkout already has, so a local lookup finds the old commit.
             $ref = $pinnedRef[$name]
             $head = git -C $SharedWorkflowsRoot rev-parse --verify --quiet 'HEAD^{commit}' 2>$null
-            $pinned = git -C $SharedWorkflowsRoot rev-parse --verify --quiet "$ref^{commit}" 2>$null
-            $caveat = if (-not $pinned) { "the checkout has no ref '$ref', which the workflow pins; run 'git -C $SharedWorkflowsRoot fetch --tags'" }
-                      elseif ($head -ne $pinned) { "the checkout is not at '$ref', which the workflow pins, so its rules may differ from CI's; run 'git -C $SharedWorkflowsRoot checkout $ref'" }
+            $remote = @(git -C $SharedWorkflowsRoot ls-remote origin "refs/tags/$ref" "refs/tags/$ref^{}" "refs/heads/$ref" 2>$null)
+            $reached = $LASTEXITCODE -eq 0
+            # An annotated tag lists its own object and the commit it peels to; the peeled line wins.
+            $lines = @($remote | Where-Object { $_ })
+            $peeled = $lines | Where-Object { $_ -match '\^\{\}$' } | Select-Object -First 1
+            $pinned = if ($peeled) { ($peeled -split '\s+')[0] } elseif ($lines.Count) { ($lines[0] -split '\s+')[0] } else { $null }
+            $caveat = if (-not $reached) { "the checkout's origin could not be asked what '$ref' names, so its rules may differ from CI's" }
+                      elseif (-not $pinned) { "the checkout's origin has no ref '$ref', which the workflow pins" }
+                      elseif ($head -ne $pinned) { "the checkout is not at '$ref' ($($pinned.Substring(0, 8))), which the workflow pins, so its rules may differ from CI's; run 'git -C $SharedWorkflowsRoot fetch origin' and check out $($pinned.Substring(0, 8))" }
                       else { '' }
             Invoke-Step $name 'pwsh' (@('-NoProfile', '-File', $sharedScript) + $invocation[$name].Args) $caveat
             continue
