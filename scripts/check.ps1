@@ -42,6 +42,8 @@
        tracks must match the index's casing exactly. `Test-Path 'Vion.Dale.SDK'` is true on
        Windows and false on the runner. It reads scripts/*.ps1 and nothing else — both sites
        that bit were there — and it cannot see a path a script composes rather than quotes.
+       A line holding keys compared after ToLowerInvariant() carries `# path-case: folded`,
+       which releases its lower-case literals and nothing else.
     3. `-p:Version=0.0.0-ci.1`. CI passes Version as a global MSBuild property, which beats a
        project's own <Version>; a fixture pinning a build literal reads 0.0.0-ci.N there and
        its own value here. Applied to -Build and -Test.
@@ -271,12 +273,18 @@ try {
                 }
                 if ($line -match '<#') { if ($line -notmatch '#>') { $inBlockComment = $true }; continue }
                 if ($line -match '^\s*#') { continue }
+                # A line marked `# path-case: folded` holds keys a script compares after folding
+                # its input to lower case, so the index's casing is not theirs. Only a literal that
+                # is already lower case is released: a folded comparison never matches any other,
+                # so a mixed-case mismatch there is still a defect on every OS.
+                $foldedLine = $line -match '#\s*path-case:\s*folded\b'
                 foreach ($m in [regex]::Matches($line, $literalRx)) {
                     $lit = $m.Groups[1].Value
                     $key = $lit.ToLowerInvariant()
                     $index = if ($lit -match '[/.]') { $folded } else { $foldedDirs }
                     if (-not $index.ContainsKey($key)) { continue }
                     $checked++
+                    if ($foldedLine -and $lit -ceq $key) { continue }
                     if (-not $canonical.Contains($lit)) {
                         $mismatches.Add("scripts/$($f.Name):$n  '$lit' is tracked as '$($index[$key])' - true on Windows, false on the runner")
                     }
