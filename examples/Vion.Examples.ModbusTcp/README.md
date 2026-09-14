@@ -14,7 +14,7 @@ It ships with a simulated server, so you can run the whole thing without any har
 
 2. **Run the DevHost:**
    - Press `F5` to run
-   - The browser should open automatically at `http://localhost:5000`
+   - The browser should open automatically at `http://localhost:5000` — or at the next free port, which the console prints, when another DevHost holds 5000
 
 The default topology starts two blocks: `SimServer` (binding `127.0.0.1:15020` — loopback only, so the
 simulated device is never reachable from the rest of the network) and `DebugClient` (already pointed at

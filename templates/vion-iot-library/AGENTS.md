@@ -23,7 +23,7 @@ Use the `dale` CLI instead of raw dotnet commands:
 ```bash
 dale build                # build the solution
 dale test                 # run tests
-dale dev                  # start the DevHost with web UI at localhost:5000
+dale dev                  # start the DevHost with web UI at localhost:5000 (or the next free port)
 dale dev --stepped        # … with a deterministic virtual clock (scenarios step exactly)
 dale dev --headless       # … without a browser; prints a JSON readiness line (for CI/agents)
 dale list                 # show logic blocks, contracts, properties, interfaces
@@ -191,7 +191,8 @@ Run the DevHost to test logic blocks locally with a web UI:
 
 ```bash
 dale dev
-# Starts DevHost, web UI at http://localhost:5000
+# Starts DevHost, web UI at http://localhost:5000 — or the next free port when another DevHost holds 5000;
+# the console and the readiness line name the port it bound. Pass that port to `dale scenario … --port`.
 ```
 
 Works from the solution directory, library project directory, or DevHost directory.
