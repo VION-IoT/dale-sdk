@@ -14,6 +14,7 @@ $projects = @(
     "examples\Vion.Examples.Energy\Vion.Examples.Energy\Vion.Examples.Energy.csproj",
     "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj",
     "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.csproj",
+    "examples\Vion.Examples.Http\Vion.Examples.Http\Vion.Examples.Http.csproj",
     "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj",
     "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj",
     "examples\Vion.Examples.Gating\Vion.Examples.Gating\Vion.Examples.Gating.csproj"
