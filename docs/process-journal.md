@@ -66,3 +66,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · VION-212 · The change doc said the Modbus provider is kept, with only its name raised as a question; the review asked that keeping or deleting it be surfaced too, since a plain provider binds as the library default. CLAUDE.md's "A decision nobody named is surfaced, not taken" should have prevented it.
 
 2026-09-14 · review · http.md · The page said Linux is where both binding clauses' tests can fail; the Windows probe shows ReuseAddress shares a held port there too, so only the rebind test is Linux-only. spec-process.md's probe-shape rule should have prevented it.
+
+2026-09-14 · review · scenario-in-flight-reads · The start-publication test released its held handler when start completed, so the handler cached the value before the read and the test passed against the pre-fix host 3 of 3; the release had to follow the read. testing-conventions.md § 11 caught it through the red run it asks for. (self)
+
+2026-09-14 · gate · dotnet test · Three test projects run in one background command were killed for low memory with no output written, so nothing said which had run; one project at a time completed. (self)
