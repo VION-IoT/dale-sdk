@@ -15,6 +15,9 @@ namespace Vion.Dale.Cli.Commands
         public string? SkippedForTopology { get; init; }
 
         public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
+
+        /// <summary>Findings that do not make the file invalid — a read that may run ahead of the value it reads.</summary>
+        public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
     }
 
     /// <summary>
@@ -123,7 +126,91 @@ namespace Vion.Dale.Cli.Commands
                    {
                        SkippedForTopology = skipResolution && errors.Count == 0 ? topology : null,
                        Errors = errors,
+                       Warnings = InFlightReadWarnings(scenario),
                    };
+        }
+
+        /* A drive completes before the block has seen the value, so an expect right behind one reads whatever
+           the block held before the drive landed — and passes or fails by how fast the machine is. Only a wait
+           on the member the expect reads closes that: a waitUntil on it, a settle whose targets include it (its
+           until, or the watch list when until is omitted), or an advance, which lets every in-flight value land.
+           A wait on another member does not, because the block can publish the waited member before the read
+           one. Paths are compared as written, so two spellings of one member count as two and warn. The check
+           reads no configuration, so it holds for a scenario whose topology is not the exported one. */
+        private static List<string> InFlightReadWarnings(JsonObject scenario)
+        {
+            var warnings = new List<string>();
+            var watch = (scenario["watch"] as JsonArray ?? []).Select(AsString).OfType<string>().ToList();
+            string? drive = null;
+            var waited = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var (sectionName, section) in new[] { ("setup", scenario["setup"]), ("steps", scenario["steps"]) })
+            {
+                if (section is not JsonArray steps)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < steps.Count; i++)
+                {
+                    if (steps[i] is not JsonObject step)
+                    {
+                        continue;
+                    }
+
+                    var where = $"{sectionName}[{i}]";
+                    if (step.ContainsKey("serviceProviderSet"))
+                    {
+                        drive = where;
+                        waited.Clear();
+                    }
+                    else if (step.ContainsKey("advance"))
+                    {
+                        drive = null;
+                    }
+                    else if (AsString((step["waitUntil"] as JsonObject)?["property"]) is { } waitedPath)
+                    {
+                        waited.Add(waitedPath);
+                    }
+                    else if (step["settle"] is JsonObject settle)
+                    {
+                        var targets = settle["until"] is JsonArray until ? until.Select(AsString).OfType<string>() : watch;
+                        waited.UnionWith(targets);
+                    }
+                    else if (drive is not null && step["expect"] is JsonObject expect)
+                    {
+                        foreach (var read in ExpectReads(expect).Where(read => !waited.Contains(read)))
+                        {
+                            warnings.Add($"{where}: expect reads {read} right after the drive at {drive}, which completes before the block has seen the value — " +
+                                         $"wait for it first with a waitUntil on {read}, a settle covering it, or an advance");
+                        }
+                    }
+                }
+            }
+
+            return warnings;
+        }
+
+        // The member an expect reads, and a relational comparand's member, which is read at the same moment.
+        private static IEnumerable<string> ExpectReads(JsonObject expect)
+        {
+            if (AsString(expect["property"]) is { } property)
+            {
+                yield return property;
+            }
+
+            foreach (var comparator in new[] { "above", "below", "equals", "notEquals" })
+            {
+                if (AsString((expect[comparator] as JsonObject)?["path"]) is { } comparand)
+                {
+                    yield return comparand;
+                }
+            }
+        }
+
+        private static string? AsString(JsonNode? node)
+        {
+            return node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
         }
 
         /// <summary>

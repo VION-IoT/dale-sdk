@@ -101,6 +101,36 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-015.11")]
+        public async Task ExitZeroForScenarioThatOnlyWarns()
+        {
+            // Arrange — an expect right behind a drive, with nothing waiting on the member it reads.
+            var root = Path.Combine(Path.GetTempPath(), $"dale-warn-{Guid.NewGuid():N}");
+            var scenariosDir = Path.Combine(root, "scenarios");
+            Directory.CreateDirectory(scenariosDir);
+            File.WriteAllText(Path.Combine(scenariosDir, "drive.scenario.json"),
+                              """
+                              { "version": 1, "id": "drive", "topology": "elsewhere",
+                                "steps": [ { "serviceProviderSet": { "logicBlock": "B", "contract": "C" }, "value": true },
+                                           { "expect": { "property": "B.P", "equals": true } } ] }
+                              """);
+            var configPath = Path.Combine(root, "config.json");
+            File.WriteAllText(configPath, """{ "topologyName": "demo", "logicBlocks": [] }""");
+            try
+            {
+                // Act
+                var exit = await Program.BuildRootCommand().Parse(new[] { "scenario", "validate", "--dir", scenariosDir, "--config", configPath }).InvokeAsync();
+
+                // Assert
+                Assert.AreEqual(0, exit);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CLI-010.12")]
         public async Task RefuseToOpenPlayerWhenNoHostAnswers()
         {

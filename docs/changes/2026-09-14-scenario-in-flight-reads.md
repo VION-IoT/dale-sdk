@@ -46,7 +46,8 @@ counts as a wait. No runner behaviour changes: `expect` stays a point-in-time re
   one failure vocabulary for the whole start, no new knob.
 - `D3` — For the warning, **a wait is one that targets the member the read reads**: a `waitUntil` on
   it, a `settle` whose targets include it, or an `advance` — a wait on another member is not, because
-  that is exactly `io-control`'s flake.
+  that is exactly `io-control`'s flake. Paths compare as written, so two spellings of one member warn;
+  the remedy is spelling them alike, and resolving would make the check depend on the export.
 - `D4` — The warning covers `expect` (its property and a relational comparand's path) and a drive in
   `setup` as well as in `steps`; it never fails a file.
 
