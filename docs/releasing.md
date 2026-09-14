@@ -80,9 +80,8 @@ tracks the SDK release here rather than being bumped separately — see
 only warns on one that does not, so a project whose tests wait for a package no release has carried yet
 compiles them only under `-p:DaleLocalSource=true`, and nothing reddens while it waits. The bump after
 that package's first release adds its `PackageReference` and deletes the exclusion by hand, as the
-project's own comment says. Today that is `Vion.Examples.Energy.Test`: its `Http/` tests wait for
-`Vion.Dale.Sdk.Http.TestKit`, and CI runs none of them until that bump. Before merging any bump, grep
-the examples for `Compile Remove` and check each exclusion's package against the feed.
+project's own comment says. Before merging any bump, grep the examples for `Compile Remove` and check
+each exclusion's package against the feed.
 
 Then check what the bump should *show*. A release that adds a capability is the moment to demonstrate
 it in an example — several releases in this repo have carried an example change in the same breath
