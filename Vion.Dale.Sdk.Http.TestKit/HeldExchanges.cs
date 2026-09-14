@@ -210,7 +210,8 @@ namespace Vion.Dale.Sdk.Http.TestKit
             }
 
             /// <summary>
-            ///     Waits for the exchange this answer or expiry released. The release completes the held response inline, and every await
+            ///     Waits for the exchange this answer or expiry released. The release completes the held response inline, and every
+            ///     await
             ///     between the handler and the block's dispatcher declines the caller's synchronization context, so the exchange
             ///     has normally finished before this is reached, and whatever remains runs on the thread pool. Nothing of it can
             ///     be waiting for the thread this call blocks, even where that thread owns the test's context; an await in the

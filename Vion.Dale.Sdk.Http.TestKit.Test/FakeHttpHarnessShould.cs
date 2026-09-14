@@ -346,7 +346,9 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
             // Assert
             Assert.IsTrue(returned, "The advance never returned: settling the expired exchange waited on a token callback that was still running.");
             Assert.IsNull(failure);
-            Assert.AreEqual(string.Join(",", settledPerRound.Select(_ => 1)), string.Join(",", settledPerRound), "one flush after each advance must find that round's timeout callback queued");
+            Assert.AreEqual(string.Join(",", settledPerRound.Select(_ => 1)),
+                            string.Join(",", settledPerRound),
+                            "one flush after each advance must find that round's timeout callback queued");
             Assert.IsTrue(outcomes.All(outcome => outcome is TimeoutException { Message: "Timed out after 5 seconds" }));
         }
 
