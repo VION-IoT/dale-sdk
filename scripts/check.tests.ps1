@@ -256,18 +256,54 @@ try {
     Write-File $workflow @('name: Spec Gates', 'jobs:', '  spec-gates:', '    steps:', '      - run: echo hi')
     Expect 2 'Case 12 (nothing derived)' @('the derivation is broken, not the repository')
 
-    # Case 13: a job using a shared-workflows action whose script lives only in that repository
-    # is a gate, reported SKIP with the reason and never run. The checkout step beside it is
-    # plumbing and mints no row.
+    # Case 13: a job using a shared-workflows action is a gate. With no checkout of that repository
+    # it is reported SKIP, naming where it looked, and never run. The checkout step beside it is
+    # plumbing and mints no row. The root is passed explicitly: the default, beside the fixture,
+    # is the system temp directory, where a real clone could be.
     $shared = @('name: Spec Gates', 'jobs:', '  spec-gates:', '    steps:')
     foreach ($n in $gates) { $shared += @("      - name: $n", "        run: ./scripts/$n.ps1") }
     $shared += @('  journal-lint:', '    steps:', '      - uses: actions/checkout@v4',
         '      - uses: VION-IoT/shared-workflows/actions/journal-lint@v1')
     Write-File $workflow $shared
-    Expect 0 'Case 13 (CI-only shared action)' @(
-        'check: 10 gate(s)', 'SKIP  journal-lint', 'CI only - its script lives in VION-IoT/shared-workflows',
-        'check: OK - 9 step(s) passed, 3 skipped')
-    if ($script:out -match 'checkout') { throw "Case 13 minted a gate from actions/checkout`n$script:out" }
+    $sharedRoot = "$tmp-shared-workflows"
+    Expect 0 'Case 13 (shared action, no checkout)' @(
+        'check: 10 gate(s)', 'SKIP  journal-lint', "no VION-IoT/shared-workflows checkout at '$sharedRoot'",
+        'check: OK - 9 step(s) passed, 3 skipped') @('-SharedWorkflowsRoot', $sharedRoot)
+    if ($script:out -match '(?m)^\s+\S+\s+checkout') { throw "Case 13 minted a gate from actions/checkout`n$script:out" }
+
+    # Case 13c: with a checkout at the pinned ref, the action's script runs with the journal's path
+    # under the repository root, and passes as a plain gate.
+    $journalLint = Join-Path $sharedRoot 'actions/journal-lint/journal-lint.ps1'
+    Write-File $journalLint @(
+        'param([string]$Path, [int]$MaxChars = 400)',
+        "Write-Host ('journal-lint: args Path=[' + `$Path + ']')",
+        "Write-Host 'journal-lint: OK - fixture'",
+        'exit 0')
+    git -C $sharedRoot init --quiet 2>&1 | Out-Null
+    git -C $sharedRoot config user.email 'check-tests@example.invalid' | Out-Null
+    git -C $sharedRoot config user.name 'check tests' | Out-Null
+    git -C $sharedRoot add -A 2>&1 | Out-Null
+    git -C $sharedRoot commit -m 'fixture' --quiet 2>&1 | Out-Null
+    git -C $sharedRoot tag v1 2>&1 | Out-Null
+    Expect 0 'Case 13c (shared action, checkout at the pinned ref)' @(
+        'PASS  journal-lint', 'journal-lint: OK - fixture', 'check: OK - 10 step(s) passed, 2 skipped') @('-SharedWorkflowsRoot', $sharedRoot)
+    if ($script:out -match 'PARTIAL') { throw "Case 13c is at the pinned ref, so nothing should run partially`n$script:out" }
+
+    # Case 13d: a red journal fails the check, and the script really received the repository's
+    # journal path - dropping the argument would lint the working directory's instead.
+    Write-File $journalLint @(
+        'param([string]$Path, [int]$MaxChars = 400)',
+        "Write-Host ('journal-lint: args Path=[' + `$Path + ']')",
+        'exit 1')
+    Expect 1 'Case 13d (shared action red)' @(
+        'FAIL  journal-lint', "journal-lint: args Path=[$(Join-Path $tmp 'docs/process-journal.md')]") @('-SharedWorkflowsRoot', $sharedRoot)
+
+    # Case 13e: a checkout that has moved past the pinned ref still runs, reported PARTIAL with the
+    # ref it should be at, because its rules may be newer or older than the ones CI applies.
+    git -C $sharedRoot commit --allow-empty -m 'past the tag' --quiet 2>&1 | Out-Null
+    Write-File $journalLint @('param([string]$Path, [int]$MaxChars = 400)', "Write-Host 'journal-lint: OK - fixture'", 'exit 0')
+    Expect 0 'Case 13e (shared action, checkout off the pinned ref)' @(
+        'PASS  journal-lint', "PARTIAL: the checkout is not at 'v1'", 'ran partially: journal-lint') @('-SharedWorkflowsRoot', $sharedRoot)
 
     # Case 13b: a shared action the invocation table does not know fails like an unknown script,
     # naming the action rather than a script path that does not exist.
@@ -280,4 +316,5 @@ try {
 }
 finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force "$tmp-shared-workflows" -ErrorAction SilentlyContinue
 }

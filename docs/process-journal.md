@@ -82,3 +82,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · process-journal · A 436-character entry was pushed and failed journal-lint on the pull request; the 400 limit is in the journal's header and a length count is one command, and /check prints journal-lint as SKIP, so nothing local ran it.
 
 2026-09-14 · review · scenario-in-flight-reads · The correction review found the barrier-failure test on a 500 ms budget the start acknowledgement had to beat, unable to redden a removed backstop, and a before/after test comment. testing-conventions.md § 16 and comment-conventions.md should have prevented them. (self)
+
+2026-09-14 · review · process-journal · A codify stamp pushed an entry measured at 347 characters to 458, and journal-lint failed on the pull request again; /check printed journal-lint as SKIP, so nothing local ran it. (second ask) → codified: scripts/check.ps1
+
+2026-09-14 · gate · check.ps1 · check.ps1 -CiShape's path-case scan fails on main at packed-msbuild-lint.ps1:79, whose lowercase file names are compared against ToLowerInvariant() on purpose, so every -CiShape run is red for a script that is right. (self)
