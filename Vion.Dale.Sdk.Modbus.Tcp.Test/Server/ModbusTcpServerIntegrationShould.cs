@@ -265,7 +265,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             var stopwatch = Stopwatch.StartNew();
             while (stopwatch.ElapsedMilliseconds < 5000)
             {
-                if (IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections().Any(connection => connection.LocalEndPoint.Port == port && connection.State == TcpState.TimeWait))
+                if (IPGlobalProperties.GetIPGlobalProperties()
+                                      .GetActiveTcpConnections()
+                                      .Any(connection => connection.LocalEndPoint.Port == port && connection.State == TcpState.TimeWait))
                 {
                     return true;
                 }

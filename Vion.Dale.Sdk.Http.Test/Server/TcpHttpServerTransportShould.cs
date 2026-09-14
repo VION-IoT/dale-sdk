@@ -652,7 +652,9 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             var deadline = DateTime.UtcNow + Timeout;
             while (DateTime.UtcNow < deadline)
             {
-                if (IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections().Any(connection => connection.LocalEndPoint.Port == port && connection.State == TcpState.TimeWait))
+                if (IPGlobalProperties.GetIPGlobalProperties()
+                                      .GetActiveTcpConnections()
+                                      .Any(connection => connection.LocalEndPoint.Port == port && connection.State == TcpState.TimeWait))
                 {
                     return true;
                 }
