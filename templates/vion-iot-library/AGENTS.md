@@ -248,9 +248,14 @@ committing a scenario and citing its **id** in the PR.
 behaviour needs; (2) pin every non-deterministic input (live data, wall clock, RNG) — or omit the block from
 the topology; (3) stage starting state with `setup` `set` steps (only writable `[ServiceProperty]`s — you
 can't write a read-only measuring point; reach accumulated state by driving inputs over `advance` steps);
-(4) drive + assert with `advance` / `settle` / `expect`; (5) run it, read the failure `detail`, adjust. Two
+(4) drive + assert with `advance` / `settle` / `expect`; (5) run it, read the failure `detail`, adjust. Three
 traps: a `settle` over a never-settling signal (a free-running counter, a clock-derived value) silently
-burns its budget — scope it with `until`; and **green ≠ correct physics** — the runner checks
+burns its budget — scope it with `until`; **a wait on one member does not make another readable** — a
+block publishes each member on its own, so on the real clock an `expect` right behind a `waitUntil` on a
+sibling can still see the sibling's old value: after a `set` or a drive, read every member it changes with
+its own `waitUntil` (the fields of one struct member arrive together, and `dale scenario validate` cannot
+see this case), and keep `expect` for a value the drive leaves alone, where a wait would pass on the old
+value anyway; and **green ≠ correct physics** — the runner checks
 behaviour-matches-assertion, not that the assertion encodes the right physics, so keep a plain-language
 `judge[]` item for first authoring.
 
