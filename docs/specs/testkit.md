@@ -470,8 +470,9 @@ bytes reaches the caller before the complaint that the server is not listening.
 - `AC-TKIT-014.6` (Ubiquitous): THE SYSTEM SHALL report how many requests are outstanding, and keep
   every request it recorded, answered or not, in the order issued.
 - `AC-TKIT-014.7` (Event-driven): WHEN an outstanding request's per-request timeout elapses on the
-  harness's clock THE SYSTEM SHALL fail it as the SDK fails an expired per-request bound, and stop
-  holding it.
+  harness's clock THE SYSTEM SHALL fail it as the SDK fails an expired per-request bound, stop
+  holding it, and return from the clock's callback only once the exchange has handed the failure to the
+  block's dispatcher, on a thread that owns the test's synchronization context as on any other.
 - `AC-TKIT-014.8` (Ubiquitous): THE SYSTEM SHALL measure a harness on a virtual clock nothing advances
   unless the caller supplies a clock, and SHALL refuse a null clock.
 - `AC-TKIT-014.9` (Event-driven): WHEN a harness is disposed with requests outstanding THE SYSTEM SHALL
@@ -502,6 +503,14 @@ the context expire a held request with the SDK's own `TimeoutException`. Without
 uses a virtual one of its own that nothing advances, so a held request never times out behind a test's
 back — the rule this page's § Time states for every kit, which the Modbus client harness's system-clock
 default is the exception to rather than the precedent for.
+
+`AC-TKIT-014.7`'s settling half is `AC-TKIT-014.5` for the failure the clock delivers. Without it an
+expiry cancels the held response and returns, and on a context that declines inline continuations the
+exchange finishes on the thread pool after the advance, so the flush behind it finds nothing and a
+consumer's timeout test has to poll. The harness therefore hands the SDK its clock wrapped, and waits for
+the expired exchanges once the clock's callback has returned. Waiting inside the token callback instead
+hangs on such a context: the exchange left on the thread pool still has to release its hold on the token
+whose callback is doing the waiting.
 
 One trap sits between this kit and the core context. The context fires timers when it sets its clock,
 and an advance sets the clock to its target only after dispatching the actions it reached

@@ -210,6 +210,20 @@ try {
     Write-File (Join-Path $scriptsDir 'reader.ps1') @("`$p = Join-Path `$r 'Plainly'", 'Write-Host $p')
     Expect 1 'Case 7c (bare directory name, wrong case)' @('FAIL  path-case', "'Plainly' is tracked as 'plainly'") @('-CiShape')
 
+    # Case 7d: a line marked `path-case: folded` holds keys a script compares after folding its
+    # input, as packed-msbuild-lint.ps1 does with Directory.Build.props - its lower-case literal passes.
+    Write-File (Join-Path $scriptsDir 'reader.ps1') @("`$names = @('vion.dale.sdk/foo.cs') # path-case: folded", 'Write-Host $names')
+    Expect 0 'Case 7d (folded key on a marked line)' @('PASS  path-case') @('-CiShape')
+
+    # Case 7e: the marker releases only a literal already in lower case. A folded comparison never
+    # matches a mixed-case key, so a wrong casing on a marked line is still a defect.
+    Write-File (Join-Path $scriptsDir 'reader.ps1') @("`$names = @('Vion.Dale.SDK/Foo.cs') # path-case: folded", 'Write-Host $names')
+    Expect 1 'Case 7e (mixed-case literal on a marked line)' @('FAIL  path-case', "'Vion.Dale.SDK/Foo.cs' is tracked as 'Vion.Dale.Sdk/Foo.cs'") @('-CiShape')
+
+    # Case 7f: and without the marker a lower-case literal is compared like any other.
+    Write-File (Join-Path $scriptsDir 'reader.ps1') @("`$names = @('vion.dale.sdk/foo.cs')", 'Write-Host $names')
+    Expect 1 'Case 7f (lower-case literal, unmarked)' @('FAIL  path-case', "'vion.dale.sdk/foo.cs' is tracked as 'Vion.Dale.Sdk/Foo.cs'") @('-CiShape')
+
     # Case 8: the same literal in the index's casing passes, and the count says how many
     # literals were actually compared.
     Write-File (Join-Path $scriptsDir 'reader.ps1') @("`$p = 'Vion.Dale.Sdk/Foo.cs'", 'Write-Host $p')
