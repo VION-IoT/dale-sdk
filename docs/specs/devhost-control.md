@@ -69,7 +69,7 @@ boot-dump-exit export path rests on — it never starts the host it exports.
   the start carrying the initializer's message and its cause.
 - `AC-CTRL-002.4` (Event-driven): WHEN not every block acknowledges start, or the values published
   while starting are not readable, THE SYSTEM SHALL fail the start within a real-time budget no clock
-  mode can stall.
+  mode can stall, naming the bound that elapsed.
 - `AC-CTRL-002.5` (Event-driven): WHEN a host that is already started is started again THE SYSTEM
   SHALL refuse the second start.
 - `AC-CTRL-002.6` (Event-driven): WHEN the configured port is already bound THE SYSTEM SHALL fail the
@@ -93,7 +93,9 @@ such a block.
 `AC-CTRL-002.4` is a real-time budget because the acknowledgement wait itself is virtual: on a stepped
 host nothing advances the clock during a boot, so a block that never answers would leave a due-time
 that never arrives. The block that does not answer is one whose start hook threw — which
-`AC-CTRL-003.*` is how a caller finds out about.
+`AC-CTRL-003.*` is how a caller finds out about. The acknowledgement therefore carries two bounds, its
+own timeout and the backstop, and on the real clock the shorter one elapses first; a refusal naming the
+other sends the reader to a budget that never ran out.
 
 `AC-CTRL-002.8` is `AC-CTRL-004.2`'s counterpart, and it exists for the same reason: message-sequence
 parity with the runtime is the fidelity a development host is for. It carries no values because the

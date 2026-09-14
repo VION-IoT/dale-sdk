@@ -194,10 +194,16 @@ namespace Vion.Dale.DevHost
             // arrives, and the start hangs with no output at all. WaitAsync is the system timer and the only
             // thing here no clock mode can stall: the start path's counterpart of the teardown's Stopwatch
             // backstop. The abandoned wait is observed so its own later timeout never resurfaces as an
-            // unobserved task exception on the finalizer.
+            // unobserved task exception on the finalizer. The two bounds differ, so the refusal names whichever
+            // elapsed: the virtual wait faults with its own timeout, and only the backstop leaves it running.
             try
             {
                 await acknowledged.WaitAsync(Budgets.StartAcknowledgement);
+            }
+            catch (TimeoutException) when (acknowledged.IsFaulted)
+            {
+                throw new TimeoutException($"Not every logic block acknowledged start within its {StartAcknowledgementTimeout.TotalSeconds:0.###}s acknowledgement timeout. " +
+                                           "A block whose Starting() threw never acknowledges; the failures the host recorded name which one.");
             }
             catch (TimeoutException)
             {

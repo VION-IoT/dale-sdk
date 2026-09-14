@@ -94,7 +94,31 @@ namespace Vion.Dale.DevHost.Test
 
             // Assert
             StringAssert.Contains(refusal.Message, "acknowledged start");
+            StringAssert.Contains(refusal.Message, "0.5s of real time", "the refusal names the backstop that elapsed");
             Assert.IsNotEmpty(host.Control.RecordedFailures("bad"), "the failure that stopped the acknowledgement must name the block");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.4")]
+        public async Task NameAcknowledgementTimeoutWhenItElapsesBeforeBackstop()
+        {
+            /* Arrange — a real-clock host, where the virtual acknowledgement timeout elapses as real time, and a
+               backstop set well past it, so the acknowledgement timeout is the bound that gives up. Nothing but wall
+               time drives it: the timeout is private and the host's clock has no seam a start can advance, so the
+               expiry itself is what the test waits for. */
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<FailingStartBlock>("bad").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<TestDependencyInjection>()
+                                                 .WithConfiguration(configuration)
+                                                 .WithSafetyBudgets(new DevHostBudgets { StartAcknowledgement = TimeSpan.FromSeconds(120) })
+                                                 .Build();
+
+            // Act
+            var refusal = await Assert.ThrowsExactlyAsync<TimeoutException>(() => host.StartAsync().WaitAsync(TimeSpan.FromSeconds(60)));
+
+            // Assert
+            StringAssert.Contains(refusal.Message, "acknowledged start within its 5s acknowledgement timeout");
+            Assert.DoesNotContain("120s", refusal.Message, "a backstop that did not elapse must not be named");
         }
 
         [TestMethod]
