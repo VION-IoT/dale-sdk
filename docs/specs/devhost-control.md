@@ -213,8 +213,8 @@ tool's; the variables, the receipts and the handshake below are the host's, and 
 - `AC-CTRL-006.1` (Ubiquitous): THE SYSTEM SHALL read every `DALE_DEVHOST_*` switch as enabled
   exactly when its value is the single character `1`, treating every other value, the empty string
   and an unset variable as disabled.
-- `AC-CTRL-006.2` (Ubiquitous): THE SYSTEM SHALL open a browser at the bound address when not headless and print a machine-readable readiness line naming the bound port when it is, in one shape whichever entry point is serving.
-- `AC-CTRL-006.3` (Ubiquitous): THE SYSTEM SHALL open the browser once per process, and SHALL print the failure and the address and keep serving when it cannot. GAP: every automated boot is headless, so nothing in the repository opens a browser; the failure branch has no observable a test can reach without one.
+- `AC-CTRL-006.2` (Ubiquitous): THE SYSTEM SHALL open a browser when not headless and print a machine-readable readiness line naming the bound port when it is, in one shape whichever entry point is serving.
+- `AC-CTRL-006.3` (Ubiquitous): THE SYSTEM SHALL open the browser at the bound address once per process, and SHALL print the failure and the address and keep serving when it cannot. GAP: every automated boot is headless, so nothing in the repository opens a browser; the failure branch has no observable a test can reach without one.
 - `AC-CTRL-006.4` (Event-driven): WHEN an export path is set THE SYSTEM SHALL boot, write that export,
   print a machine-readable receipt naming the file, and exit without serving — writing both exports
   when both are set.
@@ -226,6 +226,7 @@ tool's; the variables, the receipts and the handshake below are the host's, and 
 - `AC-CTRL-006.8` (Ubiquitous): THE SYSTEM SHALL print the bound web address and one deep link per discovered scenario on it before the readiness line, marking a scenario that could not be parsed rather than omitting it.
 - `AC-CTRL-006.9` (Ubiquitous): THE SYSTEM SHALL emit every stdout receipt as one line of valid JSON,
   so a path with backslashes survives it.
+- `AC-CTRL-006.10` (Ubiquitous): THE SYSTEM SHALL name the port the runner was given in the readiness line of a host built without a web UI.
 
 `AC-CTRL-006.1` is one spelling across every switch because a skill, a continuous-integration job and
 the command-line tool have to agree without consulting each other: `true`, `TRUE` and `yes` are all

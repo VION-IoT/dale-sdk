@@ -161,7 +161,7 @@ failure and falls back once onto the running topology, which fails the same way 
 
 - 2026-09-14: Kestrel's `ListenLocalhost` fails the whole bind with `IOException` when the port is held on
   **either** loopback family — probed on Windows 11 with a `TcpListener` on `[::1]` only
-  (`ServeOnNextFreePortWhenPreferredOneTaken`, row "held on the IPv6 loopback only", red before the fix
+  (`ServeOnFirstFreePortWhenPreferredOneTaken`, row "held on the IPv6 loopback only", red before the fix
   with `Failed to bind to address http://[::1]:…: address already in use`). This is what `D2` rests on.
   Unproven on Linux: CI's runner exercises the same rows.
 - 2026-09-14: each failed bind attempt logged `Hosting failed to start` with a stack trace from the
@@ -188,6 +188,18 @@ failure and falls back once onto the running topology, which fails the same way 
 - 2026-09-14: the brief's hit list named `DevHostWebRunner.cs:55,105,118,140` as defaults to handle; they
   stay — the argument is the fallback `D3` describes, and removing the default breaks no one but changes
   every signature in the PublicApi manifest for nothing.
+- 2026-09-14: the pre-PR review found, and this round fixed: every port the walk passed left a
+  `DevHostEventBroadcaster` subscribed to the host's events from a disposed attempt (now resolved only for
+  the kept application); a start failure other than a bind leaked its attempt (now disposed); the
+  readiness tests accepted any walked port, so a walk skipping a free port passed (now `preferred + 1`
+  with a free successor, M8); rows selected structure (split into one method per entry point and a
+  separate DevHost-holder test); the no-web-UI fallback had no criterion (`AC-CTRL-006.10`, M9); the
+  new browser-address clause sat on the traced `AC-CTRL-006.2` though nothing opens a browser (moved to
+  the already-GAP `AC-CTRL-006.3`); two tests never disposed the hosts they built; the skill boots shared
+  a fixed output file, waited unbounded, and kept pid and port only in shell state. These delta lines and
+  page edits land after the archive commit; the gate was re-run against a slug-renamed in-flight copy
+  (`spec-change archive` accepted it) and the copy removed. The broadcaster leak has no consumer
+  observable and no test.
 
 ---
 
@@ -198,7 +210,9 @@ failure and falls back once onto the running topology, which fails the same way 
 - MODIFIED AC-CTRL-005.4 -> docs/specs/devhost-control.md : THE SYSTEM SHALL rebind every later generation on the port the first generation bound, letting the previous generation release it first, and SHALL announce each recycle on standard output naming the generation.
 - ADDED AC-CTRL-005.10 -> docs/specs/devhost-control.md : IF a later generation cannot rebind the port the first generation bound THEN THE SYSTEM SHALL fail that generation naming the port rather than bind another.
 - MODIFIED AC-CTRL-005.6 -> docs/specs/devhost-control.md : WHEN a generation that nothing can be recycled back onto fails THE SYSTEM SHALL print a machine-readable failure receipt before the process ends, naming the port the process was serving on, or the port it was given when no generation bound one.
-- MODIFIED AC-CTRL-006.2 -> docs/specs/devhost-control.md : THE SYSTEM SHALL open a browser at the bound address when not headless and print a machine-readable readiness line naming the bound port when it is, in one shape whichever entry point is serving.
+- MODIFIED AC-CTRL-006.2 -> docs/specs/devhost-control.md : THE SYSTEM SHALL open a browser when not headless and print a machine-readable readiness line naming the bound port when it is, in one shape whichever entry point is serving.
+- MODIFIED AC-CTRL-006.3 -> docs/specs/devhost-control.md : THE SYSTEM SHALL open the browser at the bound address once per process, and SHALL print the failure and the address and keep serving when it cannot. GAP: every automated boot is headless, so nothing in the repository opens a browser; the failure branch has no observable a test can reach without one.
+- ADDED AC-CTRL-006.10 -> docs/specs/devhost-control.md : THE SYSTEM SHALL name the port the runner was given in the readiness line of a host built without a web UI.
 - MODIFIED AC-CTRL-006.8 -> docs/specs/devhost-control.md : THE SYSTEM SHALL print the bound web address and one deep link per discovered scenario on it before the readiness line, marking a scenario that could not be parsed rather than omitting it.
 - MODIFIED AC-CLI-009.9 -> docs/specs/cli.md : THE SYSTEM SHALL announce what it is about to do — a web UI, a control API, or a one-shot export that starts no server — and SHALL name no port, which only the host knows once it has bound one.
 
@@ -218,10 +232,11 @@ Each mutation applied alone to the branch, `Vion.Dale.DevHost.Test` filtered to 
 (21 cases), then restored; the reddened tests as the run named them.
 
 - `RefuseToStartNamingRangeWhenEveryWalkedPortTaken` (`AC-CTRL-002.6`) → M1, walk bound 21 instead of 20: 1 failed, that test.
-- `ServeOnNextFreePortWhenPreferredOneTaken`, all three rows (`AC-CTRL-002.6`) → M2, no walk (`last = first`): 9 failed, the three rows among them. Red before the fix too.
+- `ServeOnFirstFreePortWhenPreferredOneTaken`, both rows, and `ServeOnFirstFreePortWhenAnotherDevHostHoldsPreferredOne` (`AC-CTRL-002.6`) → M2, no walk (`last = first`): red, run before the review round split the three rows. Red before the fix too. → M8, the walk skips one port after a taken one: 6 failed, all three among them.
 - `PrintBoundAddressAndScenarioDeepLinksBeforeReadiness` (`AC-CTRL-006.8`) → M3, the address line from the configured port: 1 failed; M3b, the deep links from the configured port: 1 failed. Red before the fix.
-- `PrintSameReadinessLineNamingBoundPortFromEitherEntryPoint`, row "the prebuilt-host overload" (`AC-CTRL-006.2`) → M4a, that overload's readiness line names its argument: 5 failed, the row among them.
-- `PrintSameReadinessLineNamingBoundPortFromEitherEntryPoint`, row "the supervised loop" (`AC-CTRL-006.2`) → M4b, the loop's readiness line names its argument: 3 failed, the row among them. Both rows red before the fix.
+- `PrintReadinessLineNamingBoundPortFromPrebuiltHostOverload` (`AC-CTRL-006.2`) → M4a, that overload's readiness line names its argument: red, run before the review round split the row into its own method. → M8: red.
+- `PrintReadinessLineNamingBoundPortFromSupervisedLoop` (`AC-CTRL-006.2`) → M4b, the loop's readiness line names its argument: red, run on the pre-split row. → M8: red. Both red before the fix.
+- `PrintReadinessLineNamingGivenPortForHostWithoutWebUi` (`AC-CTRL-006.10`) → M9, no fallback to the runner's argument: 1 failed, that test.
 - `RebindLaterGenerationOnPortFirstGenerationBound` (`AC-CTRL-005.4`) → M5, no pin: 2 failed, this and the recycle-failure test. Red before the fix.
 - `FailLaterGenerationNamingPortWhenItWasTakenDuringRecycle` (`AC-CTRL-005.10`) → M6, a pinned host walks: 1 failed, that test. Passed before the fix, which already failed a rebind; the mutation is the regression the criterion exists for.
 - `FailLaterGenerationNamingPortWhenItWasTakenDuringRecycle` (`AC-CTRL-005.6`) → M7, both failure receipts name the runner's argument: 1 failed, that test.

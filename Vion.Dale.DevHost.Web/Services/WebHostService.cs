@@ -85,6 +85,10 @@ namespace Vion.Dale.DevHost.Web.Services
                     await app.StartAsync(cancellationToken);
                     _app = app;
                     binding.BoundPort = port;
+
+                    // Only the kept application subscribes to the host's events: the broadcaster attaches to the
+                    // host-owned event source, which a disposed attempt's container does not detach it from.
+                    app.Services.GetRequiredService<DevHostEventBroadcaster>();
                     break;
                 }
                 catch (IOException exception)
@@ -103,6 +107,13 @@ namespace Vion.Dale.DevHost.Web.Services
                               new InvalidOperationException($"The development host could not rebind port {port}, which it served on before the recycle: {exception.Message} " +
                                                             "Another process took it while the host recycled - restart the host.",
                                                             exception);
+                }
+                catch
+                {
+                    // Any other start failure — a cancellation mid-walk among them — leaves no application for StopAsync
+                    // to release, so this attempt is released here.
+                    await app.DisposeAsync();
+                    throw;
                 }
             }
 
@@ -188,9 +199,6 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddSingleton(_blockCatalog);
 
             var app = builder.Build();
-
-            // IMPORTANT: Eagerly instantiate the broadcaster so it subscribes to events!
-            app.Services.GetRequiredService<DevHostEventBroadcaster>();
 
             // Configure middleware pipeline
             app.UseRouting();

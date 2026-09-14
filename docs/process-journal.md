@@ -126,3 +126,9 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · VION-215 · The readiness test took its unrelated runner port from FreePort(), which hands out consecutive ports, so it was the port the walk landed on and green code failed; the port is now taken below the preferred one. (self)
 
 2026-09-14 · review · devhost-smoke · The rewritten skill boots started the host with -NoNewWindow, so the tool shell running a boot waited on the host's inherited console handles until the host died; the boots and smoke-modbus.ps1 now start it with -WindowStyle Hidden. (self) → codified: .claude/skills/devhost-smoke/SKILL.md
+
+2026-09-14 · review · VION-215 · The review found every port the walk passed leaving an event broadcaster subscribed from a disposed attempt, and a non-bind start failure leaking its attempt; the broadcaster now subscribes only for the kept application and any failed attempt is disposed. (self)
+
+2026-09-14 · review · VION-215 · The review found the walk tests accepting any port up to nineteen above, so a walk skipping a free port passed, and rows selecting the entry point and the holder kind; testing-conventions.md §11 and §13 state both rules. (self)
+
+2026-09-14 · review · VION-215 · The review found the reworded AC-CTRL-006.2 adding a browser-address clause no test reaches, without a GAP, and the no-web-UI port fallback promised in prose with no criterion; spec-process.md states both. (self)
