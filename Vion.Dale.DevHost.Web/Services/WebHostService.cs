@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.DevHost.Topologies;
@@ -42,6 +44,9 @@ namespace Vion.Dale.DevHost.Web.Services
         // host-independent DevTopologyLoader.Build.
         private readonly DevHostIntrospection _introspection;
 
+        // How far a host walks from its preferred port: the preferred port and the nineteen above it.
+        private const int PortWalk = 20;
+
         private WebApplication? _app;
 
         public WebHostService(WebHostConfiguration config,
@@ -61,12 +66,66 @@ namespace Vion.Dale.DevHost.Web.Services
             _introspection = introspection;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            var binding = WebUiBinding.For(_control);
+
+            // A pinned port is the one an earlier generation served on; the page and any waiting client address it,
+            // so a later generation takes that port or nothing. Otherwise the configured port is only preferred.
+            var first = binding.PinnedPort ?? _config.Port;
+            var last = binding.PinnedPort ?? Math.Min(first + PortWalk - 1, IPEndPoint.MaxPort);
+
+            for (var port = first;; port++)
+            {
+                var app = BuildApplication(port);
+                try
+                {
+                    // The real bind, never a probe: Kestrel binds both loopback families, and a port held on only
+                    // one of them looks free to a probe on the other.
+                    await app.StartAsync(cancellationToken);
+                    _app = app;
+                    binding.BoundPort = port;
+                    break;
+                }
+                catch (IOException exception)
+                {
+                    await app.DisposeAsync();
+                    if (port < last)
+                    {
+                        Console.WriteLine($"Port {port} is in use — trying {port + 1}.");
+                        continue;
+                    }
+
+                    throw binding.PinnedPort is null ?
+                              new InvalidOperationException($"The development host could not bind any port from {first} to {last}: {exception.Message} " +
+                                                            "Every one of them is held by another process - stop one of them.",
+                                                            exception) :
+                              new InvalidOperationException($"The development host could not rebind port {port}, which it served on before the recycle: {exception.Message} " +
+                                                            "Another process took it while the host recycled - restart the host.",
+                                                            exception);
+                }
+            }
+
+            Console.WriteLine($"DevHost Web UI running at http://localhost:{binding.BoundPort}");
+
+            // Discovered scenario deep links — printed before the runner's readiness line so
+            // both humans and agents see what's stageable on this host.
+            var scenarios = _app.Services.GetRequiredService<ScenarioStore>().List();
+            foreach (var scenario in scenarios)
+            {
+                Console.WriteLine(scenario.Error is null ? $"  scenario {scenario.Id}: http://localhost:{binding.BoundPort}/#/scenario/{scenario.Id}" :
+                                      $"  scenario {scenario.Id}: INVALID — {scenario.Error}");
+            }
+        }
+
+        private WebApplication BuildApplication(int port)
         {
             var builder = WebApplication.CreateBuilder();
 
-            // Configure Kestrel to listen on specified port
-            builder.WebHost.UseKestrel(options => { options.ListenLocalhost(_config.Port); });
+            // A bind failure is reported once, by the walk above, not as a hosting error with a stack trace per port.
+            builder.Logging.AddFilter("Microsoft.Extensions.Hosting.Internal.Host", LogLevel.Critical);
+
+            builder.WebHost.UseKestrel(options => { options.ListenLocalhost(port); });
 
             // Register ASP.NET Core services with application parts
             builder.Services
@@ -116,21 +175,21 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddSingleton(new DevTopologyStore(_devConfiguration.TopologiesPath, _introspection.ValidateContractPairings));
             builder.Services.AddSingleton(_blockCatalog);
 
-            _app = builder.Build();
+            var app = builder.Build();
 
             // IMPORTANT: Eagerly instantiate the broadcaster so it subscribes to events!
-            _app.Services.GetRequiredService<DevHostEventBroadcaster>();
+            app.Services.GetRequiredService<DevHostEventBroadcaster>();
 
             // Configure middleware pipeline
-            _app.UseRouting();
-            _app.UseCors();
+            app.UseRouting();
+            app.UseCors();
 
             // Origin/Host guard on mutating requests (the local-tool security posture): the server binds loopback
             // only, but a hostile page in the developer's own browser can still fire cross-origin POSTs at
             // http://localhost:{port} — CORS does not prevent cross-origin sends. Reads stay open; mutations
             // require a loopback Host (DNS-rebinding guard) and, when a browser declares an Origin, a
             // loopback Origin. Headless local tools (curl, agents) send no Origin and pass.
-            _app.Use(async (context, next) =>
+            app.Use(async (context, next) =>
                      {
                          var method = context.Request.Method;
                          var safe = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsOptions(method);
@@ -149,14 +208,14 @@ namespace Vion.Dale.DevHost.Web.Services
                      });
 
             // Map endpoints
-            _app.MapControllers();
-            _app.MapHub<DevHostHub>("/hub");
+            app.MapControllers();
+            app.MapHub<DevHostHub>("/hub");
 
             // Serve embedded SPA
             var assembly = typeof(DevHostBuilderExtensions).Assembly;
             var embeddedProvider = new EmbeddedFileProvider(assembly, "Vion.Dale.DevHost.Web.wwwroot");
 
-            _app.UseDefaultFiles(new DefaultFilesOptions
+            app.UseDefaultFiles(new DefaultFilesOptions
                                  {
                                      FileProvider = embeddedProvider,
                                  });
@@ -171,7 +230,7 @@ namespace Vion.Dale.DevHost.Web.Services
                 ctx.Context.Response.Headers.CacheControl = "no-cache";
             }
 
-            _app.UseStaticFiles(new StaticFileOptions
+            app.UseStaticFiles(new StaticFileOptions
                                 {
                                     FileProvider = embeddedProvider,
                                     OnPrepareResponse = NoStaleSpaCache,
@@ -181,32 +240,21 @@ namespace Vion.Dale.DevHost.Web.Services
             // it, `{*path:nonfile}` matches /api/anything (no file extension, so the constraint does not
             // exclude it) and a mistyped route answers 200 text/html. A caller that checks the status code
             // then reports the host healthy, and one that parses JSON gets a parse error naming a `<`.
-            _app.MapFallback("/api/{**rest}",
+            app.MapFallback("/api/{**rest}",
                              (HttpContext context) => Results.NotFound(new
                                                                        {
                                                                            error = $"no such route: {context.Request.Method} {context.Request.Path}",
                                                                            reason = "unknownRoute",
                                                                        }));
 
-            _app.MapFallbackToFile("index.html",
+            app.MapFallbackToFile("index.html",
                                    new StaticFileOptions
                                    {
                                        FileProvider = embeddedProvider,
                                        OnPrepareResponse = NoStaleSpaCache,
                                    });
 
-            Console.WriteLine($"DevHost Web UI running at http://localhost:{_config.Port}");
-
-            // Discovered scenario deep links — printed before the runner's readiness line so
-            // both humans and agents see what's stageable on this host.
-            var scenarios = _app.Services.GetRequiredService<ScenarioStore>().List();
-            foreach (var scenario in scenarios)
-            {
-                Console.WriteLine(scenario.Error is null ? $"  scenario {scenario.Id}: http://localhost:{_config.Port}/#/scenario/{scenario.Id}" :
-                                      $"  scenario {scenario.Id}: INVALID — {scenario.Error}");
-            }
-
-            return StartServerAsync(cancellationToken);
+            return app;
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
@@ -218,23 +266,6 @@ namespace Vion.Dale.DevHost.Web.Services
                 _app.Services.GetRequiredService<ScenarioRunRegistry>().Shutdown();
                 await _app.StopAsync(cancellationToken);
                 await _app.DisposeAsync();
-            }
-        }
-
-        // Kestrel reports a port already in use as an IOException, which the supervised runner's catch does not
-        // see - so a second `dale dev` in one checkout took the process down on a framework stack trace naming
-        // neither the port nor the host already on it. Translate it to the type the start path already speaks.
-        private async Task StartServerAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                await _app!.StartAsync(cancellationToken);
-            }
-            catch (IOException exception)
-            {
-                throw new InvalidOperationException($"The development host could not bind port {_config.Port}: {exception.Message} " +
-                                                    "Another host is probably already serving it - stop it, or start this one on a different port.",
-                                                    exception);
             }
         }
 

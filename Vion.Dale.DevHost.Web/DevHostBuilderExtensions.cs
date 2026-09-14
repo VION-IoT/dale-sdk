@@ -12,6 +12,12 @@ namespace Vion.Dale.DevHost.Web
         ///     boots in deterministic stepping mode, so server-side scenario runs step exactly. This is the
         ///     universal hook every web DevHost calls, so <c>--stepped</c> works without editing <c>Program.cs</c>.
         /// </summary>
+        /// <param name="builder">The builder to add the web UI to.</param>
+        /// <param name="port">
+        ///     The preferred port. When it is taken the host binds the first free port among the nineteen above it, and
+        ///     prints the address it bound; several hosts therefore run side by side without configuration.
+        /// </param>
+        /// <param name="stepped">Boot in deterministic stepping mode; null reads <c>DALE_DEVHOST_STEPPED</c>.</param>
         public static DevHostBuilder WithWebUi(this DevHostBuilder builder, int port = 5000, bool? stepped = null)
         {
             builder.ConfigureServices(services =>

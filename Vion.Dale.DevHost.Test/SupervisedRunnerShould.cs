@@ -26,23 +26,32 @@ namespace Vion.Dale.DevHost.Test
     {
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-006.2")]
-        public async Task PrintSameReadinessLineFromEitherEntryPoint()
+        [DataRow(false, DisplayName = "the prebuilt-host overload")]
+        [DataRow(true, DisplayName = "the supervised loop")]
+        public async Task PrintSameReadinessLineNamingBoundPortFromEitherEntryPoint(bool supervised)
         {
-            // Arrange
-            var port = FreePort();
-            await using var host = BuildWebHost(port);
+            // Arrange — the preferred port is held, so the host walks; and the runner is handed a number unrelated
+            // to the host's preferred one, the way the template's runner constant and its bare WithWebUi() are.
+            // A line naming either number instead of the bound one is the defect.
+            var preferred = FreePort();
+            using var holder = Hold(IPAddress.Loopback, preferred);
+            // Below the preferred port, never inside the walk: consecutive ephemeral ports would hand it the very
+            // port the walk lands on.
+            var unrelated = preferred - 100;
             var originalOut = Console.Out;
             var captured = new ConsoleCapture();
             using var shutdown = new CancellationTokenSource();
             Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
             Console.SetOut(captured);
 
-            // Act — the unsupervised overload, the one whose line used to carry no generation at all.
+            // Act
             Task? runner = null;
+            string line;
             try
             {
-                runner = DevHostWebRunner.RunAsync(host, port, shutdown.Token);
-                await WaitForReceiptAsync(captured, "\"ready\"", port);
+                runner = supervised ? DevHostWebRunner.RunAsync(() => BuildWebHost(preferred), unrelated, shutdown.Token) :
+                             DevHostWebRunner.RunAsync(BuildWebHost(preferred), unrelated, shutdown.Token);
+                line = await WaitForWalkedReceiptAsync(captured, "\"ready\"", preferred);
                 await shutdown.CancelAsync();
                 await runner;
             }
@@ -53,11 +62,185 @@ namespace Vion.Dale.DevHost.Test
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
             }
 
-            // Assert — a parser written against the supervised loop's line reads this one.
-            var readiness = JsonDocument.Parse(ReceiptLine(captured, "\"ready\"", port)).RootElement;
+            // Assert — one shape from both entry points, and the port in it is the one the host serves on.
+            var readiness = JsonDocument.Parse(line).RootElement;
             Assert.IsTrue(readiness.GetProperty("ready").GetBoolean());
-            Assert.AreEqual(port, readiness.GetProperty("port").GetInt32());
             Assert.AreEqual(1, readiness.GetProperty("generation").GetInt32());
+            var bound = readiness.GetProperty("port").GetInt32();
+            Assert.AreNotEqual(preferred, bound);
+            Assert.AreNotEqual(unrelated, bound);
+            Assert.IsGreaterThan(preferred, bound);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.6")]
+        [DataRow("DevHost", DisplayName = "held by another development host")]
+        [DataRow("IPv4", DisplayName = "held on the IPv4 loopback only")]
+        [DataRow("IPv6", DisplayName = "held on the IPv6 loopback only")]
+        public async Task ServeOnNextFreePortWhenPreferredOneIsHeld(string heldBy)
+        {
+            // Arrange — a port held on one loopback family only is the case a "can I bind it" probe misjudges.
+            var preferred = FreePort();
+            await using var holder = await HoldAsync(heldBy, preferred);
+            var originalOut = Console.Out;
+            var captured = new ConsoleCapture();
+            using var shutdown = new CancellationTokenSource();
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            Console.SetOut(captured);
+
+            // Act
+            Task? runner = null;
+            HttpStatusCode status;
+            int bound;
+            try
+            {
+                runner = DevHostWebRunner.RunAsync(BuildWebHost(preferred), preferred, shutdown.Token);
+                bound = JsonDocument.Parse(await WaitForWalkedReceiptAsync(captured, "\"ready\"", preferred)).RootElement.GetProperty("port").GetInt32();
+                using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{bound}"), Timeout = TimeSpan.FromSeconds(10) };
+                status = (await client.GetAsync("/api/control/status")).StatusCode;
+                await shutdown.CancelAsync();
+                await runner;
+            }
+            finally
+            {
+                await StopRunnerAsync(shutdown, runner);
+                Console.SetOut(originalOut);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+            }
+
+            // Assert — this host serves on the port its readiness line names, above the held one.
+            Assert.AreEqual(HttpStatusCode.OK, status);
+            Assert.IsGreaterThan(preferred, bound);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.6")]
+        public async Task RefuseToStartNamingRangeWhenEveryWalkedPortIsHeld()
+        {
+            // Arrange — the preferred port and the nineteen above it, all held.
+            var (preferred, holders) = HoldRange(20);
+            await using var host = BuildWebHost(preferred);
+
+            // Act
+            InvalidOperationException refusal;
+            try
+            {
+                refusal = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.StartAsync());
+            }
+            finally
+            {
+                holders.ForEach(h => h.Stop());
+            }
+
+            // Assert
+            StringAssert.Contains(refusal.Message, $"from {preferred} to {preferred + 19}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-005.4")]
+        public async Task RebindLaterGenerationOnPortFirstGenerationBound()
+        {
+            // Arrange — generation 1 walks past a held preferred port. The holder then lets go, so a generation
+            // that walked again from the preferred port would land on a different port than the one the open
+            // page and a waiting client are addressing.
+            var preferred = FreePort();
+            var holder = Hold(IPAddress.Loopback, preferred);
+            var originalOut = Console.Out;
+            var captured = new ConsoleCapture();
+            using var shutdown = new CancellationTokenSource();
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            Console.SetOut(captured);
+
+            // Act
+            Task? runner = null;
+            int first;
+            JsonElement second;
+            HttpStatusCode secondStatus;
+            try
+            {
+                runner = DevHostWebRunner.RunAsync(() => BuildWebHost(preferred), preferred, shutdown.Token);
+                first = JsonDocument.Parse(await WaitForWalkedReceiptAsync(captured, "\"ready\"", preferred)).RootElement.GetProperty("port").GetInt32();
+                holder.Stop();
+                using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{first}"), Timeout = TimeSpan.FromSeconds(10) };
+                Assert.AreEqual(HttpStatusCode.Accepted, (await client.PostAsync("/api/control/reset", null)).StatusCode);
+                second = JsonDocument.Parse(await WaitForReceiptAsync(captured, "\"generation\":2")).RootElement;
+                secondStatus = (await client.GetAsync("/api/control/status")).StatusCode;
+                await shutdown.CancelAsync();
+                await runner;
+            }
+            finally
+            {
+                holder.Stop();
+                await StopRunnerAsync(shutdown, runner);
+                Console.SetOut(originalOut);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+            }
+
+            // Assert
+            Assert.IsTrue(second.GetProperty("ready").GetBoolean());
+            Assert.AreEqual(first, second.GetProperty("port").GetInt32());
+            Assert.AreEqual(HttpStatusCode.OK, secondStatus);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-005.10")]
+        [TestProperty("spec", "AC-CTRL-005.6")]
+        public async Task FailLaterGenerationNamingPortWhenItWasTakenDuringRecycle()
+        {
+            // Arrange — generation 1 walks past a held preferred port, and the second generation's factory takes the
+            // port generation 1 released before handing its host over: the shape of another process binding it inside
+            // the recycle window. The walk is what separates the port served on from the port the runner was given.
+            var preferred = FreePort();
+            using var holder = Hold(IPAddress.Loopback, preferred);
+            var originalOut = Console.Out;
+            var captured = new ConsoleCapture();
+            TcpListener? thief = null;
+            using var shutdown = new CancellationTokenSource();
+            var generations = 0;
+            var served = 0;
+
+            IDevHost Factory()
+            {
+                if (++generations == 2)
+                {
+                    thief = HoldWhenReleased(served);
+                }
+
+                return BuildWebHost(preferred);
+            }
+
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            Console.SetOut(captured);
+
+            // Act
+            InvalidOperationException refusal;
+            Task? runner = null;
+            try
+            {
+                runner = DevHostWebRunner.RunAsync(Factory, preferred, shutdown.Token);
+                served = JsonDocument.Parse(await WaitForWalkedReceiptAsync(captured, "\"ready\"", preferred)).RootElement.GetProperty("port").GetInt32();
+                using (var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{served}"), Timeout = TimeSpan.FromSeconds(10) })
+                {
+                    await client.PostAsync("/api/control/reset", null);
+                }
+
+                // Bounded: a generation that moved to another port serves, and its runner would never end.
+                Assert.AreSame(runner, await Task.WhenAny(runner, Task.Delay(TimeSpan.FromSeconds(30))), "the recycled generation kept serving instead of failing");
+                refusal = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => runner);
+            }
+            finally
+            {
+                await StopRunnerAsync(shutdown, runner);
+                thief?.Stop();
+                Console.SetOut(originalOut);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+            }
+
+            // Assert — the generation did not move to another port; it failed, and the receipt names the port it served.
+            StringAssert.Contains(refusal.Message, $"port {served}");
+            var receipt = JsonDocument.Parse(ReceiptLine(captured, "\"failed\"", served)).RootElement;
+            Assert.AreEqual(2, receipt.GetProperty("generation").GetInt32());
+            Assert.IsFalse(captured.ToString().Split('\n').Any(l => l.Contains("\"ready\"", StringComparison.Ordinal) && l.Contains("\"generation\":2", StringComparison.Ordinal)));
         }
 
         [TestMethod]
@@ -139,24 +322,6 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsTrue(receipt.GetProperty("failed").GetBoolean());
             Assert.AreEqual(1, receipt.GetProperty("generation").GetInt32());
             StringAssert.Contains(receipt.GetProperty("reason").GetString()!, "no topology 'default'");
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-CTRL-002.6")]
-        public async Task RefuseToBindPortAlreadyServedNamingIt()
-        {
-            // Arrange — the commonest first-run failure: a second `dale dev` in one checkout. Kestrel reports
-            // it as an IOException, which the supervisor's own catch does not see.
-            var port = FreePort();
-            await using var first = BuildWebHost(port);
-            await first.StartAsync();
-            await using var second = BuildWebHost(port);
-
-            // Act
-            var refusal = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => second.StartAsync());
-
-            // Assert
-            StringAssert.Contains(refusal.Message, $"bind port {port}");
         }
 
         [TestMethod]
@@ -259,16 +424,18 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-006.8")]
-        public async Task PrintAddressAndScenarioDeepLinksBeforeReadiness()
+        public async Task PrintBoundAddressAndScenarioDeepLinksBeforeReadiness()
         {
-            // Arrange — one scenario that parses and one that does not; the operator needs both named.
+            // Arrange — one scenario that parses and one that does not; the operator needs both named. The
+            // preferred port is held, so an address printed before the bind names the wrong one.
             var directory = Path.Combine(Path.GetTempPath(), "dale-links-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "good.scenario.json"), """{ "version": 1, "id": "good", "title": "Good", "topology": "counter-topology", "steps": [] }""");
             File.WriteAllText(Path.Combine(directory, "broken.scenario.json"), """{ "version": 7 }""");
-            var port = FreePort();
+            var preferred = FreePort();
+            await using var holder = await HoldAsync("IPv4", preferred);
             var configuration = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").WithScenarios(directory).AddLogicBlock<CounterBlock>("counter").Build();
-            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).WithWebUi(port).Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).WithWebUi(preferred).Build();
             var originalOut = Console.Out;
             var captured = new ConsoleCapture();
             using var shutdown = new CancellationTokenSource();
@@ -277,10 +444,11 @@ namespace Vion.Dale.DevHost.Test
 
             // Act
             Task? runner = null;
+            int port;
             try
             {
-                runner = DevHostWebRunner.RunAsync(host, port, shutdown.Token);
-                await WaitForReceiptAsync(captured, "\"ready\"", port);
+                runner = DevHostWebRunner.RunAsync(host, preferred, shutdown.Token);
+                port = JsonDocument.Parse(await WaitForWalkedReceiptAsync(captured, "\"ready\"", preferred)).RootElement.GetProperty("port").GetInt32();
                 await shutdown.CancelAsync();
                 await runner;
             }
@@ -293,7 +461,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Assert — both links, and both before the readiness line an agent waits for.
             var console = captured.ToString();
-            StringAssert.Contains(console, $"http://localhost:{port}");
+            StringAssert.Contains(console, $"DevHost Web UI running at http://localhost:{port}");
             StringAssert.Contains(console, $"scenario good: http://localhost:{port}/#/scenario/good");
             StringAssert.Contains(console, "scenario broken: INVALID");
             Assert.IsLessThan(console.IndexOf("\"ready\"", StringComparison.Ordinal),
@@ -451,6 +619,106 @@ namespace Vion.Dale.DevHost.Test
             Assert.Fail($"'{token}' never reached the console. Captured:{Environment.NewLine}{captured}");
         }
 
+        // A walked host's port is not known up front, so its receipt is found by the range the walk may reach
+        // rather than by one port — still a filter, so a sibling suite's receipt for another port does not match.
+        private static async Task<string> WaitForWalkedReceiptAsync(ConsoleCapture captured, string token, int preferred)
+        {
+            return await WaitForReceiptLineAsync(captured,
+                                                 line => line.Contains(token, StringComparison.Ordinal) &&
+                                                         Enumerable.Range(preferred + 1, 19).Any(p => line.Contains($"\"port\":{p},", StringComparison.Ordinal)));
+        }
+
+        private static async Task<string> WaitForReceiptAsync(ConsoleCapture captured, string token)
+        {
+            return await WaitForReceiptLineAsync(captured, line => line.Contains(token, StringComparison.Ordinal));
+        }
+
+        private static async Task<string> WaitForReceiptLineAsync(ConsoleCapture captured, Func<string, bool> match)
+        {
+            for (var attempt = 0; attempt < 300; attempt++)
+            {
+                var line = captured.ToString().Split('\n').Select(l => l.Trim()).LastOrDefault(l => l.StartsWith('{') && match(l));
+                if (line is not null)
+                {
+                    return line;
+                }
+
+                await Task.Delay(50);
+            }
+
+            Assert.Fail($"no matching receipt reached the console. Captured:{Environment.NewLine}{captured}");
+            return string.Empty;
+        }
+
+        private static TcpListener Hold(IPAddress address, int port)
+        {
+            var listener = new TcpListener(address, port);
+            listener.Start();
+            return listener;
+        }
+
+        private static async Task<IAsyncDisposable> HoldAsync(string heldBy, int port)
+        {
+            if (heldBy == "DevHost")
+            {
+                var host = BuildWebHost(port);
+                await host.StartAsync();
+                return host;
+            }
+
+            return new ListenerHold(Hold(heldBy == "IPv4" ? IPAddress.Loopback : IPAddress.IPv6Loopback, port));
+        }
+
+        // The first port of a run of consecutive free ports, each held on the IPv4 loopback. A port another
+        // process took between the probe and the hold starts the search over.
+        private static (int First, List<TcpListener> Holders) HoldRange(int count)
+        {
+            for (var attempt = 0; attempt < 20; attempt++)
+            {
+                var first = FreePort();
+                if (first + count > IPEndPoint.MaxPort)
+                {
+                    continue;
+                }
+
+                var holders = new List<TcpListener>();
+                try
+                {
+                    for (var port = first; port < first + count; port++)
+                    {
+                        holders.Add(Hold(IPAddress.Loopback, port));
+                    }
+
+                    return (first, holders);
+                }
+                catch (SocketException)
+                {
+                    holders.ForEach(h => h.Stop());
+                }
+            }
+
+            Assert.Fail($"no run of {count} free consecutive ports found");
+            return (0, new List<TcpListener>());
+        }
+
+        // Called from inside the supervisor's factory, after the previous generation stopped: its release of the
+        // port is not synchronous with the stop, so the hold retries until the port is free.
+        private static TcpListener HoldWhenReleased(int port)
+        {
+            var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
+            while (true)
+            {
+                try
+                {
+                    return Hold(IPAddress.Loopback, port);
+                }
+                catch (SocketException) when (DateTimeOffset.UtcNow < deadline)
+                {
+                    Thread.Sleep(50);
+                }
+            }
+        }
+
         private static int FreePort()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -472,6 +740,22 @@ namespace Vion.Dale.DevHost.Test
             configuration.TopologiesPath = topologiesDirectory ?? configuration.TopologiesPath;
 
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).WithWebUi(port).Build();
+        }
+
+        private sealed class ListenerHold : IAsyncDisposable
+        {
+            private readonly TcpListener _listener;
+
+            public ListenerHold(TcpListener listener)
+            {
+                _listener = listener;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                _listener.Stop();
+                return ValueTask.CompletedTask;
+            }
         }
 
         /// <summary>

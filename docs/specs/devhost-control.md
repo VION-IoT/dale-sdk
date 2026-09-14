@@ -72,8 +72,7 @@ boot-dump-exit export path rests on — it never starts the host it exports.
   mode can stall, naming the bound that elapsed.
 - `AC-CTRL-002.5` (Event-driven): WHEN a host that is already started is started again THE SYSTEM
   SHALL refuse the second start.
-- `AC-CTRL-002.6` (Event-driven): WHEN the configured port is already bound THE SYSTEM SHALL fail the
-  start with a message naming the port.
+- `AC-CTRL-002.6` (Event-driven): WHEN the preferred port is already bound THE SYSTEM SHALL bind the first free port among the nineteen above it, and SHALL fail the start with a message naming the range when none of them is free.
 - `AC-CTRL-002.7` (Ubiquitous): THE SYSTEM SHALL run a started host until its cancellation token fires,
   then stop it and return without throwing.
 - `AC-CTRL-002.8` (Ubiquitous): THE SYSTEM SHALL run the domain start as a persistent-data restore
@@ -82,6 +81,12 @@ boot-dump-exit export path rests on — it never starts the host it exports.
 - `AC-CTRL-002.9` (Event-driven): WHEN a block does not acknowledge the restore within its budget THE SYSTEM SHALL warn and start anyway. GAP: no fixture reaches a non-acknowledging restore — a block answers the request from the base class before any hook of its own, so only a block whose actor never came up can fail to, and such a block is already a recorded start failure.
 
 - `AC-CTRL-002.10` (Ubiquitous): THE SYSTEM SHALL complete a start only once every value the logic blocks published while starting is readable through the control surface.
+
+`AC-CTRL-002.6` is what lets several hosts run side by side with no configuration: the port a
+`Program.cs` passes to the web UI is a starting point, not a pin. A port counts as free when it binds on
+both loopback families, so one held on either is walked past. Every surface that names the port names
+the one bound (`AC-CTRL-006.2`, `AC-CTRL-006.8`); a caller that needs it reads it there, not from the
+`Program.cs`.
 
 `AC-CTRL-002.10` is what lets a first read follow a start: a block publishes its members while starting
 and only then acknowledges, but the publications and the acknowledgement travel to different actors,
@@ -158,7 +163,7 @@ load-bearing: stopping the server first loses exactly the values a reader most w
 
 ## The supervised recycle protocol
 
-A supervisor rebuilds the host in place — dispose, rebuild, restart on the same port — which is the
+A supervisor rebuilds the host in place — dispose, rebuild, restart on the port the first generation bound — which is the
 kill-and-restart loop without the kill. A reset, a topology switch and a clock-mode switch are one
 signal with a parked request beside it.
 
@@ -169,12 +174,10 @@ signal with a parked request beside it.
   the handler the disposed token was issued for.
 - `AC-CTRL-005.3` (Ubiquitous): THE SYSTEM SHALL keep the current topology selection across a plain
   reset and rebuild from the requested one across a switch.
-- `AC-CTRL-005.4` (Ubiquitous): THE SYSTEM SHALL let the previous generation release the port before
-  the next binds it, and SHALL announce each recycle on standard output naming the generation.
+- `AC-CTRL-005.4` (Ubiquitous): THE SYSTEM SHALL rebind every later generation on the port the first generation bound, letting the previous generation release it first, and SHALL announce each recycle on standard output naming the generation.
 - `AC-CTRL-005.5` (Event-driven): WHEN a topology a switch selected cannot be built or cannot start
   THE SYSTEM SHALL report it on standard output and recycle back onto the topology that was running.
-- `AC-CTRL-005.6` (Event-driven): WHEN a generation that nothing can be recycled back onto fails THE
-  SYSTEM SHALL print a machine-readable failure receipt before the process ends.
+- `AC-CTRL-005.6` (Event-driven): WHEN a generation that nothing can be recycled back onto fails THE SYSTEM SHALL print a machine-readable failure receipt before the process ends, naming the port the process was serving on, or the port it was given when no generation bound one.
 - `AC-CTRL-005.7` (Event-driven): WHEN cancellation is requested during a generation THE SYSTEM SHALL
   stop that host and return.
 - `AC-CTRL-005.8` (Ubiquitous): THE SYSTEM SHALL park a requested topology or clock mode for the
@@ -183,6 +186,7 @@ signal with a parked request beside it.
 - `AC-CTRL-005.9` (Ubiquitous): THE SYSTEM SHALL report a host as resettable exactly while a
   supervisor's handler is attached, and SHALL refuse a reset, a topology switch and a clock-mode
   switch when none is.
+- `AC-CTRL-005.10` (Unwanted): IF a later generation cannot rebind the port the first generation bound THEN THE SYSTEM SHALL fail that generation naming the port rather than bind another.
 
 `AC-CTRL-005.2`'s three clauses are one rule about ownership. Replacing an attached handler made the
 host answer a recycle request with success while nothing recycled; a token that cleared whichever
@@ -193,6 +197,13 @@ spellings of the same operator mistake, and none of them may take away the inter
 needs to pick another topology. `AC-CTRL-005.6` is the readiness line's counterpart — without it a
 spawning agent waits out its own timeout to learn the host is never coming.
 
+`AC-CTRL-005.10` is the recycle's side of `AC-CTRL-002.6`. The open page reconnects to the port it was
+served from, and a client waiting out a recycle polls that port, so a generation that walked to another
+would leave both addressing whatever took the port in the release window — most plausibly another host
+that walked into the gap. A generation that cannot have its port fails, and with nothing to recycle back
+onto the process ends with its receipt. The port the receipt names before any generation bound one is
+the runner's own argument, which is also the port reported for a host built without a web UI.
+
 ## The process contract
 
 What the host promises the process that spawned it. `dale dev`'s option surface is the command-line
@@ -202,8 +213,7 @@ tool's; the variables, the receipts and the handshake below are the host's, and 
 - `AC-CTRL-006.1` (Ubiquitous): THE SYSTEM SHALL read every `DALE_DEVHOST_*` switch as enabled
   exactly when its value is the single character `1`, treating every other value, the empty string
   and an unset variable as disabled.
-- `AC-CTRL-006.2` (Ubiquitous): THE SYSTEM SHALL open a browser when not headless and print a
-  machine-readable readiness line when it is, in one shape whichever entry point is serving.
+- `AC-CTRL-006.2` (Ubiquitous): THE SYSTEM SHALL open a browser at the bound address when not headless and print a machine-readable readiness line naming the bound port when it is, in one shape whichever entry point is serving.
 - `AC-CTRL-006.3` (Ubiquitous): THE SYSTEM SHALL open the browser once per process, and SHALL print the failure and the address and keep serving when it cannot. GAP: every automated boot is headless, so nothing in the repository opens a browser; the failure branch has no observable a test can reach without one.
 - `AC-CTRL-006.4` (Event-driven): WHEN an export path is set THE SYSTEM SHALL boot, write that export,
   print a machine-readable receipt naming the file, and exit without serving — writing both exports
@@ -213,9 +223,7 @@ tool's; the variables, the receipts and the handshake below are the host's, and 
 - `AC-CTRL-006.6` (State-driven): WHILE an export is in progress THE SYSTEM SHALL print no readiness
   line and open no browser.
 - `AC-CTRL-006.7` (Ubiquitous): THE SYSTEM SHALL stop an exporting host exactly once.
-- `AC-CTRL-006.8` (Ubiquitous): THE SYSTEM SHALL print the web address and one deep link per
-  discovered scenario before the readiness line, marking a scenario that could not be parsed rather
-  than omitting it.
+- `AC-CTRL-006.8` (Ubiquitous): THE SYSTEM SHALL print the bound web address and one deep link per discovered scenario on it before the readiness line, marking a scenario that could not be parsed rather than omitting it.
 - `AC-CTRL-006.9` (Ubiquitous): THE SYSTEM SHALL emit every stdout receipt as one line of valid JSON,
   so a path with backslashes survives it.
 
@@ -390,7 +398,7 @@ the runner reads the refusal it produces instead of racing it with a stopwatch.
 
 ## The HTTP host
 
-- `AC-CTRL-014.1` (Ubiquitous): THE SYSTEM SHALL bind the configured port on loopback only.
+- `AC-CTRL-014.1` (Ubiquitous): THE SYSTEM SHALL bind the web host on loopback only.
 - `AC-CTRL-014.2` (Ubiquitous): THE SYSTEM SHALL serve reads to any caller and SHALL refuse a
   state-changing request whose host header is not loopback, or whose declared origin is not, accepting
   one that declares no origin.
