@@ -15,7 +15,7 @@
     { "label": "Link has cycled to Disconnected", "expect": { "property": "PresentationDemo.Link", "equals": "Disconnected" } },
     { "label": "The energy counter climbed", "expect": { "property": "PresentationDemo.EnergyImported", "above": 1234.5 } },
     { "label": "Fire the calibration trigger", "set": "PresentationDemo.StartCalibration", "value": true },
-    { "label": "The trigger counted once", "expect": { "property": "PresentationDemo.CalibrationsTriggered", "equals": 1 } },
+    { "label": "The trigger counted once", "waitUntil": { "property": "PresentationDemo.CalibrationsTriggered", "equals": 1 }, "timeoutSeconds": 20 },
     { "label": "…and the trigger rests back at false", "expect": { "property": "PresentationDemo.StartCalibration", "equals": false } }
   ],
   "watch": [

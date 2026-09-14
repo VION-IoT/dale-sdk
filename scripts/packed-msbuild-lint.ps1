@@ -76,7 +76,7 @@ $msbuildKinds = @('.targets', '.props')
 # generally, because a packed targets file is itself a `.targets` - scanning those as declaration
 # sites would report the founding defect as a malformed DECLARATION rather than as the malformed
 # packed file it is, which is the wrong sentence in front of the right author.
-$declarationNames = @('directory.build.props', 'directory.build.targets')
+$declarationNames = @('directory.build.props', 'directory.build.targets') # path-case: folded
 function Test-Declaration([string]$path) {
     if ([System.IO.Path]::GetExtension($path).ToLowerInvariant() -eq '.csproj') { return $true }
     return $declarationNames -contains ([System.IO.Path]::GetFileName($path).ToLowerInvariant())
