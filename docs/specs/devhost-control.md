@@ -67,8 +67,9 @@ boot-dump-exit export path rests on — it never starts the host it exports.
   registration line to add.
 - `AC-CTRL-002.3` (Event-driven): WHEN the logic system cannot be initialized THE SYSTEM SHALL fail
   the start carrying the initializer's message and its cause.
-- `AC-CTRL-002.4` (Event-driven): WHEN not every block acknowledges start THE SYSTEM SHALL fail the
-  start within a real-time budget no clock mode can stall.
+- `AC-CTRL-002.4` (Event-driven): WHEN not every block acknowledges start, or the values published
+  while starting are not readable, THE SYSTEM SHALL fail the start within a real-time budget no clock
+  mode can stall.
 - `AC-CTRL-002.5` (Event-driven): WHEN a host that is already started is started again THE SYSTEM
   SHALL refuse the second start.
 - `AC-CTRL-002.6` (Event-driven): WHEN the configured port is already bound THE SYSTEM SHALL fail the
@@ -79,6 +80,16 @@ boot-dump-exit export path rests on — it never starts the host it exports.
   carrying no values, then the start acknowledgement, so every block is restored before its start hook
   runs.
 - `AC-CTRL-002.9` (Event-driven): WHEN a block does not acknowledge the restore within its budget THE SYSTEM SHALL warn and start anyway. GAP: no fixture reaches a non-acknowledging restore — a block answers the request from the base class before any hook of its own, so only a block whose actor never came up can fail to, and such a block is already a recorded start failure.
+
+- `AC-CTRL-002.10` (Ubiquitous): THE SYSTEM SHALL complete a start only once every value the logic blocks published while starting is readable through the control surface.
+
+`AC-CTRL-002.10` is what lets a first read follow a start: a block publishes its members while starting
+and only then acknowledges, but the publications and the acknowledgement travel to different actors,
+so without it a start could return with the values still queued. It is worded over what was
+*published*, not over every bound member, because a member whose value cannot be read at start is
+skipped with a warning and never published — a start that waited for it would fail every host carrying
+such a block. The half of `AC-CTRL-002.4` it adds has no test of its own: nothing a host carries makes
+the actors that cache published values withhold their answer.
 
 `AC-CTRL-002.4` is a real-time budget because the acknowledgement wait itself is virtual: on a stepped
 host nothing advances the clock during a boot, so a block that never answers would leave a due-time

@@ -1,6 +1,6 @@
 ---
 slug: scenario-in-flight-reads
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: CTRL, SCEN
 author: jonasbertsch
@@ -54,19 +54,21 @@ counts as a wait. No runner behaviour changes: `expect` stays a point-in-time re
 ### Reviewer's questions
 
 1. (a) ratified — A, C, the warning in scope, B rejected, D not taken: amendment 1 to the ci-flakes
-   brief, operator, 2026-09-14. Not relitigated here.
+   brief, operator, 2026-09-14. Not relitigated here. OUTCOME: implemented as ratified.
 2. (b) decide-and-document — **D1 narrows the ratified wording.** The amendment says start waits
    "until every bound member's first value is cached". A bound member whose getter throws during the
    initial publish is skipped with a warning (`ServiceBinder.cs:151-162`) and never publishes, so a
    literal per-member wait would fail every start of such a block — for the web UI and the xunit
    harness too, which is the STOP the amendment named. D1 guarantees every value that *was*
    published; the member that was not stays unreadable, as it is today, and its warning is in the log.
+   OUTCOME: decided by the implementing session as D1; carried to the pull request for the operator to
+   confirm, since it narrows the ratified sentence.
 3. (b) decide-and-document — D3's `advance` counts as a wait for every member. On a stepped host it
    drains to quiescence (`AC-SCEN-012.1`); on the real clock it is a wait of real time, which is not a
-   guarantee but is what an author who wrote it asked for.
+   guarantee but is what an author who wrote it asked for. OUTCOME: decided as written; on review.
 4. (b) decide-and-document — `serviceProviderExpect` after a drive with no wait has the same race and
    is not warned about. The amendment names `expect`; widening it is proposed here, not produced.
-5. Outcome: _(filled before archive)_
+   OUTCOME: left out; proposed in the pull request as follow-up work.
 
 ---
 
@@ -140,6 +142,9 @@ structural, so it runs whether or not the scenario's topology resolves.
 - 2026-09-14: the start test first released its hold when start completed, and passed against the
   pre-fix host 3 of 3 — the release let the handler cache the value before the test thread read it.
   The hold now ends once the read is taken; red 3 of 3 pre-fix, green with the barrier.
+- 2026-09-14: `toggle-light` is run by nothing in the repository, and the example references the
+  published SDK. It was run by hand on its own stepped DevHost — succeeded, the new `settle` converging on
+  its first hop — which proves the file's new steps, not the start barrier, against the released host.
 - 2026-09-14: the brief's sweep said six committed scenarios share the drive shape; re-derived with
   setup drives counted and the same-target rule — still six: `toggle-light`, `grid-demand`,
   `io-control`, `output-confirmation`, `plant-control`, `provider-faces`, plus inline scenarios in
