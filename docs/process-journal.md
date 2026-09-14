@@ -87,7 +87,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-14 · review · http-examples · Scenarios copied from modbus-healthy read an expect right after a waitUntil on a sibling property set by the same block action; on the real clock Outcome read InFlight after StatusCode 503 had arrived, and both runs failed until every such read became a waitUntil. modbus-healthy carries the same shape. (self)
 
-2026-09-14 · review · Vion.Examples.ModbusTcp · ModbusLinkPolicyShould's comment says a failing step's detail is the assertion message, but Assert.Empty prints the collection cut to fifty characters, before the detail starts; the copy in the HTTP example printed only the step label, and now asserts with the joined failures as its message. (self) → codified: examples/Vion.Examples.ModbusTcp/Vion.Examples.ModbusTcp.IntegrationTest/ModbusLinkPolicyShould.cs
+2026-09-14 · review · Vion.Examples.ModbusTcp · ModbusLinkPolicyShould's comment says a failed step's detail is the assertion message, but Assert.Empty cuts it at fifty characters, before the detail. (self) → codified: examples/Vion.Examples.ModbusTcp/Vion.Examples.ModbusTcp.IntegrationTest/ModbusLinkPolicyShould.cs
 
 2026-09-14 · gate · check.ps1 · /check -Build -Test was killed for low memory twice with only its header written while another session built on the machine; the plain run and -Build completed, and the solution test step did not run locally. (self)
 
