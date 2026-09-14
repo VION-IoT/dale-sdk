@@ -1,0 +1,19 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.Http.LogicBlocks.HttpSimServer",
+      "name": "SimServer",
+      "instantiationParameters": {
+        "RouteSlotCount": 3
+      }
+    },
+    {
+      "typeFullName": "Vion.Examples.Http.LogicBlocks.HttpDebugClient",
+      "name": "DebugClient"
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": []
+}

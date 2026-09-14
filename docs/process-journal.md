@@ -83,8 +83,30 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-14 · review · scenario-in-flight-reads · The correction review found the barrier-failure test on a 500 ms budget the start acknowledgement had to beat, unable to redden a removed backstop, and a before/after test comment. testing-conventions.md § 16 and comment-conventions.md should have prevented them. (self)
 
-2026-09-14 · brief · hw-contracts-are-json · The brief required commit 1 to be the Vion.Contracts bump alone, green on build and test before any handler edit; 11.0.0 removes Vion.Contracts.FlatBuffers.Hw in the same major that adds Vion.Contracts.Hw, so the bump alone cannot compile and the two are one atomic change.
+2026-09-14 · brief · http-examples · The brief listed the example's registrations as examples.yml, Vion.Dale.Sdk.sln and set-version.ps1; scripts/pack-examples.ps1 lists every packable example too and was not named. (self)
 
-2026-09-14 · brief · hw-contracts-are-json · The brief listed six comment sites as describing the service-provider wire as FlatBuffers; two of them describe service property and measuring-point state, which decision 0038 made JSON, and two more truly describe GetFlatBufferPayload and are correct.
+2026-09-14 · review · http-examples · Scenarios copied from modbus-healthy read an expect right after a waitUntil on a sibling property set by the same block action; on the real clock Outcome read InFlight after StatusCode 503 had arrived, and both runs failed until every such read became a waitUntil. modbus-healthy carries the same shape. (self)
 
-2026-09-14 · decision · hw-contracts-are-json · JSON has no literal for a non-finite double, so AC-IO-007.2 cannot be met on the new wire; the fix is NumberHandling on Vion.Contracts' HwJsonContext rather than anything in this repo, and the nine rows proving the criterion stand red instead of being reworded away. (self)
+2026-09-14 · review · Vion.Examples.ModbusTcp · ModbusLinkPolicyShould's comment says a failed step's detail is the assertion message, but Assert.Empty cuts it at fifty characters, before the detail. (self) → codified: examples/Vion.Examples.ModbusTcp/Vion.Examples.ModbusTcp.IntegrationTest/ModbusLinkPolicyShould.cs
+
+2026-09-14 · gate · check.ps1 · /check -Build -Test was killed for low memory twice with only its header written while another session built on the machine; the plain run and -Build completed, and the solution test step did not run locally. (self)
+
+2026-09-14 · review · http-examples · The review found HttpDebugClient kept an "already in flight" refusal in LastError after the request succeeded, and HttpSimServer's Requests counter left out dropped requests its own Dropped description calls answered; review-checks.md D2 and testing-conventions.md § 9 should have prevented them. (self)
+
+2026-09-14 · review · http-examples · The review found the SDK's timeout refusal and the invalid-header-name refusal untested and http.md's "the in-repo example" ambiguous beside a second HTTP example; testing-conventions.md § 10 should have prevented the first. (self) → codified: docs/specs/http.md
+
+2026-09-14 · review · process-journal · A codify stamp pushed an entry measured at 347 characters to 458, and journal-lint failed on the pull request again; /check printed journal-lint as SKIP, so nothing local ran it. (second ask) → codified: scripts/check.ps1
+
+2026-09-14 · gate · check.ps1 · check.ps1 -CiShape's path-case scan fails on main at packed-msbuild-lint.ps1:79, whose lowercase file names are compared against ToLowerInvariant() on purpose, so every -CiShape run is red for a script that is right. (self)
+
+2026-09-14 · review · check.ps1 · The review found the journal-lint pin compared against the local v1, a major tag each release moves, a missing checkout still reporting check: OK, and the default checkout location untested; testing-conventions.md § 9 should have prevented the last. (self) → codified: scripts/check.ps1
+
+2026-09-14 · brief · hw-contracts-are-json · The brief required commit 1 to be the Vion.Contracts bump alone, green before any handler edit; 11.0.0 removes Vion.Contracts.FlatBuffers.Hw in the same major that adds Vion.Contracts.Hw, so the bump alone cannot compile and the two are one atomic change.
+
+2026-09-14 · brief · hw-contracts-are-json · The brief listed six comment sites as describing the service-provider wire as FlatBuffers; two describe service property state, which decision 0038 made JSON, and two truly describe GetFlatBufferPayload and are correct.
+
+2026-09-14 · decision · hw-contracts-are-json · JSON has no literal for a non-finite double, so AC-IO-007.2 could not be met on the new wire; rather than reword the criterion, the nine rows proving it were left red and the fix taken upstream, landing as Vion.Contracts 11.0.1. (self)
+
+2026-09-14 · brief · hw-contracts-are-json · The amendment asked for a regenerated publicapi manifest showing three added members, gated by check.ps1; the manifest is type-level with only assemblies and types keys, this change declares no new [PublicApi] type, and check.ps1 has no manifest step. (self)
+
+2026-09-14 · gate · publicapi-manifest · scripts/generate-api-reference.cjs needs node, absent on this machine, so the manifest cannot be regenerated locally at all; CI's snapshot bot on the pull request head is the only path. (self)
