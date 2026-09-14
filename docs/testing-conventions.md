@@ -278,6 +278,16 @@ cited.** A flush-ordering test survived its mutation for a whole round, because 
 in a queue the snapshot had just emptied — where inserting at the head and appending coincide. A test
 that survives its mutation pins nothing.
 
+**A red run is read for the assertion that failed.** A test that fails on its own reddens under every
+mutation, so a red summary line proves nothing until the failure message is the claim's own and the same
+test is green without the mutation. A runner that filters by `Name~` matches a `[DataRow]` test by its
+`DisplayName`, not its method, and runs nothing — filter by `FullyQualifiedName~`.
+
+**A criterion that decides between two readings is tested where they part.** When a thing is recorded,
+what a bound covers, which of two orders wins: a test on the path where both readings give the same
+observable passes under either, and its mutation proves the mechanism exists, not that it is the right
+one. Build the case where the wrong reading gives a different observable.
+
 **A `[DataRow]` merge is a rewrite of the assertion**: re-derive the mutation after it, or the merge
 is a deletion. One merge dropped a criterion's own sentence and nothing noticed until the review.
 

@@ -714,9 +714,9 @@ Every existing test the round touches maps to a row.
 - **`HttpServerResponse` refuses a 1xx status and a content type the header block cannot carry**
   (a control character other than a tab, or anything outside ASCII), each with an `ArgumentException`
   naming the argument. **A disposed server throws `ObjectDisposedException` when enabled again**, under the
-  kit as on a gateway; `Sync` still runs. A route published under `HEAD` now sends no body, a status the
-  server names no reason phrase for is sent with an empty one, and a declared length too large for any
-  integer is answered 413 rather than 400. `FakeHttpServerClient.Send` documents its two argument refusals.
+  kit as on a gateway; `Sync` still runs. A route published under `HEAD` sends its length and no body, a
+  status the server names no reason phrase for is sent with an empty one, and a declared length too large
+  for any integer is answered 413. `FakeHttpServerClient.Send` documents its two argument refusals.
 - **The Energy example's forecast request is culture-invariant.** `OpenMeteoService` rendered its
   coordinates in the current culture, so a German-locale gateway sent `latitude=47,4992` — found by the
   kit's first test against it. The example also gains tests for both of its HTTP services, compiled only

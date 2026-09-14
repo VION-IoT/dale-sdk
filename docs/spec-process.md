@@ -399,7 +399,10 @@ Then four sweeps:
   `file:line`, or it is a guess wearing evidence's clothes. A `park` argued from a member's
   *history* — added last, newer than its siblings — has no evidence column: recency is not a reason
   to treat a member differently (an operator overruled one such park; the fix was four lines and
-  retired two special cases). **The code doing a thing is evidence of behavior, not of intent:** a
+  retired two special cases). A `Why` that cites a precedent — another area's criterion, another
+  protocol's default — names the property the precedent rests on, and that property holds here too: a
+  rule shared in shape only carries a reason that does not transfer. **The code doing a thing is
+  evidence of behavior, not of intent:** a
   surprising row gets `fix` or `park`, or the operator's explicit `intended` — never an `intended`
   that only means "this is what it does". A `fix`/`park`/`propose` rec is flagged `⚠` and gets a
   two-line failure sketch under the table; a `propose` sketch ends with the recommendation.

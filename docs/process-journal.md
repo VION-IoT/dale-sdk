@@ -33,21 +33,21 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-13 · review · check.ps1 · The review found the empty-derivation failure message still naming only ./scripts/*.ps1 steps after shared-workflows actions were derived too. (self)
 
-2026-09-13 · review · VION-212 · The step-3 table's row 2 defaulted the server to port 80 and rows 34 and 62 cited Modbus precedents; the classification set 8080, refused the Modbus precedent for production capability, and called the virtual-clock default the kits' own rule. The precedent had to share the property the Why rested on.
+2026-09-13 · review · VION-212 · The step-3 table's row 2 defaulted the server to port 80 and rows 34 and 62 cited Modbus precedents; the classification set 8080, refused the Modbus precedent for production capability, and called the virtual-clock default the kits' own rule. The precedent had to share the property the Why rested on. → codified: docs/spec-process.md
 
 2026-09-13 · brief · VION-212 · The brief said HttpPackageSurfaceShould pins the exact dependency set and that a published kit gets no InternalsVisibleTo; the test asserts presence per row only, and the core kit has had the grant all along.
 
-2026-09-13 · gate · mutation runner · A runner filtering with --filter Name~<method> ran nothing for DataRow tests carrying a DisplayName, and the empty summaries read as a hiccup; FullyQualifiedName~ was needed. (self)
+2026-09-13 · gate · mutation runner · A runner filtering with --filter Name~<method> ran nothing for DataRow tests carrying a DisplayName, and the empty summaries read as a hiccup; FullyQualifiedName~ was needed. (self) → codified: docs/testing-conventions.md
 
-2026-09-13 · review · VION-212 · A hang-up test's red under its mutation was the test failing on its own on a half-closed TcpClient, and it was recorded as proven; the suite's five-run check caught it. A red run had to be read against a green run of the same test. (self)
+2026-09-13 · review · VION-212 · A hang-up test's red under its mutation was the test failing on its own on a half-closed TcpClient, and it was recorded as proven; the suite's five-run check caught it. A red run had to be read against a green run of the same test. (self) → codified: docs/testing-conventions.md
 
 2026-09-13 · review · VION-212 · D6's Why said measuring the per-request timeout on the registered clock changed nothing observable; a deterministic DevHost registers a FakeTimeProvider, so a stepped host's real request times out on virtual time. The hosts registering the clock were not swept. (self)
 
-2026-09-13 · review · VION-212 · The completeness critic and adversarial review found the hosted server recording a request as answered before its response was written, and a read bound armed at connect cutting short a request waiting for a Sync callback; both criteria had been tested only where the two readings agree. Should have been caught by docs/spec-process.md § Lane 3 step 5.
+2026-09-13 · review · VION-212 · The two checks found the hosted server recording a request as answered before its response was written, and a read bound armed at connect cutting short a request waiting for a Sync callback; both criteria had been tested only where the two readings agree. → codified: docs/testing-conventions.md
 
 2026-09-13 · review · VION-212 · The checks found a request log bounded by count while each entry could hold the 1 MiB body cap, a header cap decided by two expressions, and row 33 classified intended but minted nowhere. Should have been caught by the self-check in docs/spec-process.md § Lane 3 step 3.
 
-2026-09-13 · review · VION-212 · D2 bound the hosted server to all interfaces on AC-MODB-011.2's rule; the operator set loopback after the checks, because Modbus lacks transport security by nature and this server serves plaintext by choice through its own parser.
+2026-09-13 · review · VION-212 · D2 bound the hosted server to all interfaces on AC-MODB-011.2's rule; the operator set loopback after the checks, because Modbus lacks transport security by nature and this server serves plaintext by choice through its own parser. → codified: docs/spec-process.md
 
 2026-09-13 · brief · VION-212 · Amendment 1 said the kit's unbounded answer hangs under a thread-owned synchronization context and that Modbus refuses Sync after disposal; every exchange await declines the context, and Modbus closed only the disposed-but-enabled pair.
 
