@@ -41,13 +41,16 @@ It does **not** drive the SPA web UI (the host *serves* it but the headless test
    $dir = "$(git rev-parse --show-toplevel)\Vion.Dale.DevHost.SmokeHost"
    dotnet build $dir --nologo
    $env:DALE_DEVHOST_STEPPED = "1"; $env:DALE_DEVHOST_NO_BROWSER = "1"
-   $out = Join-Path $env:TEMP "smokehost.out"; Remove-Item $out -EA SilentlyContinue
+   $out = Join-Path $env:TEMP "smokehost-$PID.out"; Remove-Item $out -EA SilentlyContinue
    $hostProcess = Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Dale.DevHost.SmokeHost.dll" -WorkingDirectory $dir -WindowStyle Hidden -PassThru -RedirectStandardOutput $out
-   do { Start-Sleep -Milliseconds 400; $ready = Get-Content $out -EA SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } } until ($ready -or $hostProcess.HasExited)
+   $deadline = (Get-Date).AddSeconds(90)
+   do { Start-Sleep -Milliseconds 400; $ready = Get-Content $out -EA SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } } until ($ready -or $hostProcess.HasExited -or (Get-Date) -gt $deadline)
+   if (-not $ready) { throw "No readiness line within 90 s (host exited: $($hostProcess.HasExited)). Its output: $out" }
    $port = ($ready | Select-Object -First 1 | ConvertFrom-Json).port
+   "host pid $($hostProcess.Id) serving on port $port"
    ```
 
-   Every address below uses `$port`, the port the readiness line names. Poll `http://localhost:$port/api/control/status` until it responds (`stepped:true`). (Boot-to-ready is ~1 s — the ~50 s is the `dotnet build`. If the solution is already built, e.g. you just ran Tier 1 or `dotnet build`, skip `dotnet build $dir` and boot the existing DLL.)
+   Every address below uses `$port`, the port that last line prints; a later shell call carries the printed pid and port over by value. Poll `http://localhost:$port/api/control/status` until it responds (`stepped:true`). (Boot-to-ready is ~1 s — the ~50 s is the `dotnet build`. If the solution is already built, e.g. you just ran Tier 1 or `dotnet build`, skip `dotnet build $dir` and boot the existing DLL.)
 
 2. **Drive the UI** with the chrome-devtools MCP. If no page is connected, open one (`new_page`); if you genuinely can't drive a browser, fall back to Tier 1 + API checks against `localhost:$port` and say so. Navigate to `http://localhost:$port` and reload with `ignoreCache` (dodges stale assets). A leftover route or pins from a previous session are harmless — reload to the root, or use an isolated context / clear localStorage for a clean view. Then verify:
    - The page loads and the Explorer lists the seven blocks (Showcase, IO Device, Device Sim, Grid Demand, Plant Control, Signal Source, Signal Sink). Device Sim carries four contracts in the wiring panel — the provider faces `Schütz` / `Rückmeldung` / `Stellwert` / `Istwert`. Grid Demand carries two contracts in the wiring panel — the inbound `Demand` and the outbound `Setpoint`; Plant Control carries one, `Control`, which is *both* (VION-129).
@@ -70,7 +73,7 @@ It does **not** drive the SPA web UI (the host *serves* it but the headless test
 
 3. **Tear down**: stop the process this boot started, never a process found by its port —
    ```powershell
-   Stop-Process -Id $hostProcess.Id -Force
+   Stop-Process -Id <the printed pid> -Force
    ```
 
 ## CI

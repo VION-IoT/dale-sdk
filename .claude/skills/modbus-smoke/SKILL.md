@@ -86,8 +86,8 @@ to age a request out. That one is a Tier-2 observation.
 Re-run just that scenario with `-Scenario <id>`, or boot the host yourself (Tier 2's boot) and watch
 the two structs on the port it printed:
 
-```bash
-curl -s http://localhost:$port/api/state/DebugClient/Link
+```powershell
+Invoke-RestMethod "http://localhost:$port/api/state/DebugClient/Link"
 ```
 
 ## Tier 2 — live UI while the host is up (optional, chrome-devtools)
@@ -99,11 +99,16 @@ browser:
 $dir = "$(git rev-parse --show-toplevel)\examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.DevHost"
 dotnet build $dir --nologo
 $env:DALE_DEVHOST_NO_BROWSER = "1"
-$out = Join-Path $env:TEMP "modbus-devhost.out"; Remove-Item $out -EA SilentlyContinue
+$out = Join-Path $env:TEMP "modbus-devhost-$PID.out"; Remove-Item $out -EA SilentlyContinue
 $hostProcess = Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Examples.ModbusTcp.DevHost.dll" -WorkingDirectory $dir -WindowStyle Hidden -PassThru -RedirectStandardOutput $out
-do { Start-Sleep -Milliseconds 400; $ready = Get-Content $out -EA SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } } until ($ready -or $hostProcess.HasExited)
+$deadline = (Get-Date).AddSeconds(90)
+do { Start-Sleep -Milliseconds 400; $ready = Get-Content $out -EA SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } } until ($ready -or $hostProcess.HasExited -or (Get-Date) -gt $deadline)
+if (-not $ready) { throw "No readiness line within 90 s (host exited: $($hostProcess.HasExited)). Its output: $out" }
 $port = ($ready | Select-Object -First 1 | ConvertFrom-Json).port
+"host pid $($hostProcess.Id) serving on port $port"
 ```
+
+A later shell call carries the printed pid and port over by value.
 
 Poll `http://localhost:$port/api/control/status` until it answers (`stepped:false`), then navigate to
 `http://localhost:$port` and check:
@@ -140,7 +145,7 @@ Poll `http://localhost:$port/api/control/status` until it answers (`stepped:fals
 Tear down the process this boot started, never a process found by its port:
 
 ```powershell
-Stop-Process -Id $hostProcess.Id -Force
+Stop-Process -Id <the printed pid> -Force
 ```
 
 ## CI
