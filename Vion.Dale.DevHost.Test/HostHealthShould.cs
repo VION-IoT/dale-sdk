@@ -103,8 +103,9 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange — the property handler is held on the block's start publication, so the value is still
             // queued when the block acknowledges start. The hold ends once the read below is taken, or after a
-            // fallback that only a start which waits for the handler ever reaches.
-            var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter");
+            // fallback that a start which waits for the handler always reaches. Before the fix the read stays a
+            // miss unless the three awaits between the hold and the read take longer than that fallback.
+            var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter", TimeSpan.FromSeconds(2));
             var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create()
                                                  .WithDi<TestDependencyInjection>()
@@ -121,6 +122,29 @@ namespace Vion.Dale.DevHost.Test
 
             // Assert
             Assert.IsNotNull(value, "a read right after start must see the value the block published while starting, not a cache miss");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.4")]
+        public async Task FailStartWhenStartPublicationsAreNotHandledWithinRealTimeBudget()
+        {
+            // Arrange — the property handler is held past the start budget, so it cannot answer for the values
+            // the block published while starting.
+            var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter", TimeSpan.FromSeconds(20));
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<TestDependencyInjection>()
+                                                 .WithConfiguration(configuration)
+                                                 .WithSafetyBudgets(new DevHostBudgets { StartAcknowledgement = TimeSpan.FromMilliseconds(500) })
+                                                 .ConfigureServices(services => services.AddSingleton<IActorMessageObserver>(hold))
+                                                 .Build();
+
+            // Act
+            var refusal = await Assert.ThrowsExactlyAsync<TimeoutException>(() => host.StartAsync().WaitAsync(TimeSpan.FromSeconds(20)));
+            hold.ReadTaken.TrySetResult();
+
+            // Assert
+            StringAssert.Contains(refusal.Message, "published while starting");
         }
 
         [TestMethod]
@@ -178,12 +202,11 @@ namespace Vion.Dale.DevHost.Test
         /// <summary>
         ///     Holds one handler before it handles a block's publication of one property, until the test has taken
         ///     its read or the fallback passes. The observer is called before dispatch, so the value is not cached while
-        ///     held. The fallback decides only how long a start that waits for the handler takes, never whether
-        ///     the read sees the value.
+        ///     held, and a start that waits for the handler returns only after the fallback has released it.
         /// </summary>
         private sealed class StartPublicationHold : IActorMessageObserver
         {
-            private static readonly TimeSpan Fallback = TimeSpan.FromMilliseconds(250);
+            private readonly TimeSpan _fallback;
 
             private readonly string _handlerName;
 
@@ -195,8 +218,9 @@ namespace Vion.Dale.DevHost.Test
 
             public TaskCompletionSource ReadTaken { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            public StartPublicationHold(string handlerName, string propertyIdentifier)
+            public StartPublicationHold(string handlerName, string propertyIdentifier, TimeSpan fallback)
             {
+                _fallback = fallback;
                 _handlerName = handlerName;
                 _propertyIdentifier = propertyIdentifier;
             }
@@ -210,7 +234,7 @@ namespace Vion.Dale.DevHost.Test
                 }
 
                 Entered.Release();
-                ReadTaken.Task.Wait(Fallback);
+                ReadTaken.Task.Wait(_fallback);
             }
 
             public void OnHandled(string actorName, object message, TimeSpan elapsed, Exception? exception)

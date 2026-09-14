@@ -106,11 +106,12 @@ the guarantee on start).
 ### D2 — the bound and the failure
 
 The barrier wait is virtual like every actor wait, so it takes the real-time backstop the start
-acknowledgement takes (`DevLogicSystemInitializer.cs:198-207`), from the same budget. Its elapse throws
-`TimeoutException` saying the values published while starting were not handled within the budget —
-not which handler, because the actor wait counts outstanding answers without naming them. Nothing in
-the repository makes a mock handler withhold an answer, so that half of `AC-CTRL-002.4` has no test of
-its own; the acknowledgement half keeps `HostHealthShould.FailStartNoBlockAcknowledgesWithinRealTimeBudget`.
+acknowledgement takes (`DevLogicSystemInitializer.cs:198-207`), from the same budget — and the budget is
+also its virtual timeout, so on the real clock whichever of the two gives up first, the message names the
+span that elapsed. Its elapse throws `TimeoutException` saying the values published while starting were
+not handled within the budget — not which handler, because the actor wait counts outstanding answers
+without naming them. `HostHealthShould.FailStartWhenStartPublicationsAreNotHandledWithinRealTimeBudget`
+holds the handler past a shortened budget to reach it.
 
 ### D3/D4 — the warning
 
@@ -126,10 +127,13 @@ structural, so it runs whether or not the scenario's topology resolves.
 
 - **Start:** a test registers an `IActorMessageObserver` whose `OnReceived` (called before dispatch,
   `ActorMiddleware.cs:24-28`) parks `MockServicePropertyHandler` on the seeded member's publication
-  until the test has taken its read or a fallback bound passes. Pre-fix, start completes while the
-  handler is parked and the read is `null`; with the barrier, start cannot complete until the parked
-  publication is handled. The fallback only ends the park on the fixed path — it decides duration,
-  never the outcome.
+  until the test has taken its read or a 2 s fallback passes. Pre-fix, start completes while the
+  handler is parked and the read is `null`; with the barrier, start cannot complete until the fallback
+  releases the parked publication. The fallback is not free of the outcome: a pre-fix run goes green if
+  the three awaits between the hold and the read take longer than it. No seam signals the barrier being
+  queued — the vitals collector counts posts without their type, and the virtual schedule's
+  registrations of the acknowledgement and barrier waits race each other — so the bound is carried, not
+  removed.
 - **The warning:** unit rows over `ScenarioFileChecks.Validate` for each clearing step and each
   non-clearing one, `io-control`'s shape among them.
 - **The scenarios:** a scenario fix is shown by the warning going quiet on it, plus the suites green
@@ -149,8 +153,11 @@ structural, so it runs whether or not the scenario's topology resolves.
   setup drives counted and the same-target rule — still six: `toggle-light`, `grid-demand`,
   `io-control`, `output-confirmation`, `plant-control`, `provider-faces`, plus inline scenarios in
   `DevHostSmokeShould`, `ServiceProviderSetStepShould` and `ServiceProviderStructContractShould`.
-  Command: `pwsh -File <scratchpad>/sweep.ps1 -Root .` (an over-approximation; each hit is read
-  before it is changed).
+  Command, per directory holding `*.scenario.json`, against an export naming a topology no scenario
+  declares (so the structural check runs and paths are not resolved):
+  `dotnet run --project Vion.Dale.Cli -- scenario validate --dir <dir> --config <{"topologyName":"__none__","logicBlocks":[]}> -o json`
+  — 16 warnings across those six files at `13867220`, 0 across the ten directories after the scenario
+  commit.
 
 ---
 

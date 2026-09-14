@@ -88,8 +88,7 @@ and only then acknowledges, but the publications and the acknowledgement travel 
 so without it a start could return with the values still queued. It is worded over what was
 *published*, not over every bound member, because a member whose value cannot be read at start is
 skipped with a warning and never published — a start that waited for it would fail every host carrying
-such a block. The half of `AC-CTRL-002.4` it adds has no test of its own: nothing a host carries makes
-the actors that cache published values withhold their answer.
+such a block.
 
 `AC-CTRL-002.4` is a real-time budget because the acknowledgement wait itself is virtual: on a stepped
 host nothing advances the clock during a boot, so a block that never answers would leave a due-time

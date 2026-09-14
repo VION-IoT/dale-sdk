@@ -556,6 +556,8 @@ or an `advance` — because a block may publish the member waited on before the 
 written, so two spellings of one member warn; the check reads no configuration and holds for a scenario
 whose topology is not the exported one. A read of a value the drive should leave unchanged is the case
 a `waitUntil` cannot fix, since the wait passes on the old value; a `settle` covering it is the remedy.
+On a stepped host a `settle` and an `advance` let every in-flight value land; on the real clock both
+are a window of time — a `settle` a few unchanged polls — so they narrow the race rather than close it.
 
 ## A scenario as a consumer's test
 

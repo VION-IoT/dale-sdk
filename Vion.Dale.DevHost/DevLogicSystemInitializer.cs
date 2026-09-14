@@ -218,9 +218,10 @@ namespace Vion.Dale.DevHost
                     _actorSystem.LookupByName(nameof(MockServicePropertyHandler)), _actorSystem.LookupByName(nameof(MockServiceMeasuringPointHandler)),
                 ],
                 new StartPublicationsDrainedRequest(),
-                StartAcknowledgementTimeout);
+                Budgets.StartAcknowledgement);
 
-            // Virtual like the acknowledgement wait, so it takes the same real-time backstop.
+            // The wait above is virtual, so the same span bounds it again on the real clock. One span for both is
+            // what keeps the message below true whichever of the two gives up first.
             try
             {
                 await drained.WaitAsync(Budgets.StartAcknowledgement);
