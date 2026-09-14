@@ -318,13 +318,20 @@ wildcard receives frames for every endpoint of its kind on the installation, map
 - `AC-BIND-011.2` (Ubiquitous): THE SYSTEM SHALL mint a correlation identifier where the caller
   supplies none, reuse the one it supplies, and carry it as its sixteen raw bytes.
 - `AC-BIND-011.3` (Ubiquitous): THE SYSTEM SHALL declare a published message's content type as
-  FlatBuffer where the caller names none.
+  JSON where the caller names none.
 - `AC-BIND-011.4` (Ubiquitous): THE SYSTEM SHALL serialize a JSON publish with camel-cased names and
   string-named enum values, and declare its content type as JSON.
 
-`AC-BIND-011.3` was the page's other unkept promise. The method documented the FlatBuffer default and
-the message record carries it, but the value reached the record positionally, so an omitted content
-type went out as none at all.
+`AC-BIND-011.3`'s value is JSON because JSON is the only wire this SDK's provider handlers speak: the
+`hw/*` handlers name it explicitly at every publish, and a default naming anything else would be a
+trap for the next handler rather than a convenience. The three places that carry it — the publish
+helper and the two publish message records — are one decision and move together.
+
+`AC-BIND-011.4` is the shape a caller gets without supplying options. A caller that supplies its own
+source-generated type metadata instead gets that metadata's naming policy and converters, which is how
+the `hw/*` handlers share one serialization path with the hardware-abstraction layers rather than
+maintaining a second; the wire it produces for those payloads is the same, so the choice is about
+where the policy is declared and not about what reaches the broker.
 
 ## Reading a topic
 

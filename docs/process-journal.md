@@ -82,3 +82,9 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · process-journal · A 436-character entry was pushed and failed journal-lint on the pull request; the 400 limit is in the journal's header and a length count is one command, and /check prints journal-lint as SKIP, so nothing local ran it.
 
 2026-09-14 · review · scenario-in-flight-reads · The correction review found the barrier-failure test on a 500 ms budget the start acknowledgement had to beat, unable to redden a removed backstop, and a before/after test comment. testing-conventions.md § 16 and comment-conventions.md should have prevented them. (self)
+
+2026-09-14 · brief · hw-contracts-are-json · The brief required commit 1 to be the Vion.Contracts bump alone, green on build and test before any handler edit; 11.0.0 removes Vion.Contracts.FlatBuffers.Hw in the same major that adds Vion.Contracts.Hw, so the bump alone cannot compile and the two are one atomic change.
+
+2026-09-14 · brief · hw-contracts-are-json · The brief listed six comment sites as describing the service-provider wire as FlatBuffers; two of them describe service property and measuring-point state, which decision 0038 made JSON, and two more truly describe GetFlatBufferPayload and are correct.
+
+2026-09-14 · decision · hw-contracts-are-json · JSON has no literal for a non-finite double, so AC-IO-007.2 cannot be met on the new wire; the fix is NumberHandling on Vion.Contracts' HwJsonContext rather than anything in this repo, and the nine rows proving the criterion stand red instead of being reworded away. (self)
