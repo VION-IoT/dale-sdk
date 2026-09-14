@@ -2,10 +2,10 @@
 slug: http-server-and-testkit
 status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
-areas: HTTP, TKIT
+areas: HTTP, TKIT, MODB
 author: lane-3 session (VION-212)
 created: 2026-09-12
-updated: 2026-09-13
+updated: 2026-09-14
 supersedes: none           # path of a superseded change doc, or none
 ---
 
@@ -125,6 +125,12 @@ classification.
   today: `grep -rin "http" examples/Vion.Examples.Energy/Vion.Examples.Energy.Test/ --include=*.cs
   --include=*.csproj | grep -v /obj/` → no output. The step-3 doc had declined it because the example
   references published packages; how the tests land without a published kit is a drift checkpoint.
+- `D10` — **operator decision, 2026-09-14: both hosted servers get one binding rule in this round.** The
+  first CI run on Linux showed a second HTTP server enabling on a port the first held. The hosted Modbus
+  server shipped the same option. The operator chose to fix both here, over leaving Modbus to a
+  findings-ledger line, with the size guard (`spec-process.md` § 5) stated to them. So the `MODB` area
+  joins the round by decision, not by absorption. The rule: the listener is bound with no address-reuse
+  option. See the Amendment 3 checkpoint.
 
 ### Reviewer's questions
 
@@ -642,10 +648,10 @@ Every existing test the round touches maps to a row.
 - `AC-HTTP-015.2` — `LogicBlockHttpServerShould.ListenOnLoopbackAndPort8080UnlessTold` × M04 (default port 80) → `Failed: 1`.
 - `AC-HTTP-015.3` — `LogicBlockHttpServerShould.RefuseListenAddressAndPortWhileEnabled` × M05 (the port's enabled guard removed) → `Failed: 1`.
 - `AC-HTTP-015.4` — `LogicBlockHttpServerShould.RefusePortOutsideValidRange` × M06 (the message in the current culture) → `Failed: 1, Passed: 2` (the `-1` row under `sv-SE`); `.RefuseListenAddressOtherThanIpAddress` × M07 (a host name accepted) → `Failed: 1, Passed: 3`.
-- `AC-HTTP-015.5` — `LogicBlockHttpServerShould.PropagateBindFailureAndStayDisabled` × M08 (enabled before the transport starts) → `Failed: 1`; `TcpHttpServerTransportShould.FailSecondEnableOnHeldPortAndLeaveFirstServing` × M09 (a bind failure swallowed) → `Failed: 1`.
+- `AC-HTTP-015.5` — `LogicBlockHttpServerShould.PropagateBindFailureAndStayDisabled` × M08 (enabled before the transport starts) → `Failed: 1`; `TcpHttpServerTransportShould.FailSecondEnableOnHeldPortAndLeaveFirstServing` × M09 (a bind failure swallowed) → `Failed: 1`. *(Held on Windows only: on Linux the test failed against the unmutated code — Amendment 3, M73.)*
 - `AC-HTTP-015.6` — `LogicBlockHttpServerShould.StartOnEnableAndStopOnDisableOnceEach` × M10 (the repeat guard removed) → `Failed: 1`; `.KeepPublishedResponsesAcrossDisableAndEnable` × M11 (responses cleared on disable) → `Failed: 1`.
 - `AC-HTTP-015.7` — `LogicBlockHttpServerShould.StopAndReportDisabledOnDisposeAndStaySilentOnSecond` × M12 (disposal leaves the flag set) → `Failed: 1`.
-- `AC-HTTP-015.8` — `GAP`, no test.
+- `AC-HTTP-015.8` — `GAP`, no test. *(Amendment 3: tested on Linux, M75.)*
 - `AC-HTTP-016.1` — `LogicBlockHttpServerShould.AnswerRequestArrivingDuringSyncFromResponsesCallbackLeaves` × M13 (the answer takes no lock) → `Failed: 1` (after the ten-second wait for a requester that never blocked); `.ClearEveryResponse` × M14 (clear is a no-op) → `Failed: 1`.
 - `AC-HTTP-016.2` — `LogicBlockHttpServerShould.AllowSyncWhileDisabled` × M15 (`Sync` refused while disabled) → `Failed: 1`.
 - `AC-HTTP-016.3` — `LogicBlockHttpServerShould.RefuseDisposeInsideSyncAfterNestedSyncReturned` × M16 (the depth reset to zero when a nested call returns) → `Failed: 1`; `.RefuseEnableInsideSyncAtAnyDepth` × M17 (the guard removed from `IsEnabled`) → `Failed: 2`.
@@ -721,6 +727,19 @@ Every existing test the round touches maps to a row.
   coordinates in the current culture, so a German-locale gateway sent `latitude=47,4992` — found by the
   kit's first test against it. The example also gains tests for both of its HTTP services, compiled only
   under `-p:DaleLocalSource=true` until a release carries the kit.
+- **On Linux, a second hosted server on a port another one holds now fails to enable, for both the HTTP
+  server and the released hosted Modbus TCP server.** `IsEnabled = true` throws a `SocketException`
+  (address already in use) and the server stays disabled and not listening. Before this, both set
+  `ExclusiveAddressUse = false`, which on Linux adds `SO_REUSEPORT`. The second server bound the same port
+  silently, and the kernel split incoming connections between the two, so a block believed it was serving
+  while requests reached either server. Windows behaviour does not change. A same-version redeploy still
+  rebinds a port whose previous server has stopped while its closed connections linger — proven on Linux.
+- **A redeploy that leaves the old server listening now surfaces as a bind failure.** This happens where a
+  block's server is never disposed (a factory-created server is the block's to dispose), or where its
+  stopping block outlives the runtime's stop timeout. The new block's enable then throws until the old
+  listener goes away, where on Linux it used to share the port and serve half the requests. A block that
+  retries its transport each tick, as the simulator blocks in `logic-block-libraries` do, meets that failure
+  on every tick until then.
 
 ---
 
@@ -750,7 +769,10 @@ Every existing test the round touches maps to a row.
   `AC-HTTP-015.5`'s second-server clause true on Windows. **`AC-HTTP-015.8` is `GAP`:** its observable —
   rebinding a port whose server-side socket lingers after the server closed a connection — does not
   exist on Windows, where such a rebind succeeds with or without the option, so no test here can redden
-  its mutation. The Linux runner could; that test is not written.
+  its mutation. The Linux runner could; that test is not written. *(Refuted on Linux by the pull
+  request's first CI run and by probe — Amendment 3 checkpoint. The Windows probe was true for Windows
+  only: on Linux `ExclusiveAddressUse=false` adds `SO_REUSEPORT` and the second listener binds. Neither
+  server sets an option now, and `AC-HTTP-015.8` has its test.)*
 - 2026-09-13: **`D6` reaches further than its *Why* said.** "On the system clock nothing observable
   moves" is true, but a container can register another clock, and a DevHost in deterministic mode
   registers a `FakeTimeProvider` (`Vion.Dale.DevHost/DevHostBuilder.cs:123`). A real HTTP request issued
@@ -815,7 +837,7 @@ Every existing test the round touches maps to a row.
 - ADDED AC-HTTP-015.5 -> docs/specs/http.md : WHEN enabling the server cannot bind the listener THE SYSTEM SHALL propagate the failure to the caller and leave the server disabled and not listening, and a server already holding that port serving.
 - ADDED AC-HTTP-015.6 -> docs/specs/http.md : WHEN the server is enabled THE SYSTEM SHALL start listening on the configured address and port, WHEN it is disabled THE SYSTEM SHALL stop, and WHEN either is repeated THE SYSTEM SHALL do nothing, keeping the published responses across both.
 - ADDED AC-HTTP-015.7 -> docs/specs/http.md : WHEN the server is disposed THE SYSTEM SHALL stop listening, report itself disabled, stay silent on a second disposal, and refuse to be enabled again with an `ObjectDisposedException`, while still running `Sync` callbacks. (as amended — amendment 1)
-- ADDED AC-HTTP-015.8 -> docs/specs/http.md : THE SYSTEM SHALL bind the listener with the address-reuse option, so a redeploy can rebind a port whose previous socket still lingers. GAP: observable only where a server-closed connection's lingering socket blocks a rebind, which is Linux; the Windows desk rebinds such a port with or without the option.
+- ADDED AC-HTTP-015.8 -> docs/specs/http.md : WHEN the server is enabled on a port whose previous listener has stopped while that listener's closed connections still linger THE SYSTEM SHALL bind the port. (as amended — amendment 3)
 - ADDED AC-HTTP-015.9 -> docs/specs/http.md : WHEN the server is disabled or disposed while a complete request waits for its answer THE SYSTEM SHALL close that request's connection with no response and record nothing from it. (as amended — amendment 1)
 - ADDED AC-HTTP-015.10 -> docs/specs/http.md : IF accepting a connection fails with anything but a socket error THEN THE SYSTEM SHALL stop listening while the server stays enabled, and SHALL listen again once the server is disabled and enabled, and IF it fails with a socket error THEN THE SYSTEM SHALL go on accepting. (as amended — amendment 1)
 - ADDED AC-HTTP-015.11 -> docs/specs/http.md : THE SYSTEM SHALL register the server factory as a singleton and the server as a transient, and SHALL resolve a factory-created server from the container's root, so a block's scope ending leaves it serving, its block owns its disposal, and the container disposes it at its own disposal whether or not the block already has. (as amended — amendment 1)
@@ -841,6 +863,8 @@ Every existing test the round touches maps to a row.
 - ADDED AC-HTTP-017.8 -> docs/specs/http.md : THE SYSTEM SHALL send every response's status code on its status line, with an empty reason phrase for a status it names no phrase for. (as amended — amendment 1)
 - ADDED AC-HTTP-017.9 -> docs/specs/http.md : THE SYSTEM SHALL serve connections concurrently, answering a request on one connection while a request on another is still arriving. (as amended — amendment 1)
 - ADDED AC-HTTP-017.10 -> docs/specs/http.md : WHILE the connection limit is reached THE SYSTEM SHALL answer a further connection 503 and close it without reading its request. (as amended — amendment 1)
+- MODIFIED AC-MODB-011.3 -> docs/specs/modbus.md : WHEN enabling the server cannot bind the listener THE SYSTEM SHALL propagate the failure to the caller and leave the server disabled and not listening, and a server already holding that port serving. (amendment 3)
+- MODIFIED AC-MODB-014.4 -> docs/specs/modbus.md : WHEN the server is enabled on a port whose previous listener has stopped while that listener's closed connections still linger THE SYSTEM SHALL bind the port. (amendment 3)
 - ADDED AC-TKIT-014.1 -> docs/specs/testkit.md : THE SYSTEM SHALL compose a fake HTTP harness from the SDK's real registration, client, executor and serializer, replacing only the innermost message handler, so a scripted answer reaches a block through the SDK's own response handling.
 - ADDED AC-TKIT-014.2 -> docs/specs/testkit.md : WHEN a block issues a request through the harness's client THE SYSTEM SHALL record its method, URI, headers as sent, body, content type and per-request timeout before the member returns, and hold it outstanding.
 - ADDED AC-TKIT-014.3 -> docs/specs/testkit.md : THE SYSTEM SHALL answer outstanding requests oldest first, delivering a scripted status, content type and body as the response the SDK handles and a scripted exception unchanged, as the SDK delivers a transport failure.
@@ -888,7 +912,7 @@ Every existing test the round touches maps to a row.
 | 29 | `AC-HTTP-017.5` |
 | 30 | `AC-HTTP-017.6` |
 | 31 | `AC-HTTP-017.7` |
-| 36 | `AC-HTTP-015.8` — `GAP`: its observable is Linux's; see its drift checkpoint |
+| 36 | `AC-HTTP-015.8` — `GAP`: its observable is Linux's; see its drift checkpoint *(Amendment 3: reworded to the rebind itself and tested on Linux)* |
 | 38, 92, 93 | `AC-HTTP-014.1` — `MODIFIED` to name the clock; its dependency test gains a row |
 | 42 | `AC-HTTP-016.11` |
 | 50 | `AC-TKIT-014.1` |
@@ -1241,15 +1265,189 @@ connections is not arrival order); `RefuseStatusOutsideHttpRange` → `RefuseSta
 
 ---
 
-## Scorecard (lane 3 — one classification amendment, one fix-up amendment, zero reverts)
+## Amendment 3 checkpoint (a second server shares a held port on Linux)
+
+Brief `amend-VION-212-http-server-and-testkit-3.md`, worked by a fresh session on
+`feat/http-server-and-testkit` off `6a8661aa`. The scope gains the `MODB` area by operator decision
+(`D10`).
+
+**The finding.** The pull request's first CI run, on the Linux runner (run `34815933084`), failed
+`TcpHttpServerTransportShould.FailSecondEnableOnHeldPortAndLeaveFirstServing`: `Assert.ThrowsExactly
+failed. Expected exception type:<System.Net.Sockets.SocketException> but no exception was thrown.
+'action' expression: '() => second.IsEnabled = true'`. The defect was found by CI after two
+fresh-context checks and Amendment 1 had passed it. The adversarial review's first judgment item had
+questioned this same comment ("the `ExclusiveAddressUse` comment reads looser than `AC-HTTP-015.8`'s GAP
+text"). The coordinator routed it to "not carried" — a coordinator miss. Both servers set the option:
+`TcpHttpServerTransport.cs:113` and `ReuseAddressTcpClientProvider.cs:30`, as of `6a8661aa`.
+
+**Probes.** Scratch console projects outside the repository. Linux is the `mcr.microsoft.com/dotnet/sdk:10.0`
+container (`Ubuntu 24.04.5 LTS`, `.NET 10.0.12`, kernel `6.6.87.2-microsoft-standard-WSL2`); Windows is
+`Microsoft Windows 10.0.26200`, `.NET 10.0.8`. Each mode binds two listeners on one port, and separately
+serves three connections the server closes first, stops, and rebinds. Output, pasted:
+
+```text
+=== WINDOWS
+OS: Microsoft Windows 10.0.26200  runtime: .NET 10.0.8
+--- default
+  held-port second bind: refused (AddressAlreadyInUse) [ReuseAddress=0 ?]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- exclusive-false
+  held-port second bind: refused (AddressAlreadyInUse) [ReuseAddress=0 ?]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- reuseaddr-true
+  held-port second bind: SHARED (second bound) [ReuseAddress=1 ?]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- reuseaddr-false
+  held-port second bind: refused (AddressAlreadyInUse) [ReuseAddress=0 ?]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- exclusive-true
+  held-port second bind: refused (AddressAlreadyInUse) [opts: InvalidOperationException]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+=== LINUX
+OS: Ubuntu 24.04.5 LTS  runtime: .NET 10.0.12
+--- default
+  held-port second bind: refused (AddressAlreadyInUse) [ReuseAddress=0 raw SO_REUSEADDR=1 SO_REUSEPORT=0]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- exclusive-false
+  held-port second bind: SHARED (second bound) [ReuseAddress=1 raw SO_REUSEADDR=1 SO_REUSEPORT=1]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- reuseaddr-true
+  held-port second bind: SHARED (second bound) [ReuseAddress=1 raw SO_REUSEADDR=1 SO_REUSEPORT=1]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- reuseaddr-false
+  held-port second bind: refused (AddressAlreadyInUse) [ReuseAddress=0 raw SO_REUSEADDR=1 SO_REUSEPORT=0]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- exclusive-true
+  held-port second bind: refused (AddressAlreadyInUse) [opts: InvalidOperationException]
+  lingering rebind:      rebound (TIME_WAIT on port: 3)
+--- clear-before-bind: rebound (first listener SO_REUSEADDR=1)
+--- clear-after-bind: FAILED AddressAlreadyInUse (first listener SO_REUSEADDR=0)
+```
+
+The options were read after the bind; the last two lines are a second Linux probe on a raw socket. What
+they establish:
+
+- On Linux, `ExclusiveAddressUse = false` and `ReuseAddress = true` each add `SO_REUSEPORT`, and that is
+  the port sharing. The comments' claim that the option "maps to `SO_REUSEADDR`" was true of the name
+  and false of the effect.
+- On Linux, .NET sets `SO_REUSEADDR` on every TCP bind itself. Clearing it before the bind is undone by
+  the bind; clearing it after the bind makes a later rebind over that listener's lingering connections
+  fail. On Windows a plain bind rebinds over them.
+- So both requirements hold on both systems with no option set, and the brief's STOP (requirement 2
+  needing port sharing) did not fire.
+
+A third probe ran FluentModbus 5.3.2 alone on both systems and printed identical lines on each:
+`Start(IPEndPoint) then Dispose: listener still bound = True`, `Start(IPEndPoint) then Stop: listener
+still bound = False`, and the same pair for an injected plain provider. The library releases its
+listener on `Stop()`, not on `Dispose()` alone, whichever way it binds. `ModbusTcpServerProxy.Dispose`
+calls `Stop()` first.
+
+**The runtime's redeploy order, confirmed at its call sites** (read-only, `C:\_gh\dale`). A same-version
+change calls `InitializeAsync` (`LogicSystemConfigurationHandler.cs:124`). It stops the running actors
+(`LogicSystemConfigurationInitializer.cs:101`) before it creates the new ones (`:112`). The stop sends the
+stop request (`:298`) and catches its timeout as a warning and continues (`:302-305`). It then snapshots
+(`:311`), waits the grace period (`:337`) and terminates the actors (`:347`), which disposes each block's
+scope and not a factory-created server.
+
+**Inferred, not probed: what DF-46 was.** RFC 0018 (`34cdbce8`) said FluentModbus's default bind "is
+exactly why the default bind hits `EADDRINUSE`". Its open question 1 left the option to "a real
+same-version-redeploy repro", and nothing in the tree shows one ran. Its own planned regression test was
+"start a *second* proxy on the same port before the first releases → the second must bind", which is
+port sharing. The probes show a plain bind rebinds over lingering connections on both systems. So a
+redeploy's `EADDRINUSE` most plausibly came from a listener still bound — the root-retained server its
+Part A named. That case now fails the new server's enable again, where since PR #119 it shared the port on
+Linux. The relay notes say so.
+
+**The rule, and the code.** Neither listener sets an option: `TcpHttpServerTransport.Start` and
+`ReuseAddressTcpClientProvider`'s constructor construct a plain `TcpListener`. Both comments now state
+what the probes established. The proxy's call-site comment no longer claims the library's default bind is
+prone to the conflict. The provider is kept, so the bind stays the SDK's across a library upgrade, and its
+name is unchanged (a Question in the REPORT).
+**Tests and mutations.** The Linux runs used the container above against a copy of the working tree (no
+`.git`, `bin` or `obj`), `dotnet test` per project with `--filter`. Mutations were applied by a script that
+asserted exactly one match and restored the file byte for byte (`restored: True` after each).
+
+- M73 — `AC-HTTP-015.5`, `TcpHttpServerTransportShould.FailSecondEnableOnHeldPortAndLeaveFirstServing`
+  against the **pre-fix** code, on Linux: `Failed FailSecondEnableOnHeldPortAndLeaveFirstServing` — `Expected
+  exception type:<System.Net.Sockets.SocketException> but no exception was thrown`. After the fix: `Passed`.
+  The test now also exchanges a request with the first server after the refusal, so "serving" is a response
+  rather than a flag.
+- M74 — `AC-MODB-011.3`, `ModbusTcpServerIntegrationShould.FailSecondEnableOnHeldPortAndLeaveFirstServing`
+  (new, real sockets) against the **pre-fix** code, on Linux: `Failed` with the same message. After the
+  fix: `Passed`.
+- M75 — `AC-HTTP-015.8`, `TcpHttpServerTransportShould.RebindPortWhileClosedServerConnectionsStillLinger`
+  (new) × address reuse cleared on the listener after `Start()`
+  (`listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, false)`), on
+  Linux: `Failed RebindPortWhileClosedServerConnectionsStillLinger` — `System.Net.Sockets.SocketException:
+  Address already in use`; the Modbus test in the same run `Passed`. Unmutated: `Passed`. The test asserts
+  its precondition — a connection on the port in `TIME_WAIT` after the server's disposal — before the
+  rebind, so it cannot pass over a port where nothing lingers.
+- M76 — `AC-MODB-014.4`, `ModbusTcpServerIntegrationShould.RebindPortWhileClosedServerConnectionsStillLinger`
+  (new) × the same line after `_listener.Start()` in the provider, on Linux: `Failed …` — `Address already in
+  use`; the HTTP test in the same run `Passed`. Unmutated: `Passed`. The master is still connected when the
+  server is disposed, so the server closes first, and the precondition is asserted as above.
+- M77 — `AC-MODB-011.3`'s "not listening" clause × `IsListening = true` moved above `_server.Start(…)` in
+  `ModbusTcpServerProxy.Start`, on Windows: `Failed FailSecondEnableOnHeldPortAndLeaveFirstServing` —
+  `Assert.IsFalse failed. 'condition' expression: 'second.IsListening'`.
+
+A first attempt at M75/M76 used `SetRawSocketOption`, which `netstandard2.1` does not carry; the
+mutated project did not compile and printed no result. It is not counted.
+
+**Deleted: `ReuseAddressTcpClientProviderShould.BindEndpoint_AndAcceptConnection`**, which cited
+`AC-MODB-014.4` while only binding and accepting — not the reworded criterion's text. Gate:
+`ModbusTcpServerIntegrationShould`, whose every test enables the server through that provider, so a provider
+that fails to bind or accept fails all nine (`grep -c TestMethod …/ModbusTcpServerIntegrationShould.cs` → 9).
+
+**`AC-HTTP-015.8`'s GAP is closed.** Its reason was "observable only on Linux", and M75 is that
+observable on Linux. Its text now states the rebind rather than the option, and `AC-MODB-014.4` states the
+same.
+
+**What moved on the pages.** `http.md`: `AC-HTTP-015.8` reworded, un-GAP'd, and its prose states the one
+rule and where the systems part. `modbus.md`: `AC-MODB-011.3` gains "and not listening, and a server
+already holding that port serving"; `AC-MODB-014.4` is reworded to the rebind; a paragraph under the
+endpoint section ties both to the rule and the redeploy order. The real-socket sentence in the test
+discipline, and the `modbus-smoke` skill's list of what it covers, lose "the reuse-address bind": neither
+scenario binds over a held or a lingering port. Criteria: `grep -cE '^- \`AC-HTTP-' docs/specs/http.md` →
+70; `grep -cE '^- \`AC-MODB-' docs/specs/modbus.md` → 115.
+
+**The delta.** `AC-HTTP-015.8`'s `ADDED` line is rewritten in place, `(as amended — amendment 3)`, since it
+had not shipped. `AC-MODB-011.3` and `AC-MODB-014.4` shipped, so each gains a `MODIFIED` line.
+`grep -cE '^- (ADDED|MODIFIED|REMOVED) ' <this doc>` → 50. The doc is already archived, so per
+`spec-process.md` § Change docs the gate re-ran against a slug-renamed copy under a scratch
+`docs/changes/`, with the current `docs/specs/`: `spec-change: archived
+2026-09-12-http-server-and-testkit-amend3.md -> archive/ (staged)`, exit 0. As a negative control, the
+`AC-MODB-011.3` delta with "and not listening" removed → `spec-change: NOT distilled - cannot archive (1
+unapplied delta line(s)): MODIFIED AC-MODB-011.3 text differs from docs/specs/modbus.md`, exit 1.
+
+### Consolidation for Amendment 3
+
+| Brief requirement | Criterion |
+| --- | --- |
+| 1, HTTP — a second listener refused, the first serving | `AC-HTTP-015.5` (text unchanged; its test gains the exchange) |
+| 1, Modbus | `AC-MODB-011.3` (`MODIFIED`) |
+| 2, HTTP — rebind over lingering connections | `AC-HTTP-015.8` (reworded, GAP closed) |
+| 2, Modbus | `AC-MODB-014.4` (`MODIFIED`) |
+
+### Surviving mutations and uncited behaviour
+
+- **An option set on Windows only.** `ExclusiveAddressUse = false` restored on Windows passes every test
+  on Windows, because there it changes nothing (probe). Linux CI is the run that can fail it (M73/M74).
+- **A future runtime that stops setting `SO_REUSEADDR` on Linux binds.** No code here sets it, so no
+  mutation of this repository reaches it; M75/M76 construct the same effect, and the two rebind tests would
+  fail on the Linux runner.
+
+---
+
+## Scorecard (lane 3 — one classification amendment, two fix-up amendments, zero reverts)
 
 Values supplied by the coordinator's brief 2; the fix-up session's duration corrected from its commits.
+Amendment 3's additions are marked as such.
 
 | Measure | Value |
 |---|---|
-| Gates (build/test/lint/trace/style/doc-comment/bom/self-tests/cleanup/CI) | green at `e78110b1`; re-run after merging `main` (`6f2e08eb`) — pasted in the pull request's Gates |
-| Completeness-critic misses | 11 (state-interaction 4, edge-value 5, consumer 2) + 3 hygiene; all carried, rows and criteria added in Amendment 1 |
-| Evidence errors found in review | 5: the page and row 22 claiming log growth was handled; `IHttpServerTransport.Stop`'s summary and the in-line stop comment promising a request finishes; `AC-HTTP-017.6`'s read-bound text; row 34's *Why* resting on a Modbus precedent that does not transfer; the pasted "five ×" count |
-| Mutation evidence | list complete; over-determined `AC-TKIT-014.5`, `AC-TKIT-015.1` stated; M47 survives as a reported window |
-| Operator corrections (table + PR) | 2, both row 2: port 80→8080 at the gate; all interfaces → loopback after the checks |
+| Gates (build/test/lint/trace/style/doc-comment/bom/self-tests/cleanup/CI) | green at `e78110b1`; re-run after merging `main` (`6f2e08eb`) — pasted in the pull request's Gates. **CI red at `6a8661aa`** on the Linux runner: `FailSecondEnableOnHeldPortAndLeaveFirstServing` (`AC-HTTP-015.5`) — a defect found by CI after two fresh-context checks and Amendment 1. Amendment 3's gates are pasted in the pull request |
+| Completeness-critic misses | 11 (state-interaction 4, edge-value 5, consumer 2) + 3 hygiene; all carried, rows and criteria added in Amendment 1. Amendment 3: 1 further miss neither check caught — a platform-dependent premise (the reuse option's effect on Linux) proven on Windows only |
+| Evidence errors found in review | 5: the page and row 22 claiming log growth was handled; `IHttpServerTransport.Stop`'s summary and the in-line stop comment promising a request finishes; `AC-HTTP-017.6`'s read-bound text; row 34's *Why* resting on a Modbus precedent that does not transfer; the pasted "five ×" count. Amendment 3: **1 coordinator miss** — the adversarial review's first judgment item questioned the `ExclusiveAddressUse` comment, and the coordinator routed it to "not carried" |
+| Mutation evidence | list complete; over-determined `AC-TKIT-014.5`, `AC-TKIT-015.1` stated; M47 survives as a reported window. Amendment 3: M73–M77, the two rebind mutations run on Linux; an option set on Windows only survives on Windows by construction |
+| Operator corrections (table + PR) | 2, both row 2: port 80→8080 at the gate; all interfaces → loopback after the checks. Amendment 3: 1 scope decision — the `MODB` area joins the round (`D10`) |
 | Cost | implementing session Opus·High (step 3 ≈ 23 min, implementation ≈ 67 min, one duplicated process from an `-AmendFile` resume); fix-up session Opus·High ≈ 2 h (brief 2026-09-13T08:30Z → push 10:31Z, the brief's ≈ 50 min corrected from the commit times); coordinator: 3 Opus Explore subagents (pre-dispatch brief check, completeness critic, adversarial review); amendments 2 (classification, fix-up); wall time 2026-09-12T19:13Z → 2026-09-13T10:34Z, most of it the overnight gate |
