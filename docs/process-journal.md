@@ -62,3 +62,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · brief · DF-46 · RFC 0018 said FluentModbus's default bind hits EADDRINUSE over a lingering socket and left the option to a redeploy repro nothing shows ran; probes show a plain bind rebinds on Linux and Windows, and its planned regression test was port sharing. (self)
 
 2026-09-14 · gate · Linux mutation run · A mutation calling SetRawSocketOption did not compile under netstandard2.1, and the run's output filter dropped the build error, so the mutated project printed no test line at all. (self) → codified: docs/testing-conventions.md
+
+2026-09-14 · review · VION-212 · The change doc said the Modbus provider is kept, with only its name raised as a question; the review asked that keeping or deleting it be surfaced too, since a plain provider binds as the library default. CLAUDE.md's "A decision nobody named is surfaced, not taken" should have prevented it.
+
+2026-09-14 · review · http.md · The page said Linux is where both binding clauses' tests can fail; the Windows probe shows ReuseAddress shares a held port there too, so only the rebind test is Linux-only. spec-process.md's probe-shape rule should have prevented it.

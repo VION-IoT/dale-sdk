@@ -1361,8 +1361,13 @@ Linux. The relay notes say so.
 **The rule, and the code.** Neither listener sets an option: `TcpHttpServerTransport.Start` and
 `ReuseAddressTcpClientProvider`'s constructor construct a plain `TcpListener`. Both comments now state
 what the probes established. The proxy's call-site comment no longer claims the library's default bind is
-prone to the conflict. The provider is kept, so the bind stays the SDK's across a library upgrade, and its
-name is unchanged (a Question in the REPORT).
+prone to the conflict. The provider stays as it was, name included, pending the operator: with no option,
+it binds as the library's own `Start(IPEndPoint)` did in the FluentModbus probe. Deleting it (the two rebind
+tests guard a library upgrade), or keeping it under a name that says what it does, is a Question in the
+REPORT. The probe also answers the closeout ledger's "Whether a newer FluentModbus makes the reuse-address
+provider unnecessary is unasked" (`2026-09-07-sdd-closeout.md`), and "The reuse-address knob has no
+same-version-redeploy repro" beside it is now the two rebind tests.
+
 **Tests and mutations.** The Linux runs used the container above against a copy of the working tree (no
 `.git`, `bin` or `obj`), `dotnet test` per project with `--filter`. Mutations were applied by a script that
 asserted exactly one match and restored the file byte for byte (`restored: True` after each).

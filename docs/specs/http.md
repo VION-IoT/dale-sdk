@@ -414,9 +414,10 @@ and whether a taken port takes the bench down is the block's decision, made in i
 `AC-MODB-014.4`): the listener is bound with no address-reuse option, because a plain bind already rebinds
 over lingering connections on both operating systems and an option only adds port sharing — a second
 server binds the held port and the kernel splits connections between the two. On Linux both of .NET's
-spellings, `ExclusiveAddressUse = false` and `ReuseAddress`, add it; on Windows `ReuseAddress` does. Linux
-is where both clauses' tests can fail: only there does a bind with address reuse cleared refuse a port its
-closed connections still hold.
+spellings, `ExclusiveAddressUse = false` and `ReuseAddress`, add it; on Windows `ReuseAddress` does. Only on
+Linux can the rebind's test fail, because only there is a bind with address reuse cleared refused over a
+port's lingering connections; the held-port test fails on Linux under either spelling, and on Windows under
+`ReuseAddress` alone.
 
 `AC-HTTP-015.7`'s last clause is the hosted Modbus server's too: disposal ends the socket and not the
 route table, so a block's late tick publishing into a disposed server changes a table nothing serves and
