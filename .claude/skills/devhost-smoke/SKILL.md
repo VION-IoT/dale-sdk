@@ -42,7 +42,7 @@ It does **not** drive the SPA web UI (the host *serves* it but the headless test
    dotnet build $dir --nologo
    $env:DALE_DEVHOST_STEPPED = "1"; $env:DALE_DEVHOST_NO_BROWSER = "1"
    $out = Join-Path $env:TEMP "smokehost.out"; Remove-Item $out -EA SilentlyContinue
-   $hostProcess = Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Dale.DevHost.SmokeHost.dll" -WorkingDirectory $dir -NoNewWindow -PassThru -RedirectStandardOutput $out
+   $hostProcess = Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Dale.DevHost.SmokeHost.dll" -WorkingDirectory $dir -WindowStyle Hidden -PassThru -RedirectStandardOutput $out
    do { Start-Sleep -Milliseconds 400; $ready = Get-Content $out -EA SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } } until ($ready -or $hostProcess.HasExited)
    $port = ($ready | Select-Object -First 1 | ConvertFrom-Json).port
    ```

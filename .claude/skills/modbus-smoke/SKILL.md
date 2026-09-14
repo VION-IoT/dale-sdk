@@ -100,7 +100,7 @@ $dir = "$(git rev-parse --show-toplevel)\examples\Vion.Examples.ModbusTcp\Vion.E
 dotnet build $dir --nologo
 $env:DALE_DEVHOST_NO_BROWSER = "1"
 $out = Join-Path $env:TEMP "modbus-devhost.out"; Remove-Item $out -EA SilentlyContinue
-$hostProcess = Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Examples.ModbusTcp.DevHost.dll" -WorkingDirectory $dir -NoNewWindow -PassThru -RedirectStandardOutput $out
+$hostProcess = Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Examples.ModbusTcp.DevHost.dll" -WorkingDirectory $dir -WindowStyle Hidden -PassThru -RedirectStandardOutput $out
 do { Start-Sleep -Milliseconds 400; $ready = Get-Content $out -EA SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } } until ($ready -or $hostProcess.HasExited)
 $port = ($ready | Select-Object -First 1 | ConvertFrom-Json).port
 ```

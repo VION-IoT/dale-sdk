@@ -265,7 +265,7 @@ try
     Remove-Item Env:\DALE_DEVHOST_STEPPED -ErrorAction SilentlyContinue
 
     Write-Host "Booting the DevHost (real clock)..."
-    $hostProcess = Start-Process dotnet -ArgumentList $devHostDll -WorkingDirectory $devHostDir -NoNewWindow -PassThru -RedirectStandardOutput $hostOutput
+    $hostProcess = Start-Process dotnet -ArgumentList $devHostDll -WorkingDirectory $devHostDir -WindowStyle Hidden -PassThru -RedirectStandardOutput $hostOutput
 
     $baseUri = "http://localhost:$( Wait-ReadinessPort $hostOutput $hostProcess 90 )"
     if (-not (Wait-Ready 30))
