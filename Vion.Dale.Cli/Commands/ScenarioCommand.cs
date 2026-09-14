@@ -142,9 +142,17 @@ namespace Vion.Dale.Cli.Commands
             return report.ToJsonString(JsonDefaults.Options);
         }
 
+        // Said wherever a verb finds no host on the port: a second host is not on 5000, and nothing here can
+        // find which port it walked to — the host printed it.
+        private const string WalkedPortHint = "A host started while its preferred port was taken serves on the next free one: pass the port it printed with --port.";
+
         private static Option<int> PortOption()
         {
-            return new Option<int>("--port") { Description = "Port of the running DevHost (default 5000).", DefaultValueFactory = _ => 5000 };
+            return new Option<int>("--port")
+                   {
+                       Description = "Port of the running DevHost, as its address or readiness line printed it (default 5000).",
+                       DefaultValueFactory = _ => 5000,
+                   };
         }
 
         private static Command CreateRun()
@@ -619,7 +627,7 @@ namespace Vion.Dale.Cli.Commands
                                    }
                                    catch (HttpRequestException e)
                                    {
-                                       DaleConsole.Error($"No DevHost reachable on port {port} ({e.Message}). Start one with `dale dev`.");
+                                       DaleConsole.Error($"No DevHost reachable on port {port} ({e.Message}). Start one with `dale dev`. {WalkedPortHint}");
                                        return 1;
                                    }
                                }
@@ -667,7 +675,7 @@ namespace Vion.Dale.Cli.Commands
                 }
                 catch (HttpRequestException e)
                 {
-                    DaleConsole.Error($"No DevHost reachable on port {port} ({e.Message}). Start one with `dale dev --headless`.");
+                    DaleConsole.Error($"No DevHost reachable on port {port} ({e.Message}). Start one with `dale dev --headless`. {WalkedPortHint}");
                     return (null, 1);
                 }
 
@@ -707,7 +715,7 @@ namespace Vion.Dale.Cli.Commands
             }
         }
 
-        // Wait for a recycling host to come back: the supervisor rebuilds on the same port, so
+        // Wait for a recycling host to come back: the supervisor rebuilds on the port it first bound, so
         // /api/control/status may briefly stop responding before the fresh generation answers. A short initial
         // delay lets the teardown start; then poll until it responds, bounded by a generous real-clock budget.
         private static async Task WaitForHostReadyAsync(HttpClient http, CancellationToken cancellationToken)
@@ -759,7 +767,7 @@ namespace Vion.Dale.Cli.Commands
                 if (requireSource)
                 {
                     DaleConsole.Error($"No configuration source: no --config file given and no DevHost reachable on port {port} ({e.Message}). " +
-                                      "Run `dale dev --headless` or export one with `dale dev --export-config <file>`.");
+                                      "Run `dale dev --headless` or export one with `dale dev --export-config <file>`. " + WalkedPortHint);
                 }
 
                 return null;
