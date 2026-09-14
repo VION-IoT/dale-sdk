@@ -88,13 +88,17 @@ text (`D5`).
    working directory and the verbs default `--port` from it — one small file format, fixes the common
    case; (c) `/api/control/status` carries the host's working directory and the verbs pick the host
    whose directory matches — a wire field plus a port scan. **Recommendation: (b)**, as its own backlog
-   item. OUTCOME: (pending the operator)
-2. **(b)** — `D1`'s bound of twenty. OUTCOME: (pending review)
+   item. OUTCOME: (a) in this change — nothing surface-adding was built; (b) is raised to the operator
+   as a follow-up question in the session's REPORT, not decided here.
+2. **(b)** — `D1`'s bound of twenty. OUTCOME: accepted as decided by the implementing session;
+   carried by `RefuseToStartNamingRangeWhenEveryWalkedPortTaken`; open to change on the PR.
 3. **(b)** — `D4`: fail rather than walk when the pinned port is taken during a recycle. OUTCOME:
-   (pending review)
+   accepted as decided by the implementing session; carried by
+   `FailLaterGenerationNamingPortWhenItWasTakenDuringRecycle`; open to change on the PR.
 4. **(b)** — `D3`: the runner's `port` argument now only names the port for a host without a web UI.
    It is dead weight for every template-shaped `Program.cs`; deleting it breaks every consumer's
-   compile, so it stays, documented. OUTCOME: (pending review)
+   compile, so it stays, documented. OUTCOME: accepted as decided by the implementing session; the
+   argument's XML docs say what it now means; open to change on the PR.
 
 ---
 
@@ -157,7 +161,7 @@ failure and falls back once onto the running topology, which fails the same way 
 
 - 2026-09-14: Kestrel's `ListenLocalhost` fails the whole bind with `IOException` when the port is held on
   **either** loopback family — probed on Windows 11 with a `TcpListener` on `[::1]` only
-  (`ServeOnNextFreePortWhenPreferredOneIsHeld`, row "held on the IPv6 loopback only", red before the fix
+  (`ServeOnNextFreePortWhenPreferredOneTaken`, row "held on the IPv6 loopback only", red before the fix
   with `Failed to bind to address http://[::1]:…: address already in use`). This is what `D2` rests on.
   Unproven on Linux: CI's runner exercises the same rows.
 - 2026-09-14: each failed bind attempt logged `Hosting failed to start` with a stack trace from the
@@ -207,6 +211,35 @@ failure and falls back once onto the running topology, which fails the same way 
 - `T-003` (`AC-CLI-009.9`): `dale dev`'s announcement; the scenario verbs' description and refusals (`D5`).
 - `T-004`: smoke skills and `smoke-modbus.ps1` (`D6`); the other 5000 mentions (`D7`).
 - `T-005`: distill, archive.
+
+## Test to mutation
+
+Each mutation applied alone to the branch, `Vion.Dale.DevHost.Test` filtered to `SupervisedRunnerShould`
+(21 cases), then restored; the reddened tests as the run named them.
+
+- `RefuseToStartNamingRangeWhenEveryWalkedPortTaken` (`AC-CTRL-002.6`) → M1, walk bound 21 instead of 20: 1 failed, that test.
+- `ServeOnNextFreePortWhenPreferredOneTaken`, all three rows (`AC-CTRL-002.6`) → M2, no walk (`last = first`): 9 failed, the three rows among them. Red before the fix too.
+- `PrintBoundAddressAndScenarioDeepLinksBeforeReadiness` (`AC-CTRL-006.8`) → M3, the address line from the configured port: 1 failed; M3b, the deep links from the configured port: 1 failed. Red before the fix.
+- `PrintSameReadinessLineNamingBoundPortFromEitherEntryPoint`, row "the prebuilt-host overload" (`AC-CTRL-006.2`) → M4a, that overload's readiness line names its argument: 5 failed, the row among them.
+- `PrintSameReadinessLineNamingBoundPortFromEitherEntryPoint`, row "the supervised loop" (`AC-CTRL-006.2`) → M4b, the loop's readiness line names its argument: 3 failed, the row among them. Both rows red before the fix.
+- `RebindLaterGenerationOnPortFirstGenerationBound` (`AC-CTRL-005.4`) → M5, no pin: 2 failed, this and the recycle-failure test. Red before the fix.
+- `FailLaterGenerationNamingPortWhenItWasTakenDuringRecycle` (`AC-CTRL-005.10`) → M6, a pinned host walks: 1 failed, that test. Passed before the fix, which already failed a rebind; the mutation is the regression the criterion exists for.
+- `FailLaterGenerationNamingPortWhenItWasTakenDuringRecycle` (`AC-CTRL-005.6`) → M7, both failure receipts name the runner's argument: 1 failed, that test.
+- `AnnounceWhatItWillActuallyDo` (`AC-CLI-009.9`) → the two serve rows assert exact lines; the pre-change strings are the mutation and fail them by construction. Not run separately.
+- `BindWebHostOnLoopbackOnly` (`AC-CTRL-014.1`) → renamed only; its assertion is unchanged.
+
+## Demonstrated
+
+Windows 11, 2026-09-14, from `twohosts.ps1` in the session scratchpad; no listener on 5000–5002 before.
+
+- Host A, `Vion.Examples.PingPong` built with `-p:DaleLocalSource=true`: `{"ready":true,"port":5000,"generation":1}`.
+- Pre-fix, `Vion.Examples.ToggleLight` built against the published 0.13.0 packages: `DevHost Web UI running at http://localhost:5000` printed, then `{"failed":true,"port":5000,…,"reason":"The development host could not bind port 5000: … address already in use. Another host is probably already serving it - stop it, or start this one on a different port."}`.
+- `Vion.Examples.ToggleLight` from local source via `dotnet run --no-build`: `Port 5000 is in use — trying 5001.`, `DevHost Web UI running at http://localhost:5001`, `  scenario toggle-light: http://localhost:5001/#/scenario/toggle-light`, `{"ready":true,"port":5001,"generation":1}`; `GET /api/control/status` on 5001 → 200.
+- `POST /api/control/reset` on 5001 → 202, then `{"ready":true,"port":5001,"generation":2}`; listeners `127.0.0.1:5000`/`::1:5000` owned by host A's process and `127.0.0.1:5001`/`::1:5001` by the ToggleLight process.
+- The same example through the local CLI, `dale dev --headless` with `DaleLocalSource=true` in the environment: `  Control API, no browser — the readiness line names its port`, `Port 5000 is in use — trying 5001.`, `DevHost Web UI running at http://localhost:5001`, `{"ready":true,"port":5001,"generation":1}`; status on 5001 → 200. The two examples build to their own output directories; the `dotnet run` builds were done beforehand with `dotnet build`, so no shared-output build was attempted.
+- `devhost-smoke` Tier 2 boot as the skill now writes it, with PingPong holding 5000: the SmokeHost printed `Port 5000 is in use — trying 5001.` and `{"ready":true,"port":5001,"generation":1}`; chrome-devtools opened `http://localhost:5001`, titled `DALE DevHost — default`, reading `7 blocks · 42 properties`, stepped; `/api/configuration` from the page listed the SmokeHost's seven blocks. Torn down by process id.
+- `pwsh scripts/smoke-modbus.ps1 -LocalSource` with PingPong holding 5000: `The DevHost is serving on http://localhost:5001.`, `modbus-healthy: succeeded in 1.2s`, `modbus-link-policy: succeeded in 33.3s`, exit 0; the holder was still running afterwards and no listener remained on 5000, 5001 or 15020 once it was stopped.
+- Not run, routes to a human: a non-headless start opening a real browser at the walked address. The runner's browser URL and readiness line read the same bound port, and the readiness half is what the tests carry.
 
 ## Relay notes for the PR body
 

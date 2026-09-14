@@ -77,7 +77,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("DevHost", DisplayName = "held by another development host")]
         [DataRow("IPv4", DisplayName = "held on the IPv4 loopback only")]
         [DataRow("IPv6", DisplayName = "held on the IPv6 loopback only")]
-        public async Task ServeOnNextFreePortWhenPreferredOneIsHeld(string heldBy)
+        public async Task ServeOnNextFreePortWhenPreferredOneTaken(string heldBy)
         {
             // Arrange — a port held on one loopback family only is the case a "can I bind it" probe misjudges.
             var preferred = FreePort();
@@ -115,7 +115,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-002.6")]
-        public async Task RefuseToStartNamingRangeWhenEveryWalkedPortIsHeld()
+        public async Task RefuseToStartNamingRangeWhenEveryWalkedPortTaken()
         {
             // Arrange — the preferred port and the nineteen above it, all held.
             var (preferred, holders) = HoldRange(20);
