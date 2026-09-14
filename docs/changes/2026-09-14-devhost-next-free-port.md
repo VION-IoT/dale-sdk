@@ -1,6 +1,6 @@
 ---
 slug: devhost-next-free-port
-status: proposed
+status: in-flight
 blocked-on: none
 areas: CTRL, CLI
 author: jonasbertsch
@@ -128,8 +128,9 @@ service (constructor injection, the same singleton) hold. Nothing public is adde
 `DevHostWebRunner`:
 
 - prebuilt-host overload: after `StartAsync`, `servingPort = bound ?? port`; readiness and browser use it.
-- supervised loop: generation 1's `servingPort` is captured; every later generation's host is pinned to
-  it before `StartAsync`. Failure receipts name `servingPort` once set, else the argument.
+- supervised loop: generation 1's bound port is captured as `servingPort`; every later generation's host is
+  pinned to it before `StartAsync`. Each readiness line and the browser name the port *that generation*
+  bound; failure receipts name `servingPort` once set, else the argument.
 
 ### Recycle window
 
@@ -154,7 +155,35 @@ failure and falls back once onto the running topology, which fails the same way 
 
 ## Drift checkpoints
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-09-14: Kestrel's `ListenLocalhost` fails the whole bind with `IOException` when the port is held on
+  **either** loopback family — probed on Windows 11 with a `TcpListener` on `[::1]` only
+  (`ServeOnNextFreePortWhenPreferredOneIsHeld`, row "held on the IPv6 loopback only", red before the fix
+  with `Failed to bind to address http://[::1]:…: address already in use`). This is what `D2` rests on.
+  Unproven on Linux: CI's runner exercises the same rows.
+- 2026-09-14: each failed bind attempt logged `Hosting failed to start` with a stack trace from the
+  generic host. The `Microsoft.Extensions.Hosting.Internal.Host` category is filtered to `Critical` on
+  the per-attempt web application, and the walk prints one line per port it passes instead. A genuine
+  start failure still reaches the caller as the thrown exception.
+- 2026-09-14: the first cut of the supervised readiness line named `servingPort` (the pinned port) rather
+  than the port the generation bound, so a regression that stopped pinning still printed the old port —
+  mutation M5 survived `RebindLaterGenerationOnPortFirstGenerationBound`. The line now names each
+  generation's own bound port, and the test also answers a request on that port. Sibling sweep: the
+  browser URL had the same shape and moved with it; the prebuilt-host overload already read the host's
+  own bound port; the failure receipt deliberately names `servingPort` (`AC-CTRL-005.6`).
+- 2026-09-14: `FailLaterGenerationNamingPortWhenItWasTakenDuringRecycle` awaited the runner unbounded, so
+  a mutation that let the generation walk (M5, M6) hung the suite instead of failing it. The wait is now
+  bounded and the runner is cancelled in `finally`.
+- 2026-09-14: `D7` sweep result, from `git grep -n "5000" -- ':!**/bin/**' ':!**/obj/**' ':!**/*.min.js'`
+  minus unrelated hits: edited — `README.md`, five `examples/*/README.md`, `templates/vion-iot-library/AGENTS.md`
+  (two sites) and `README.md`, `NewCommand.cs`'s hint, `Vion.Dale.DevHost.SmokeHost/Program.cs`'s summary,
+  `ScenarioCommand.cs`'s `--port` description; nothing needed — `Port = 5000` in ten example and one library
+  `Program.cs`, the template's `Program.cs`, the runner and `WithWebUi` defaults (a starting point now),
+  `ScenarioCommandTests.cs` / `TopologyCommandTests.cs` (the default is unchanged). The example READMEs
+  describe the published package they reference, and become true when the examples are bumped to the
+  release carrying this change.
+- 2026-09-14: the brief's hit list named `DevHostWebRunner.cs:55,105,118,140` as defaults to handle; they
+  stay — the argument is the fallback `D3` describes, and removing the default breaks no one but changes
+  every signature in the PublicApi manifest for nothing.
 
 ---
 

@@ -115,6 +115,8 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-14 · review · spec-process · The review found the archive rule still owing a map row from any post-archive fix, lane 2 included, after the edit scoped the map to rounds with a classified table; the clause is now scoped too. (self)
 
+2026-09-14 · brief · VION-215 · The brief named the branch feat/VION-215-devhost-next-free-port, which carries a ticket key the branch naming rule forbids; the operator chose feat/devhost-next-free-port.
+
 2026-09-14 · gate · Python on Windows · A Python rewrite of WebHostService.cs read and wrote with the locale code page, so three em dashes it inserted landed as single 0x97 bytes; the diff showed replacement glyphs and the bytes were rewritten as UTF-8. (self)
 
 2026-09-14 · review · VION-215 · The supervised readiness line named the pinned port rather than the port its generation bound, so mutation M5 (no pin) survived the rebind test; the line now names each generation's own bound port and the test requests that port. (self)
