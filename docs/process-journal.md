@@ -90,3 +90,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · Vion.Examples.ModbusTcp · ModbusLinkPolicyShould's comment says a failing step's detail is the assertion message, but Assert.Empty prints the collection cut to fifty characters, before the detail starts; the copy in the HTTP example printed only the step label, and now asserts with the joined failures as its message. (self) → codified: examples/Vion.Examples.ModbusTcp/Vion.Examples.ModbusTcp.IntegrationTest/ModbusLinkPolicyShould.cs
 
 2026-09-14 · gate · check.ps1 · /check -Build -Test was killed for low memory twice with only its header written while another session built on the machine; the plain run and -Build completed, and the solution test step did not run locally. (self)
+
+2026-09-14 · review · http-examples · The review found HttpDebugClient kept an "already in flight" refusal in LastError after the request succeeded, and HttpSimServer's Requests counter left out dropped requests its own Dropped description calls answered; review-checks.md D2 and testing-conventions.md § 9 should have prevented them. (self)
+
+2026-09-14 · review · http-examples · The review found the SDK's timeout refusal and the invalid-header-name refusal untested and http.md's "the in-repo example" ambiguous beside a second HTTP example; testing-conventions.md § 10 should have prevented the first. (self)

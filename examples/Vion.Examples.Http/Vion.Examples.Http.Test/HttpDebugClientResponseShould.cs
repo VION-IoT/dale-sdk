@@ -47,6 +47,25 @@ namespace Vion.Examples.Http.Test
         }
 
         [Fact]
+        public void ClearRefusalOnceAnswerArrives()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+            Sut.SendOnce = true;
+            var errorWhileInFlight = Sut.LastError;
+
+            // Act
+            _fixture.Harness.Respond("{}");
+            ctx.AdvanceTime(TimeSpan.Zero);
+
+            // Assert
+            Assert.NotEmpty(errorWhileInFlight);
+            Assert.Equal(RequestOutcome.Succeeded, Sut.Outcome);
+            Assert.Empty(Sut.LastError);
+        }
+
+        [Fact]
         public void KeepBodyThatExactlyFillsPreview()
         {
             // Arrange

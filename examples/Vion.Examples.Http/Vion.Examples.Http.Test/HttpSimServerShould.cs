@@ -89,6 +89,25 @@ namespace Vion.Examples.Http.Test
         }
 
         [Fact]
+        public void CountDroppedRequestsAsAnswered()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            for (var i = 0; i < 300; i++)
+            {
+                _harness.Client.Send(HttpMethod.Get, "/api/status");
+            }
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal(300, _sut.RequestCount);
+            Assert.Equal(300 - _sut.DroppedRequestCount, _sut.Route1.HitCount);
+            Assert.True(_sut.DroppedRequestCount > 0);
+        }
+
+        [Fact]
         public void CountHitsPerRoute()
         {
             // Arrange

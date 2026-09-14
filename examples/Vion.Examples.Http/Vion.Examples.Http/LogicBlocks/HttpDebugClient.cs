@@ -311,6 +311,7 @@ namespace Vion.Examples.Http.LogicBlocks
         private void OnResponse(HttpRequestMessage request, HttpResponseMessage response, long sentAt, TimeSpan timeout)
         {
             LatencyMs = _timeProvider.GetElapsedTime(sentAt).TotalMilliseconds;
+            LastError = string.Empty;
             StatusCode = (int)response.StatusCode;
             ReasonPhrase = response.ReasonPhrase ?? string.Empty;
             ResponseContentType = response.Content?.Headers.ContentType?.ToString() ?? string.Empty;

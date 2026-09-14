@@ -99,6 +99,23 @@ namespace Vion.Examples.Http.Test
         }
 
         [Fact]
+        public void AcceptSendAfterSdkRefusedTimeout()
+        {
+            // Arrange
+            _fixture.Build();
+            Sut.Timeout = TimeSpan.FromDays(60);
+            Sut.SendOnce = true;
+            Sut.Timeout = TimeSpan.FromSeconds(5);
+
+            // Act
+            Sut.SendOnce = true;
+
+            // Assert
+            Assert.Single(_fixture.Harness.Requests);
+            Assert.Equal(RequestOutcome.InFlight, Sut.Outcome);
+        }
+
+        [Fact]
         public void ClearPreviousResponseWhenRequestInvalid()
         {
             // Arrange
@@ -169,6 +186,22 @@ namespace Vion.Examples.Http.Test
         }
 
         [Fact]
+        public void RefuseHeaderWithInvalidName()
+        {
+            // Arrange
+            _fixture.Build();
+            Sut.RequestHeaders = "Bad Name: x";
+
+            // Act
+            Sut.SendOnce = true;
+
+            // Assert
+            Assert.Empty(_fixture.Harness.Requests);
+            Assert.Equal(RequestOutcome.Invalid, Sut.Outcome);
+            Assert.Equal("'Bad Name' cannot be sent as a request header.", Sut.LastError);
+        }
+
+        [Fact]
         public void RefuseMalformedHeaderLine()
         {
             // Arrange
@@ -214,6 +247,22 @@ namespace Vion.Examples.Http.Test
             Assert.Empty(_fixture.Harness.Requests);
             Assert.Equal(RequestOutcome.Invalid, Sut.Outcome);
             Assert.Equal("The timeout must be longer than zero.", Sut.LastError);
+        }
+
+        [Fact]
+        public void RefuseTimeoutSdkCannotTake()
+        {
+            // Arrange
+            _fixture.Build();
+            Sut.Timeout = TimeSpan.FromDays(60);
+
+            // Act
+            Sut.SendOnce = true;
+
+            // Assert
+            Assert.Empty(_fixture.Harness.Requests);
+            Assert.Equal(RequestOutcome.Invalid, Sut.Outcome);
+            Assert.Contains("cannot bound the GET request", Sut.LastError);
         }
 
         [Fact]

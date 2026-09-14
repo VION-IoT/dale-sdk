@@ -123,7 +123,7 @@ namespace Vion.Examples.Http.LogicBlocks
         [Presentation(Group = PropertyGroup.Status, StatusIndicator = false, Importance = Importance.Primary)]
         public bool IsListening { get; private set; }
 
-        [ServiceProperty(Title = "Requests", Description = "Requests the server has answered, over every route and none.")]
+        [ServiceProperty(Title = "Requests", Description = "Requests the server has answered, over every route and none, dropped requests included.")]
         [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public int RequestCount { get; private set; }
 
@@ -336,7 +336,9 @@ namespace Vion.Examples.Http.LogicBlocks
         /// </summary>
         private void Record(IReadOnlyList<HttpServerRequest> requests, int dropped, IReadOnlyList<(RouteSlot Slot, string Method, string Path)> published)
         {
+            // A dropped request was still answered, so it counts as a request; it is only missing from the tables.
             DroppedRequestCount += dropped;
+            RequestCount += dropped;
             if (requests.Count == 0)
             {
                 return;
