@@ -9,3 +9,6 @@ changelog:
     - title: Chores
       labels:
         - chore
+    - title: Other Changes
+      labels:
+        - "*"
