@@ -15,12 +15,15 @@
     { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "ActiveOutput" }, "value": true, "label": "the provider confirms the digital output as commanded" },
     { "waitUntil": { "property": "IoBlock.ConfirmedActive", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the confirmation" },
     { "expect": { "property": "IoBlock.ConfirmedActive", "equals": true }, "label": "OutputChanged reached the block", "spec": "confirmation" },
+    { "settle": { "until": ["IoBlock.ConfirmationMismatch"] }, "label": "let the mismatch flag settle — a wait on it would pass on its unchanged value" },
     { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": false }, "label": "a truthful confirmation raises no mismatch", "spec": "confirmation" },
     { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "EchoOutput" }, "value": 3.3, "label": "the provider confirms the analog output as commanded" },
     { "waitUntil": { "property": "IoBlock.ConfirmedEcho", "equals": 3.3, "tolerance": 0.001 }, "timeoutSeconds": 5, "label": "wait until the analog confirmation arrives" },
+    { "settle": { "until": ["IoBlock.ConfirmationMismatch"] }, "label": "let the mismatch flag settle again" },
     { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": false }, "label": "the analog confirmation matches too", "spec": "confirmation" },
     { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "ActiveOutput" }, "value": false, "label": "the provider now confirms FALSE on an output commanded true" },
     { "waitUntil": { "property": "IoBlock.ConfirmationMismatch", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block notices the disagreement" },
+    { "waitUntil": { "property": "IoBlock.ConfirmedActive", "equals": false }, "timeoutSeconds": 5, "label": "wait until the block surfaces the confirmation it disagrees with" },
     { "expect": { "property": "IoBlock.ConfirmedActive", "equals": false }, "label": "the block reports what the provider said, not what it asked for", "spec": "confirmation" },
     { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": true }, "label": "commanded true, confirmed false — the mismatch is visible", "spec": "confirmation" }
   ]

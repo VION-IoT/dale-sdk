@@ -165,6 +165,7 @@ namespace Vion.Dale.DevHost.Test
                                   { "serviceProviderSet": { "logicBlock": "io", "contract": "EnableInput" }, "value": true },
                                   { "serviceProviderSet": { "logicBlock": "io", "contract": "LevelInput" }, "value": 3.3 },
                                   { "waitUntil": { "property": "io.IsEnabled", "equals": true }, "timeoutSeconds": 5 },
+                                  { "waitUntil": { "property": "io.CurrentLevel", "equals": 3.3, "tolerance": 0.001 }, "timeoutSeconds": 5 },
                                   { "expect": { "property": "io.IsEnabled", "equals": true } },
                                   { "expect": { "property": "io.CurrentLevel", "equals": 3.3, "tolerance": 0.001 } }
                                 ]

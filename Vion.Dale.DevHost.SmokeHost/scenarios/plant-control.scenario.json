@@ -11,6 +11,8 @@
       "value": { "valid": true, "scope": "PerPhase", "supply": { "activePowerKw": 12.5, "reactivePowerKvar": 3.5 } },
       "label": "drive the INBOUND half of the bidirectional contract" },
     { "waitUntil": { "property": "PlantBlock.DemandValid", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the demand" },
+    { "waitUntil": { "property": "PlantBlock.Scope", "equals": "PerPhase" }, "timeoutSeconds": 5, "label": "wait until the block surfaces the scope" },
+    { "waitUntil": { "property": "PlantBlock.ActivePowerKw", "equals": 12.5, "tolerance": 0.01 }, "timeoutSeconds": 5, "label": "wait until the block surfaces the supply" },
     { "expect": { "property": "PlantBlock.Scope", "equals": "PerPhase" }, "label": "the enum field deserialized by name", "spec": "struct" },
     { "expect": { "property": "PlantBlock.ActivePowerKw", "equals": 12.5, "tolerance": 0.01 }, "label": "a nested-struct field reached the block", "spec": "struct" },
     { "advance": { "seconds": 1 }, "label": "fire the [Timer(1)] so the block publishes the measurement back" },
