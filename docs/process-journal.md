@@ -94,3 +94,9 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · http-examples · The review found HttpDebugClient kept an "already in flight" refusal in LastError after the request succeeded, and HttpSimServer's Requests counter left out dropped requests its own Dropped description calls answered; review-checks.md D2 and testing-conventions.md § 9 should have prevented them. (self)
 
 2026-09-14 · review · http-examples · The review found the SDK's timeout refusal and the invalid-header-name refusal untested and http.md's "the in-repo example" ambiguous beside a second HTTP example; testing-conventions.md § 10 should have prevented the first. (self) → codified: docs/specs/http.md
+
+2026-09-14 · review · process-journal · A codify stamp pushed an entry measured at 347 characters to 458, and journal-lint failed on the pull request again; /check printed journal-lint as SKIP, so nothing local ran it. (second ask) → codified: scripts/check.ps1
+
+2026-09-14 · gate · check.ps1 · check.ps1 -CiShape's path-case scan fails on main at packed-msbuild-lint.ps1:79, whose lowercase file names are compared against ToLowerInvariant() on purpose, so every -CiShape run is red for a script that is right. (self)
+
+2026-09-14 · review · check.ps1 · The review found the journal-lint pin compared against the local v1, a major tag each release moves, a missing checkout still reporting check: OK, and the default checkout location untested; testing-conventions.md § 9 should have prevented the last. (self) → codified: scripts/check.ps1

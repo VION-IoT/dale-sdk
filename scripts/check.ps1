@@ -13,8 +13,12 @@
   deliberate: -RepoRoot is always passed (CI relies on the cwd), and a gate whose arguments
   need something the desk may not have runs without them, reported PARTIAL with what did not
   run. A gate that cannot run at all is reported SKIP with the reason rather than passing
-  vacuously. A step using a VION-IoT/shared-workflows action is a gate too, and one whose
-  script lives only in that repository is marked CI-only in the table and always reported SKIP.
+  vacuously. A step using a VION-IoT/shared-workflows action is a gate too. Its script lives in
+  that repository, so it runs from a local checkout of it — beside this repository unless
+  -SharedWorkflowsRoot names another. With no checkout the gate FAILS rather than skipping: a
+  skipped gate reads as a green check, and a journal nothing checked has failed the PR run twice.
+  It is reported PARTIAL when the checkout is not at the commit the workflow's ref names on the
+  checkout's origin, or when that origin cannot be asked, because its rules may differ from CI's.
 
   Not covered here: the ReSharper style gate (`scripts/cleanup-code.ps1 -Changed`, or the
   /cleanup command) and the packed-artifact gate, whose input is the publish job's .nupkg
@@ -56,10 +60,13 @@ param(
     # Test the solution after the gates.
     [switch]$Test,
     # Run in the Linux runner's shape — see .DESCRIPTION.
-    [switch]$CiShape
+    [switch]$CiShape,
+    # A checkout of VION-IoT/shared-workflows, whose actions' scripts the shared gates run.
+    [string]$SharedWorkflowsRoot
 )
 $ErrorActionPreference = 'Stop'
 if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
+if (-not $SharedWorkflowsRoot) { $SharedWorkflowsRoot = Join-Path (Split-Path -Parent $RepoRoot) 'shared-workflows' }
 
 # The base ref CI diffs against: spec-gates.yml passes origin/$GITHUB_BASE_REF, and every PR
 # in this repo targets main.
@@ -92,7 +99,9 @@ $invocation = @{
     'packed-msbuild-lint' = @{ Args = @(); RepoRootArg = $true }
     'sweep-residue-lint'  = @{ Args = @(); RepoRootArg = $true }
     'self-reference-lint' = @{ Args = @(); RepoRootArg = $true }
-    'journal-lint'        = @{ CiOnly = 'its script lives in VION-IoT/shared-workflows, so only the CI job runs it' }
+    # The workflow passes the action no inputs, so its defaults apply; the script's own parameter
+    # defaults are the same values, and only the path needs anchoring to the repository.
+    'journal-lint'        = @{ Shared = 'actions/journal-lint/journal-lint.ps1'; Args = @('-Path', (Join-Path $RepoRoot 'docs/process-journal.md')) }
 }
 
 # Derive the gate list, in the workflow's own order, from the scripts its steps invoke and the
@@ -102,14 +111,16 @@ $invocation = @{
 # that is not one. Any other action - actions/checkout - is plumbing, not a gate.
 $derived = [System.Collections.Generic.List[string]]::new()
 $source = @{}
+$pinnedRef = @{}
 foreach ($line in (Get-Content -LiteralPath $workflow)) {
     if ($line -match '^\s*#') { continue }
-    foreach ($m in [regex]::Matches($line, '\./scripts/([A-Za-z0-9._-]+)\.ps1|uses:\s*VION-IoT/shared-workflows/actions/([A-Za-z0-9._-]+)@')) {
+    foreach ($m in [regex]::Matches($line, '\./scripts/([A-Za-z0-9._-]+)\.ps1|uses:\s*VION-IoT/shared-workflows/actions/([A-Za-z0-9._-]+)@([A-Za-z0-9._/-]+)')) {
         $isScript = $m.Groups[1].Success
         $name = if ($isScript) { $m.Groups[1].Value } else { $m.Groups[2].Value }
         if (-not $derived.Contains($name)) {
             $derived.Add($name)
             $source[$name] = if ($isScript) { "scripts/$name.ps1" } else { "the shared-workflows action $name" }
+            if (-not $isScript) { $pinnedRef[$name] = $m.Groups[3].Value }
         }
     }
 }
@@ -174,8 +185,30 @@ try {
             Add-Result $name 'FAIL' '-' "spec-gates.yml runs $($source[$name]) and check.ps1 knows no local invocation for it - add one to the `$invocation table" '' ''
             continue
         }
-        if ($invocation[$name].CiOnly) {
-            Add-Result $name 'SKIP' '-' "CI only - $($invocation[$name].CiOnly)" '' ''
+        if ($invocation[$name].Shared) {
+            $sharedScript = Join-Path $SharedWorkflowsRoot $invocation[$name].Shared
+            if (-not (Test-Path -LiteralPath $sharedScript)) {
+                Add-Result $name 'FAIL' '-' "no VION-IoT/shared-workflows checkout at '$SharedWorkflowsRoot' - clone it there, or pass -SharedWorkflowsRoot, to run it" '' ''
+                continue
+            }
+            # A checkout at another commit runs another version of the rules, so a pass there says
+            # nothing certain about CI's verdict. It still runs: an older checkout catches most of
+            # what CI would, and a skip would catch nothing. The ref is resolved on the origin, not
+            # locally: the workflow pins a major tag that each release moves, and a fetch does not
+            # overwrite a tag the checkout already has, so a local lookup finds the old commit.
+            $ref = $pinnedRef[$name]
+            $head = git -C $SharedWorkflowsRoot rev-parse --verify --quiet 'HEAD^{commit}' 2>$null
+            $remote = @(git -C $SharedWorkflowsRoot ls-remote origin "refs/tags/$ref" "refs/tags/$ref^{}" "refs/heads/$ref" 2>$null)
+            $reached = $LASTEXITCODE -eq 0
+            # An annotated tag lists its own object and the commit it peels to; the peeled line wins.
+            $lines = @($remote | Where-Object { $_ })
+            $peeled = $lines | Where-Object { $_ -match '\^\{\}$' } | Select-Object -First 1
+            $pinned = if ($peeled) { ($peeled -split '\s+')[0] } elseif ($lines.Count) { ($lines[0] -split '\s+')[0] } else { $null }
+            $caveat = if (-not $reached) { "the checkout's origin could not be asked what '$ref' names, so its rules may differ from CI's" }
+                      elseif (-not $pinned) { "the checkout's origin has no ref '$ref', which the workflow pins" }
+                      elseif ($head -ne $pinned) { "the checkout is not at '$ref' ($($pinned.Substring(0, 8))), which the workflow pins, so its rules may differ from CI's; run 'git -C $SharedWorkflowsRoot fetch origin' and check out $($pinned.Substring(0, 8))" }
+                      else { '' }
+            Invoke-Step $name 'pwsh' (@('-NoProfile', '-File', $sharedScript) + $invocation[$name].Args) $caveat
             continue
         }
         if (-not (Test-Path -LiteralPath $script)) {
