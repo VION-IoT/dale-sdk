@@ -66,7 +66,8 @@ namespace Vion.Dale.Sdk.Http.Test
         {
             // Arrange — the marked set is what reaches the API manifest and the generated reference, so it
             // is the set a block author is told to use: the client they inject, the registration they call,
-            // and the one exception they may want to catch by name
+            // the one exception they may want to catch by name, and the hosted server with the types it
+            // publishes responses and hands back requests in
 
             // Act
             var published = Package.GetExportedTypes()
@@ -76,7 +77,8 @@ namespace Vion.Dale.Sdk.Http.Test
                                    .ToList();
 
             // Assert
-            Assert.AreEqual("ContentNullAfterDeserializationException,ILogicBlockHttpClient,ServiceCollectionExtensions", string.Join(",", published));
+            Assert.AreEqual("ContentNullAfterDeserializationException,HttpServerRequest,HttpServerResponse,IHttpServerSnapshot,ILogicBlockHttpClient,ILogicBlockHttpServer,ILogicBlockHttpServerFactory,ServiceCollectionExtensions",
+                            string.Join(",", published));
         }
 
         [TestMethod]
@@ -101,6 +103,7 @@ namespace Vion.Dale.Sdk.Http.Test
         [DataRow("System.Text.Json")]
         [DataRow("Microsoft.Extensions.DependencyInjection.Abstractions")]
         [DataRow("Microsoft.Extensions.Http")]
+        [DataRow("Microsoft.Bcl.TimeProvider")]
         public void AddDependencyToEveryPluginTakingIt(string dependency)
         {
             // Arrange — a consumer adopting the package inherits these; the first consumer's evaluation

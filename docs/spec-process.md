@@ -34,7 +34,7 @@ instances (those live in git, the archived change docs, and the process journal)
 | Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
 | Runtime semantics | Modbus family — Core binding model, TCP client + server, RTU, link policy (link verdicts, socket lifetime; anchors: modbus-smoke, the Link/Connection structs, committed scenarios) | `MODB` | A |
 | Contract families | DigitalIo / AnalogIo | `IO` | B |
-| Contract families | the five test kits ([`specs/testkit.md`](specs/testkit.md)) | `TKIT` | B |
+| Contract families | the six test kits ([`specs/testkit.md`](specs/testkit.md)) | `TKIT` | B |
 | Contract families | Http | `HTTP` | B |
 
 Plus [`specs/_invariants.md`](specs/_invariants.md) (`SYS-` ids, cross-cutting rules pages cite
@@ -385,7 +385,9 @@ Then four sweeps:
 - **Evidence** — `file:line`, read, not recalled. This column is where implementation detail lives;
   it dies with the archived doc. **A probe is evidence only for the shape it ran:** record the
   probe's fixture shape as written (`get;` is not `get; init;`) and the surface it read (the
-  definition view is not the live view) beside the result. A probe over a different shape than the
+  definition view is not the live view) beside the result, and the operating system it ran on: a
+  socket, file or timer behaviour probed on a Windows desk is unproven on the Linux runner and the
+  gateways, so such a claim is probed on Linux too. A probe over a different shape than the
   row names is a guess wearing evidence's clothes — one session wrote off a correct reading on such
   a probe and paid three amendments for it.
 - **Test today** — the existing test proving it, or `GAP`.
@@ -399,7 +401,10 @@ Then four sweeps:
   `file:line`, or it is a guess wearing evidence's clothes. A `park` argued from a member's
   *history* — added last, newer than its siblings — has no evidence column: recency is not a reason
   to treat a member differently (an operator overruled one such park; the fix was four lines and
-  retired two special cases). **The code doing a thing is evidence of behavior, not of intent:** a
+  retired two special cases). A `Why` that cites a precedent — another area's criterion, another
+  protocol's default — names the property the precedent rests on, and that property holds here too: a
+  rule shared in shape only carries a reason that does not transfer. **The code doing a thing is
+  evidence of behavior, not of intent:** a
   surprising row gets `fix` or `park`, or the operator's explicit `intended` — never an `intended`
   that only means "this is what it does". A `fix`/`park`/`propose` rec is flagged `⚠` and gets a
   two-line failure sketch under the table; a `propose` sketch ends with the recommendation.

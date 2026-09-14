@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Http.Test.TestHelpers;
@@ -660,6 +661,33 @@ namespace Vion.Dale.Sdk.Http.Test
             }
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-008.3")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public void MeasurePerRequestTimeoutOnRegisteredClock(Overload overload)
+        {
+            // Arrange — a clock that moves only when told, and a handler that never answers: the bound can elapse only on
+            // an advance of that clock, and no real time is allowed to pass for it
+            var clock = new FakeTimeProvider();
+            var sut = new HttpRequestExecutor(new SingleHttpClientFactory(new HttpClient(StubHttpMessageHandler.NeverCompleting())), _loggerMock.Object, clock);
+            Exception? received = null;
+            var exchange = Execute(sut, overload, onError: exception => received = exception, timeout: TimeSpan.FromSeconds(5));
+            clock.Advance(TimeSpan.FromSeconds(4));
+            var completedBeforeBound = exchange.IsCompleted;
+
+            // Act
+            clock.Advance(TimeSpan.FromSeconds(1));
+            var completedOnBound = exchange.IsCompleted;
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsFalse(completedBeforeBound);
+            Assert.IsTrue(completedOnBound);
+            Assert.AreEqual("Timed out after 5 seconds", received?.Message);
+        }
+
         // ---- lifetime and disposal ---------------------------------------
 
         [TestMethod]
@@ -917,7 +945,7 @@ namespace Vion.Dale.Sdk.Http.Test
                 httpClient.Timeout = clientTimeout.Value;
             }
 
-            return new HttpRequestExecutor(new SingleHttpClientFactory(httpClient), _loggerMock.Object);
+            return new HttpRequestExecutor(new SingleHttpClientFactory(httpClient), _loggerMock.Object, TimeProvider.System);
         }
 
         private (HttpRequestExecutor Sut, string Url) ArrangeFailure(Failure failure)
@@ -938,7 +966,7 @@ namespace Vion.Dale.Sdk.Http.Test
                     var disposedClient = new HttpClient(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
                     disposedClient.Dispose();
 
-                    return (new HttpRequestExecutor(new SingleHttpClientFactory(disposedClient), _loggerMock.Object), Url);
+                    return (new HttpRequestExecutor(new SingleHttpClientFactory(disposedClient), _loggerMock.Object, TimeProvider.System), Url);
                 case Failure.TransportSocketFailure:
                     return (Executor(StubHttpMessageHandler.Throwing(new System.Net.Sockets.SocketException(10061))), Url);
                 case Failure.TransportStreamFailure:

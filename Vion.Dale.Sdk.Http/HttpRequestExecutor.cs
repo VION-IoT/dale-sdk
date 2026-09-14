@@ -34,15 +34,19 @@ namespace Vion.Dale.Sdk.Http
 
         private readonly ILogger<HttpRequestExecutor> _logger;
 
+        private readonly TimeProvider _timeProvider;
+
         /// <summary>
         ///     Initializes a new instance of the <see cref="HttpRequestExecutor" /> class.
         /// </summary>
         /// <param name="httpClientFactory">Factory for creating the HTTP client.</param>
         /// <param name="logger">Logger used for logging.</param>
-        public HttpRequestExecutor(IHttpClientFactory httpClientFactory, ILogger<HttpRequestExecutor> logger)
+        /// <param name="timeProvider">The clock a per-request timeout is measured on.</param>
+        public HttpRequestExecutor(IHttpClientFactory httpClientFactory, ILogger<HttpRequestExecutor> logger, TimeProvider timeProvider)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _timeProvider = timeProvider;
         }
 
         /// <inheritdoc />
@@ -130,7 +134,7 @@ namespace Vion.Dale.Sdk.Http
             LogRequestStarting(httpMethod, url);
             HttpRequestMessage? request = null;
             HttpResponseMessage? response = null;
-            using var cts = timeout.HasValue ? new CancellationTokenSource(timeout.Value) : new CancellationTokenSource();
+            using var cts = CreateTimeoutSource(timeout);
 
             try
             {
@@ -172,7 +176,7 @@ namespace Vion.Dale.Sdk.Http
             LogRequestStarting(httpMethod, url);
             HttpRequestMessage? request = null;
             HttpResponseMessage? response = null;
-            using var cts = timeout.HasValue ? new CancellationTokenSource(timeout.Value) : new CancellationTokenSource();
+            using var cts = CreateTimeoutSource(timeout);
 
             try
             {
@@ -207,7 +211,7 @@ namespace Vion.Dale.Sdk.Http
                                             Action<Exception>? errorCallback,
                                             TimeSpan? timeout)
         {
-            using var cts = timeout.HasValue ? new CancellationTokenSource(timeout.Value) : new CancellationTokenSource();
+            using var cts = CreateTimeoutSource(timeout);
             var url = request.RequestUri.ToString();
             LogRequestStarting(request.Method, url);
 
@@ -266,6 +270,16 @@ namespace Vion.Dale.Sdk.Http
                                                       $"{nameof(ExecuteRequestAsync)} cannot bound the {httpMethod} request to {url} with this timeout. " +
                                                       $"A request timeout is {Timeout.InfiniteTimeSpan} for no bound, or from {TimeSpan.Zero} to {MaxRequestTimeout}.");
             }
+        }
+
+        /// <summary>
+        ///     The source a per-request timeout cancels. It is built from the registered clock rather than from
+        ///     the source's own timer, so a host that registers a controllable clock decides when the bound
+        ///     elapses; on the system clock the two are the same timer, with the same accepted band.
+        /// </summary>
+        private CancellationTokenSource CreateTimeoutSource(TimeSpan? timeout)
+        {
+            return timeout.HasValue ? _timeProvider.CreateCancellationTokenSource(timeout.Value) : new CancellationTokenSource();
         }
 
         private HttpRequestMessage CreateRequest(HttpMethod httpMethod, string url, HttpContent? requestContent, Dictionary<string, string>? headers)

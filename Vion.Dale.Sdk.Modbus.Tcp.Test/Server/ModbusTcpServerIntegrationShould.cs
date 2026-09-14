@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using FluentModbus;
@@ -31,10 +33,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         [TestInitialize]
         public void Initialize()
         {
-            var dataConverter = new ServiceCollection().AddDaleModbusCoreSdk().BuildServiceProvider().GetRequiredService<IModbusDataConverter>();
-            _sut = new LogicBlockModbusTcpServer(new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance, TimeProvider.System),
-                                                 dataConverter,
-                                                 NullLogger<LogicBlockModbusTcpServer>.Instance);
+            _sut = Compose();
             _port = GetFreePort();
             _sut.ListenAddress = "127.0.0.1";
             _sut.Port = _port;
@@ -214,6 +213,78 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             var second = WaitForLastClientWriteAt(first);
             Assert.IsNotNull(second);
             Assert.IsTrue(second > first);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.3")]
+        public void FailSecondEnableOnHeldPortAndLeaveFirstServing()
+        {
+            // Arrange
+            _sut.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(5, 0xCAFE));
+            _sut.IsEnabled = true;
+            using var second = Compose();
+            second.ListenAddress = "127.0.0.1";
+            second.Port = _port;
+
+            // Act / Assert
+            Assert.ThrowsExactly<SocketException>(() => second.IsEnabled = true);
+            Assert.IsFalse(second.IsEnabled);
+            Assert.IsFalse(second.IsListening);
+            Assert.IsTrue(_sut.IsListening);
+            Connect();
+            CollectionAssert.AreEqual(new byte[] { 0xCA, 0xFE }, _client.ReadHoldingRegisters(1, 5, 1).ToArray());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-014.4")]
+        public void RebindPortWhileClosedServerConnectionsStillLinger()
+        {
+            // Arrange — the master is still connected when the server is disposed, so the server closes that connection
+            // first and leaves a socket lingering on its own port, and Linux refuses a bind over one unless both sockets
+            // allow address reuse
+            _sut.IsEnabled = true;
+            Connect();
+            _client.ReadHoldingRegisters(1, 0, 1);
+            _sut.Dispose();
+            _client.Disconnect();
+            Assert.IsTrue(WaitForLingeringConnection(_port), "No closed connection lingers on the port, so a rebind here cannot fail.");
+            using var next = Compose();
+            next.ListenAddress = "127.0.0.1";
+            next.Port = _port;
+
+            // Act
+            next.IsEnabled = true;
+
+            // Assert
+            Assert.IsTrue(next.IsListening);
+        }
+
+        /// <summary>Whether a connection on <paramref name="port" /> reaches <c>TIME_WAIT</c> within five seconds.</summary>
+        private static bool WaitForLingeringConnection(int port)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            while (stopwatch.ElapsedMilliseconds < 5000)
+            {
+                if (IPGlobalProperties.GetIPGlobalProperties()
+                                      .GetActiveTcpConnections()
+                                      .Any(connection => connection.LocalEndPoint.Port == port && connection.State == TcpState.TimeWait))
+                {
+                    return true;
+                }
+
+                Thread.Sleep(10);
+            }
+
+            return false;
+        }
+
+        private static LogicBlockModbusTcpServer Compose()
+        {
+            var dataConverter = new ServiceCollection().AddDaleModbusCoreSdk().BuildServiceProvider().GetRequiredService<IModbusDataConverter>();
+
+            return new LogicBlockModbusTcpServer(new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance, TimeProvider.System),
+                                                 dataConverter,
+                                                 NullLogger<LogicBlockModbusTcpServer>.Instance);
         }
 
         private DateTimeOffset? WaitForLastClientWriteAt(DateTimeOffset? after)

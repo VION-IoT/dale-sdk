@@ -117,12 +117,14 @@ namespace Vion.Examples.Energy.Services
 
         private static string GetCacheKey(double latitude, double longitude, WeatherVariables variables)
         {
-            return $"{latitude:F4}_{longitude:F4}_{(int)variables}";
+            return FormattableString.Invariant($"{latitude:F4}_{longitude:F4}_{(int)variables}");
         }
 
         private static string BuildApiUrl(double latitude, double longitude, WeatherVariables variables)
         {
-            var sb = new StringBuilder($"https://api.open-meteo.com/v1/forecast?latitude={latitude:F4}&longitude={longitude:F4}&hourly=");
+            // The API reads a coordinate with a decimal point, so the coordinates are rendered invariantly rather than in
+            // the gateway's culture, where a German locale would send a decimal comma.
+            var sb = new StringBuilder(FormattableString.Invariant($"https://api.open-meteo.com/v1/forecast?latitude={latitude:F4}&longitude={longitude:F4}&hourly="));
 
             var parameters = new List<string>();
 

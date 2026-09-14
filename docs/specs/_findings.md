@@ -31,3 +31,12 @@ interface draws no `DALE045` at all — the binder binds it, and the cloud edge 
 predict is missed in silence. Found while fixing VION-194, whose blocker was this same narrow reach
 copied from here into `DALE043`. Not fixed there: a different diagnostic, at advisory severity, whose
 own `AC-ANLZ-021.5` states the narrow reach as the rule, so widening it rewords that criterion too.
+
+**Neither the HTTP client nor the hosted HTTP server surfaces link or connection diagnostics.** There is
+no HTTP analogue of the Modbus link and socket summaries: the client's transport is the platform's
+pooled handler and nothing reads its state, and the hosted server reports only when a request last
+arrived. A commissioner cannot tell from a block's properties whether its HTTP device has been reachable
+recently. The first consumer named it in its integration evaluation
+(`logic-block-libraries` `docs/notes/2026-09-04-emu-m-center-integration-options.md`); the HTTP area pass
+parked it, and the round that added the server and the test kit parked it again as a feature band of its
+own. Owner `HTTP`.

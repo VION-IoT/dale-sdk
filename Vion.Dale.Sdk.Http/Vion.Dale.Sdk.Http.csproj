@@ -49,6 +49,9 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vion.Dale.Sdk.Http.Test"/>
+        <!-- The HTTP kit decorates the internal request executor and names the internal client and server transport it
+             stands in for, as the core kit reaches into Vion.Dale.Sdk. -->
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.Http.TestKit"/>
         <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
     </ItemGroup>
 
