@@ -341,8 +341,10 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.11")]
-        [DataRow("""[ { "waitUntil": { "property": "Counter.Counter", "above": 0 } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""", DisplayName = "a waitUntil on the member")]
-        [DataRow("""[ { "settle": { "until": [ "Counter.Counter" ] } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""", DisplayName = "a settle naming the member")]
+        [DataRow("""[ { "waitUntil": { "property": "Counter.Counter", "above": 0 } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""",
+                 DisplayName = "a waitUntil on the member")]
+        [DataRow("""[ { "settle": { "until": [ "Counter.Counter" ] } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""",
+                 DisplayName = "a settle naming the member")]
         [DataRow("""[ { "settle": {} }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""", DisplayName = "a settle over a watch list holding the member")]
         [DataRow("""[ { "advance": { "seconds": 1 } }, { "expect": { "property": "Counter.Counter", "equals": 1 } } ]""", DisplayName = "an advance")]
         public void StayQuietWhenWaitCoversReadMemberAfterDrive(string stepsAfterDrive)

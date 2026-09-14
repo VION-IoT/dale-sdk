@@ -130,6 +130,84 @@ namespace Vion.Dale.Cli.Commands
                    };
         }
 
+        /// <summary>
+        ///     Enrich the generic schema's name-path definition with an enum of every valid path in this
+        ///     topology — completion and red squiggles in any editor, the type-safety substitute for the
+        ///     rejected C# builder. Two-segment forms are listed only when unambiguous.
+        ///     Struct-typed members are expanded: for each scalar field leaf (possibly nested) a
+        ///     <c>Block.Member.Field</c> (or <c>Block.Service.Member.Field</c>) path is also emitted.
+        ///     Field segment keys are PascalCase (the schema <c>properties</c> keys are camelCase; the first
+        ///     char is upper-cased, matching the path convention used by the resolver and runner).
+        /// </summary>
+        public static void EnrichSchemaWithNamePaths(JsonNode schemaDocument, JsonNode config)
+        {
+            var paths = new SortedSet<string>(StringComparer.Ordinal);
+            foreach (var block in config["logicBlocks"] as JsonArray ?? new JsonArray())
+            {
+                var blockName = block?["name"]?.GetValue<string>();
+                if (blockName is null)
+                {
+                    continue;
+                }
+
+                var memberCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+                var services = block!["services"] as JsonArray ?? new JsonArray();
+                foreach (var service in services)
+                {
+                    // Count DISTINCT carrier services — the resolver's ambiguity rule (ResolvePath's
+                    // `carriers`). A member exposed as BOTH a serviceProperty and a serviceMeasuringPoint on
+                    // the SAME service is one carrier, not two, so the two-segment form stays valid for a
+                    // single-service block; Distinct() dedupes that prop+MP pair (DF-06).
+                    foreach (var member in MemberNames(service).Distinct())
+                    {
+                        memberCounts[member] = memberCounts.TryGetValue(member, out var n) ? n + 1 : 1;
+                    }
+                }
+
+                foreach (var service in services)
+                {
+                    var serviceIdentifier = service?["identifier"]?.GetValue<string>();
+                    foreach (var (member, memberSchema) in MemberNamesWithSchema(service))
+                    {
+                        // Always emit the member path itself (scalar leaf or struct — set accepts a whole struct).
+                        if (memberCounts[member] == 1)
+                        {
+                            paths.Add($"{blockName}.{member}");
+                        }
+
+                        if (serviceIdentifier is not null)
+                        {
+                            paths.Add($"{blockName}.{serviceIdentifier}.{member}");
+                        }
+
+                        // If the member's schema is a struct (type:object with properties), also emit every
+                        // scalar leaf path so editors autocomplete Block.Member.Field paths.
+                        if (memberSchema is not null && IsStructSchema(memberSchema))
+                        {
+                            foreach (var fieldSuffix in StructFieldPaths(memberSchema))
+                            {
+                                if (memberCounts[member] == 1)
+                                {
+                                    paths.Add($"{blockName}.{member}.{fieldSuffix}");
+                                }
+
+                                if (serviceIdentifier is not null)
+                                {
+                                    paths.Add($"{blockName}.{serviceIdentifier}.{member}.{fieldSuffix}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (schemaDocument["$defs"]?["namePath"] is JsonObject namePath)
+            {
+                namePath["enum"] = new JsonArray(paths.Select(p => (JsonNode)p).ToArray());
+                namePath.Remove("pattern");
+            }
+        }
+
         /* A drive completes before the block has seen the value, so an expect right behind one reads whatever
            the block held before the drive landed — and passes or fails by how fast the machine is. Only a wait
            on the member the expect reads closes that: a waitUntil on it, a settle whose targets include it (its
@@ -211,84 +289,6 @@ namespace Vion.Dale.Cli.Commands
         private static string? AsString(JsonNode? node)
         {
             return node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
-        }
-
-        /// <summary>
-        ///     Enrich the generic schema's name-path definition with an enum of every valid path in this
-        ///     topology — completion and red squiggles in any editor, the type-safety substitute for the
-        ///     rejected C# builder. Two-segment forms are listed only when unambiguous.
-        ///     Struct-typed members are expanded: for each scalar field leaf (possibly nested) a
-        ///     <c>Block.Member.Field</c> (or <c>Block.Service.Member.Field</c>) path is also emitted.
-        ///     Field segment keys are PascalCase (the schema <c>properties</c> keys are camelCase; the first
-        ///     char is upper-cased, matching the path convention used by the resolver and runner).
-        /// </summary>
-        public static void EnrichSchemaWithNamePaths(JsonNode schemaDocument, JsonNode config)
-        {
-            var paths = new SortedSet<string>(StringComparer.Ordinal);
-            foreach (var block in config["logicBlocks"] as JsonArray ?? new JsonArray())
-            {
-                var blockName = block?["name"]?.GetValue<string>();
-                if (blockName is null)
-                {
-                    continue;
-                }
-
-                var memberCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-                var services = block!["services"] as JsonArray ?? new JsonArray();
-                foreach (var service in services)
-                {
-                    // Count DISTINCT carrier services — the resolver's ambiguity rule (ResolvePath's
-                    // `carriers`). A member exposed as BOTH a serviceProperty and a serviceMeasuringPoint on
-                    // the SAME service is one carrier, not two, so the two-segment form stays valid for a
-                    // single-service block; Distinct() dedupes that prop+MP pair (DF-06).
-                    foreach (var member in MemberNames(service).Distinct())
-                    {
-                        memberCounts[member] = memberCounts.TryGetValue(member, out var n) ? n + 1 : 1;
-                    }
-                }
-
-                foreach (var service in services)
-                {
-                    var serviceIdentifier = service?["identifier"]?.GetValue<string>();
-                    foreach (var (member, memberSchema) in MemberNamesWithSchema(service))
-                    {
-                        // Always emit the member path itself (scalar leaf or struct — set accepts a whole struct).
-                        if (memberCounts[member] == 1)
-                        {
-                            paths.Add($"{blockName}.{member}");
-                        }
-
-                        if (serviceIdentifier is not null)
-                        {
-                            paths.Add($"{blockName}.{serviceIdentifier}.{member}");
-                        }
-
-                        // If the member's schema is a struct (type:object with properties), also emit every
-                        // scalar leaf path so editors autocomplete Block.Member.Field paths.
-                        if (memberSchema is not null && IsStructSchema(memberSchema))
-                        {
-                            foreach (var fieldSuffix in StructFieldPaths(memberSchema))
-                            {
-                                if (memberCounts[member] == 1)
-                                {
-                                    paths.Add($"{blockName}.{member}.{fieldSuffix}");
-                                }
-
-                                if (serviceIdentifier is not null)
-                                {
-                                    paths.Add($"{blockName}.{serviceIdentifier}.{member}.{fieldSuffix}");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (schemaDocument["$defs"]?["namePath"] is JsonObject namePath)
-            {
-                namePath["enum"] = new JsonArray(paths.Select(p => (JsonNode)p).ToArray());
-                namePath.Remove("pattern");
-            }
         }
 
         // Returns true when a JSON Schema node represents a struct (type:object with a properties map).

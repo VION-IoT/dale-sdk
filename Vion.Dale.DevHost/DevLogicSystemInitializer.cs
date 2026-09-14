@@ -214,12 +214,11 @@ namespace Vion.Dale.DevHost
                before the acknowledgement arrived. Waiting on the handlers rather than on a list of members
                keeps a member whose getter threw — skipped with a warning, never published — from failing the
                start. */
-            var drained =
-                _actorSystem.SendAndWaitForAcknowledgementAsync<StartPublicationsDrainedRequest, StartPublicationsDrainedResponse>([
-                        _actorSystem.LookupByName(nameof(MockServicePropertyHandler)), _actorSystem.LookupByName(nameof(MockServiceMeasuringPointHandler)),
-                    ],
-                    new StartPublicationsDrainedRequest(),
-                    StartAcknowledgementTimeout);
+            var drained = _actorSystem.SendAndWaitForAcknowledgementAsync<StartPublicationsDrainedRequest, StartPublicationsDrainedResponse>([
+                    _actorSystem.LookupByName(nameof(MockServicePropertyHandler)), _actorSystem.LookupByName(nameof(MockServiceMeasuringPointHandler)),
+                ],
+                new StartPublicationsDrainedRequest(),
+                StartAcknowledgementTimeout);
 
             // Virtual like the acknowledgement wait, so it takes the same real-time backstop.
             try
@@ -229,8 +228,9 @@ namespace Vion.Dale.DevHost
             catch (TimeoutException)
             {
                 Observe(drained);
-                throw new TimeoutException($"The values the logic blocks published while starting were not handled within {Budgets.StartAcknowledgement.TotalSeconds:0.###}s of real time, " +
-                                           "so a read right after start could not be guaranteed to see them.");
+                throw new
+                    TimeoutException($"The values the logic blocks published while starting were not handled within {Budgets.StartAcknowledgement.TotalSeconds:0.###}s of real time, " +
+                                     "so a read right after start could not be guaranteed to see them.");
             }
 
             _logger.LogInformation("LogicBlocks started");
