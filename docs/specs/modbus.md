@@ -343,7 +343,8 @@ exactly like the client — configure while disabled, then enable.
 - `AC-MODB-011.2` (Ubiquitous): THE SYSTEM SHALL listen on all interfaces and on port 502 unless told
   otherwise.
 - `AC-MODB-011.3` (Event-driven): WHEN enabling the server cannot bind the listener THE SYSTEM SHALL
-  propagate the failure to the caller and leave the server disabled.
+  propagate the failure to the caller and leave the server disabled and not listening, and a server
+  already holding that port serving.
 - `AC-MODB-011.4` (Event-driven): WHEN the server is disposed THE SYSTEM SHALL stop the listener,
   release the server, report itself disabled, and stay silent on a second disposal.
 - `AC-MODB-011.5` (Ubiquitous): THE SYSTEM SHALL swallow and log a teardown race raised by the underlying server library on stop or disposal, never throwing it. GAP: the race is the third-party server's, reachable only by making it throw from inside its own teardown.
@@ -416,8 +417,8 @@ accessor kept past its callback reaches the live buffers with no lock held.
 - `AC-MODB-014.2` (Event-driven): WHEN the underlying server library's per-unit buffer maps are not the shape the identifier aliasing expects THE SYSTEM SHALL refuse to construct the server, naming what it could not find. GAP: reachable only by changing the pinned library version; the real-socket suite covers the served behaviour it protects.
 - `AC-MODB-014.3` (Ubiquitous): THE SYSTEM SHALL leave a function code it maps to no area for the
   underlying server to answer.
-- `AC-MODB-014.4` (Ubiquitous): THE SYSTEM SHALL bind the listener with the address-reuse option, so a
-  same-version redeploy can rebind a port whose previous socket is still lingering.
+- `AC-MODB-014.4` (Event-driven): WHEN the server is enabled on a port whose previous listener has stopped
+  while that listener's closed connections still linger THE SYSTEM SHALL bind the port.
 - `AC-MODB-014.5` (Ubiquitous): THE SYSTEM SHALL timestamp the most recent client write to any area,
   including a write that does not change the stored value.
 
@@ -427,6 +428,13 @@ protect nothing in a one-map-per-port topology and would break ported masters. T
 fails loudly rather than degrading because a warn-and-degrade fallback to a unit-0-only server would look green in the
 development host and the TestKit while every fielded master broke. `AC-MODB-014.5` counts an
 unchanged re-write because a master cyclically re-asserting a setpoint must still count as alive.
+
+`AC-MODB-014.4` is the same-version redeploy: the runtime stops the outgoing blocks before it starts the
+new ones, so a disposed server's closed connections can still hold the port when its successor binds.
+`AC-MODB-011.3`'s last clause is the other half of one binding rule, shared with the hosted HTTP server
+and stated with its reason in [`http.md`](http.md) under `AC-HTTP-015.8`: the listener is bound with no
+address-reuse option, because an option only adds port sharing. So a server that was never disposed, and
+still listens, makes its successor's enable throw rather than share the port with it.
 
 ## Modbus RTU
 
@@ -591,7 +599,7 @@ The link policy is provable two ways and both are used. The TestKit's fake proxy
 **proxy**, so the wrapper's real policy runs above it and a virtual clock elapses a backoff in
 milliseconds — that is the fast lane, and the TestKit's own suite drives the whole state machine
 through it. What only a real socket can settle is what the socket does: which errno a refused or
-unroutable address produces, a half-open connection, the reuse-address bind, and a round trip that is
+unroutable address produces, a half-open connection, and a round trip that is
 not zero. Two committed scenarios cover that lane on a real client/server pair, and the
 `modbus-smoke` skill runs them; neither asserts the maximum queued age or the expired outcome,
 because the simulated server answers too fast to build a queue that ages.

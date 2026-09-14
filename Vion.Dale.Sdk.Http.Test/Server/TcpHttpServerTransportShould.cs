@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -567,9 +568,10 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-015.5")]
-        public void FailSecondEnableOnHeldPortAndLeaveFirstServing()
+        public async Task FailSecondEnableOnHeldPortAndLeaveFirstServing()
         {
             // Arrange
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
             using var second = Compose(TcpHttpServerTransport.DefaultReadBound);
             second.ListenAddress = "127.0.0.1";
             second.Port = _port;
@@ -579,6 +581,32 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             Assert.IsFalse(second.IsEnabled);
             Assert.IsFalse(second.IsListening);
             Assert.IsTrue(_sut.IsListening);
+            StringAssert.StartsWith(await ExchangeAsync("GET /a HTTP/1.1\r\n\r\n"), "HTTP/1.1 200 OK\r\n");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-015.8")]
+        public async Task RebindPortWhileClosedServerConnectionsStillLinger()
+        {
+            // Arrange — the server closes each connection first, so every exchange leaves a socket lingering on the server's
+            // own port once the server is gone, and Linux refuses a bind over one unless both sockets allow address reuse
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}")));
+            for (var exchange = 0; exchange < 3; exchange++)
+            {
+                await ExchangeAsync("GET /a HTTP/1.1\r\n\r\n");
+            }
+
+            _sut.Dispose();
+            Assert.IsTrue(WaitForLingeringConnection(_port), "No closed connection lingers on the port, so a rebind here cannot fail.");
+            using var next = Compose(TcpHttpServerTransport.DefaultReadBound);
+            next.ListenAddress = "127.0.0.1";
+            next.Port = _port;
+
+            // Act
+            next.IsEnabled = true;
+
+            // Assert
+            Assert.IsTrue(next.IsListening);
         }
 
         private static LogicBlockHttpServer Compose(TimeSpan readBound, int connectionLimit = TcpHttpServerTransport.DefaultConnectionLimit)
@@ -616,6 +644,23 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             listener.Stop();
 
             return port;
+        }
+
+        /// <summary>Whether a connection on <paramref name="port" /> reaches <c>TIME_WAIT</c> within the class timeout.</summary>
+        private static bool WaitForLingeringConnection(int port)
+        {
+            var deadline = DateTime.UtcNow + Timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                if (IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections().Any(connection => connection.LocalEndPoint.Port == port && connection.State == TcpState.TimeWait))
+                {
+                    return true;
+                }
+
+                Thread.Sleep(10);
+            }
+
+            return false;
         }
 
         private static async Task<string> ReadUntilClosedAsync(Stream stream)

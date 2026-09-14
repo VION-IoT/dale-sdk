@@ -16,7 +16,7 @@ so the wrapper's real backoff runs above it, and
 `Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test/ModbusLinkPolicyShould.cs` drives the whole state machine
 through `FakeModbusTcpClientProxy.EnqueueConnectFailure` on a `FakeTimeProvider` in milliseconds.
 Reach for that first. What it cannot prove is the socket underneath: which errno a refused or
-unroutable address produces, a half-open connection, the reuse-address bind, and a `RoundTrip` that
+unroutable address produces, a half-open connection, and a `RoundTrip` that
 is not zero. That is what this skill is for.
 
 Run this after changing `Vion.Dale.Sdk.Modbus.Core` / `.Tcp` / `.Rtu`, after changing

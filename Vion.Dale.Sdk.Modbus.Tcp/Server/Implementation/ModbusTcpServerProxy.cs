@@ -102,10 +102,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
             _server.CoilsChanged -= OnClientWriteCoils;
             _server.CoilsChanged += OnClientWriteCoils;
 
-            // Bind through a reuse-address provider rather than the default Start(IPEndPoint), whose built-in
-            // listener sets no socket options — so an overlapping same-version redeploy can rebind the port
-            // instead of hitting EADDRINUSE while the outgoing socket lingers (docs/specs/modbus.md).
-            // leaveOpen: false keeps the provider's teardown on the server's existing Stop()/Dispose() path.
+            // Bind through the SDK's own provider rather than Start(IPEndPoint), so how the port is bound is decided
+            // here and a library upgrade cannot change it (docs/specs/modbus.md). leaveOpen stays false, so the
+            // server's Stop() closes the provider's listener.
             _server.Start(new ReuseAddressTcpClientProvider(new IPEndPoint(listenAddress, port)));
             IsListening = true;
             LogStarted(listenAddress, port);

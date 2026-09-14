@@ -383,7 +383,8 @@ like the hosted Modbus server — configure while disabled, then enable.
 - `AC-HTTP-015.7` (Event-driven): WHEN the server is disposed THE SYSTEM SHALL stop listening, report
   itself disabled, stay silent on a second disposal, and refuse to be enabled again with an
   `ObjectDisposedException`, while still running `Sync` callbacks.
-- `AC-HTTP-015.8` (Ubiquitous): THE SYSTEM SHALL bind the listener with the address-reuse option, so a redeploy can rebind a port whose previous socket still lingers. GAP: observable only where a server-closed connection's lingering socket blocks a rebind, which is Linux; the Windows desk rebinds such a port with or without the option.
+- `AC-HTTP-015.8` (Event-driven): WHEN the server is enabled on a port whose previous listener has stopped
+  while that listener's closed connections still linger THE SYSTEM SHALL bind the port.
 - `AC-HTTP-015.9` (Event-driven): WHEN the server is disabled or disposed while a complete request waits
   for its answer THE SYSTEM SHALL close that request's connection with no response and record nothing
   from it.
@@ -407,8 +408,15 @@ port is not the protocol's standard 80 because 80 is the port everything else on
 `AC-HTTP-015.5` is where a simulator's degrade-on-failure lives: the server throws and stays disabled,
 and whether a taken port takes the bench down is the block's decision, made in its own `catch`.
 
-The address-reuse bind matters more here than for most servers, because this one closes every connection
-first (`AC-HTTP-017.5`), which leaves the lingering socket on the server's side of each exchange.
+`AC-HTTP-015.8` matters more here than for most servers, because this one closes every connection first
+(`AC-HTTP-017.5`), which leaves the lingering socket on the server's side of each exchange. It and
+`AC-HTTP-015.5`'s last clause are one binding rule, the hosted Modbus server's too (`AC-MODB-011.3`,
+`AC-MODB-014.4`): the listener is bound with no address-reuse option, because a plain bind already rebinds
+over lingering connections on both operating systems and an option only adds port sharing — a second
+server binds the held port and the kernel splits connections between the two. On Linux both of .NET's
+spellings, `ExclusiveAddressUse = false` and `ReuseAddress`, add it; on Windows `ReuseAddress` does. Linux
+is where both clauses' tests can fail: only there does a bind with address reuse cleared refuse a port its
+closed connections still hold.
 
 `AC-HTTP-015.7`'s last clause is the hosted Modbus server's too: disposal ends the socket and not the
 route table, so a block's late tick publishing into a disposed server changes a table nothing serves and

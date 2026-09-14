@@ -107,10 +107,12 @@ namespace Vion.Dale.Sdk.Http.Server
                 throw new ObjectDisposedException(nameof(TcpHttpServerTransport));
             }
 
-            // ExclusiveAddressUse=false maps to SO_REUSEADDR, so a redeploy can rebind a port whose previous socket is
-            // still in TIME_WAIT — which this server's own sockets are, since it closes every connection first. A second
-            // listener on a port another one is actively holding is still refused.
-            var listener = new TcpListener(listenAddress, port) { ExclusiveAddressUse = false };
+            // No address-reuse option is set, and none may be. Bound plainly, the listener rebinds a port whose closed
+            // connections still linger in TIME_WAIT — this server's own do, since it closes every connection first — and
+            // is refused a port another listener holds. Windows allows the first by default, and .NET sets SO_REUSEADDR on
+            // every TCP bind on Linux. ExclusiveAddressUse=false and ReuseAddress=true both add SO_REUSEPORT on Linux, which
+            // lets a second listener share a held port and split its connections with the first.
+            var listener = new TcpListener(listenAddress, port);
             try
             {
                 listener.Start();

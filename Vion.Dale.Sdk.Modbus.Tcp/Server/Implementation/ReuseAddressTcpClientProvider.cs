@@ -6,15 +6,10 @@ using FluentModbus;
 namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
 {
     /// <summary>
-    ///     A FluentModbus listener provider that binds the server socket with the address-reuse option, so a
-    ///     same-version redeploy can rebind the port while the outgoing server's socket is still lingering
-    ///     (TIME_WAIT) instead of failing with <c>EADDRINUSE</c>. FluentModbus's built-in
-    ///     <c>DefaultTcpClientProvider</c> sets no socket options — which is exactly why the default
-    ///     <see cref="ModbusTcpServer.Start(IPEndPoint)" /> is prone to the overlap conflict — so
-    ///     <see cref="ModbusTcpServerProxy" /> injects this via the public
-    ///     <see cref="ModbusTcpServer.Start(ITcpClientProvider, bool)" /> hook instead. Because the proxy passes
-    ///     <c>leaveOpen: false</c>, the server disposes this provider on
-    ///     <c>Stop()</c>/<c>Dispose()</c> — the same teardown path as the built-in provider.
+    ///     The FluentModbus listener provider the server binds through, so the SDK and not the library decides how the
+    ///     listening socket is bound. <see cref="ModbusTcpServerProxy" /> injects it through the public
+    ///     <see cref="ModbusTcpServer.Start(ITcpClientProvider, bool)" /> hook, with <c>leaveOpen</c> left false, so the
+    ///     server disposes it on <c>Stop()</c> — the same teardown path as the built-in provider.
     /// </summary>
     internal sealed class ReuseAddressTcpClientProvider : ITcpClientProvider
     {
@@ -22,12 +17,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
 
         public ReuseAddressTcpClientProvider(IPEndPoint endpoint)
         {
+            // No address-reuse option is set, and none may be. Bound plainly, the listener rebinds a port whose closed
+            // connections still linger in TIME_WAIT, as a same-version redeploy's new server needs, and is refused a port
+            // another listener holds. Windows allows the first by default, and .NET sets SO_REUSEADDR on every TCP bind on
+            // Linux. ExclusiveAddressUse=false and ReuseAddress=true both add SO_REUSEPORT on Linux, which lets a second
+            // server share a held port and split its masters' connections with the first.
             _listener = new TcpListener(endpoint);
-
-            // Allow rebinding the local endpoint while a previous socket on it is still in TIME_WAIT. Must be
-            // set before Start()/Bind(). ExclusiveAddressUse=false is the conventional .NET spelling and maps
-            // to SO_REUSEADDR on the underlying socket.
-            _listener.ExclusiveAddressUse = false;
             _listener.Start();
         }
 
