@@ -111,7 +111,12 @@ also its virtual timeout, so on the real clock whichever of the two gives up fir
 span that elapsed. Its elapse throws `TimeoutException` saying the values published while starting were
 not handled within the budget — not which handler, because the actor wait counts outstanding answers
 without naming them. `HostHealthShould.FailStartWhenStartPublicationsAreNotHandledWithinRealTimeBudget`
-holds the handler past a shortened budget to reach it.
+holds the handler past a shortened budget to reach it, on the real clock. The real-time backstop alone
+matters only on a stepped host, where nothing advances the barrier's virtual timeout, and that case has
+no test: a hold on a stepped host blocks the one serial dispatcher before the start acknowledgement is
+handled, so the start fails on the acknowledgement instead (tried three times, each failing on the
+acknowledgement message). On the real clock the two bounds are one span, so replacing the backstop with
+a plain await leaves the test green.
 
 ### D3/D4 — the warning
 

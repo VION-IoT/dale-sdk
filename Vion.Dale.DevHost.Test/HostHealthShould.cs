@@ -103,8 +103,9 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange — the property handler is held on the block's start publication, so the value is still
             // queued when the block acknowledges start. The hold ends once the read below is taken, or after a
-            // fallback that a start which waits for the handler always reaches. Before the fix the read stays a
-            // miss unless the three awaits between the hold and the read take longer than that fallback.
+            // fallback that a start which waits for the handler always reaches. A start that does not wait
+            // returns while the value is held, so its read misses unless the awaits before the read outlast the
+            // fallback.
             var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter", TimeSpan.FromSeconds(2));
             var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create()
@@ -128,19 +129,24 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-CTRL-002.4")]
         public async Task FailStartWhenStartPublicationsAreNotHandledWithinRealTimeBudget()
         {
-            // Arrange — the property handler is held past the start budget, so it cannot answer for the values
-            // the block published while starting.
-            var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter", TimeSpan.FromSeconds(20));
+            /* Arrange — the property handler is held past the start budget, so it cannot answer for the values the
+               block published while starting. The same budget bounds the start acknowledgement, which has to
+               arrive within it first; a block with no start hook acknowledges in milliseconds, so the budget is
+               the margin a loaded runner gets. The host runs on the real clock because a hold on a stepped host
+               blocks the one serial dispatcher before the acknowledgement is handled, and the start then fails on
+               the acknowledgement instead. On the real clock the barrier's own timeout is the same span, so this
+               test cannot tell the real-time backstop from it. */
+            var hold = new StartPublicationHold(nameof(MockServicePropertyHandler), "Counter", TimeSpan.FromSeconds(60));
             var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create()
                                                  .WithDi<TestDependencyInjection>()
                                                  .WithConfiguration(configuration)
-                                                 .WithSafetyBudgets(new DevHostBudgets { StartAcknowledgement = TimeSpan.FromMilliseconds(500) })
+                                                 .WithSafetyBudgets(new DevHostBudgets { StartAcknowledgement = TimeSpan.FromSeconds(3) })
                                                  .ConfigureServices(services => services.AddSingleton<IActorMessageObserver>(hold))
                                                  .Build();
 
             // Act
-            var refusal = await Assert.ThrowsExactlyAsync<TimeoutException>(() => host.StartAsync().WaitAsync(TimeSpan.FromSeconds(20)));
+            var refusal = await Assert.ThrowsExactlyAsync<TimeoutException>(() => host.StartAsync().WaitAsync(TimeSpan.FromSeconds(60)));
             hold.ReadTaken.TrySetResult();
 
             // Assert
