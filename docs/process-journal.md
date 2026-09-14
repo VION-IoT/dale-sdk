@@ -93,4 +93,4 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-14 · review · http-examples · The review found HttpDebugClient kept an "already in flight" refusal in LastError after the request succeeded, and HttpSimServer's Requests counter left out dropped requests its own Dropped description calls answered; review-checks.md D2 and testing-conventions.md § 9 should have prevented them. (self)
 
-2026-09-14 · review · http-examples · The review found the SDK's timeout refusal and the invalid-header-name refusal untested and http.md's "the in-repo example" ambiguous beside a second HTTP example; testing-conventions.md § 10 should have prevented the first. (self)
+2026-09-14 · review · http-examples · The review found the SDK's timeout refusal and the invalid-header-name refusal untested and http.md's "the in-repo example" ambiguous beside a second HTTP example; testing-conventions.md § 10 should have prevented the first. (self) → codified: docs/specs/http.md
