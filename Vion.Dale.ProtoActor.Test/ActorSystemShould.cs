@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Proto;
 using Vion.Dale.ProtoActor.Extensions;
 using Vion.Dale.ProtoActor.Test.TestHelpers;
 using Vion.Dale.Sdk;
@@ -122,8 +123,8 @@ namespace Vion.Dale.ProtoActor.Test
             host.System.CreateRootActorFromDi<SilentReceiver>("taken");
 
             // Act / Assert
-            Assert.ThrowsExactly<Proto.ProcessNameExistException>(() => host.System.CreateRootActorFromDi<SilentReceiver>("taken"),
-                                                                  "Two actors under one name would share a mailbox, so the second spawn must be refused.");
+            Assert.ThrowsExactly<ProcessNameExistException>(() => host.System.CreateRootActorFromDi<SilentReceiver>("taken"),
+                                                            "Two actors under one name would share a mailbox, so the second spawn must be refused.");
             await Task.CompletedTask;
         }
 
@@ -216,19 +217,74 @@ namespace Vion.Dale.ProtoActor.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-LIFE-016.4")]
-        public async Task ExpireImmediatelyOnZeroTimeout()
+        public async Task ExpireAcknowledgementWaitImmediatelyOnZeroTimeout()
         {
             // Arrange
             await using var host = new PipelineHost();
-            var silent1 = host.System.CreateRootActorFromDi<SilentReceiver>("zero_ack");
-            var silent2 = host.System.CreateRootActorFromDi<SilentReceiver>("zero_stop");
+            var silent = host.System.CreateRootActorFromDi<SilentReceiver>("zero_ack");
 
             // Act / Assert
             await Assert.ThrowsExactlyAsync<TimeoutException>(async () =>
-                                                                  await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([silent1],
+                                                                  await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([silent],
                                                                       new StopLogicBlockRequest(),
                                                                       TimeSpan.Zero));
-            await Assert.ThrowsExactlyAsync<TimeoutException>(async () => await host.System.StopActorsAndWaitAsync([silent2], TimeSpan.Zero));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.4")]
+        public async Task ExpireTerminationWaitOnZeroTimeoutWhileActorFinishesStopping()
+        {
+            // Arrange
+            /* The losing interleaving, forced for a wait that arms a zero expiry as a delay. The actor is held
+               inside its own stop, so the wait's watch queues behind that stop on the actor's mailbox. Such a
+               wait calls the registered schedule after watching and before arming, and parking there holds the
+               waiter while the actor is released. A probe's watch queued after the wait's own is answered only
+               once the wait's termination notification has been sent, so the waiter resumes with that
+               notification already in its queue and ahead of its expiry. A wait that expires a zero timeout
+               before arming anything never reaches the park — deleting that branch is what turns this red. */
+            var schedule = new ParkingSchedule();
+            await using var host = new PipelineHost(schedule);
+            var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
+            var stopEntered = new SemaphoreSlim(0);
+            var stopReleased = new SemaphoreSlim(0);
+            var stopping = proto.Root.Spawn(Props.FromFunc(async ctx =>
+                                                           {
+                                                               if (ctx.Message is Stopping)
+                                                               {
+                                                                   stopEntered.Release();
+                                                                   await stopReleased.WaitAsync(Generous);
+                                                               }
+                                                           }));
+            proto.Root.Stop(stopping);
+            Assert.IsTrue(await stopEntered.WaitAsync(Generous), "The actor must be inside its stop before the wait watches it, or the watch is not queued behind that stop.");
+            schedule.Parked = () =>
+                              {
+                                  var probeWatching = new SemaphoreSlim(0);
+                                  var probeNotified = new SemaphoreSlim(0);
+                                  proto.Root.Spawn(Props.FromFunc(ctx =>
+                                                                  {
+                                                                      switch (ctx.Message)
+                                                                      {
+                                                                          case Started:
+                                                                              ctx.Watch(stopping);
+                                                                              probeWatching.Release();
+                                                                              break;
+                                                                          case Terminated:
+                                                                              probeNotified.Release();
+                                                                              break;
+                                                                      }
+
+                                                                      return Task.CompletedTask;
+                                                                  }));
+                                  probeWatching.Wait(Generous);
+                                  stopReleased.Release();
+                                  probeNotified.Wait(Generous);
+                              };
+
+            // Act / Assert
+            await Assert.ThrowsExactlyAsync<TimeoutException>(async () => await host.System.StopActorsAndWaitAsync([stopping.ToActorReference()], TimeSpan.Zero),
+                                                              "A zero timeout is an expiry that has already happened, so an actor terminating before the wait handles its notification must not complete the wait.");
+            stopReleased.Release();
         }
 
         [TestMethod]
@@ -445,6 +501,40 @@ namespace Vion.Dale.ProtoActor.Test
             }
         }
 
+        /// <summary>
+        ///     A virtual schedule that runs a test's action on each registration, holding the registering actor until it
+        ///     returns.
+        /// </summary>
+        private sealed class ParkingSchedule : IVirtualSchedule
+        {
+            public Action? Parked { get; set; }
+
+            public void Register(object token, DateTimeOffset dueUtc)
+            {
+                Parked?.Invoke();
+            }
+
+            public void Unregister(object token)
+            {
+            }
+
+            public void RegisterDelivery(object token, DateTimeOffset dueUtc, Action deliver)
+            {
+            }
+
+            public DateTimeOffset? NextDue()
+            {
+                return null;
+            }
+
+            public bool TryTakeNext(out DateTimeOffset dueUtc, out Action? deliver)
+            {
+                dueUtc = default;
+                deliver = null;
+                return false;
+            }
+        }
+
         private sealed class DependentReceiver : IActorReceiver
         {
             public DependentReceiver(ScopedResource resource)
@@ -503,9 +593,14 @@ namespace Vion.Dale.ProtoActor.Test
 
             public SemaphoreSlim Disposals { get; } = new(0);
 
-            public PipelineHost()
+            public PipelineHost(IVirtualSchedule? schedule = null)
             {
                 var services = new ServiceCollection();
+                if (schedule is not null)
+                {
+                    services.AddSingleton(schedule);
+                }
+
                 services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.None));
                 services.AddDaleSdk();
                 services.AddProtoActorSystem();

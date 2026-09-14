@@ -425,9 +425,11 @@ the registration is a discovery entry rather than a lifetime, and the block is n
 - `AC-LIFE-016.8` (Ubiquitous): THE SYSTEM SHALL count an actor a caller listed more than once in a
   wait's input once, so neither wait is given a total its answers can never reach.
 
-Both waits arm their timeout through the registered clock and register it in the virtual schedule,
-which is what makes them virtual on a stepped host — `AC-SCEN-012.*` states that seam's semantics and
-this page adds nothing to it.
+Both waits arm a non-zero timeout through the registered clock and register it in the virtual
+schedule, which is what makes them virtual on a stepped host — `AC-SCEN-012.*` states that seam's
+semantics and this page adds nothing to it. A zero termination wait arms nothing: it expires before
+it can handle a termination notification, because an actor that finished stopping first would
+otherwise have its notification handled ahead of the expiry and complete the wait.
 
 `AC-LIFE-016.4`, `AC-LIFE-016.5` and `AC-LIFE-016.8` are guards over the three ways a wait used to lie.
 A negative timeout armed no clock at all and the caller's wait never returned — a hang, where a host's

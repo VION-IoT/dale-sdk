@@ -66,3 +66,9 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · VION-212 · The change doc said the Modbus provider is kept, with only its name raised as a question; the review asked that keeping or deleting it be surfaced too, since a plain provider binds as the library default. CLAUDE.md's "A decision nobody named is surfaced, not taken" should have prevented it.
 
 2026-09-14 · review · http.md · The page said Linux is where both binding clauses' tests can fail; the Windows probe shows ReuseAddress shares a held port there too, so only the rebind test is Linux-only. spec-process.md's probe-shape rule should have prevented it.
+
+2026-09-14 · review · ActorSystem · The zero-timeout fix put the synchronous expiry in both waits for symmetry; removing it from the acknowledgement wait reddened no test, since acknowledgements are user messages the continuation always precedes, so that half was dropped. testing-conventions.md § 11 should have prevented it. (self)
+
+2026-09-14 · gate · PowerShell tool · A string Replace keyed on "`r`n" inserted nothing into an LF file and reported no error, so a using directive was missing until the build failed. (self)
+
+2026-09-14 · review · ActorSystem · The review found the forcing test missing its // Arrange marker, its comment reading as forcing the fixed code, the zero branch's reason parked on the timeout guard, the held actor never released, and block-lifecycle.md still saying both waits always arm a timeout. comment-conventions.md's claim rule should have prevented the last three. (self)
