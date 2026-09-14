@@ -16,14 +16,6 @@ namespace Vion.Examples.Energy.Test.Http
     /// </summary>
     public sealed class OpenMeteoServiceShould : IDisposable
     {
-        private readonly ServiceHostBlock _block = new(LogicBlockTestHelper.CreateLoggerMock().Object);
-
-        private readonly LogicBlockTestContext<ServiceHostBlock> _context;
-
-        private readonly FakeHttpHarness _harness = new();
-
-        private readonly OpenMeteoService _sut;
-
         public OpenMeteoServiceShould()
         {
             _context = _block.CreateTestContext().Build();
@@ -34,6 +26,14 @@ namespace Vion.Examples.Energy.Test.Http
         {
             _harness.Dispose();
         }
+
+        private readonly ServiceHostBlock _block = new(LogicBlockTestHelper.CreateLoggerMock().Object);
+
+        private readonly LogicBlockTestContext<ServiceHostBlock> _context;
+
+        private readonly FakeHttpHarness _harness = new();
+
+        private readonly OpenMeteoService _sut;
 
         [Theory]
         [InlineData("en-US")]
@@ -58,6 +58,15 @@ namespace Vion.Examples.Energy.Test.Http
             }
         }
 
+        private static string Forecast(double temperature)
+        {
+            var hour = DateTime.UtcNow.Date.AddHours(DateTime.UtcNow.Hour);
+            var times = new[] { hour.AddHours(-1), hour.AddHours(2) }.Select(time => "\"" + time.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture) + "\"");
+            var value = temperature.ToString(CultureInfo.InvariantCulture);
+
+            return "{\"hourly\":{\"time\":[" + string.Join(",", times) + "],\"temperature_2m\":[" + value + "," + value + "]}}";
+        }
+
         [Fact]
         public void DeliverValueInterpolatedFromAnswer()
         {
@@ -73,6 +82,26 @@ namespace Vion.Examples.Energy.Test.Http
             Assert.NotNull(delivered);
             Assert.Equal(12.5, delivered.Temperature);
             Assert.False(delivered.FromCache);
+        }
+
+        [Fact]
+        public void ReportInvalidStructureWhenHourlyDataMissing()
+        {
+            // Arrange
+            Exception? failure = null;
+            _sut.Subscribe(_block,
+                           47.5,
+                           8.7,
+                           WeatherVariables.Temperature,
+                           _ => { },
+                           error => failure = error);
+
+            // Act
+            _harness.Respond("{\"latitude\":47.5,\"longitude\":8.7}");
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.Equal("Invalid weather data structure", Assert.IsType<InvalidOperationException>(failure).Message);
         }
 
         [Fact]
@@ -92,30 +121,6 @@ namespace Vion.Examples.Energy.Test.Http
             Assert.NotNull(delivered);
             Assert.True(delivered.FromCache);
             Assert.Equal(12.5, delivered.Temperature);
-        }
-
-        [Fact]
-        public void ReportInvalidStructureWhenHourlyDataMissing()
-        {
-            // Arrange
-            Exception? failure = null;
-            _sut.Subscribe(_block, 47.5, 8.7, WeatherVariables.Temperature, _ => { }, error => failure = error);
-
-            // Act
-            _harness.Respond("{\"latitude\":47.5,\"longitude\":8.7}");
-            _context.FlushPendingActions();
-
-            // Assert
-            Assert.Equal("Invalid weather data structure", Assert.IsType<InvalidOperationException>(failure).Message);
-        }
-
-        private static string Forecast(double temperature)
-        {
-            var hour = DateTime.UtcNow.Date.AddHours(DateTime.UtcNow.Hour);
-            var times = new[] { hour.AddHours(-1), hour.AddHours(2) }.Select(time => "\"" + time.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture) + "\"");
-            var value = temperature.ToString(CultureInfo.InvariantCulture);
-
-            return "{\"hourly\":{\"time\":[" + string.Join(",", times) + "],\"temperature_2m\":[" + value + "," + value + "]}}";
         }
     }
 }
