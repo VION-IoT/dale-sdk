@@ -10,14 +10,14 @@
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.Sdk.AnalogIo.TestKit" Version="0.13.0"/>
         <PackageReference Include="Vion.Dale.Sdk.DigitalIo.TestKit" Version="0.13.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.13.0"/>
         <PackageReference Include="Vion.Dale.Sdk.Http.TestKit" Version="0.13.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.13.0"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.AnalogIo.TestKit\Vion.Dale.Sdk.AnalogIo.TestKit.csproj"/>
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.DigitalIo.TestKit\Vion.Dale.Sdk.DigitalIo.TestKit.csproj"/>
-        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Http.TestKit\Vion.Dale.Sdk.Http.TestKit.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
