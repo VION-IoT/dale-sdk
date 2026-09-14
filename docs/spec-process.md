@@ -385,7 +385,9 @@ Then four sweeps:
 - **Evidence** — `file:line`, read, not recalled. This column is where implementation detail lives;
   it dies with the archived doc. **A probe is evidence only for the shape it ran:** record the
   probe's fixture shape as written (`get;` is not `get; init;`) and the surface it read (the
-  definition view is not the live view) beside the result. A probe over a different shape than the
+  definition view is not the live view) beside the result, and the operating system it ran on: a
+  socket, file or timer behaviour probed on a Windows desk is unproven on the Linux runner and the
+  gateways, so such a claim is probed on Linux too. A probe over a different shape than the
   row names is a guess wearing evidence's clothes — one session wrote off a correct reading on such
   a probe and paid three amendments for it.
 - **Test today** — the existing test proving it, or `GAP`.
