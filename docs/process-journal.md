@@ -77,4 +77,6 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-14 · gate · dotnet test · Three test projects run in one background command were killed for low memory with no output written, so nothing said which had run; one project at a time completed. (self)
 
-2026-09-14 · review · scenario-in-flight-reads · The review found a 250 ms test fallback a slow runner could let decide the red run while its comment said it never could, a start-failure half called untestable that the branch's own hold reaches, a warn-only command test that never checked a warning, and a sweep count citing a scratchpad script. testing-conventions.md § 16 and review-checks.md P1/P5 should have prevented them. (self)
+2026-09-14 · review · scenario-in-flight-reads · The review found a 250 ms fallback a slow runner could let decide the red run, a start-failure half called untestable that the branch's own hold reaches, a warn-only test that checked no warning, and a count citing a scratchpad script. testing-conventions.md § 16 and review-checks.md P1/P5 should have prevented them. (self)
+
+2026-09-14 · review · process-journal · A 436-character entry was pushed and failed journal-lint on the pull request; the 400 limit is in the journal's header and a length count is one command, and /check prints journal-lint as SKIP, so nothing local ran it.
