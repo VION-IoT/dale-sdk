@@ -47,6 +47,7 @@ $exampleMainProjectsWithVersion = @(
     "examples\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight.csproj",
     "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj",
     "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.csproj",
+    "examples\Vion.Examples.Http\Vion.Examples.Http\Vion.Examples.Http.csproj",
     "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj",
     "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj",
     "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj",
@@ -129,6 +130,25 @@ $exampleProjects = @(
         # Headless scenario run over a real Modbus TCP socket pair — references the
         # core DevHost package directly, for its scenario interpreter rather than a web UI.
         Path              = "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.IntegrationTest\Vion.Examples.ModbusTcp.IntegrationTest.csproj"
+        PackageReferences = @("Vion.Dale.DevHost")
+    },
+    # Http example
+    @{
+        Path              = "examples\Vion.Examples.Http\Vion.Examples.Http\Vion.Examples.Http.csproj"
+        PackageReferences = @("Vion.Dale.Sdk", "Vion.Dale.Sdk.Http")
+    },
+    @{
+        Path              = "examples\Vion.Examples.Http\Vion.Examples.Http.DevHost\Vion.Examples.Http.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
+    @{
+        Path              = "examples\Vion.Examples.Http\Vion.Examples.Http.Test\Vion.Examples.Http.Test.csproj"
+        PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.Http.TestKit")
+    },
+    @{
+        # Headless scenario run over a real HTTP client/server socket pair — references the
+        # core DevHost package directly, for its scenario interpreter rather than a web UI.
+        Path              = "examples\Vion.Examples.Http\Vion.Examples.Http.IntegrationTest\Vion.Examples.Http.IntegrationTest.csproj"
         PackageReferences = @("Vion.Dale.DevHost")
     },
     # Presentation example (no Test project — pack/upload only; demonstrates declarative-presentation surface)

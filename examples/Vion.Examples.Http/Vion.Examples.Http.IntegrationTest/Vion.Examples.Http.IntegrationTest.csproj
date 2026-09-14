@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+    <!-- The headless control surface and the one scenario interpreter live in the core
+         Vion.Dale.DevHost package - no web UI needed to run a committed scenario from a test. Published
+         package by default; `dotnet build -p:DaleLocalSource=true` swaps it for the local working-tree
+         DevHost project ref. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
+        <PackageReference Include="Vion.Dale.DevHost" Version="0.13.0"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.DevHost\Vion.Dale.DevHost.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
+        <PackageReference Include="xunit.v3" Version="3.2.0"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Examples.Http\Vion.Examples.Http.csproj"/>
+    </ItemGroup>
+</Project>

@@ -1,0 +1,37 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "http-roundtrip",
+  "title": "HTTP — one request each way, over a real socket",
+  "description": "The floor the failure scenario builds on: SimServer serves its default routes on 127.0.0.1:18080, DebugClient sends a GET and then a POST with headers, a query and a body, and each side shows what the other sent — the client the status, content type, body and latency it got back, the simulator the request line, body and hit count it received. Real clock — the server holds a socket the host cannot step. Every value a drive changes is read with a wait, never an expect: one block action sets several properties, each is published on its own, and a sibling of the value just waited for can still read its old value. So the run does not depend on the host returning from start or from a set with published values already readable.",
+  "topology": "default",
+  "setup": [],
+  "steps": [
+    { "label": "the simulator is listening", "waitUntil": { "property": "SimServer.IsListening", "equals": true }, "timeoutSeconds": 20 },
+    { "label": "and its status route is published", "waitUntil": { "property": "SimServer.Route1.Status", "equals": "Serving GET /api/status → 200." }, "timeoutSeconds": 20 },
+
+    { "label": "get — send the default request", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "get — the answer arrives", "waitUntil": { "property": "DebugClient.Outcome", "equals": "Succeeded" }, "timeoutSeconds": 20 },
+    { "label": "get — with the route's status", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 200 }, "timeoutSeconds": 20 },
+    { "label": "get — its content type", "waitUntil": { "property": "DebugClient.ResponseContentType", "equals": "application/json" }, "timeoutSeconds": 20 },
+    { "label": "get — and its body", "waitUntil": { "property": "DebugClient.ResponseBodyPreview", "equals": "{\"device\":\"dale-http-sim\",\"state\":\"ok\"}" }, "timeoutSeconds": 20 },
+    { "label": "get — the latency was measured", "waitUntil": { "property": "DebugClient.LatencyMs", "notEquals": null }, "timeoutSeconds": 20 },
+    { "label": "get — the simulator credits the route on its next tick", "waitUntil": { "property": "SimServer.Route1.HitCount", "equals": 1 }, "timeoutSeconds": 20 },
+    { "label": "get — and shows the request line", "waitUntil": { "property": "SimServer.LastRequestLine", "equals": "GET /api/status" }, "timeoutSeconds": 20 },
+
+    { "label": "post — method", "set": "DebugClient.Method", "value": "Post" },
+    { "label": "post — a URL with a query", "set": "DebugClient.Url", "value": "http://127.0.0.1:18080/api/setpoint?unit=kW" },
+    { "label": "post — a body header", "set": "DebugClient.RequestHeaders", "value": "Content-Type: application/json\nX-Trace: bench-1" },
+    { "label": "post — a body", "set": "DebugClient.RequestBody", "value": "{\"value\":42}" },
+    { "label": "post — send it", "set": "DebugClient.SendOnce", "value": true },
+    { "label": "post — the setpoint route answers 202", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 202 }, "timeoutSeconds": 20 },
+    { "label": "post — and its body follows the headers", "waitUntil": { "property": "DebugClient.ResponseBodyPreview", "equals": "{\"accepted\":true}" }, "timeoutSeconds": 20 },
+    { "label": "post — the simulator received the body as sent", "waitUntil": { "property": "SimServer.LastRequestBody", "equals": "{\"value\":42}" }, "timeoutSeconds": 20 },
+    { "label": "post — with the query on the request line", "waitUntil": { "property": "SimServer.LastRequestLine", "equals": "POST /api/setpoint?unit=kW" }, "timeoutSeconds": 20 },
+    { "label": "post — credited to the setpoint route, not unmatched", "waitUntil": { "property": "SimServer.Route2.HitCount", "equals": 1 }, "timeoutSeconds": 20 }
+  ],
+  "watch": ["DebugClient.Outcome", "DebugClient.StatusCode", "DebugClient.LatencyMs", "SimServer.RequestCount", "SimServer.LastRequestLine"],
+  "judge": [
+    { "text": "The Response group shows the header table and the body preview side by side, and the simulator's Recent requests table lists the POST above the GET." }
+  ]
+}
