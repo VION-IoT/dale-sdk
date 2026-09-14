@@ -51,9 +51,8 @@ This exists because temporarily hand-editing project references was a recurring 
 reintroduce that: if an example you need lacks the switch, add it to that example's `.csproj` in the
 same shape the others use rather than editing references in place.
 
-**Coverage is currently uneven** — `Emission`, `Gating`, `ModbusRtu`, `ModbusTcp` and `ToggleLight`
-carry it in three projects, `PingPong` in four, `Energy`, `Presentation` and `RichTypes` in two, and
-`libraries/Vion.Diagnostics` and `templates/vion-iot-library` in none.
+Every project of every example carries it; `libraries/Vion.Diagnostics` and
+`templates/vion-iot-library` do not.
 
 ## 3. A mode that cannot work is rejected, or made host-adaptive — never endured
 
