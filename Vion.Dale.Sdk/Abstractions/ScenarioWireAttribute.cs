@@ -9,7 +9,7 @@ namespace Vion.Dale.Sdk.Abstractions
     ///     from a committed scenario through the generic service-provider handler.
     ///     <para>
     ///         <b>Scenario-testing / DevHost only.</b> The production runtime reaches hardware over MQTT
-    ///         (FlatBuffers) and never reads this — it carries no runtime behaviour. It is a declarative marker the
+    ///         and never reads this — it carries no runtime behaviour. It is a declarative marker the
     ///         DevHost discovers (the same assembly scan the runtime uses to find handlers) to build the contract
     ///         message from a JSON scenario value.
     ///     </para>

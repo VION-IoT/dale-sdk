@@ -2,7 +2,7 @@ using System;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
-using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Contracts.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
@@ -222,7 +222,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void InvokeErrorCallbackWhenArrayProcessResponseThrows()
         {
             // Arrange
-            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new InvalidOperationException("processing failed")),
+            var request = CreateArrayReadRequest(_ => throw new InvalidOperationException("processing failed"),
                                                  (exception, receipt) =>
                                                  {
                                                      _errorCallbackInput = exception;
@@ -242,7 +242,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void ReclassifySuccessAsProtocolErrorWhenArrayProcessResponseThrows()
         {
             // Arrange — the device answered, so the handler stamped Success; reading its answer is what failed.
-            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new ModbusResponseAlignmentException(UnitIdentifier, StartingAddress, 5, 4)),
+            var request = CreateArrayReadRequest(_ => throw new ModbusResponseAlignmentException(UnitIdentifier, StartingAddress, 5, 4),
                                                  (exception, receipt) =>
                                                  {
                                                      _errorCallbackInput = exception;
@@ -263,7 +263,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void ReclassifySuccessAsInvalidWhenArrayProcessResponseRejectsRequestedConversion()
         {
             // Arrange
-            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new UnsupportedByteOrderException((ByteOrder)99)),
+            var request = CreateArrayReadRequest(_ => throw new UnsupportedByteOrderException((ByteOrder)99),
                                                  (exception, receipt) =>
                                                  {
                                                      _errorCallbackInput = exception;
@@ -293,7 +293,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void NotThrowWhenReadArrayProcessResponseThrowsAndErrorCallbackNull()
         {
             // Arrange
-            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new InvalidOperationException("processing failed")));
+            var request = CreateArrayReadRequest(_ => throw new InvalidOperationException("processing failed"));
 
             // Act / Assert
             request.Callback(ResponseData, null, SuccessReceipt);
@@ -357,7 +357,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void InvokeErrorCallbackWhenSingleProcessResponseThrows()
         {
             // Arrange
-            var request = CreateSingleReadRequest((Func<Memory<byte>, int>)(_ => throw new InvalidOperationException("processing failed")),
+            var request = CreateSingleReadRequest(_ => throw new InvalidOperationException("processing failed"),
                                                   (exception, receipt) =>
                                                   {
                                                       _errorCallbackInput = exception;
@@ -388,7 +388,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void NotThrowWhenReadSingleProcessResponseThrowsAndErrorCallbackNull()
         {
             // Arrange
-            var request = CreateSingleReadRequest((Func<Memory<byte>, int>)(_ => throw new InvalidOperationException("processing failed")));
+            var request = CreateSingleReadRequest(_ => throw new InvalidOperationException("processing failed"));
 
             // Act / Assert
             request.Callback(ResponseData, null, SuccessReceipt);

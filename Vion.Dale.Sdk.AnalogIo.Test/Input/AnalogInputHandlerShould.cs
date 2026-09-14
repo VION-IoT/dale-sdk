@@ -1,7 +1,7 @@
 using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
-using Vion.Contracts.FlatBuffers.Hw.Ao;
-using Vion.Contracts.FlatBuffers.Hw.Di;
+using Vion.Contracts.Hw.Ai;
+using Vion.Contracts.Hw.Ao;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
@@ -83,7 +83,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.1")]
-        public void ForwardStateValueWhenPayloadVerifies()
+        public void ForwardStateValueWhenPayloadDecodes()
         {
             // Arrange — delivery is the rule this carries; it stands here as the guard's positive control, so
             // the refusals below cannot be read as "the guard refuses everything".
@@ -98,18 +98,22 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.2")]
-        [DataRow(0, DisplayName = "no payload at all")]
-        [DataRow(1, DisplayName = "one byte")]
-        [DataRow(10, DisplayName = "ten bytes")]
-        [DataRow(28, DisplayName = "half the message")]
-        public void ForwardNothingWhenPayloadDoesNotVerify(int length)
+        [DataRow("", DisplayName = "no payload at all")]
+        [DataRow("{", DisplayName = "an opening brace alone")]
+        [DataRow("""{"value":""", DisplayName = "cut off before the value")]
+        [DataRow("null", DisplayName = "a bare null document")]
+        [DataRow("not json", DisplayName = "not JSON at all")]
+        [DataRow("""{"value":true}""", DisplayName = "a truth value where a real number belongs")]
+        [DataRow("""{"value":"4.2"}""", DisplayName = "a real number spelled as a string")]
+        public void ForwardNothingWhenPayloadUndecodable(string document)
         {
-            // Arrange
+            // Arrange — every row carries this topic's own label, so the decode is the only thing left to
+            // refuse on.
             _harness.Link(_sut);
-            var truncated = HandlerHarness.Truncated(HandlerHarness.AnalogStatePayload(4.2), length);
+            var undecodable = HandlerHarness.Undecodable(document, nameof(AiStatePayload));
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), truncated));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), undecodable));
 
             // Assert — the refusal is that nothing reached a block, not that something was logged.
             Assert.IsEmpty(_harness.Forwarded<AnalogInputChanged>());
@@ -118,7 +122,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.5")]
         [DataRow(nameof(AoStatePayload), DisplayName = "the sibling contract's payload type")]
-        [DataRow(nameof(DiStatePayload), DisplayName = "the neighbouring family's payload type")]
+        [DataRow("DiStatePayload", DisplayName = "the neighbouring family's payload type")]
         public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
             // Arrange — this topic's own payload under another payload type's label, so the label is the only
@@ -152,7 +156,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         [TestProperty("spec", "AC-IO-005.3")]
         public void ForwardContractIdentityReadFromTopicRatherThanPayload()
         {
-            // Arrange — the payload's own identity strings say "hw0"/"ep0"; the topic says sp0/svc0/c0.
+            // Arrange — the payload carries a value and nothing else; the topic says sp0/svc0/c0.
             _harness.Link(_sut);
 
             // Act

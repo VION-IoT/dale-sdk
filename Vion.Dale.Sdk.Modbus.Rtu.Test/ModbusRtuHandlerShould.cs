@@ -1,13 +1,14 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using Google.FlatBuffers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Vion.Contracts.Constants;
-using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Contracts.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
@@ -751,25 +752,25 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             return true;
         }
 
+        /*
+         * The two response arrangements are written as the literal JSON a hardware-abstraction layer puts
+         * on the wire, not serialized through the context the handler decodes with. Serializing them here
+         * would make the arrange inherit whatever naming policy and enum form the handler uses, so a
+         * handler reading a numeric response code where the wire carries its name would pass — which is
+         * the one thing these arrangements exist to catch. `data` is base64 per ModbusDataConverter.
+         */
         private static MqttMessageReceived CreateGetResponseMqttMessage(Guid correlationId, ModbusResponseCode responseCode, byte[] data, string errorMessage = "")
         {
-            var builder = new FlatBufferBuilder(32 + data.Length + errorMessage.Length);
-            var errorMessageOffset = builder.CreateString(errorMessage);
-            var dataOffset = GetModbusResponsePayload.CreateDataVector(builder, data);
-            var payloadOffset = GetModbusResponsePayload.CreateGetModbusResponsePayload(builder, responseCode, errorMessageOffset, dataOffset);
-            GetModbusResponsePayload.FinishGetModbusResponsePayloadBuffer(builder, payloadOffset);
+            var document = $$"""{"responseCode":"{{responseCode}}","errorMessage":"{{errorMessage}}","data":"{{Convert.ToBase64String(data)}}"}""";
 
-            return CreateMqttMessage(GetResponseTopic, builder.SizedByteArray(), correlationId);
+            return CreateMqttMessage(GetResponseTopic, Encoding.UTF8.GetBytes(document), correlationId);
         }
 
         private static MqttMessageReceived CreateSetResponseMqttMessage(Guid correlationId, ModbusResponseCode responseCode, string errorMessage = "")
         {
-            var builder = new FlatBufferBuilder(32 + errorMessage.Length);
-            var errorMessageOffset = builder.CreateString(errorMessage);
-            var payloadOffset = SetModbusResponsePayload.CreateSetModbusResponsePayload(builder, responseCode, errorMessageOffset);
-            SetModbusResponsePayload.FinishSetModbusResponsePayloadBuffer(builder, payloadOffset);
+            var document = $$"""{"responseCode":"{{responseCode}}","errorMessage":"{{errorMessage}}"}""";
 
-            return CreateMqttMessage(SetResponseTopic, builder.SizedByteArray(), correlationId);
+            return CreateMqttMessage(SetResponseTopic, Encoding.UTF8.GetBytes(document), correlationId);
         }
 
         private static MqttMessageReceived CreateMqttMessage(string topic, byte[] payload, Guid correlationId)

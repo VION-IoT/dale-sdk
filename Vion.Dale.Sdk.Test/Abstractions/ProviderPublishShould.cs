@@ -106,24 +106,25 @@ namespace Vion.Dale.Sdk.Test.Abstractions
 
         [TestMethod]
         [TestProperty("spec", "AC-BIND-011.3")]
-        public void DeclareFlatBufferContentTypeWhereCallerNamesNone()
+        public void DeclareJsonContentTypeWhereCallerNamesNone()
         {
             // Arrange / Act
             _sut.PublishProbe();
 
             // Assert
-            Assert.AreEqual(MessageMimeTypes.FlatBuffer, Published().ContentType);
+            Assert.AreEqual(MessageMimeTypes.Json, Published().ContentType);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-BIND-011.3")]
         public void DeclareContentTypeCallerNames()
         {
-            // Arrange / Act
-            _sut.PublishProbe(MessageMimeTypes.Json);
+            // Arrange / Act — a content type the default would not produce, or the row cannot tell the
+            // caller's value from the default.
+            _sut.PublishProbe(MessageMimeTypes.FlatBuffer);
 
             // Assert
-            Assert.AreEqual(MessageMimeTypes.Json, Published().ContentType);
+            Assert.AreEqual(MessageMimeTypes.FlatBuffer, Published().ContentType);
         }
 
         [TestMethod]

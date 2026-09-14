@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
-using Google.FlatBuffers;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Constants;
-using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Contracts.Hw;
+using Vion.Contracts.Hw.Modbus;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -168,10 +169,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             try
             {
-                var payload = GetModbusResponsePayload.GetRootAsGetModbusResponsePayload(message.GetFlatBufferPayload());
+                var payload = message.GetJsonPayload(HwJsonContext.Default.GetModbusResponsePayload);
                 if (payload.ResponseCode == ModbusResponseCode.Ok)
                 {
-                    PublishResponse(pendingRequest, payload.GetDataArray(), null, ModbusOutcome.Success, correlationId);
+                    PublishResponse(pendingRequest, payload.Data, null, ModbusOutcome.Success, correlationId);
                 }
                 else
                 {
@@ -219,8 +220,13 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             var requestTopic = GetOrAddGetTopic(serviceProviderContractId);
             var responseTopic = GetOrAddGetResponseTopic(serviceProviderContractId);
-            var payload = CreateGetModbusPayload(request.FunctionCode, request.UnitId, request.StartingAddress, request.Quantity);
-            PublishRequest(requestTopic, responseTopic, request.CorrelationId, nameof(GetModbusPayload), payload);
+            var payload = new GetModbusPayload(request.FunctionCode, request.UnitId, request.StartingAddress, request.Quantity);
+            PublishRequest(requestTopic,
+                           responseTopic,
+                           request.CorrelationId,
+                           nameof(GetModbusPayload),
+                           payload,
+                           HwJsonContext.Default.GetModbusPayload);
 
             // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
             var expiresAt = publishedAt + request.OperationTimeout;
@@ -289,15 +295,6 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 $"{MqttConfiguration.InstallationTopic}/{serviceProviderContractId.ServiceProviderIdentifier}/{serviceProviderContractId.ServiceIdentifier}/{serviceProviderContractId.ContractIdentifier}{Topics.ModbusGet}";
         }
 
-        private static byte[] CreateGetModbusPayload(ModbusFunctionCode functionCode, byte unitId, ushort startingAddress, ushort quantity)
-        {
-            var flatBufferBuilder = new FlatBufferBuilder(32);
-            var payloadOffset = GetModbusPayload.CreateGetModbusPayload(flatBufferBuilder, functionCode, unitId, startingAddress, quantity);
-            GetModbusPayload.FinishGetModbusPayloadBuffer(flatBufferBuilder, payloadOffset);
-
-            return flatBufferBuilder.SizedByteArray();
-        }
-
         [LoggerMessage(Level = LogLevel.Debug,
                        Message =
                            "Received read response (LogicBlockContractId={LogicBlockContractId}, CreatedAt={CreatedAt}, ElapsedMs={ElapsedMs}, CorrelationId={CorrelationId})")]
@@ -339,7 +336,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             try
             {
-                var payload = SetModbusResponsePayload.GetRootAsSetModbusResponsePayload(message.GetFlatBufferPayload());
+                var payload = message.GetJsonPayload(HwJsonContext.Default.SetModbusResponsePayload);
                 if (payload.ResponseCode == ModbusResponseCode.Ok)
                 {
                     PublishResponse(pendingRequest, null, ModbusOutcome.Success, correlationId);
@@ -388,8 +385,13 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             var requestTopic = GetOrAddSetTopic(serviceProviderContractId);
             var responseTopic = GetOrAddSetResponseTopic(serviceProviderContractId);
-            var payload = CreateSetModbusPayload(request.FunctionCode, request.UnitId, request.Address, request.Data);
-            PublishRequest(requestTopic, responseTopic, request.CorrelationId, nameof(SetModbusPayload), payload);
+            var payload = new SetModbusPayload(request.FunctionCode, request.UnitId, request.Address, request.Data);
+            PublishRequest(requestTopic,
+                           responseTopic,
+                           request.CorrelationId,
+                           nameof(SetModbusPayload),
+                           payload,
+                           HwJsonContext.Default.SetModbusPayload);
 
             // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
             var expiresAt = publishedAt + request.OperationTimeout;
@@ -454,16 +456,6 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 $"{MqttConfiguration.InstallationTopic}/{serviceProviderContractId.ServiceProviderIdentifier}/{serviceProviderContractId.ServiceIdentifier}/{serviceProviderContractId.ContractIdentifier}{Topics.ModbusSet}";
         }
 
-        private static byte[] CreateSetModbusPayload(ModbusFunctionCode functionCode, byte unitId, ushort address, byte[] data)
-        {
-            var flatBufferBuilder = new FlatBufferBuilder(36 + data.Length);
-            var vectorOffset = SetModbusPayload.CreateDataVector(flatBufferBuilder, data);
-            var payloadOffset = SetModbusPayload.CreateSetModbusPayload(flatBufferBuilder, functionCode, unitId, address, vectorOffset);
-            SetModbusPayload.FinishSetModbusPayloadBuffer(flatBufferBuilder, payloadOffset);
-
-            return flatBufferBuilder.SizedByteArray();
-        }
-
         [LoggerMessage(Level = LogLevel.Debug,
                        Message =
                            "Received write response (LogicBlockContractId={LogicBlockContractId}, CreatedAt={CreatedAt}, ElapsedMs={ElapsedMs}, CorrelationId={CorrelationId})")]
@@ -486,10 +478,20 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
         #endregion
 
-        private void PublishRequest(string requestTopic, string responseTopic, Guid correlationId, string schemaName, byte[] payload)
+        private void PublishRequest<TPayload>(string requestTopic,
+                                              string responseTopic,
+                                              Guid correlationId,
+                                              string schemaName,
+                                              TPayload payload,
+                                              JsonTypeInfo<TPayload> typeInfo)
         {
             LogPublishingRequest(correlationId, requestTopic, responseTopic);
-            Publish(requestTopic, payload, schemaName, correlationId: correlationId, responseTopic: responseTopic);
+            PublishJson(requestTopic,
+                        payload,
+                        typeInfo,
+                        schemaName,
+                        correlationId,
+                        responseTopic);
         }
 
         private bool CheckPendingRequestLimit()

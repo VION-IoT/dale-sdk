@@ -1,6 +1,6 @@
 using System;
 using Microsoft.Extensions.Logging;
-using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Contracts.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Mqtt;
@@ -179,8 +180,8 @@ namespace Vion.Dale.Sdk.Abstractions
         /// <param name="payload">The serialized payload bytes.</param>
         /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
         /// <param name="contentType">
-        ///     The MQTT content type (e.g., <c>MessageMimeTypes.FlatBuffer</c>, <c>MessageMimeTypes.Json</c>).
-        ///     Defaults to <c>MessageMimeTypes.FlatBuffer</c> if not specified.
+        ///     The MQTT content type (e.g., <c>MessageMimeTypes.Json</c>, <c>MessageMimeTypes.FlatBuffer</c>).
+        ///     Defaults to <c>MessageMimeTypes.Json</c> if not specified.
         /// </param>
         /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
         /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
@@ -202,7 +203,7 @@ namespace Vion.Dale.Sdk.Abstractions
             // against every handler that passes one explicitly.
             var mqttMessage = new PublishMqttMessage(topic,
                                                      payload,
-                                                     contentType ?? MessageMimeTypes.FlatBuffer,
+                                                     contentType ?? MessageMimeTypes.Json,
                                                      id.ToByteArray(),
                                                      responseTopic,
                                                      [schema],
@@ -223,6 +224,31 @@ namespace Vion.Dale.Sdk.Abstractions
                                       bool retain = false)
         {
             var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, JsonSerialization.DefaultOptions);
+            return Publish(topic,
+                           bytes,
+                           schemaName,
+                           MessageMimeTypes.Json,
+                           correlationId,
+                           responseTopic,
+                           retain);
+        }
+
+        /// <summary>
+        ///     Serializes the payload through the supplied source-generated type metadata — such as
+        ///     <c>HwJsonContext.Default.SetDoPayload</c>, which carries the naming policy and converters in place of
+        ///     <see cref="JsonSerialization.DefaultOptions" /> — and publishes it with <c>application/json</c>
+        ///     content type.
+        /// </summary>
+        /// <inheritdoc cref="Publish" />
+        protected Guid PublishJson<T>(string topic,
+                                      T payload,
+                                      JsonTypeInfo<T> typeInfo,
+                                      string schemaName,
+                                      Guid? correlationId = null,
+                                      string? responseTopic = null,
+                                      bool retain = false)
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, typeInfo);
             return Publish(topic,
                            bytes,
                            schemaName,
