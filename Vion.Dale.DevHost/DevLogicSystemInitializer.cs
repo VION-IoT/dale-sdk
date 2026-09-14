@@ -206,6 +206,33 @@ namespace Vion.Dale.DevHost
                                            "A block whose Starting() threw never acknowledges; the failures the host recorded name which one.");
             }
 
+            /* A block publishes every bound member while starting and only then acknowledges. The
+               publications go to the two value handlers, which fill the control surface's cache, and the
+               acknowledgement goes to the wait above, so nothing orders them: the start could return while the
+               values are still queued, and a read right after it would miss them. Each handler answers this
+               request only after everything already queued for it, and every start publication was queued
+               before the acknowledgement arrived. Waiting on the handlers rather than on a list of members
+               keeps a member whose getter threw — skipped with a warning, never published — from failing the
+               start. */
+            var drained =
+                _actorSystem.SendAndWaitForAcknowledgementAsync<StartPublicationsDrainedRequest, StartPublicationsDrainedResponse>([
+                        _actorSystem.LookupByName(nameof(MockServicePropertyHandler)), _actorSystem.LookupByName(nameof(MockServiceMeasuringPointHandler)),
+                    ],
+                    new StartPublicationsDrainedRequest(),
+                    StartAcknowledgementTimeout);
+
+            // Virtual like the acknowledgement wait, so it takes the same real-time backstop.
+            try
+            {
+                await drained.WaitAsync(Budgets.StartAcknowledgement);
+            }
+            catch (TimeoutException)
+            {
+                Observe(drained);
+                throw new TimeoutException($"The values the logic blocks published while starting were not handled within {Budgets.StartAcknowledgement.TotalSeconds:0.###}s of real time, " +
+                                           "so a read right after start could not be guaranteed to see them.");
+            }
+
             _logger.LogInformation("LogicBlocks started");
         }
 

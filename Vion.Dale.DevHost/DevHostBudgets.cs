@@ -21,9 +21,10 @@ namespace Vion.Dale.DevHost
         public TimeSpan WriteAcknowledgement { get; init; } = TimeSpan.FromSeconds(5);
 
         /// <summary>
-        ///     The wall-clock bound on each wait in the start sequence, the persistent-data restore and the start
-        ///     acknowledgement. Both are routed through the registered clock, so this is the only thing in the
-        ///     start sequence no clock mode can stall.
+        ///     The wall-clock bound on each wait in the start sequence: the persistent-data restore, the start
+        ///     acknowledgement, and the value handlers catching up with what the blocks published while starting.
+        ///     All three are routed through the registered clock, so this is the only thing in the start sequence
+        ///     no clock mode can stall.
         /// </summary>
         public TimeSpan StartAcknowledgement { get; init; } = TimeSpan.FromSeconds(30);
 

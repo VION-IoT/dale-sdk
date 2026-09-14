@@ -1,6 +1,6 @@
 ---
 slug: scenario-in-flight-reads
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: CTRL, SCEN
 author: jonasbertsch
@@ -104,8 +104,10 @@ the guarantee on start).
 
 The barrier wait is virtual like every actor wait, so it takes the real-time backstop the start
 acknowledgement takes (`DevLogicSystemInitializer.cs:198-207`), from the same budget. Its elapse throws
-`TimeoutException` naming the handler that did not answer. Nothing in the repository makes a mock
-handler withhold an answer, so that branch is carried as a GAP on the criterion.
+`TimeoutException` saying the values published while starting were not handled within the budget —
+not which handler, because the actor wait counts outstanding answers without naming them. Nothing in
+the repository makes a mock handler withhold an answer, so that half of `AC-CTRL-002.4` has no test of
+its own; the acknowledgement half keeps `HostHealthShould.FailStartNoBlockAcknowledgesWithinRealTimeBudget`.
 
 ### D3/D4 — the warning
 
@@ -121,7 +123,7 @@ structural, so it runs whether or not the scenario's topology resolves.
 
 - **Start:** a test registers an `IActorMessageObserver` whose `OnReceived` (called before dispatch,
   `ActorMiddleware.cs:24-28`) parks `MockServicePropertyHandler` on the seeded member's publication
-  until `StartAsync` has completed or a fallback bound passes. Pre-fix, start completes while the
+  until the test has taken its read or a fallback bound passes. Pre-fix, start completes while the
   handler is parked and the read is `null`; with the barrier, start cannot complete until the parked
   publication is handled. The fallback only ends the park on the fixed path — it decides duration,
   never the outcome.
@@ -134,6 +136,9 @@ structural, so it runs whether or not the scenario's topology resolves.
 
 ## Drift checkpoints
 
+- 2026-09-14: the start test first released its hold when start completed, and passed against the
+  pre-fix host 3 of 3 — the release let the handler cache the value before the test thread read it.
+  The hold now ends once the read is taken; red 3 of 3 pre-fix, green with the barrier.
 - 2026-09-14: the brief's sweep said six committed scenarios share the drive shape; re-derived with
   setup drives counted and the same-target rule — still six: `toggle-light`, `grid-demand`,
   `io-control`, `output-confirmation`, `plant-control`, `provider-faces`, plus inline scenarios in
