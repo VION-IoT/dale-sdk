@@ -478,7 +478,5 @@ namespace Vion.Examples.Http.LogicBlocks
     /// <summary>
     ///     One HTTP header, its values joined by <c>", "</c> when it carried several.
     /// </summary>
-    public readonly record struct HeaderRow(
-        [StructField(Title = "Name")] string Name,
-        [StructField(Title = "Value")] string Value);
+    public readonly record struct HeaderRow([StructField(Title = "Name")] string Name, [StructField(Title = "Value")] string Value);
 }

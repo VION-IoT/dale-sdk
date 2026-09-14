@@ -17,12 +17,6 @@ namespace Vion.Examples.Http.Test
     /// </summary>
     public sealed class HttpSimServerShould : IDisposable
     {
-        private readonly FakeTimeProvider _clock = new();
-
-        private readonly FakeHttpServerHarness _harness;
-
-        private readonly HttpSimServer _sut;
-
         public HttpSimServerShould()
         {
             _harness = new FakeHttpServerHarness(_clock);
@@ -34,18 +28,11 @@ namespace Vion.Examples.Http.Test
             _harness.Dispose();
         }
 
-        [Fact]
-        public void ListenOnceStarted()
-        {
-            // Arrange
+        private readonly FakeTimeProvider _clock = new();
 
-            // Act
-            _sut.CreateTestContext().Build();
+        private readonly FakeHttpServerHarness _harness;
 
-            // Assert
-            Assert.True(_sut.IsListening);
-            Assert.Empty(_sut.LastError);
-        }
+        private readonly HttpSimServer _sut;
 
         [Theory]
         [InlineData("GET", "/api/status", HttpStatusCode.OK, "application/json", "{\"device\":\"dale-http-sim\",\"state\":\"ok\"}")]
@@ -63,41 +50,6 @@ namespace Vion.Examples.Http.Test
             Assert.Equal(expectedStatus, response.StatusCode);
             Assert.Equal(expectedContentType, response.ContentType);
             Assert.Equal(expectedBody, response.Body);
-        }
-
-        [Fact]
-        public void ServeEditedRouteAfterTick()
-        {
-            // Arrange
-            _sut.CreateTestContext().Build();
-            _sut.Route1.StatusCode = 500;
-            _sut.Route1.Body = "{\"state\":\"broken\"}";
-            var beforeTick = _harness.Client.Send(HttpMethod.Get, "/api/status");
-
-            // Act
-            _sut.FireTimer(block => block.OnTick());
-
-            // Assert
-            var afterTick = _harness.Client.Send(HttpMethod.Get, "/api/status");
-            Assert.Equal(HttpStatusCode.OK, beforeTick.StatusCode);
-            Assert.Equal(HttpStatusCode.InternalServerError, afterTick.StatusCode);
-            Assert.Equal("{\"state\":\"broken\"}", afterTick.Body);
-            Assert.Equal("Serving GET /api/status → 500.", _sut.Route1.Status);
-        }
-
-        [Fact]
-        public void ServeNothingForDisabledSlot()
-        {
-            // Arrange
-            _sut.CreateTestContext().Build();
-            _sut.Route1.Enabled = false;
-
-            // Act
-            _sut.FireTimer(block => block.OnTick());
-
-            // Assert
-            Assert.Equal(HttpStatusCode.NotFound, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
-            Assert.Equal("Disabled.", _sut.Route1.Status);
         }
 
         [Theory]
@@ -118,22 +70,6 @@ namespace Vion.Examples.Http.Test
             Assert.Equal(HttpStatusCode.Accepted, _harness.Client.Send(HttpMethod.Post, "/api/setpoint").StatusCode);
         }
 
-        [Fact]
-        public void ReportRouteWithInvalidContentType()
-        {
-            // Arrange
-            _sut.CreateTestContext().Build();
-            _sut.Route1.ContentType = "text/plain\r\nX-Injected: 1";
-
-            // Act
-            _sut.FireTimer(block => block.OnTick());
-
-            // Assert
-            Assert.StartsWith("Not served: ", _sut.Route1.Status);
-            Assert.Contains("printable ASCII", _sut.Route1.Status);
-            Assert.Equal(HttpStatusCode.NotFound, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
-        }
-
         [Theory]
         [InlineData("api/status")]
         [InlineData("/api/status?x=1")]
@@ -150,36 +86,6 @@ namespace Vion.Examples.Http.Test
             // Assert
             Assert.StartsWith("Not served: ", _sut.Route1.Status);
             Assert.Equal(HttpStatusCode.Accepted, _harness.Client.Send(HttpMethod.Post, "/api/setpoint").StatusCode);
-        }
-
-        [Fact]
-        public void ServeFirstOfDuplicateRoutes()
-        {
-            // Arrange
-            _sut.CreateTestContext().Build();
-            _sut.Route3.StatusCode = 418;
-            _sut.Route3.Path = "/api/status";
-
-            // Act
-            _sut.FireTimer(block => block.OnTick());
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
-            Assert.Equal("Not served: an earlier slot already answers GET /api/status.", _sut.Route3.Status);
-        }
-
-        [Fact]
-        public void ServeNoSlotAboveCount()
-        {
-            // Arrange
-            var sut = new HttpSimServer(_harness.ServerFactory, LogicBlockTestHelper.CreateLoggerMock().Object) { RouteSlotCount = 1 };
-
-            // Act
-            sut.CreateTestContext().Build();
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound, _harness.Client.Send(HttpMethod.Post, "/api/setpoint").StatusCode);
         }
 
         [Fact]
@@ -220,26 +126,6 @@ namespace Vion.Examples.Http.Test
         }
 
         [Fact]
-        public void ShowLastRequestInFull()
-        {
-            // Arrange
-            _sut.CreateTestContext().Build();
-            _harness.Client.Send(HttpMethod.Get, "/api/status");
-            _harness.Client.Send(HttpMethod.Post,
-                                 "/api/setpoint?unit=kW",
-                                 "{\"value\":42}",
-                                 new Dictionary<string, string> { ["Content-Type"] = "application/json" });
-
-            // Act
-            _sut.FireTimer(block => block.OnTick());
-
-            // Assert
-            Assert.Equal("POST /api/setpoint?unit=kW", _sut.LastRequestLine);
-            Assert.Equal(new HeaderRow("Content-Type", "application/json"), Assert.Single(_sut.LastRequestHeaders));
-            Assert.Equal("{\"value\":42}", _sut.LastRequestBody);
-        }
-
-        [Fact]
         public void KeepRecentRequestsNewestFirst()
         {
             // Arrange
@@ -263,17 +149,16 @@ namespace Vion.Examples.Http.Test
         }
 
         [Fact]
-        public void StopListeningWhenDisabled()
+        public void ListenOnceStarted()
         {
             // Arrange
-            _sut.CreateTestContext().Build();
 
             // Act
-            _sut.ServerEnabled = false;
+            _sut.CreateTestContext().Build();
 
             // Assert
-            Assert.False(_sut.IsListening);
-            Assert.Throws<InvalidOperationException>(() => _harness.Client.Send(HttpMethod.Get, "/api/status"));
+            Assert.True(_sut.IsListening);
+            Assert.Empty(_sut.LastError);
         }
 
         [Fact]
@@ -288,6 +173,118 @@ namespace Vion.Examples.Http.Test
             // Assert
             Assert.Contains("192.168.1.x", _sut.LastError);
             Assert.False(_sut.IsListening);
+        }
+
+        [Fact]
+        public void ReportRouteWithInvalidContentType()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _sut.Route1.ContentType = "text/plain\r\nX-Injected: 1";
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.StartsWith("Not served: ", _sut.Route1.Status);
+            Assert.Contains("printable ASCII", _sut.Route1.Status);
+            Assert.Equal(HttpStatusCode.NotFound, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
+        }
+
+        [Fact]
+        public void ServeEditedRouteAfterTick()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _sut.Route1.StatusCode = 500;
+            _sut.Route1.Body = "{\"state\":\"broken\"}";
+            var beforeTick = _harness.Client.Send(HttpMethod.Get, "/api/status");
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            var afterTick = _harness.Client.Send(HttpMethod.Get, "/api/status");
+            Assert.Equal(HttpStatusCode.OK, beforeTick.StatusCode);
+            Assert.Equal(HttpStatusCode.InternalServerError, afterTick.StatusCode);
+            Assert.Equal("{\"state\":\"broken\"}", afterTick.Body);
+            Assert.Equal("Serving GET /api/status → 500.", _sut.Route1.Status);
+        }
+
+        [Fact]
+        public void ServeFirstOfDuplicateRoutes()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _sut.Route3.StatusCode = 418;
+            _sut.Route3.Path = "/api/status";
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
+            Assert.Equal("Not served: an earlier slot already answers GET /api/status.", _sut.Route3.Status);
+        }
+
+        [Fact]
+        public void ServeNoSlotAboveCount()
+        {
+            // Arrange
+            var sut = new HttpSimServer(_harness.ServerFactory, LogicBlockTestHelper.CreateLoggerMock().Object) { RouteSlotCount = 1 };
+
+            // Act
+            sut.CreateTestContext().Build();
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, _harness.Client.Send(HttpMethod.Post, "/api/setpoint").StatusCode);
+        }
+
+        [Fact]
+        public void ServeNothingForDisabledSlot()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _sut.Route1.Enabled = false;
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, _harness.Client.Send(HttpMethod.Get, "/api/status").StatusCode);
+            Assert.Equal("Disabled.", _sut.Route1.Status);
+        }
+
+        [Fact]
+        public void ShowLastRequestInFull()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _harness.Client.Send(HttpMethod.Get, "/api/status");
+            _harness.Client.Send(HttpMethod.Post, "/api/setpoint?unit=kW", "{\"value\":42}", new Dictionary<string, string> { ["Content-Type"] = "application/json" });
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal("POST /api/setpoint?unit=kW", _sut.LastRequestLine);
+            Assert.Equal(new HeaderRow("Content-Type", "application/json"), Assert.Single(_sut.LastRequestHeaders));
+            Assert.Equal("{\"value\":42}", _sut.LastRequestBody);
+        }
+
+        [Fact]
+        public void StopListeningWhenDisabled()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+
+            // Act
+            _sut.ServerEnabled = false;
+
+            // Assert
+            Assert.False(_sut.IsListening);
+            Assert.Throws<InvalidOperationException>(() => _harness.Client.Send(HttpMethod.Get, "/api/status"));
         }
     }
 }

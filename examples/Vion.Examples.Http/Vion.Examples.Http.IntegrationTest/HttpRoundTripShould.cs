@@ -26,8 +26,8 @@ namespace Vion.Examples.Http.IntegrationTest
     ///     </para>
     /// </summary>
     /// <remarks>
-    ///     One class, so xunit runs the two scenarios in one collection — sequentially. Two collections would boot two hosts at
-    ///     once and the second simulator could not bind port 18080.
+    ///     One class, so xunit runs both scenarios in one collection, one after the other. Two collections would boot two
+    ///     hosts at once, and the second simulator could not bind port 18080.
     /// </remarks>
     [Trait("Category", "Smoke")]
     [Trait("kind", "headless-integration")]
@@ -51,10 +51,11 @@ namespace Vion.Examples.Http.IntegrationTest
             // The failing step's own detail is the diagnosis — "expected StatusCode equals 202, but was 200" — so it is the
             // assertion message, whole. Assert.Empty would print the collection cut to its first fifty characters, which
             // ends before the detail starts.
-            var failures = report.ValidationErrors.Concat(report.Setup
-                                                                .Concat(report.Steps)
-                                                                .Where(step => step.Status == ScenarioStepStatus.Failed)
-                                                                .Select(step => $"{step.Label ?? step.Target}: {step.Detail}"))
+            var failures = report.ValidationErrors
+                                 .Concat(report.Setup
+                                               .Concat(report.Steps)
+                                               .Where(step => step.Status == ScenarioStepStatus.Failed)
+                                               .Select(step => $"{step.Label ?? step.Target}: {step.Detail}"))
                                  .ToList();
 
             Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));

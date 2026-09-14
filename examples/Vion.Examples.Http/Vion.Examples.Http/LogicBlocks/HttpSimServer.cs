@@ -180,7 +180,8 @@ namespace Vion.Examples.Http.LogicBlocks
         public RouteSlot Route2 { get; } = new() { Enabled = true, Method = RequestMethod.Post, Path = "/api/setpoint", StatusCode = 202, Body = "{\"accepted\":true}" };
 
         [IncludedWhen("RouteSlotCount >= 3")]
-        public RouteSlot Route3 { get; } = new() { Enabled = true, Method = RequestMethod.Get, Path = "/api/fault", StatusCode = 503, ContentType = "text/plain", Body = "maintenance" };
+        public RouteSlot Route3 { get; } =
+            new() { Enabled = true, Method = RequestMethod.Get, Path = "/api/fault", StatusCode = 503, ContentType = "text/plain", Body = "maintenance" };
 
         [IncludedWhen("RouteSlotCount >= 4")]
         public RouteSlot Route4 { get; } = new();

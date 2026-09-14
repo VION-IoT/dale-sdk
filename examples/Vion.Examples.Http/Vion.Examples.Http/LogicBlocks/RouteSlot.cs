@@ -24,7 +24,8 @@ namespace Vion.Examples.Http.LogicBlocks
         [Presentation(DisplayName = "Method", Group = PropertyGroup.Configuration, Order = 20, VisibleWhen = "Enabled")]
         public RequestMethod Method { get; set; } = RequestMethod.Get;
 
-        [ServiceProperty(Title = "Path", Description = "Starts with '/', carries no query string, and matches case-sensitively: /api/status does not answer /API/status or /api/status/.")]
+        [ServiceProperty(Title = "Path",
+                         Description = "Starts with '/', carries no query string, and matches case-sensitively: /api/status does not answer /API/status or /api/status/.")]
         [Presentation(Group = PropertyGroup.Configuration, Order = 30, VisibleWhen = "Enabled")]
         public string Path { get; set; } = "/";
 

@@ -14,86 +14,16 @@ namespace Vion.Examples.Http.Test
     /// </summary>
     public sealed class HttpDebugClientResponseShould : IDisposable
     {
-        private readonly DebugClientFixture _fixture = new();
-
-        private HttpDebugClient Sut
-        {
-            get => _fixture.Sut;
-        }
-
         public void Dispose()
         {
             _fixture.Dispose();
         }
 
-        [Fact]
-        public void ShowSuccessfulResponse()
+        private readonly DebugClientFixture _fixture = new();
+
+        private HttpDebugClient Sut
         {
-            // Arrange
-            var ctx = _fixture.Build();
-            Sut.SendOnce = true;
-
-            // Act
-            _fixture.Harness.Respond(HttpStatusCode.Accepted, "queued", "text/plain");
-            ctx.AdvanceTime(TimeSpan.Zero);
-
-            // Assert
-            Assert.Equal(RequestOutcome.Succeeded, Sut.Outcome);
-            Assert.Equal(202, Sut.StatusCode);
-            Assert.Equal("Accepted", Sut.ReasonPhrase);
-            Assert.Equal("text/plain", Sut.ResponseContentType);
-            Assert.Contains(new HeaderRow("Content-Type", "text/plain"), Sut.ResponseHeaders);
-            Assert.Equal("queued", Sut.ResponseBodyPreview);
-            Assert.False(Sut.ResponseBodyTruncated);
-            Assert.Empty(Sut.LastError);
-        }
-
-        [Fact]
-        public void MeasureLatencyOnBlockClock()
-        {
-            // Arrange
-            var ctx = _fixture.Build();
-            Sut.SendOnce = true;
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
-
-            // Act
-            _fixture.Harness.Respond("{}");
-            ctx.AdvanceTime(TimeSpan.Zero);
-
-            // Assert
-            Assert.Equal(250, Sut.LatencyMs);
-        }
-
-        [Fact]
-        public void TruncateBodyLongerThanPreview()
-        {
-            // Arrange
-            var ctx = _fixture.Build();
-            Sut.SendOnce = true;
-
-            // Act
-            _fixture.Harness.Respond(HttpStatusCode.OK, new string('x', 8192 + 1), "text/plain");
-            ctx.AdvanceTime(TimeSpan.Zero);
-
-            // Assert
-            Assert.True(Sut.ResponseBodyTruncated);
-            Assert.Equal(new string('x', 8192), Sut.ResponseBodyPreview);
-        }
-
-        [Fact]
-        public void KeepBodyThatExactlyFillsPreview()
-        {
-            // Arrange
-            var ctx = _fixture.Build();
-            Sut.SendOnce = true;
-
-            // Act
-            _fixture.Harness.Respond(HttpStatusCode.OK, new string('x', 8192), "text/plain");
-            ctx.AdvanceTime(TimeSpan.Zero);
-
-            // Assert
-            Assert.False(Sut.ResponseBodyTruncated);
-            Assert.Equal(8192, Sut.ResponseBodyPreview.Length);
+            get => _fixture.Sut;
         }
 
         [Theory]
@@ -114,6 +44,38 @@ namespace Vion.Examples.Http.Test
             Assert.Equal((int)status, Sut.StatusCode);
             Assert.Empty(Sut.ResponseBodyPreview);
             Assert.Equal($"The server answered {(int)status}. Only a 2xx response reaches this block with its headers and body.", Sut.LastError);
+        }
+
+        [Fact]
+        public void KeepBodyThatExactlyFillsPreview()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+
+            // Act
+            _fixture.Harness.Respond(HttpStatusCode.OK, new string('x', 8192), "text/plain");
+            ctx.AdvanceTime(TimeSpan.Zero);
+
+            // Assert
+            Assert.False(Sut.ResponseBodyTruncated);
+            Assert.Equal(8192, Sut.ResponseBodyPreview.Length);
+        }
+
+        [Fact]
+        public void MeasureLatencyOnBlockClock()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
+
+            // Act
+            _fixture.Harness.Respond("{}");
+            ctx.AdvanceTime(TimeSpan.Zero);
+
+            // Assert
+            Assert.Equal(250, Sut.LatencyMs);
         }
 
         [Fact]
@@ -154,6 +116,44 @@ namespace Vion.Examples.Http.Test
             Assert.Equal(RequestOutcome.Failed, Sut.Outcome);
             Assert.Null(Sut.StatusCode);
             Assert.Equal($"An error occurred while sending the request. → {refused.InnerException!.Message}", Sut.LastError);
+        }
+
+        [Fact]
+        public void ShowSuccessfulResponse()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+
+            // Act
+            _fixture.Harness.Respond(HttpStatusCode.Accepted, "queued", "text/plain");
+            ctx.AdvanceTime(TimeSpan.Zero);
+
+            // Assert
+            Assert.Equal(RequestOutcome.Succeeded, Sut.Outcome);
+            Assert.Equal(202, Sut.StatusCode);
+            Assert.Equal("Accepted", Sut.ReasonPhrase);
+            Assert.Equal("text/plain", Sut.ResponseContentType);
+            Assert.Contains(new HeaderRow("Content-Type", "text/plain"), Sut.ResponseHeaders);
+            Assert.Equal("queued", Sut.ResponseBodyPreview);
+            Assert.False(Sut.ResponseBodyTruncated);
+            Assert.Empty(Sut.LastError);
+        }
+
+        [Fact]
+        public void TruncateBodyLongerThanPreview()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+
+            // Act
+            _fixture.Harness.Respond(HttpStatusCode.OK, new string('x', 8192 + 1), "text/plain");
+            ctx.AdvanceTime(TimeSpan.Zero);
+
+            // Assert
+            Assert.True(Sut.ResponseBodyTruncated);
+            Assert.Equal(new string('x', 8192), Sut.ResponseBodyPreview);
         }
     }
 }
