@@ -1,6 +1,6 @@
 ---
 slug: devhost-next-free-port
-status: in-flight
+status: archived
 blocked-on: none
 areas: CTRL, CLI
 author: jonasbertsch
