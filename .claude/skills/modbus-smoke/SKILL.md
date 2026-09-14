@@ -40,7 +40,9 @@ pwsh scripts/smoke-modbus.ps1
 Builds the example DevHost against the **published** `Vion.Dale.*` packages, boots it headless on the
 real clock, resets the host before each scenario, and runs every committed scenario in
 `examples/Vion.Examples.ModbusTcp/scenarios` through the control API. Prints the run report, exits
-non-zero unless each reaches `succeeded`, and frees ports 5000 and 15020 either way.
+non-zero unless each reaches `succeeded`, and stops the host it started either way. It addresses the
+port that host's readiness line names, and refuses, naming the holder, when something already listens
+on the sim server's `15020`.
 
 Expect **~1 minute wall**: `modbus-healthy` finishes in about a second, `modbus-link-policy` takes
 about 30 s because every wait in it is a real wait, and the rest is the build.
@@ -81,10 +83,11 @@ answers in well under a millisecond, so no cadence the client can generate build
 to age a request out. That one is a Tier-2 observation.
 
 **If it fails:** the printed step `detail` is the diagnosis (`expected Link above 1, but was 1`).
-Re-run just that scenario with `-Scenario <id>`, or boot the host yourself and watch the two structs:
+Re-run just that scenario with `-Scenario <id>`, or boot the host yourself (Tier 2's boot) and watch
+the two structs on the port it printed:
 
 ```bash
-curl -s http://localhost:5000/api/state/DebugClient/Link
+curl -s http://localhost:$port/api/state/DebugClient/Link
 ```
 
 ## Tier 2 — live UI while the host is up (optional, chrome-devtools)
@@ -96,11 +99,14 @@ browser:
 $dir = "$(git rev-parse --show-toplevel)\examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.DevHost"
 dotnet build $dir --nologo
 $env:DALE_DEVHOST_NO_BROWSER = "1"
-Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Examples.ModbusTcp.DevHost.dll" -WorkingDirectory $dir -WindowStyle Hidden
+$out = Join-Path $env:TEMP "modbus-devhost.out"; Remove-Item $out -EA SilentlyContinue
+$hostProcess = Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Examples.ModbusTcp.DevHost.dll" -WorkingDirectory $dir -NoNewWindow -PassThru -RedirectStandardOutput $out
+do { Start-Sleep -Milliseconds 400; $ready = Get-Content $out -EA SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } } until ($ready -or $hostProcess.HasExited)
+$port = ($ready | Select-Object -First 1 | ConvertFrom-Json).port
 ```
 
-Poll `http://localhost:5000/api/control/status` until it answers (`stepped:false`), then navigate to
-`http://localhost:5000` and check:
+Poll `http://localhost:$port/api/control/status` until it answers (`stepped:false`), then navigate to
+`http://localhost:$port` and check:
 
 - `DebugClient` → **Status** shows one pill, `LinkHealth`, folded from `Link.State` and
   `Connection.State`; **Diagnostics** renders `Link`, `Connection` and `Command link` as structs — every
@@ -131,10 +137,10 @@ Poll `http://localhost:5000/api/control/status` until it answers (`stepped:false
   Turning *Polling enabled* off instead must **not** produce `Disabled`: the connection is still up, so
   the last verdict holds and *Last read at* is the staleness signal.
 
-Tear down:
+Tear down the process this boot started, never a process found by its port:
 
 ```powershell
-Get-NetTCPConnection -LocalPort 5000,15020 -State Listen -EA SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -EA SilentlyContinue }
+Stop-Process -Id $hostProcess.Id -Force
 ```
 
 ## CI

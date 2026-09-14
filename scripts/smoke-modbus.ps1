@@ -7,7 +7,7 @@
   Single source of truth for the Modbus smoke: builds the Vion.Examples.ModbusTcp DevHost,
   boots it headless on the REAL clock, and runs the committed scenarios in
   examples/Vion.Examples.ModbusTcp/scenarios through the control API. Exits non-zero unless
-  every run reaches `succeeded`, and tears the host down (ports 5000 and 15020) either way.
+  every run reaches `succeeded`, and stops the host it started either way.
 
   The example's own SimServer and DebugClient are a genuine Modbus TCP client/server pair on
   127.0.0.1:15020, so the scenarios exercise real sockets, real connect failures and the real
@@ -21,6 +21,10 @@
   The host is reset before each scenario. The link-policy scenario asserts absolute connect
   counts, which only hold on a freshly booted generation.
 
+  The host picks its own HTTP port - 5000, or the next free one when another host holds it - so the
+  script reads the port from the readiness line of the process it started, and stops that process
+  rather than whatever listens on a port: that listener may be another session's host.
+
 .PARAMETER LocalSource
   Build the example against the working-tree SDK (-p:DaleLocalSource=true) instead of the
   published Vion.Dale.* packages. This is how an SDK change verifies itself against the
@@ -31,9 +35,6 @@
 
 .PARAMETER NoBuild
   Skip the build and boot whatever is already in bin/. Fails loudly if it is not there.
-
-.PARAMETER Port
-  The DevHost's HTTP port. Default 5000.
 
 .EXAMPLE
   pwsh scripts/smoke-modbus.ps1
@@ -51,8 +52,7 @@
 param(
     [switch]$LocalSource,
     [string[]]$Scenario,
-    [switch]$NoBuild,
-    [int]$Port = 5000
+    [switch]$NoBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,19 +62,46 @@ $exampleRoot = Join-Path $repoRoot 'examples/Vion.Examples.ModbusTcp'
 $devHostDir = Join-Path $exampleRoot 'Vion.Examples.ModbusTcp.DevHost'
 $devHostDll = Join-Path $devHostDir 'bin/Debug/net10.0/Vion.Examples.ModbusTcp.DevHost.dll'
 $scenarioDir = Join-Path $exampleRoot 'scenarios'
-$baseUri = "http://localhost:$Port"
 
-# The sim server's listener. Freed on teardown alongside the web port, so a crashed previous
-# run cannot make the next one look like a Modbus failure.
+# Set once the host's readiness line names its port.
+$baseUri = $null
+
+# The sim server's listener, inside the host process. Unlike the web port it cannot move, so a
+# holder is refused by name rather than killed: it may be another session's host.
 $simServerPort = 15020
 
-function Stop-Listeners
+function Assert-SimServerPortFree
 {
-    foreach ($p in @($Port, $simServerPort))
+    $holder = Get-NetTCPConnection -LocalPort $simServerPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($holder)
     {
-        Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue |
-            ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+        $process = Get-Process -Id $holder.OwningProcess -ErrorAction SilentlyContinue
+        throw "Port $simServerPort is held by process $( $holder.OwningProcess ) ($( $process.ProcessName )). The example's sim server needs it - stop that process and re-run."
     }
+}
+
+# The readiness line is one JSON object on the host's standard output; its port is the port the
+# host bound, which is the only port this run may address.
+function Wait-ReadinessPort([string]$OutputPath, [System.Diagnostics.Process]$Process, [int]$TimeoutSeconds)
+{
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline)
+    {
+        if ($Process.HasExited)
+        {
+            throw "The DevHost exited with code $( $Process.ExitCode ) before it was ready. Its output: $OutputPath"
+        }
+
+        $line = Get-Content $OutputPath -ErrorAction SilentlyContinue | Where-Object { $_ -match '^\{"ready":true' } | Select-Object -First 1
+        if ($line)
+        {
+            return ($line | ConvertFrom-Json).port
+        }
+
+        Start-Sleep -Milliseconds 400
+    }
+
+    throw "The DevHost printed no readiness line within $TimeoutSeconds s. Its output: $OutputPath"
 }
 
 function Wait-Ready([int]$TimeoutSeconds)
@@ -201,9 +228,9 @@ $source = $LocalSource ? 'working-tree SDK (-p:DaleLocalSource=true)' : 'publish
 Write-Host "Modbus smoke - $source, real clock" -ForegroundColor Cyan
 Write-Host "Scenarios: $( $ids -join ', ' )"
 
-# A leftover host from a previous run would answer on the port and silently smoke the wrong
-# build, so free both ports before the build rather than after.
-Stop-Listeners
+# A leftover host from a previous run no longer answers for this one - this run addresses only the
+# port its own host printed - but a held sim server port would still fail every connect.
+Assert-SimServerPortFree
 
 if (-not $NoBuild)
 {
@@ -227,6 +254,9 @@ if (-not (Test-Path $devHostDll))
 }
 
 $failures = @()
+$hostProcess = $null
+$hostOutput = Join-Path ([System.IO.Path]::GetTempPath()) "smoke-modbus-$PID.out"
+Remove-Item $hostOutput -ErrorAction SilentlyContinue
 try
 {
     # Folder-driven discovery of topologies/ and scenarios/ is cwd-relative, so the working
@@ -234,13 +264,16 @@ try
     $env:DALE_DEVHOST_NO_BROWSER = '1'
     Remove-Item Env:\DALE_DEVHOST_STEPPED -ErrorAction SilentlyContinue
 
-    Write-Host "Booting the DevHost on $baseUri (real clock)..."
-    Start-Process dotnet -ArgumentList $devHostDll -WorkingDirectory $devHostDir -WindowStyle Hidden
+    Write-Host "Booting the DevHost (real clock)..."
+    $hostProcess = Start-Process dotnet -ArgumentList $devHostDll -WorkingDirectory $devHostDir -NoNewWindow -PassThru -RedirectStandardOutput $hostOutput
 
-    if (-not (Wait-Ready 90))
+    $baseUri = "http://localhost:$( Wait-ReadinessPort $hostOutput $hostProcess 90 )"
+    if (-not (Wait-Ready 30))
     {
-        throw "The DevHost did not answer on $baseUri within 90 s."
+        throw "The DevHost did not answer on $baseUri within 30 s of its readiness line."
     }
+
+    Write-Host "The DevHost is serving on $baseUri."
 
     $status = Invoke-RestMethod "$baseUri/api/control/status"
     if ($status.stepped)
@@ -262,7 +295,11 @@ try
 }
 finally
 {
-    Stop-Listeners
+    if ($hostProcess -and -not $hostProcess.HasExited)
+    {
+        Stop-Process -Id $hostProcess.Id -Force -ErrorAction SilentlyContinue
+        $hostProcess.WaitForExit(10000) | Out-Null
+    }
 }
 
 Write-Host ""
