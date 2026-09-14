@@ -89,8 +89,9 @@ namespace Vion.Dale.Sdk.Http.TestKit
             services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
 
-            // Registered before AddDaleHttpSdk so its TryAddSingleton(TimeProvider.System) keeps this clock.
-            services.AddSingleton(timeProvider);
+            // Registered before AddDaleHttpSdk so its TryAddSingleton(TimeProvider.System) keeps this clock. Wrapped so an
+            // advance that expires a held request waits for its exchange, as an answer does.
+            services.AddSingleton<TimeProvider>(new SettlingTimeProvider(timeProvider, _exchanges));
             services.AddDaleHttpSdk();
             services.AddHttpClient(HttpRequestExecutor.HttpClientName)
                     .ConfigurePrimaryHttpMessageHandler(() => new HoldingHttpMessageHandler(_exchanges))

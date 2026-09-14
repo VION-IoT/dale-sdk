@@ -313,6 +313,44 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-014.7")]
+        public void QueueTimeoutCallbackBeforeAdvanceReturnsOnThreadOwnedSynchronizationContext()
+        {
+            /* Arrange — on a context only its own thread can run, the exchange a timeout cancels does not resume inline inside
+               the advance: it resumes on the thread pool, so a kit that does not wait for it returns from the advance with the
+               callback still on its way and the flush right behind finds nothing. The gap is a race, which is why the advance
+               runs inside a loop: one expiry can win it by chance, and a run of them does not. */
+            var settledPerRound = new int[20];
+            var outcomes = new object?[settledPerRound.Length];
+
+            // Act
+            var returned = ThreadOwnedSynchronizationContext.TryRun(async () =>
+                                                                    {
+                                                                        await Task.Yield();
+                                                                        for (var round = 0; round < settledPerRound.Length; round++)
+                                                                        {
+                                                                            var clock = new FakeTimeProvider(Anchor);
+                                                                            using var harness = new FakeHttpHarness(clock);
+                                                                            var sut = new SampleHttpBlock(harness.Client, LogicBlockTestHelper.CreateLoggerMock().Object);
+                                                                            var ctx = sut.CreateTestContext().WithTimeProvider(clock).Build();
+                                                                            sut.FetchDescription(DescriptionUrl, TimeSpan.FromSeconds(5));
+                                                                            ctx.AdvanceTime(TimeSpan.FromSeconds(5));
+                                                                            ctx.FlushPendingActions();
+                                                                            settledPerRound[round] = sut.Settled.Count;
+                                                                            outcomes[round] = sut.Settled.FirstOrDefault().Outcome;
+                                                                        }
+                                                                    },
+                                                                    TimeSpan.FromSeconds(30),
+                                                                    out var failure);
+
+            // Assert
+            Assert.IsTrue(returned, "The advance never returned: settling the expired exchange waited on a token callback that was still running.");
+            Assert.IsNull(failure);
+            Assert.AreEqual(string.Join(",", settledPerRound.Select(_ => 1)), string.Join(",", settledPerRound), "one flush after each advance must find that round's timeout callback queued");
+            Assert.IsTrue(outcomes.All(outcome => outcome is TimeoutException { Message: "Timed out after 5 seconds" }));
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-TKIT-014.8")]
         public void HoldRequestPastItsTimeoutWhenNoClockSupplied()
         {

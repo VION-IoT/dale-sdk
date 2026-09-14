@@ -21,6 +21,14 @@ namespace Vion.Dale.Sdk.Http.TestKit
         /// </summary>
         private static readonly AsyncLocal<ExchangeCall?> CurrentCall = new();
 
+        /// <summary>
+        ///     The exchanges expired by the clock callback running on this thread. Thread-static rather than async-local: a
+        ///     token callback runs in the execution context captured when it was registered, not in the clock's, so only the
+        ///     thread identifies the callback that cancelled it.
+        /// </summary>
+        [ThreadStatic]
+        private static List<HeldExchange>? _expiredByClockCallback;
+
         private readonly object _gate = new();
 
         private readonly LinkedList<HeldExchange> _outstanding = new();
@@ -99,9 +107,36 @@ namespace Vion.Dale.Sdk.Http.TestKit
                                            }
 
                                            exchange.Completion.TrySetCanceled(cancellationToken);
+                                           _expiredByClockCallback?.Add(exchange);
                                        });
 
             return exchange.Completion.Task;
+        }
+
+        /// <summary>
+        ///     Runs one callback of the harness's clock, then waits for every exchange it expired, as an answer waits for the
+        ///     exchange it released. The wait comes only after the callback has returned, when no token callback is still
+        ///     running: waiting inside the token callback hangs on a context that sends the exchange to the thread pool, because
+        ///     what is left of the exchange there still has to release its hold on that token.
+        /// </summary>
+        public void RunClockCallback(TimerCallback callback, object? state)
+        {
+            var previous = _expiredByClockCallback;
+            var expired = new List<HeldExchange>();
+            _expiredByClockCallback = expired;
+            try
+            {
+                callback(state);
+            }
+            finally
+            {
+                _expiredByClockCallback = previous;
+            }
+
+            foreach (var exchange in expired)
+            {
+                exchange.Settle();
+            }
         }
 
         /// <summary>
@@ -175,7 +210,7 @@ namespace Vion.Dale.Sdk.Http.TestKit
             }
 
             /// <summary>
-            ///     Waits for the exchange this answer released. The answer completes the held response inline, and every await
+            ///     Waits for the exchange this answer or expiry released. The release completes the held response inline, and every await
             ///     between the handler and the block's dispatcher declines the caller's synchronization context, so the exchange
             ///     has normally finished before this is reached, and whatever remains runs on the thread pool. Nothing of it can
             ///     be waiting for the thread this call blocks, even where that thread owns the test's context; an await in the
@@ -215,6 +250,49 @@ namespace Vion.Dale.Sdk.Http.TestKit
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             return _exchanges.Hold(request, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    ///     The harness's clock as the SDK sees it: every reading is the caller's clock, and every timer runs its callback
+    ///     through the held exchanges, so an advance that expires a request returns only once the exchange has handed the
+    ///     timeout to the block's dispatcher.
+    /// </summary>
+    internal sealed class SettlingTimeProvider : TimeProvider
+    {
+        private readonly HeldExchanges _exchanges;
+
+        private readonly TimeProvider _inner;
+
+        public override TimeZoneInfo LocalTimeZone
+        {
+            get => _inner.LocalTimeZone;
+        }
+
+        public override long TimestampFrequency
+        {
+            get => _inner.TimestampFrequency;
+        }
+
+        public SettlingTimeProvider(TimeProvider inner, HeldExchanges exchanges)
+        {
+            _inner = inner;
+            _exchanges = exchanges;
+        }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            return _inner.GetUtcNow();
+        }
+
+        public override long GetTimestamp()
+        {
+            return _inner.GetTimestamp();
+        }
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            return _inner.CreateTimer(timerState => _exchanges.RunClockCallback(callback, timerState), state, dueTime, period);
         }
     }
 
