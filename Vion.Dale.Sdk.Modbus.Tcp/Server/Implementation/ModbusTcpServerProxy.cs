@@ -102,10 +102,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
             _server.CoilsChanged -= OnClientWriteCoils;
             _server.CoilsChanged += OnClientWriteCoils;
 
-            // Bind through the SDK's own provider rather than Start(IPEndPoint), so how the port is bound is decided
-            // here and a library upgrade cannot change it (docs/specs/modbus.md). leaveOpen stays false, so the
-            // server's Stop() closes the provider's listener.
-            _server.Start(new ReuseAddressTcpClientProvider(new IPEndPoint(listenAddress, port)));
+            // Start(IPEndPoint) binds through FluentModbus's DefaultTcpClientProvider, which sets no
+            // address-reuse option: a plain bind already rebinds over a port whose closed connections
+            // still linger, and a held port is refused rather than shared (AC-MODB-014.4, docs/specs/modbus.md).
+            _server.Start(new IPEndPoint(listenAddress, port));
             IsListening = true;
             LogStarted(listenAddress, port);
         }

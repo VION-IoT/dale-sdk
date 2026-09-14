@@ -84,7 +84,7 @@ $exampleProjects = @(
     },
     @{
         Path              = "examples\Vion.Examples.Energy\Vion.Examples.Energy.Test\Vion.Examples.Energy.Test.csproj"
-        PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.DigitalIo.TestKit", "Vion.Dale.Sdk.AnalogIo.TestKit")
+        PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.DigitalIo.TestKit", "Vion.Dale.Sdk.AnalogIo.TestKit", "Vion.Dale.Sdk.Http.TestKit")
     },
     # ToggleLight example
     @{

@@ -17,14 +17,6 @@ namespace Vion.Examples.Energy.Test.Http
     /// </summary>
     public sealed class GeolocationServiceShould : IDisposable
     {
-        private readonly ServiceHostBlock _block = new(LogicBlockTestHelper.CreateLoggerMock().Object);
-
-        private readonly LogicBlockTestContext<ServiceHostBlock> _context;
-
-        private readonly FakeHttpHarness _harness = new();
-
-        private readonly GeolocationService _sut;
-
         public GeolocationServiceShould()
         {
             _context = _block.CreateTestContext().Build();
@@ -36,17 +28,13 @@ namespace Vion.Examples.Energy.Test.Http
             _harness.Dispose();
         }
 
-        [Fact]
-        public void RequestCityFromNominatimWithEncodedName()
-        {
-            // Arrange
+        private readonly ServiceHostBlock _block = new(LogicBlockTestHelper.CreateLoggerMock().Object);
 
-            // Act
-            _sut.GetCoordinates(_block, "Zürich", _ => { });
+        private readonly LogicBlockTestContext<ServiceHostBlock> _context;
 
-            // Assert
-            Assert.Equal("https://nominatim.openstreetmap.org/search?format=json&q=Z%c3%bcrich", Assert.Single(_harness.Requests).Uri.OriginalString);
-        }
+        private readonly FakeHttpHarness _harness = new();
+
+        private readonly GeolocationService _sut;
 
         [Fact]
         public void DeliverCoordinatesOfFirstResult()
@@ -61,21 +49,6 @@ namespace Vion.Examples.Energy.Test.Http
 
             // Assert
             Assert.Equal((47.4991723, 8.7291498), coordinates);
-        }
-
-        [Fact]
-        public void ReportNoResultsForEmptyAnswer()
-        {
-            // Arrange
-            Exception? failure = null;
-            _sut.GetCoordinates(_block, "Atlantis", _ => { }, error => failure = error);
-
-            // Act
-            _harness.Respond("[]");
-            _context.FlushPendingActions();
-
-            // Assert
-            Assert.Equal("No geolocation results found", Assert.IsType<ArgumentException>(failure).Message);
         }
 
         [Fact]
@@ -107,6 +80,33 @@ namespace Vion.Examples.Energy.Test.Http
 
             // Assert
             Assert.Same(unreachable, failure);
+        }
+
+        [Fact]
+        public void ReportNoResultsForEmptyAnswer()
+        {
+            // Arrange
+            Exception? failure = null;
+            _sut.GetCoordinates(_block, "Atlantis", _ => { }, error => failure = error);
+
+            // Act
+            _harness.Respond("[]");
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.Equal("No geolocation results found", Assert.IsType<ArgumentException>(failure).Message);
+        }
+
+        [Fact]
+        public void RequestCityFromNominatimWithEncodedName()
+        {
+            // Arrange
+
+            // Act
+            _sut.GetCoordinates(_block, "Zürich", _ => { });
+
+            // Assert
+            Assert.Equal("https://nominatim.openstreetmap.org/search?format=json&q=Z%c3%bcrich", Assert.Single(_harness.Requests).Uri.OriginalString);
         }
     }
 }
