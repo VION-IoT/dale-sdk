@@ -18,11 +18,17 @@ namespace Vion.Dale.Sdk.Mqtt
          * JsonConverterAttribute on the type, and the handlers serialize through the JsonTypeInfo<T>
          * overloads against Vion.Contracts.Hw.HwJsonContext, which a NativeAOT hardware-abstraction
          * layer shares.
+         *
+         * NumberHandling matches that context's. Without it a non-finite double cannot cross these
+         * options at all — writing one throws ArgumentException and reading `NaN` or `Infinity` throws
+         * JsonException — so a payload the hw/* path round-trips would fail here, and the two halves of
+         * one wire would disagree about what a value nobody can measure looks like.
          */
         public static readonly JsonSerializerOptions DefaultOptions = new()
                                                                       {
                                                                           PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                                                                           DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+                                                                          NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
                                                                           Converters = { new JsonStringEnumConverter() },
                                                                       };
     }
