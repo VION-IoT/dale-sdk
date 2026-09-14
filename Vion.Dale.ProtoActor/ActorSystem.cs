@@ -328,9 +328,16 @@ namespace Vion.Dale.ProtoActor
                                                                                                ctx.Watch(pid);
                                                                                            }
 
+                                                                                           /* A zero delay is an already-completed task, so ReenterAfter would post its
+                                                                                              continuation to this actor's system queue at once. A Terminated notification
+                                                                                              travels on that same queue, and an actor that finished stopping before the
+                                                                                              continuation was posted has its notification handled first, so the wait would
+                                                                                              complete instead of expiring. Failing here, inside Started, comes before any
+                                                                                              notification can be handled. The acknowledgement wait needs no such branch: an
+                                                                                              acknowledgement is a user message, and the mailbox handles every system
+                                                                                              message before a user message. */
                                                                                            if (timeout == TimeSpan.Zero)
                                                                                            {
-                                                                                               // Expires here rather than through the system queue — see RequirePositiveOrZeroTimeout.
                                                                                                FailOnTimeout();
                                                                                                break;
                                                                                            }
@@ -425,18 +432,11 @@ namespace Vion.Dale.ProtoActor
             return actors.GroupBy(actorReference => ((ActorReference)actorReference).Pid).Select(group => group.First()).ToList();
         }
 
-        // Both waits arm their timeout with Task.Delay inside a temporary actor spawned without the receiver
-        // middleware. A negative span makes Task.Delay throw there, Proto's default supervision restarts the
-        // actor, and the caller's await never completes — a hang rather than a refusal. Refuse it here, before
-        // anything is sent or watched. Zero stays legal: it is an immediate expiry, which is a caller saying
-        // "do not wait".
-        //
-        // A zero delay is an already-completed task, so ReenterAfter posts its continuation to the waiter's
-        // system queue at once. An acknowledgement is a user message, which the mailbox handles only after
-        // every system message, so the acknowledgement wait always expires first. A Terminated notification
-        // travels on the system queue itself. An actor that finished stopping before the continuation was
-        // posted gets its notification handled first, and the termination wait would complete instead of
-        // expiring. So the termination wait fails a zero timeout synchronously inside Started.
+        // Both waits arm a non-zero timeout with Task.Delay inside a temporary actor spawned without the
+        // receiver middleware. A negative span makes Task.Delay throw there, Proto's default supervision restarts
+        // the actor, and the caller's await never completes — a hang rather than a refusal. Refuse it here,
+        // before anything is sent or watched. Zero stays legal: it is an immediate expiry, which is a caller
+        // saying "do not wait".
         private static void RequirePositiveOrZeroTimeout(TimeSpan timeout, [CallerArgumentExpression(nameof(timeout))] string? parameterName = null)
         {
             if (timeout < TimeSpan.Zero)

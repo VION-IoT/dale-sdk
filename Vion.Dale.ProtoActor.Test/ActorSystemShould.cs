@@ -234,12 +234,14 @@ namespace Vion.Dale.ProtoActor.Test
         [TestProperty("spec", "AC-LIFE-016.4")]
         public async Task ExpireTerminationWaitOnZeroTimeoutWhileActorFinishesStopping()
         {
-            /* Arrange — the losing interleaving, forced. The actor is held inside its own stop, so the wait's
-               watch queues behind that stop on the actor's mailbox. A wait that arms its expiry as a delay
-               calls the registered schedule after watching and before arming, and parking there holds the
-               waiter while the actor is released. A probe's watch queued after the wait's own is answered
-               only once the wait's termination notification has been sent, so the waiter resumes with that
-               notification already in its queue and ahead of its expiry. */
+            // Arrange
+            /* The losing interleaving, forced for a wait that arms a zero expiry as a delay. The actor is held
+               inside its own stop, so the wait's watch queues behind that stop on the actor's mailbox. Such a
+               wait calls the registered schedule after watching and before arming, and parking there holds the
+               waiter while the actor is released. A probe's watch queued after the wait's own is answered only
+               once the wait's termination notification has been sent, so the waiter resumes with that
+               notification already in its queue and ahead of its expiry. A wait that expires a zero timeout
+               before arming anything never reaches the park — deleting that branch is what turns this red. */
             var schedule = new ParkingSchedule();
             await using var host = new PipelineHost(schedule);
             var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
@@ -254,7 +256,7 @@ namespace Vion.Dale.ProtoActor.Test
                                                                }
                                                            }));
             proto.Root.Stop(stopping);
-            await stopEntered.WaitAsync(Generous);
+            Assert.IsTrue(await stopEntered.WaitAsync(Generous), "The actor must be inside its stop before the wait watches it, or the watch is not queued behind that stop.");
             schedule.Parked = () =>
                               {
                                   var probeWatching = new SemaphoreSlim(0);
@@ -282,6 +284,7 @@ namespace Vion.Dale.ProtoActor.Test
             // Act / Assert
             await Assert.ThrowsExactlyAsync<TimeoutException>(async () => await host.System.StopActorsAndWaitAsync([stopping.ToActorReference()], TimeSpan.Zero),
                                                               "A zero timeout is an expiry that has already happened, so an actor terminating before the wait handles its notification must not complete the wait.");
+            stopReleased.Release();
         }
 
         [TestMethod]
