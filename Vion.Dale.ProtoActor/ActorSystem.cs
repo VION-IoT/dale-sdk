@@ -328,26 +328,35 @@ namespace Vion.Dale.ProtoActor
                                                                                                ctx.Watch(pid);
                                                                                            }
 
+                                                                                           if (timeout == TimeSpan.Zero)
+                                                                                           {
+                                                                                               // Expires here rather than through the system queue — see RequirePositiveOrZeroTimeout.
+                                                                                               FailOnTimeout();
+                                                                                               break;
+                                                                                           }
+
                                                                                            _schedule?.Register(timeoutToken, _timeProvider.GetUtcNow() + timeout);
                                                                                            ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
                                                                                                             _ =>
                                                                                                             {
                                                                                                                 _schedule?.Unregister(timeoutToken);
-                                                                                                                if (remainingCount > 0)
-                                                                                                                {
-                                                                                                                    _logger
-                                                                                                                        .LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms",
-                                                                                                                            remainingCount,
-                                                                                                                            timeout.TotalMilliseconds);
-                                                                                                                    tcs.TrySetException(new
-                                                                                                                        TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
-                                                                                                                    ctx.Stop(ctx.Self);
-                                                                                                                }
-
+                                                                                                                FailOnTimeout();
                                                                                                                 return Task.CompletedTask;
                                                                                                             });
 
                                                                                            break;
+
+                                                                                           void FailOnTimeout()
+                                                                                           {
+                                                                                               if (remainingCount > 0)
+                                                                                               {
+                                                                                                   _logger.LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms",
+                                                                                                                      remainingCount,
+                                                                                                                      timeout.TotalMilliseconds);
+                                                                                                   tcs.TrySetException(new TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
+                                                                                                   ctx.Stop(ctx.Self);
+                                                                                               }
+                                                                                           }
                                                                                        }
                                                                                        case Terminated terminatedMessage
                                                                                            : // handle terminated message from watched actors, cleanup after last
@@ -418,7 +427,14 @@ namespace Vion.Dale.ProtoActor
         // middleware. A negative span makes Task.Delay throw there, Proto's default supervision restarts the
         // actor, and the caller's await never completes — a hang rather than a refusal. Refuse it here, before
         // anything is sent or watched. Zero stays legal: it is an immediate expiry, which is a caller saying
-        // "do not wait", and both waits already answer it with their own TimeoutException.
+        // "do not wait".
+        //
+        // A zero delay is an already-completed task, so ReenterAfter posts its continuation to the waiter's
+        // system queue at once. An acknowledgement is a user message, which the mailbox handles only after
+        // every system message, so the acknowledgement wait always expires first. A Terminated notification
+        // travels on the system queue itself. An actor that finished stopping before the continuation was
+        // posted gets its notification handled first, and the termination wait would complete instead of
+        // expiring. So the termination wait fails a zero timeout synchronously inside Started.
         private static void RequirePositiveOrZeroTimeout(TimeSpan timeout, [CallerArgumentExpression(nameof(timeout))] string? parameterName = null)
         {
             if (timeout < TimeSpan.Zero)
