@@ -123,8 +123,8 @@ namespace Vion.Dale.ProtoActor.Test
             host.System.CreateRootActorFromDi<SilentReceiver>("taken");
 
             // Act / Assert
-            Assert.ThrowsExactly<Proto.ProcessNameExistException>(() => host.System.CreateRootActorFromDi<SilentReceiver>("taken"),
-                                                                  "Two actors under one name would share a mailbox, so the second spawn must be refused.");
+            Assert.ThrowsExactly<ProcessNameExistException>(() => host.System.CreateRootActorFromDi<SilentReceiver>("taken"),
+                                                            "Two actors under one name would share a mailbox, so the second spawn must be refused.");
             await Task.CompletedTask;
         }
 
@@ -246,13 +246,13 @@ namespace Vion.Dale.ProtoActor.Test
             var stopEntered = new SemaphoreSlim(0);
             var stopReleased = new SemaphoreSlim(0);
             var stopping = proto.Root.Spawn(Props.FromFunc(async ctx =>
-                                                                 {
-                                                                     if (ctx.Message is Stopping)
-                                                                     {
-                                                                         stopEntered.Release();
-                                                                         await stopReleased.WaitAsync(Generous);
-                                                                     }
-                                                                 }));
+                                                           {
+                                                               if (ctx.Message is Stopping)
+                                                               {
+                                                                   stopEntered.Release();
+                                                                   await stopReleased.WaitAsync(Generous);
+                                                               }
+                                                           }));
             proto.Root.Stop(stopping);
             await stopEntered.WaitAsync(Generous);
             schedule.Parked = () =>
@@ -260,20 +260,20 @@ namespace Vion.Dale.ProtoActor.Test
                                   var probeWatching = new SemaphoreSlim(0);
                                   var probeNotified = new SemaphoreSlim(0);
                                   proto.Root.Spawn(Props.FromFunc(ctx =>
-                                                                        {
-                                                                            switch (ctx.Message)
-                                                                            {
-                                                                                case Started:
-                                                                                    ctx.Watch(stopping);
-                                                                                    probeWatching.Release();
-                                                                                    break;
-                                                                                case Terminated:
-                                                                                    probeNotified.Release();
-                                                                                    break;
-                                                                            }
+                                                                  {
+                                                                      switch (ctx.Message)
+                                                                      {
+                                                                          case Started:
+                                                                              ctx.Watch(stopping);
+                                                                              probeWatching.Release();
+                                                                              break;
+                                                                          case Terminated:
+                                                                              probeNotified.Release();
+                                                                              break;
+                                                                      }
 
-                                                                            return Task.CompletedTask;
-                                                                        }));
+                                                                      return Task.CompletedTask;
+                                                                  }));
                                   probeWatching.Wait(Generous);
                                   stopReleased.Release();
                                   probeNotified.Wait(Generous);
@@ -498,7 +498,10 @@ namespace Vion.Dale.ProtoActor.Test
             }
         }
 
-        /// <summary>A virtual schedule that runs a test's action on each registration, holding the registering actor until it returns.</summary>
+        /// <summary>
+        ///     A virtual schedule that runs a test's action on each registration, holding the registering actor until it
+        ///     returns.
+        /// </summary>
         private sealed class ParkingSchedule : IVirtualSchedule
         {
             public Action? Parked { get; set; }

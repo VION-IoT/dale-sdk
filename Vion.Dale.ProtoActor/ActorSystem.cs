@@ -350,10 +350,12 @@ namespace Vion.Dale.ProtoActor
                                                                                            {
                                                                                                if (remainingCount > 0)
                                                                                                {
-                                                                                                   _logger.LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms",
-                                                                                                                      remainingCount,
-                                                                                                                      timeout.TotalMilliseconds);
-                                                                                                   tcs.TrySetException(new TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
+                                                                                                   _logger
+                                                                                                       .LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms",
+                                                                                                                   remainingCount,
+                                                                                                                   timeout.TotalMilliseconds);
+                                                                                                   tcs.TrySetException(new
+                                                                                                                           TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
                                                                                                    ctx.Stop(ctx.Self);
                                                                                                }
                                                                                            }
