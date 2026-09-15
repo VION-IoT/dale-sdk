@@ -204,3 +204,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · publish.yml · The review found the changes job diffing with rename detection on, so moving a compiled file into docs/ or scripts/ listed only its new path and skipped the build. (self) → codified: .github/workflows/publish.yml
 
 2026-09-15 · review · publish.yml · The review found the changes job skipping the build for a set-version.ps1 edit a solution test reads, and style on main for a project-file change; the scope was tested against past commits holding neither. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The review found the new ci job left on the repository's default token scope where every other job in the workflow declares its own. (self) → codified: .github/workflows/publish.yml
