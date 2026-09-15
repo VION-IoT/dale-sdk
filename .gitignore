@@ -293,7 +293,7 @@ __pycache__/
 # Cross-repo planning lives in the architecture repo (decision 0011).
 # This repo doesn't track Claude tooling state or planning artifacts, except
 # shared, repo-scoped slash commands under .claude/commands/ (e.g. /cleanup) and
-# skills under .claude/skills/ (e.g. devhost-smoke), and the project settings that enable plugins.
+# skills under .claude/skills/ (e.g. devhost-smoke), and .claude/settings.json.
 .claude/*
 !.claude/commands/
 !.claude/skills/
