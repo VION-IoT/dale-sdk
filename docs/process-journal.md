@@ -233,6 +233,6 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-15 · review · VION-224 · The review found the HTTP renamed-endpoint test ignoring the advance response, so a refused advance would fail as the drive not reaching the block; WebControlEndpointsShould, the precedent it copied, asserts it. (self)
 
-2026-09-15 · gate · dotnet test · Two example test projects reported a catastrophic failure discovering no test, which reads as a 0.14.0 incompatibility; this host's Smart App Control had blocked the Debug build artefact, and the same projects passed in Release. (self)
+2026-09-15 · gate · dotnet test · Two example test projects reported a catastrophic failure discovering no test, which reads as a 0.14.0 incompatibility; this host's Smart App Control had blocked the Debug build artefact, and the same projects passed in Release. (self) → codified: docs/testing-conventions.md
 
 2026-09-15 · brief · references-0-14-0 · The brief put 37 Vion.Dale.Sdk* PackageReference lines under examples/ and Vion.Examples.Energy.Test at 40 tests; its own regex counts 36 lines, 37 is the file count across examples, templates and libraries, and that project has held 50 tests since PR #231. (self)

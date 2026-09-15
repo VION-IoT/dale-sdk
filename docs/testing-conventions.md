@@ -189,6 +189,14 @@ A transient `CSC error LAMA0601: … Insufficient system resources` after many h
 leak, not a test failure: `dotnet build-server shutdown`, kill stray `dotnet` / `VBCSCompiler` /
 `MSBuild`, retry.
 
+An xunit project reporting `Catastrophic failure: … Test process did not return valid JSON
+(non-object)` and discovering no test is the host refusing the build output, not a broken reference:
+run the test assembly's own `.exe` and read the real error, which on a Windows host with Smart App
+Control enforcing (`HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy` → `VerifiedAndReputablePolicyState:
+1`) is `An Application Control policy has blocked this file`. The block follows the exact unsigned
+artefact, so a rebuild reproduces it and a `-c Release` run does not — which is what separates it
+from a package change that would fail every configuration alike.
+
 ## 9. Coverage — every observable behavior, not every line
 
 The discriminator is **observability**: a behavior is something a caller, collaborator, subscriber,
