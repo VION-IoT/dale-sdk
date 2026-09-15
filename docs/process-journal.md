@@ -233,6 +233,8 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-15 · review · VION-224 · The review found the HTTP renamed-endpoint test ignoring the advance response, so a refused advance would fail as the drive not reaching the block; WebControlEndpointsShould, the precedent it copied, asserts it. (self)
 
+2026-09-15 · review · spec-gates.yml · The review found two comments still promising the packed-assembly self-test on every pull request, check.tests.ps1's cost stated as half a total it now sets, the workflow's place in the scope filter given the wrong reason, and the runner allowing any repository read the filter does not list. (self)
+
 2026-09-15 · review · AnalyzerWiringShould · The batched rewrite judged every keep-out test on the whole ordinary build's output, so a probe leaking into Modbus.Rtu alone failed all ten; a mutation run showed it, and each project is now judged on the lines MSBuild attributes to it. (self)
 
 2026-09-15 · gate · AnalyzerWiringShould · /check -Test failed the output guard after its fingerprints moved to bracket every set in ClassInitialize: dotnet test without --no-build was still building the same Debug outputs; the bracket is back around the guard's own builds. (self) → codified: Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould.cs
