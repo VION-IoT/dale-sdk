@@ -16,10 +16,10 @@ namespace Vion.Dale.Sdk.Reflection
             /// <param name="derivedFrom">The interface or base type to find implementors/inheritors of.</param>
             /// <returns>A list of concrete types that implement or inherit from <paramref name="derivedFrom" />.</returns>
             /// <remarks>
-            ///     If the same type name exists in multiple assemblies, only the type from the assembly with the highest version is
-            ///     returned.
+            ///     Dynamic assemblies are never searched. If the same type name exists in multiple assemblies, only the type from
+            ///     the assembly with the highest version is returned.
             /// </remarks>
-            /// <exception cref="AssemblyTypeLoadException">Thrown when an assembly references unresolvable dependencies.</exception>
+            /// <exception cref="AssemblyTypeLoadException">Thrown when a searched assembly references unresolvable dependencies.</exception>
             public List<Type> GetConcreteTypes(Type derivedFrom)
             {
                 return assemblies.GetConcreteTypesInternal(derivedFrom).ToList();
@@ -73,16 +73,24 @@ namespace Vion.Dale.Sdk.Reflection
             ///         Vion.Dale.Sdk.
             ///     </para>
             ///     <para>
+            ///         <b>Why dynamic assemblies are excluded first:</b><br />
+            ///         A proxy generator (Castle DynamicProxy, behind Moq) emits into one shared dynamic assembly, which references
+            ///         every assembly whose types it has proxied. While another thread is emitting, the assembly holds a type that
+            ///         is defined but not yet created, and <see cref="Assembly.GetTypes" /> on it throws a
+            ///         <see cref="ReflectionTypeLoadException" />. Whether a search failed would then depend on that thread's
+            ///         timing, so a dynamic assembly is rejected before its references or types are read at all.
+            ///     </para>
+            ///     <para>
             ///         <b>Practical benefit:</b><br />
-            ///         This approach limits scanning to assemblies we directly control (e.g., Vion.Dale.Sdk.DigitalIo) or assemblies
-            ///         our customers control (e.g., their LogicBlock libraries). This drastically reduces the chance of encountering
-            ///         a <see cref="ReflectionTypeLoadException" />, and if one does occur, it can be easily fixed by either us or
-            ///         our customers since they control the problematic assembly.
+            ///         The remaining filter limits scanning to assemblies that were built against the searched type's assembly:
+            ///         the SDK's own (e.g., Vion.Dale.Sdk.DigitalIo) and the libraries built on it. A
+            ///         <see cref="ReflectionTypeLoadException" /> from one of those names an assembly its author can fix.
             ///     </para>
             /// </remarks>
             private static bool AssemblyCouldContainType(Assembly assembly, Type derivedFrom, string derivedFromAssemblyName)
             {
-                return assembly == derivedFrom.Assembly || assembly.GetReferencedAssemblies().Any(assemblyName => assemblyName.Name == derivedFromAssemblyName);
+                return !assembly.IsDynamic && (assembly == derivedFrom.Assembly ||
+                                               assembly.GetReferencedAssemblies().Any(assemblyName => assemblyName.Name == derivedFromAssemblyName));
             }
         }
     }

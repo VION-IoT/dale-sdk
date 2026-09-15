@@ -53,7 +53,7 @@ consumer's build looks like, and the difference has already shipped a dead analy
   [`sdk-surface-conventions.md`](sdk-surface-conventions.md) § 5.
 - **An analyzer that is referenced is not necessarily running.** Proving it used to mean breaking a real
   declaration by hand and remembering to revert. The standing form is a committed probe: an invalid
-  declaration excluded from the ordinary build, compiled by a test that shells out to `dotnet build` and
+  declaration excluded from the ordinary build, compiled by a test that shells out to MSBuild and
   requires the diagnostic to fail it (`AnalyzerWiringShould` +
   `Vion.Dale.Sdk.Generators.Test/AnalyzerWiring/`, linked into the project under test — never a source file
   of a shipped project).
