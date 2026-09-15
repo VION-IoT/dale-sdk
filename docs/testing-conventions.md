@@ -285,7 +285,8 @@ test is green without the mutation. A runner that filters by `Name~` matches a `
 compile runs nothing too, and an output filter that keeps only test lines hides why, so read the build's own
 result before reading a mutation run's absence of a red line. Restore a mutation from a copy of the
 file taken before it, or by its exact reverse edit — never `git checkout`, which also discards the
-uncommitted work that file carries.
+uncommitted work that file carries. Restoring the source does not restore the build: rebuild before any
+later `--no-build` run, or it runs the mutated binaries and reads as a regression.
 
 **A criterion that decides between two readings is tested where they part.** When a thing is recorded,
 what a bound covers, which of two orders wins: a test on the path where both readings give the same

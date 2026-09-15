@@ -192,3 +192,11 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · decision · spec-process · A draft item for an engineering finding takes the dale-sdk-feedback skill's item shape whole, `file:line` chain included, rather than a spec-ids exception stated beside it; the shape has one owner. → codified: docs/spec-process.md
 
 2026-09-15 · review · dale-sdk-feedback · The review found the item shape's Origin line naming only a consumer report once engineering findings take that shape whole, and a one-word reflow stub in spec-process; walking a draft through the template should have caught the first. (self)
+
+2026-09-15 · review · VION-222 · The change doc's question 3 named a refused write and a failed start as the effects of the stepped timeout-continuation window; the operator's amendment found both decided by real-clock waits elsewhere and made closing the window conditional on a reachable red test, which there was not.
+
+2026-09-15 · review · VION-222 · The drafted stepped criteria promised delivery before "the step that issued the request" returns; the amendment reworded them to before the clock next advances and before an advance in progress returns, because a step spans many hops and a request can be issued outside any advance.
+
+2026-09-15 · gate · mutation runner · A scripted mutation restored its source file but not its build, and a later --no-build suite run ran the mutated binaries, reporting eight failures across two suites as regressions until a rebuild turned them green. (self) → codified: docs/testing-conventions.md
+
+2026-09-15 · gate · test-style-lint · A new cited test was named NameHeldExchangeWhenQuiescenceBudgetIsSpent; the lint failed it for the filler word and three uncited premise tests carried the same shape. (self)
