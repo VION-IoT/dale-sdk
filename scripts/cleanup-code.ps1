@@ -39,8 +39,8 @@
   Scope cleanupcode to the .cs files this branch changed vs -Base, plus the working tree,
   plus untracked .cs, and skip entirely when no .cs changed. The 'Full Cleanup (excl.
   optimize usings)' profile is per-file (no cross-file edits), so a scoped pass is
-  equivalent for the changed files. CI uses this scope on pull requests and the full
-  solution on pushes to main, which catches an edit that reformats a file the PR did not touch.
+  equivalent for the changed files. CI uses this scope on pull requests; CLAUDE.md's Code Style
+  section says when it runs the full solution instead.
 
 .PARAMETER Base
   The ref -Changed diffs against (default origin/main). When it cannot be diffed - not

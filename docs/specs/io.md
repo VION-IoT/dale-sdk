@@ -348,8 +348,8 @@ The classification is also what the API manifest is drawn from: a `[PublicApi]` 
 is why marking the registration class internal changed no row. The rows this area holds are seven per
 package — the four faces and the three message types — and four per TestKit. The manifest is
 regenerated and diffed by `.github/workflows/publish.yml` (the `drift-and-docs` job's "Generate API
-reference and manifest" step generates it; its "Regenerate snapshots" step regenerates it,
-auto-commits a drift onto the pull request head and warns on `main`). The manifest
+reference and manifest" step generates it; its "Regenerate snapshots" step regenerates it, and the
+steps after it commit a drift onto the pull request head or warn on `main`). The manifest
 rule itself is `SYS-API-*` in [`_invariants.md`](_invariants.md), which this page cites rather than
 restating.
 
