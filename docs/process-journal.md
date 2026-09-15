@@ -228,3 +228,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · publish.yml · The fifth review found the inert-change comment naming more .github/ files than its regex skips and promising no test input needs a rule, and CLAUDE.md still saying every push publishes; a sweep found the same claim in releasing.md, the CLI's CLAUDE.md and the modbus-smoke skill. (self)
 
 2026-09-15 · review · publish.yml · The sixth review found the read_by_build rule naming only Markdown and .ps1 while inert also skips settings.json, CODEOWNERS and release.yml, the .github/ list readable as root files, and three docs saying "a push that builds" with no pointer to what decides it. (self)
+
+2026-09-15 · brief · VION-224 · The brief listed a shared endpoint, two blocks mapped to one renamed triple, as a guard green before and after the fix; on origin/main that drive is refused like any renamed triple, so the case is a second red proof, not a guard. (self)
+
+2026-09-15 · review · VION-224 · The review found the HTTP renamed-endpoint test ignoring the advance response, so a refused advance would fail as the drive not reaching the block; WebControlEndpointsShould, the precedent it copied, asserts it. (self)
