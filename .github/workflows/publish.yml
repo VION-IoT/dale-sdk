@@ -203,7 +203,7 @@ jobs:
   # reach the pull request head.
   drift-and-docs:
     if: >-
-      always() && github.actor != 'github-actions[bot]'
+      !cancelled() && github.actor != 'github-actions[bot]'
       && needs.publish.result == 'success' && needs.verify-packages.result == 'success'
       && (needs.style.result == 'success' || needs.style.result == 'skipped')
     needs: [publish, style, verify-packages]
