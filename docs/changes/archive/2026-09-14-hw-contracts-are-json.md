@@ -1,6 +1,6 @@
 ---
 slug: hw-contracts-are-json
-status: in-flight
+status: archived
 blocked-on: none
 areas: IO, BIND, MODB
 author: Fabien Graf

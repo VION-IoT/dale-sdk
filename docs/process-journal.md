@@ -172,3 +172,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · hw-contracts-are-json · The review found the rewritten decode, encoding and content-type tests and the default test carrying no named mutation, and the obvious decode mutation reddening by an escaping exception rather than the assertion; asked for one test-to-mutation line each, read for the failing assertion. testing-conventions.md § 11 should have caught it.
 
 2026-09-15 · gate · vion-dispatch:spawn · The spawn skill's steer triggers found no STOP and no commit pause, so the vion-contracts worker launched unsteered on the stored token, while spec-process.md says a dispatched worker is always steered; nothing in the launch read that rule. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The review found the change doc still in flight under docs/changes/ on the pull request that lands it; asked for it archived. CLAUDE.md's feature-sized lane, archived in the pull request that lands it, should have caught it.
