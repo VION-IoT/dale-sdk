@@ -193,9 +193,11 @@ An xunit project reporting `Catastrophic failure: … Test process did not retur
 (non-object)` and discovering no test is the host refusing the build output, not a broken reference:
 run the test assembly's own `.exe` and read the real error, which on a Windows host with Smart App
 Control enforcing (`HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy` → `VerifiedAndReputablePolicyState:
-1`) is `An Application Control policy has blocked this file`. The block follows the exact unsigned
-artefact, so a rebuild reproduces it and a `-c Release` run does not — which is what separates it
-from a package change that would fail every configuration alike.
+1`) is `An Application Control policy has blocked this file`. That error is the discriminator; a
+package or reference break says so in the restore or compiler output instead. The block attaches to
+the exact artefact, not to the project — a clean rebuild reproduced it byte-for-byte while appending
+one comment to a source file cleared it — so another configuration may or may not be blocked in its
+turn: reach for `-c Release` to get a run, never as proof of the diagnosis.
 
 ## 9. Coverage — every observable behavior, not every line
 
