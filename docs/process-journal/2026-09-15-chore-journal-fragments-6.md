@@ -1,26 +1,3 @@
-# Process journal
-
-Where the process creaked, one line per event. Not a work log: what shipped is in git.
-
-## Format
-
-```
-YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second ask)] [ (self)] [ → codified: <path>]
-```
-
-- `where` is one of five: `review` a correction to produced work · `gate` tooling fought or false-passed · `brief` upstream was wrong · `decision` a settled point, with its reason · `manual` a human grumble.
-- `topic` names what it is about — a component, a skill, a document slug, an issue key — or `—`.
-- `(second ask)`: the same thing was asked for twice. `(self)`: the agent found it, not a human.
-- `→ codified: <path>`: the file a rule or fix for this entry landed in.
-- An entry says what was produced, what was wrong, and what was asked instead. No reasoning, no fix, no quote. At most 400 characters.
-- A physical line that does not start with a date continues the entry above. Blank lines between entries are allowed.
-- Written by the agent in the commit that carries the fix, for every `where` but `manual`. A fixed review finding counts, and its entry names the finding and the file that should have prevented it.
-- Newest last, below the retro marker. Entries above the marker have been read by a retro.
-
-## Entries
-
-<!-- retro-2 marker -->
-
 2026-09-15 · review · spec-gates.yml · The review found two comments still promising the packed-assembly self-test on every pull request, check.tests.ps1's cost stated as half a total it now sets, the workflow's place in the scope filter given the wrong reason, and the runner allowing any repository read the filter does not list. (self)
 
 2026-09-15 · review · AnalyzerWiringShould · The batched rewrite judged every keep-out test on the whole ordinary build's output, so a probe leaking into Modbus.Rtu alone failed all ten; a mutation run showed it, and each project is now judged on the lines MSBuild attributes to it. (self)
