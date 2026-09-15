@@ -146,3 +146,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · gate · publicapi-manifest · scripts/generate-api-reference.cjs needs node, absent on this machine, so the manifest cannot be regenerated locally at all; CI's snapshot bot on the pull request head is the only path. (self)
 
 2026-09-15 · review · hw-contracts-are-json · The review found the publish records and helper defaulting the content type to JSON, which relabels dale's FlatBuffer Remote/Func publish that omits it and went against the spec's leave-the-default-alone; asked instead for no default at all. CLAUDE.md's decision-nobody-named STOP should have surfaced it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the named-literal NumberHandling on JsonSerialization.DefaultOptions reaching the DevHost scenario codec and dale's Func payloads, well past hw/*; the operator took it out rather than record it, together with its upstream twin. spec-process.md's previously-inert-inputs sweep should have caught the reach.
