@@ -5,7 +5,7 @@ A Vion IoT Library template for creating LogicBlocks on the Vion Dale SDK.
 ## Getting started
 
 1. **Run the DevHost** (the local dev runtime + web UI):
-   - From the CLI: `dale dev` — opens `http://localhost:5000`
+   - From the CLI: `dale dev` — opens `http://localhost:5000`, or the next free port when another DevHost holds 5000
    - Or in the IDE: set `VionIotLibraryTemplate.DevHost` as the startup project and press `F5`
      - **Visual Studio:** right-click the project → **Set as Startup Project**
      - **Rider:** pick it from the run-configuration dropdown (top-right)

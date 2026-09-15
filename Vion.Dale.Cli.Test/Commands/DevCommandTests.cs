@@ -45,8 +45,8 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-009.9")]
-        [DataRow(false, false, "  Web UI at http://localhost:5000")]
-        [DataRow(true, false, "  Control API at http://localhost:5000/api (no browser)")]
+        [DataRow(false, false, "  Web UI — its address is printed once it is serving")]
+        [DataRow(true, false, "  Control API, no browser — the readiness line names its port")]
         [DataRow(false, true, "  Writing the export and exiting — no server is started")]
         [DataRow(true, true, "  Writing the export and exiting — no server is started")]
         public void AnnounceWhatItWillActuallyDo(bool headless, bool exporting, string expectedSecondLine)

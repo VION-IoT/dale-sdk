@@ -144,13 +144,14 @@ namespace Vion.Dale.Cli.Commands
         /// <summary>
         ///     What the command says before it starts the host. An export is boot-dump-exit, so neither
         ///     serve line is true of it — and the non-headless export path is the one the consumer actually
-        ///     runs (`ci.yml:98`, `export-config.ps1:56`).
+        ///     runs (`ci.yml:98`, `export-config.ps1:56`). No line names a port: the host binds its preferred
+        ///     port or the next free one above it, and only the host's own output can say which.
         /// </summary>
         internal static IReadOnlyList<string> DescribeStartup(string devHostName, bool headless, bool exporting)
         {
             var mode = exporting ? " (one-shot export)" : headless ? " (headless)" : string.Empty;
             var address = exporting ? "  Writing the export and exiting — no server is started" :
-                          headless ? "  Control API at http://localhost:5000/api (no browser)" : "  Web UI at http://localhost:5000";
+                          headless ? "  Control API, no browser — the readiness line names its port" : "  Web UI — its address is printed once it is serving";
 
             return new[] { $"Starting {devHostName}{mode}...", address };
         }

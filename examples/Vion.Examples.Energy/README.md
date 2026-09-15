@@ -10,7 +10,7 @@ A Vion IoT Library template for creating LogicBlocks.
 
 2. **Run the DevHost:**
    - Press `F5` to start debugging
-   - The browser should open automatically at `http://localhost:5000`
+   - The browser should open automatically at `http://localhost:5000` — or at the next free port, which the console prints, when another DevHost holds 5000
 
 3. **Develop your LogicBlocks:**
    - Add your LogicBlock implementations in the `Vion.Examples.Energy` project

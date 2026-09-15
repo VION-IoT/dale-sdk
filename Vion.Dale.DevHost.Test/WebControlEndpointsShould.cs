@@ -233,7 +233,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-014.1")]
-        public async Task BindConfiguredPortOnLoopbackOnly()
+        public async Task BindWebHostOnLoopbackOnly()
         {
             // Arrange
             var port = FreePort();
@@ -245,7 +245,7 @@ namespace Vion.Dale.DevHost.Test
             var listeners = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Where(endpoint => endpoint.Port == port).ToList();
 
             // Assert
-            Assert.IsNotEmpty(listeners, "the host must be listening on the port it was configured with");
+            Assert.IsNotEmpty(listeners, "the host must be listening on the free port it was given");
             Assert.IsTrue(listeners.TrueForAll(endpoint => IPAddress.IsLoopback(endpoint.Address)), "listening on: " + string.Join(", ", listeners));
         }
 

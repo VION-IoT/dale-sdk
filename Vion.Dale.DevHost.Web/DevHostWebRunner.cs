@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Topologies;
+using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Web
 {
@@ -50,7 +51,10 @@ namespace Vion.Dale.DevHost.Web
         ///     <paramref name="cancellationToken" /> is cancelled (e.g. Ctrl+C), then stops the host.
         /// </summary>
         /// <param name="host">The built DevHost (created with <c>.WithWebUi(port)</c>).</param>
-        /// <param name="port">The port the web UI / API is served on (used for the browser URL and readiness line).</param>
+        /// <param name="port">
+        ///     The port to report for a host built without <c>WithWebUi</c>. A host with a web UI reports the port it
+        ///     bound, which is its preferred port or, when that was taken, the next free one above it.
+        /// </param>
         /// <param name="cancellationToken">Cancelled to shut down (typically wired to Ctrl+C).</param>
         public static async Task RunAsync(IDevHost host, int port = 5000, CancellationToken cancellationToken = default)
         {
@@ -64,17 +68,19 @@ namespace Vion.Dale.DevHost.Web
                 return;
             }
 
+            var servingPort = BoundPort(host) ?? port;
+
             if (headless)
             {
                 // Single-line, parseable readiness signal — lets an agent that spawned this process know
                 // the network is up and on which port before it starts driving /api.
                 // The same shape the supervised loop prints, generation and all: a parser written against one
                 // overload is written against the other, and this host is generation 1 by construction.
-                WriteJsonLine(new { ready = true, port, generation = 1 });
+                WriteJsonLine(new { ready = true, port = servingPort, generation = 1 });
             }
             else
             {
-                OpenBrowser($"http://localhost:{port}");
+                OpenBrowser($"http://localhost:{servingPort}");
             }
 
             try
@@ -91,7 +97,7 @@ namespace Vion.Dale.DevHost.Web
 
         /// <summary>
         ///     Supervised variant: builds the host from <paramref name="hostFactory" /> and recycles it —
-        ///     dispose, rebuild, restart on the same port — whenever the UI/API requests a reset
+        ///     dispose, rebuild, restart on the port the first generation bound — whenever the UI/API requests a reset
         ///     (<c>POST /api/control/reset</c> → <see cref="Control.IDevHostControl.TryRequestReset" />).
         ///     This kills the kill-and-`dale dev` loop: a code-independent fresh start without leaving the
         ///     browser. Runs until <paramref name="cancellationToken" /> is cancelled.
@@ -100,7 +106,10 @@ namespace Vion.Dale.DevHost.Web
         ///     Builds a fresh host per generation (the same builder chain a <c>Program.cs</c> runs once
         ///     today). Each generation gets a fresh service provider, actor system, and service ids.
         /// </param>
-        /// <param name="port">The port the web UI / API is served on.</param>
+        /// <param name="port">
+        ///     The port to report for a host built without <c>WithWebUi</c>, and in a failure receipt written before
+        ///     any generation bound one. A host with a web UI reports the port it bound.
+        /// </param>
         /// <param name="cancellationToken">Cancelled to shut down (typically wired to Ctrl+C).</param>
         public static Task RunAsync(Func<IDevHost> hostFactory, int port = 5000, CancellationToken cancellationToken = default)
         {
@@ -135,7 +144,10 @@ namespace Vion.Dale.DevHost.Web
         ///     Applies <c>WithDi&lt;TDi&gt;</c>, <c>WithWebUi(port)</c>, and optionally
         ///     <c>ConfigureLogging</c> to the builder. Must NOT call <c>WithConfiguration</c>.
         /// </param>
-        /// <param name="port">The port the web UI / API is served on.</param>
+        /// <param name="port">
+        ///     The port to report for a host built without <c>WithWebUi</c>, and in a failure receipt written before
+        ///     any generation bound one. A host with a web UI reports the port it bound.
+        /// </param>
         /// <param name="cancellationToken">Cancelled to shut down (typically wired to Ctrl+C).</param>
         public static Task RunFolderDrivenAsync(Action<DevHostBuilder> configure, int port = 5000, CancellationToken cancellationToken = default)
         {
@@ -210,6 +222,11 @@ namespace Vion.Dale.DevHost.Web
             // back to it rather than taking the process down (see the catch below).
             string? runningTopologyId = null;
 
+            // The port the first generation bound. Every later generation is pinned to it: the open page reconnects
+            // to it and a client waiting out a recycle polls it, so a generation that walked elsewhere would leave
+            // both addressing whatever took the port. Until a generation binds, receipts name the port given.
+            int? servingPort = null;
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 generation++;
@@ -235,7 +252,7 @@ namespace Vion.Dale.DevHost.Web
                     // process ends — but not silently. The readiness line is what an agent waits for; this is
                     // its counterpart, so a spawning caller learns of the failure instead of waiting out its
                     // own timeout.
-                    WriteJsonLine(new { failed = true, port, generation, topology = topologyId, reason = exception.Message });
+                    WriteJsonLine(new { failed = true, port = servingPort ?? port, generation, topology = topologyId, reason = exception.Message });
                     throw;
                 }
 
@@ -243,6 +260,11 @@ namespace Vion.Dale.DevHost.Web
                 {
                     var resetRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                     using var resetSubscription = host.Control.OnResetRequested(() => resetRequested.TrySetResult(), honoursTopologySwitch);
+
+                    if (servingPort is { } pinned)
+                    {
+                        WebUiBinding.For(host.Control).PinnedPort = pinned;
+                    }
 
                     try
                     {
@@ -262,11 +284,12 @@ namespace Vion.Dale.DevHost.Web
                     }
                     catch (Exception exception)
                     {
-                        WriteJsonLine(new { failed = true, port, generation, topology = topologyId, reason = exception.Message });
+                        WriteJsonLine(new { failed = true, port = servingPort ?? port, generation, topology = topologyId, reason = exception.Message });
                         throw;
                     }
 
                     runningTopologyId = topologyId;
+                    servingPort ??= BoundPort(host);
 
                     if (TryExport(host))
                     {
@@ -278,12 +301,12 @@ namespace Vion.Dale.DevHost.Web
 
                     if (headless)
                     {
-                        WriteJsonLine(new { ready = true, port, generation });
+                        WriteJsonLine(new { ready = true, port = BoundPort(host) ?? port, generation });
                     }
                     else if (generation == 1)
                     {
                         // Open the browser once; on recycle the page reconnects by itself.
-                        OpenBrowser($"http://localhost:{port}");
+                        OpenBrowser($"http://localhost:{BoundPort(host) ?? port}");
                     }
 
                     try
@@ -337,6 +360,12 @@ namespace Vion.Dale.DevHost.Web
         {
             Console.WriteLine($"Topology '{topologyId}' cannot start — staying on " + (runningTopologyId is null ? "the default topology" : $"'{runningTopologyId}'") +
                               $".{Environment.NewLine}{exception.Message}");
+        }
+
+        // The port the host's web UI bound, or null for a host built without one.
+        private static int? BoundPort(IDevHost host)
+        {
+            return WebUiBinding.For(host.Control).BoundPort;
         }
 
         // One-shot export modes: write the wired configuration (the /api/configuration wire shape) and/or

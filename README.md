@@ -11,7 +11,7 @@ dotnet tool install -g Vion.Dale.Cli
 
 dale new MyLibrary
 cd MyLibrary
-dale dev            # local DevHost with a web UI on http://localhost:5000
+dale dev            # local DevHost with a web UI on http://localhost:5000, or the next free port
 ```
 
 ## Naming things
