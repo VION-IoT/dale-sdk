@@ -54,9 +54,9 @@ the CI scope (`AR` 183–203 after 177), journal-lint SKIPped locally (`AR` 61, 
 - **Tests for CI's change scope** (M, rung 3) — dropped: the fourth review round had already inverted the
   rule to a list of inert kinds with everything else building, and nothing recurred after it.
 - **One `dotnet test` per test project in `/check -Test`** (E's low-memory kills, rung 3) — dropped.
-- **P6 — the precedent carries its property** (K, rung 2) — open: re-explained to the human, undecided at
-  rotation. The existing precedent rule in `spec-process.md` binds only a lane-3 table's `Why`; the
-  window's copies were code, tests, a workflow job and a skill.
+- **P6 — the precedent carries its property** (K, rung 2) — dropped after a second explanation. The
+  existing precedent rule in `spec-process.md` binds only a lane-3 table's `Why`; the window's copies
+  were code, tests, a workflow job and a skill.
 
 ## Hygiene
 
@@ -104,3 +104,4 @@ for as the level of the next round. Journaled in the architecture repo, where th
 4. Did a file a test reads get skipped by `read_by_build`?
 5. Did low-memory kills or edit-tool byte traps recur?
 6. Did the nested-worktree hook land in the dispatch plugin, and did any session nest a worktree after it?
+7. Did cluster K — a copied precedent — grow without P6?
