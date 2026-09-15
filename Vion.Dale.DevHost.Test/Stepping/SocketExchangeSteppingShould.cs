@@ -115,6 +115,25 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.11")]
+        public async Task NameHeldHttpExchangeWhenQuiescenceBudgetSpent()
+        {
+            // Arrange — the fetch is issued by the control write, and its peer never answers; the client's thirty-second
+            // timeout is far past the budget, so the budget is what ends the settle.
+            await using var peer = HeldAnswerPeer.Http("42", System.Threading.Timeout.InfiniteTimeSpan);
+            await using var host = SteppedHost(builder => builder.AddLogicBlock<HttpFetcherBlock>("fetcher"), TimeSpan.FromMilliseconds(400));
+            await host.StartAsync();
+            await host.Control.SetPropertyAsync("fetcher", "Url", $"http://127.0.0.1:{peer.Port}/value");
+
+            // Act
+            var refusal = await Assert.ThrowsExactlyAsync<TimeoutException>(() => host.Control.AdvanceAsync(TimeSpan.Zero).WaitAsync(Timeout));
+            peer.Release();
+
+            // Assert
+            StringAssert.Contains(refusal.Message, $"HTTP GET http://127.0.0.1:{peer.Port}/value");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-018.2")]
         public async Task RecordServedRequestFromClientInSameHostBeforeClockNextAdvances()
         {

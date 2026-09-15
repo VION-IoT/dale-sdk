@@ -20,8 +20,9 @@ namespace Vion.Dale.Sdk.Http.Test.Server
     ///         <c>AC-HTTP-018.2</c> rests on — that the transport's exchange outlives the recording of the request — which the
     ///         stepped host cannot park, because nothing a block or a test there can reach sits between the response being
     ///         written and the request being recorded; the stepped end of the criterion is <c>SocketExchangeSteppingShould</c>
-    ///         in <c>Vion.Dale.DevHost.Test</c>. The other two pin the page's rule under that criterion that an idle
-    ///         connection, and one refused before its request is read, is not counted.
+    ///         in <c>Vion.Dale.DevHost.Test</c>. Two pin the page's rule under that criterion that an idle connection, and one
+    ///         refused before its request is read, is not counted, and one pins the name a stepped host's quiescence failure
+    ///         shows for the request.
     ///     </para>
     /// </summary>
     [TestClass]
@@ -89,15 +90,36 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             await requesting.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /value HTTP/1.1\r\n\r\n")).AsTask().WaitAsync(Timeout);
             Assert.IsTrue(handler.AnswerEntered.Wait(Timeout));
             var openedWhileAnswering = monitor.Opened;
-            var description = monitor.LastDescription;
             handler.Release();
             await ReadUntilClosedAsync(requesting.GetStream()).WaitAsync(Timeout);
 
             // Assert
             Assert.AreEqual(0, openedWhileIdle);
             Assert.AreEqual(1, openedWhileAnswering);
-            Assert.AreEqual($"HTTP server GET /value on 127.0.0.1:{port}", description);
             Assert.IsTrue(monitor.AllClosed.Wait(Timeout));
+        }
+
+        [TestMethod]
+        public async Task NameExchangeByMethodPathAndLocalEndpoint()
+        {
+            // Arrange — the answer parks, so the exchange is open when its name is read.
+            var monitor = new CountingMonitor();
+            var handler = new ParkingHandler(true);
+            using var transport = new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance, TcpHttpServerTransport.DefaultReadBound, monitor);
+            var port = FreePort();
+            transport.Start(IPAddress.Loopback, port, handler);
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+
+            // Act
+            await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /value HTTP/1.1\r\n\r\n")).AsTask().WaitAsync(Timeout);
+            Assert.IsTrue(handler.AnswerEntered.Wait(Timeout));
+            var description = monitor.LastDescription;
+            handler.Release();
+            await ReadUntilClosedAsync(client.GetStream()).WaitAsync(Timeout);
+
+            // Assert — the name a stepped host's quiescence failure shows for this request.
+            Assert.AreEqual($"HTTP server GET /value on 127.0.0.1:{port}", description);
         }
 
         [TestMethod]

@@ -55,6 +55,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
                 await Assert.ThrowsExactlyAsync<TimeoutException>(() => write.WaitAsync(Window));
                 released.Set();
                 await write.WaitAsync(Timeout);
+
+                // Assert — the value was already stored when the notification ran.
                 Assert.IsTrue(storedWhenNotified);
             }
             finally
