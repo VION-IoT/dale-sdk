@@ -248,17 +248,16 @@ namespace Vion.Dale.Sdk.Http.Server
                     return;
                 }
 
-                var exchange = _exchanges?.OpenExchange($"HTTP server request on {listener.LocalEndpoint}");
                 Task connection;
                 lock (_gate)
                 {
                     if (_connections.Count >= _connectionLimit)
                     {
-                        _ = RefuseAsync(client, exchange);
+                        _ = RefuseAsync(client);
                         continue;
                     }
 
-                    connection = ServeAsync(client, handler, exchange, stopping);
+                    connection = ServeAsync(client, handler, stopping);
                     _connections.Add(connection);
                 }
 
@@ -277,10 +276,9 @@ namespace Vion.Dale.Sdk.Http.Server
         ///     Answers a connection past the limit with 503 and closes it, reading nothing of its request: a client that has
         ///     already sent one may see the connection reset rather than the answer.
         /// </summary>
-        private async Task RefuseAsync(TcpClient client, IDisposable? exchange)
+        private async Task RefuseAsync(TcpClient client)
         {
             await Task.Yield();
-            using (exchange)
             using (client)
             {
                 using var bound = new CancellationTokenSource(_readBound);
@@ -305,10 +303,10 @@ namespace Vion.Dale.Sdk.Http.Server
         ///     what ends a read the stream does not cancel on its own, so the bound's expiry and the server stopping both close
         ///     the socket.
         /// </summary>
-        private async Task ServeAsync(TcpClient client, IHttpServerExchangeHandler handler, IDisposable? exchange, CancellationToken stopping)
+        private async Task ServeAsync(TcpClient client, IHttpServerExchangeHandler handler, CancellationToken stopping)
         {
             await Task.Yield();
-            using (exchange)
+            IDisposable? exchange = null;
             using (client)
             {
                 using var bound = CancellationTokenSource.CreateLinkedTokenSource(stopping);
@@ -321,6 +319,14 @@ namespace Vion.Dale.Sdk.Http.Server
                     if (request == null && refusal == null)
                     {
                         return;
+                    }
+
+                    // Opened only once a request has been read in full, because recording it is what a development host waits
+                    // for: a refusal written before that records nothing, and a connection that never completes its request
+                    // must not hold a stepped settle.
+                    if (request != null)
+                    {
+                        exchange = _exchanges?.OpenExchange($"HTTP server {request.Method} {request.Path}");
                     }
 
                     var response = refusal;
@@ -362,6 +368,10 @@ namespace Vion.Dale.Sdk.Http.Server
                 catch (Exception exception)
                 {
                     LogConnectionFailed(exception);
+                }
+                finally
+                {
+                    exchange?.Dispose();
                 }
             }
         }

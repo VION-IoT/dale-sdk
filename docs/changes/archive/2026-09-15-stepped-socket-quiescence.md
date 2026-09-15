@@ -24,7 +24,7 @@ VION-222. A stepped DevHost settles by polling its quiescence predicate with a r
 costs ~11 ms per wait on Windows and nearly all of a stepped lane's wall time. The same delay hides a
 hole: a Modbus TCP or HTTP exchange a block starts leaves the actor system entirely until its callback
 is posted back, so a settle that returned at once would miss the round trip's result. This change
-makes the predicate count those exchanges (and an SDK-hosted HTTP server's accepted requests), and
+makes the predicate count those exchanges (and the requests an SDK-hosted HTTP server has read), and
 makes the barrier wake on the moment activity drains instead of on a timer. Stepped benches over
 real loopback sockets become supported, and fast.
 
@@ -52,8 +52,9 @@ No wall-clock behaviour, no test-kit behaviour and nothing on a gateway changes.
   none — the gateway runtime, every test kit — runs the code it runs today.
 - `D4` — **Where each exchange opens and closes**: a Modbus TCP request from enqueue until its
   completion has been handed to the block (or it was dropped); an HTTP call from the block's call
-  until its callback has been handed over; an SDK-hosted HTTP server's request from accept until it is
-  recorded or refused. The Modbus TCP server needs none (reviewer's question 5).
+  until its callback has been handed over; an SDK-hosted HTTP server's request from the end of its
+  full read until it is recorded or its connection ends (moved from accept by amendment 2; Drift
+  checkpoints). The Modbus TCP server needs none (reviewer's question 5).
 - `D5` — **Only the stepper reads the exchange count.** The teardown drain (`AC-CTRL` stop sequence)
   keeps today's handler-only predicate on both clock modes.
 - `D6` — **Fake-clock bounds get no code.** While a counted exchange is open the stepper cannot
@@ -191,9 +192,11 @@ shows.
   returned task completes; that task completes after the callback post (`:142-164`, `:184-205`,
   `:220-244`). The HTTP test kit wraps the executor (`Vion.Dale.Sdk.Http.TestKit/HeldExchanges.cs:303-380`)
   and registers no monitor.
-- **HTTP server** — `TcpHttpServerTransport` opens a handle at accept and closes it after
-  `Delivered` (`:327`) or on whichever path ends the connection without it (refusal, read bound,
-  malformed request, stop).
+- **HTTP server** — `TcpHttpServerTransport` opens a handle once a request has been read in full and
+  closes it after `Delivered` or on whichever path ends the connection without it (a write that fails,
+  the read bound, stop). A refusal written before the full read (503 over the limit, 431, 413, 400,
+  411) records nothing and opens none. As first implemented the handle opened at accept; amendment 2
+  moved it (Drift checkpoints).
 - **Modbus TCP server** — none; reviewer's question 5 carries the premise and its probe.
 
 Every monitor instance lives in one host's service provider, so no state is static and a second host
@@ -358,7 +361,7 @@ when a block fails to acknowledge on a stepped host.
   seam in a stepped host — the transport is internal and the server's only DI-visible collaborator is
   its clock. `AC-HTTP-018.2` is carried end to end without a hold
   (`SocketExchangeSteppingShould.RecordServedRequestFromClientInSameHostBeforeClockNextAdvances`), and
-  both server mutations (no exchange at accept; exchange closed before `Delivered`) survive there; the
+  both server mutations (no exchange for a read request; exchange closed before `Delivered`) survive there; the
   ordering is pinned by uncited premise tests in `TcpHttpServerTransportExchangeShould`, which the same
   two mutations redden.
 - 2026-09-15: a Modbus TCP exchange is named by its operation only (`Modbus TCP
@@ -403,6 +406,21 @@ when a block fails to acknowledge on a stepped host.
     Five `WriteSingleRegister` and three `WriteMultipleRegisters` iterations, each printing whether
     `write.Wait(500 ms)` returned true after the parked handler had entered; all eight printed `False`. The
     same ordering is now a committed premise test, `FluentModbusWriteOrderingShould`.
+- 2026-09-15: amendment 2 (operator) moved the HTTP server's exchange from accept to the end of the
+  request's full read. Accept-time counting let an idle connection from outside the host — a probe, a
+  client that never sends — hold every stepped settle for up to the 10 s read bound. Recording
+  (`Delivered`) runs after the full read and the response write, so opening anywhere between them stays
+  exact for a client in the same host, whose own exchange is open until its callback is posted.
+  Refusals written before the full read record nothing and now open no exchange. Known limit
+  (inferred, not reproduced): a client in the host that gives up on its request — its own timeout —
+  before the server has read it in full closes its exchange before the server opens one, and the
+  server's recording is then not waited for; stated on the page. Proof:
+  `TcpHttpServerTransportExchangeShould.OpenNoExchangeForIdleConnectionsAndOneForRequestReadInFull` (red
+  with the open at accept or before the read); `CloseExchangeOfConnectionRefusedOverLimit` became
+  `OpenNoExchangeForConnectionRefusedOverLimit`, asserting `Opened == 0` where it asserted `1`. `AC-HTTP-018.2`'s
+  text is unchanged; the page's prose, this doc and the interface's summary were brought to the new point
+  after the archive commit, and the archive gate was re-run against a slug-renamed copy under
+  `docs/changes/`.
 
 ---
 
@@ -419,7 +437,7 @@ when a block fails to acknowledge on a stepped host.
 > refuses until every line is applied. The `ID` must be an exact token greppable in the target
 > after distill (backticks stripped) — a real `AC-`/`SYS-` id, never an ad-hoc label.
 
-Ratified by amendment 1 (2026-09-15): `AC-SCEN-012.5`, `AC-SCEN-012.11`, `AC-MODB-020.1` and `AC-HTTP-018.1` as written. `AC-HTTP-018.2`'s text is the session's, brought to the PR review: the server's handle opens at accept, so a request from a client outside the host accepted after a settle has already observed zero is not waited for; a client in the same host holds its own handle open across the accept.
+Ratified by amendment 1 (2026-09-15): `AC-SCEN-012.5`, `AC-SCEN-012.11`, `AC-MODB-020.1` and `AC-HTTP-018.1` as written. `AC-HTTP-018.2`'s text is the session's, brought to the PR review: the server's handle opens once a request is read in full, so a request from a client outside the host read after a settle has already observed zero is not waited for; a client in the same host holds its own handle open until the server has read its request.
 
 - MODIFIED AC-SCEN-012.5 -> docs/specs/scenarios.md : THE SYSTEM SHALL treat the actor system as quiescent exactly when every mailbox is empty, no handler is in flight, and no Modbus TCP or HTTP exchange started or served through the SDK is still open.
 - ADDED AC-SCEN-012.11 -> docs/specs/scenarios.md : IF the quiescence budget is spent while an exchange is still open THEN THE SYSTEM SHALL name each open exchange in the failure.
@@ -450,14 +468,16 @@ Ratified by amendment 1 (2026-09-15): `AC-SCEN-012.5`, `AC-SCEN-012.11`, `AC-MOD
 - A stepped DevHost settle no longer polls on a 1 ms real-clock delay; it wakes when the host's
   activity count reaches zero. Stepped runs that spent their time in that delay run many times faster.
 - A stepped settle waits for Modbus TCP and HTTP requests a block makes through the SDK, and for
-  requests a block's hosted HTTP server accepted from a client in the same host, until each result has
+  requests a block's hosted HTTP server read from a client in the same host, until each result has
   reached the block (`AC-SCEN-012.5`, `AC-MODB-020.1`, `AC-HTTP-018.1`, `AC-HTTP-018.2`). Stepped
   benches over SDK clients and SDK-hosted servers on loopback are supported; a socket a block opens any
   other way is still not seen.
 - Behaviour change on stepped hosts: a client talking to an absent or silent peer now holds the settle
   until its own real-clock bound ends the request — on Windows a refused loopback connect takes about
-  2 s. A bound longer than the quiescence budget fails the advance, and the failure names each open
-  exchange (`AC-SCEN-012.11`); raise the budget with `WithSafetyBudgets`.
+  2 s. In the consumer corpus the one scenario that re-points a connection at a dead port by design,
+  `askoma-boiler-comms-watchdog`, went from 13.1 s to 18.8 s while the corpus as a whole went from
+  1,687 s to under a minute. A bound longer than the quiescence budget fails the advance, and the
+  failure names each open exchange (`AC-SCEN-012.11`); raise the budget with `WithSafetyBudgets`.
 - While a counted request is open on a stepped host, virtual time does not move, so an HTTP per-request
   timeout and the Modbus maximum queued age cannot elapse during it.
 - New public, unmarked opt-in interface `Vion.Dale.Sdk.Abstractions.IExchangeActivityMonitor`. Nothing

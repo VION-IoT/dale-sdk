@@ -580,10 +580,12 @@ interface.
 
 Both are the scenario page's quiescence predicate (`AC-SCEN-012.5`) seen from this package: a request is
 counted from the block's call until its callback is handed to the block, and a hosted server's request
-from the moment the server accepts the connection until it is recorded or refused. `AC-HTTP-018.2` is
-worded for a client in the same host because that client's own request is still counted when the
-server accepts it; a request from outside the host that is accepted after a settle has already returned
-is not waited for.
+from the moment the server has read it in full until it is recorded or its connection ends. A connection
+that has not completed a request, and one refused before its request is read, is not counted, so an idle
+connection holds no settle. `AC-HTTP-018.2` is worded for a client in the same host because that
+client's own request is still counted when the server finishes reading it; a request from outside the
+host read after a settle has already returned is not waited for, and neither is one whose client in the
+host gave up on it before the server had read it in full.
 
 While a request is counted the stepped clock cannot move, so a per-request timeout (`AC-HTTP-008.1`) —
 measured on the registered clock — cannot elapse during it; the client's own timeout (`AC-HTTP-008.2`)

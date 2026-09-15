@@ -5,8 +5,8 @@ namespace Vion.Dale.Sdk.Abstractions
     /// <summary>
     ///     Optional, opt-in monitor of exchanges a logic block's SDK clients and servers are carrying off the actor
     ///     system — a Modbus TCP request between its enqueue and its completion reaching the block, an HTTP request
-    ///     between the block's call and its callback reaching the block, a request a hosted HTTP server has accepted
-    ///     and not yet recorded. When an implementation is registered in the actor system's service provider, those
+    ///     between the block's call and its callback reaching the block, a request a hosted HTTP server has read in
+    ///     full and not yet recorded. When an implementation is registered in the actor system's service provider, those
     ///     packages open an exchange for each and dispose it when it ends; when none is registered (the default,
     ///     including the production runtime and every test kit), nothing extra happens.
     ///     <para>
