@@ -297,11 +297,9 @@ namespace Vion.Dale.Sdk.Generators.Test
             // Release outputs it already built — so a test that shells an unstamped build of any project in
             // this graph replaces those outputs with 0.0.0.0 ones between the stamp and the pack.
             //
-            // The guard's builds carry a version nothing else builds with, and what is judged is whether that
-            // version reached the repository's outputs. A byte comparison of the outputs before and after cannot
-            // tell these builds' writes from those of a `dotnet test` of the solution that builds the same
-            // projects while the tests run; no other build can write this version.
-            var stamp = Encoding.UTF8.GetBytes(WiringGuardVersion);
+            // A `dotnet test` of the solution can build these same projects while this test runs, so their outputs
+            // may change for reasons of that build's own. The guard's builds carry a version no other build uses, and
+            // what is judged is whether that version reached the repository's outputs, not whether they changed.
 
             // Act
             var guardProbe = Build(GuardProbe);
@@ -309,14 +307,17 @@ namespace Vion.Dale.Sdk.Generators.Test
 
             // Assert
             // Each half shows in its own way that it reached the compile: the probe half by the DALE046 it fails
-            // on, the ordinary half by the assemblies it produced. Those assemblies carrying the stamp is what
-            // makes its absence from the repository mean something.
+            // on, the ordinary half by the assemblies it produced. Every assembly of the graph carrying the stamp in
+            // the scratch output is what makes its absence from the repository mean something.
+            var stamp = Encoding.UTF8.GetBytes(WiringGuardVersion);
             Assert.IsTrue(ProbedProjects.All(project => guardProbe.LinesOf(project).Any(line => line.Contains("error DALE046"))),
                           $"The guard's probe build did not reach the compile of both probed projects.\n{guardProbe.Output}");
             Assert.IsTrue(ProbedProjects.All(guardOrdinary.Built),
                           $"The guard's ordinary build did not produce the probed projects, so there was nothing to guard.\n{guardOrdinary.Output}");
-            Assert.IsNotEmpty(FilesCarrying(stamp, [guardOrdinary.OutputDirectory]),
-                              $"The guard's own outputs do not carry {WiringGuardVersion}, so its absence from the repository proves nothing.");
+            var stampedInScratch = FilesCarrying(stamp, [guardOrdinary.OutputDirectory]).Select(Path.GetFileName).ToHashSet(StringComparer.Ordinal);
+            var unstamped = ProbeBuildGraph.Where(project => !stampedInScratch.Contains(project + ".dll")).ToList();
+            Assert.IsEmpty(unstamped,
+                           $"The guard's own outputs of these projects do not carry {WiringGuardVersion}, so its absence from the repository proves nothing for them.\n{string.Join("\n", unstamped)}");
 
             var leaked = FilesCarrying(stamp, ProbeBuildGraph.SelectMany(project => new[] { "bin", "obj" }.Select(output => Path.Combine(RepositoryRoot(), project, output))));
 
@@ -452,9 +453,23 @@ namespace Vion.Dale.Sdk.Generators.Test
         {
             return directories.Where(Directory.Exists)
                               .SelectMany(directory => Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
-                              .Where(file => File.ReadAllBytes(file).AsSpan().IndexOf(stamp) >= 0)
+                              .Where(file => Carries(file, stamp))
                               .OrderBy(file => file, StringComparer.Ordinal)
                               .ToList();
+        }
+
+        private static bool Carries(string file, byte[] stamp)
+        {
+            try
+            {
+                return File.ReadAllBytes(file).AsSpan().IndexOf(stamp) >= 0;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // Another build of the solution has the file open or has just replaced it. A file that build is
+                // writing is that build's output, not one of the guard's, so it cannot be a stamp that leaked.
+                return false;
+            }
         }
 
         private static string ProjectFile(string projectName)

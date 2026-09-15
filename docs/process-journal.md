@@ -240,3 +240,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · AnalyzerWiringShould · The review found the I/O row and the guard's diff never re-proven red after the rewrite, a shared exit code judged per row, doc claims about Built and the probe half that the code does not make, and two convention docs still naming dotnet build; mutations were run and the rest fixed. (self)
 
 2026-09-15 · review · AnalyzerWiringShould · The review found the narrowed fingerprint bracket still racing a concurrent solution build, shrunk not removed; the guard now fails only on files carrying its own version stamp, which no other build writes. It also found the probe half unchecked. (self) → codified: Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould.cs
+
+2026-09-15 · review · AnalyzerWiringShould · The review found the stamp scan able to throw on a file a concurrent build holds open, and its self-check passing on one stamped file where the guard needs all four graph assemblies stamped; both fixed, and the guard run twice beside a looping build. (self) → codified: Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould.cs
