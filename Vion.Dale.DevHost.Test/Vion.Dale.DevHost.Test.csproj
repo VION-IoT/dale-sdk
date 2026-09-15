@@ -25,6 +25,9 @@
         <ProjectReference Include="..\Vion.Dale.DevHost\Vion.Dale.DevHost.csproj"/>
         <ProjectReference Include="..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <!-- The SDK's socket packages, for the stepped tests whose blocks talk Modbus TCP and HTTP over loopback. -->
+        <ProjectReference Include="..\Vion.Dale.Sdk.Http\Vion.Dale.Sdk.Http.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Tcp\Vion.Dale.Sdk.Modbus.Tcp.csproj"/>
         <!-- The committed DevHost fixture — referenced so a Smoke test can boot its synthetic blocks
              (HAL, wiring, value shapes) in-process, guarding they introspect, not just compile. -->
         <ProjectReference Include="..\Vion.Dale.DevHost.SmokeHost\Vion.Dale.DevHost.SmokeHost.csproj"/>
