@@ -85,11 +85,17 @@ try {
     # Case 5: residue in the kinds and places outside the scope -> 0
     New-File 'docs/rfcs/0001-old.md' @('Frozen history () with  residue.') | Out-Null
     New-File 'docs/changes/archive/2026-01-01-x.md' @('Archived () with  residue.') | Out-Null
-    New-File 'docs/process-journal.md' @('2026-01-01 · gate · x · Journal () with  residue.') | Out-Null
+    New-File 'docs/process-journal/2026-01-01-chore-x.md' @('2026-01-01 · gate · x · Journal () with  residue.') | Out-Null
     New-File 'web/wwwroot/vendor.min.js' @('// minified ( ) vendored  text') | Out-Null
     New-File 'web/bin/Debug/gen.md' @('Build output () with  residue.') | Out-Null
     New-File 'web/Notes.txt' @('Not a scanned kind () with  residue.') | Out-Null
     Expect 0 'Case 5 (out of scope)' ''
+
+    # Case 6: the journal folder's README is the header, revised like any other harness doc, so it
+    # is NOT excluded - only the dated fragments are. Case 5 left one of those in the tree carrying
+    # the same residue, so the single finding here is the README's and pins where the boundary falls.
+    New-File 'docs/process-journal/README.md' @('The header () with  residue.') | Out-Null
+    Expect 1 'Case 6 (the journal README is in scope)' 'docs/process-journal/README.md'
 
     Write-Host 'sweep-residue-lint.tests: PASS'
     exit 0

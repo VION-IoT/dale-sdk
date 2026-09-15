@@ -313,7 +313,7 @@ try {
     # journal path - dropping the argument would lint the working directory's instead.
     Write-JournalLint $sharedRoot 1
     Expect 1 'Case 13d (shared action red)' @(
-        'FAIL  journal-lint', "journal-lint: args Path=[$(Join-Path $tmp 'docs/process-journal.md')]")
+        'FAIL  journal-lint', "journal-lint: args Path=[$(Join-Path $tmp 'docs/process-journal')]")
     Write-JournalLint $sharedRoot 0
 
     # Case 13e: the origin moves v1 past the checkout, as a release does. The checkout still holds

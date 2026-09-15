@@ -14,8 +14,9 @@
 
   The shape it catches: one pass absorbed six RFCs with a scripted sweep and left five residue
   sentences behind - in a convention doc and a resolver's comments - each read as prose by the
-  next reader and seen by no gate. Frozen RFCs, the append-only logs (the journal, the retro
-  notes, archived change docs), the generated snapshots and vendored minified scripts are
+  next reader and seen by no gate. Frozen RFCs, the append-only logs (the journal's dated
+  fragments under `docs/process-journal/`, but not that folder's revisable `README.md`; the retro
+  notes; archived change docs), the generated snapshots and vendored minified scripts are
   outside its scope.
 
   Scans the tracked files (`git ls-files`); with -RepoRoot outside a git repo it walks the tree,
@@ -35,7 +36,9 @@ $RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
 
 $kinds = @('.md', '.cs', '.js', '.mjs')
 # Outside the scope, by repo-root-relative path (forward slashes): history and generated or vendored text.
-$outOfScopeRx = '^docs/(rfcs|retro|changes/archive|snapshots)/|^docs/process-journal\.md$|\.min\.js$|vue\.esm-browser\.prod\.js$|(^|/)(bin|obj|node_modules|\.git)/'
+# A journal fragment is matched by its leading date, which no other name in the folder starts with,
+# so the README - revised like any other header - is left in scope.
+$outOfScopeRx = '^docs/(rfcs|retro|changes/archive|snapshots)/|^docs/process-journal/[0-9]|\.min\.js$|vue\.esm-browser\.prod\.js$|(^|/)(bin|obj|node_modules|\.git)/'
 
 $files = @()
 $inGit = $false
