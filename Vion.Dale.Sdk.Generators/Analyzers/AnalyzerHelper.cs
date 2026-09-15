@@ -149,33 +149,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                    .Where(name => !ResolvesToAncestor(type, name));
         }
 
-        // Whether <paramref name="name" /> already names an ancestor of <paramref name="type" /> that the
-        // compiler resolved. TypeKind.Error is excluded deliberately: an unresolved interface still appears in
-        // AllInterfaces when it is inherited through one that resolves, and that is precisely the name the
-        // by-name half exists to find.
-        private static bool ResolvesToAncestor(INamedTypeSymbol type, string name)
-        {
-            return AncestryDeclaringBaseTypes(type).Any(ancestor => ancestor.TypeKind != TypeKind.Error && ancestor.Name == name);
-        }
-
-        // Every type whose declared base list can carry the generated name: the type itself, the base
-        // classes it inherits from, and the interfaces it implements. AllInterfaces is already the transitive
-        // closure of the interfaces and the BaseType chain that of the base classes, so this needs no
-        // recursion of its own. An error-type entry among them contributes nothing rather than needing a
-        // guard: it has no DeclaringSyntaxReferences, so there is no base list to read off it.
-        private static IEnumerable<INamedTypeSymbol> AncestryDeclaringBaseTypes(INamedTypeSymbol type)
-        {
-            for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
-            {
-                yield return current;
-            }
-
-            foreach (var iface in type.AllInterfaces)
-            {
-                yield return iface;
-            }
-        }
-
         /// <summary>
         ///     Checks whether a type (or any of its interfaces) carries [ServiceProviderContractType].
         ///     Mirrors DeclarativeContractBinder.IsContractType() which checks the type directly.
@@ -538,6 +511,33 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var category = Categorize(type);
             var enumMembers = category == RefCategory.Enum ? CollectEnumMembers(type) : null;
             return new PredicateMember(category, isServiceProperty, isWriteOnly, enumMembers);
+        }
+
+        // Whether <paramref name="name" /> already names an ancestor of <paramref name="type" /> that the
+        // compiler resolved. TypeKind.Error is excluded deliberately: an unresolved interface still appears in
+        // AllInterfaces when it is inherited through one that resolves, and that is precisely the name the
+        // by-name half exists to find.
+        private static bool ResolvesToAncestor(INamedTypeSymbol type, string name)
+        {
+            return AncestryDeclaringBaseTypes(type).Any(ancestor => ancestor.TypeKind != TypeKind.Error && ancestor.Name == name);
+        }
+
+        // Every type whose declared base list can carry the generated name: the type itself, the base
+        // classes it inherits from, and the interfaces it implements. AllInterfaces is already the transitive
+        // closure of the interfaces and the BaseType chain that of the base classes, so this needs no
+        // recursion of its own. An error-type entry among them contributes nothing rather than needing a
+        // guard: it has no DeclaringSyntaxReferences, so there is no base list to read off it.
+        private static IEnumerable<INamedTypeSymbol> AncestryDeclaringBaseTypes(INamedTypeSymbol type)
+        {
+            for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                yield return current;
+            }
+
+            foreach (var iface in type.AllInterfaces)
+            {
+                yield return iface;
+            }
         }
 
         private static IEnumerable<INamedTypeSymbol> EnumerateTypes(INamespaceOrTypeSymbol symbol)
