@@ -10,13 +10,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 {
     internal partial class RequestQueue : IRequestQueue
     {
+        // Null unless a development host registered one; see QueuedRequest.
+        private readonly IExchangeActivityMonitor? _exchanges;
+
         private readonly ILogger<RequestQueue> _logger;
 
         private readonly IRequestFactory _requestFactory;
 
         private ModbusLinkAccumulator? _accumulator;
 
-        private Channel<IRequest>? _channel;
+        private Channel<QueuedRequest>? _channel;
 
         private CancellationTokenSource? _cts;
 
@@ -26,10 +29,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         // 32-bit gateway cannot observe a half-written TimeSpan? and silently apply a different policy.
         private long _maxQueuedAgeTicks = -1;
 
-        public RequestQueue(IRequestFactory requestFactory, ILogger<RequestQueue> logger)
+        public RequestQueue(IRequestFactory requestFactory, ILogger<RequestQueue> logger, IExchangeActivityMonitor? exchanges = null)
         {
             _requestFactory = requestFactory;
             _logger = logger;
+            _exchanges = exchanges;
         }
 
         /// <inheritdoc />
@@ -79,7 +83,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
                 _ => throw new NotSupportedException($"Overflow policy {overflowPolicy} is not supported."),
             };
 
-            _channel = Channel.CreateBounded<IRequest>(new BoundedChannelOptions(capacity)
+            _channel = Channel.CreateBounded<QueuedRequest>(new BoundedChannelOptions(capacity)
                                                        {
                                                            SingleReader = true,
                                                            SingleWriter = true,
@@ -87,7 +91,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
                                                            AllowSynchronousContinuations =
                                                                false, // Prevent synchronous continuations to avoid blocking the channel writer thread.
                                                        },
-                                                       request => { request.HandleRequestFailed(new RequestDroppedException(request.Name, capacity, overflowPolicy)); });
+                                                       queued =>
+                                                       {
+                                                           queued.Request.HandleRequestFailed(new RequestDroppedException(queued.Request.Name, capacity, overflowPolicy));
+                                                           queued.Exchange?.Dispose();
+                                                       });
             LogQueueCreated(capacity, overflowPolicy);
 
             _cts = new CancellationTokenSource();
@@ -182,7 +190,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             }
 
             LogEnqueuingRequest(request.Name, request.Id);
-            if (_channel!.Writer.TryWrite(request))
+            var queued = new QueuedRequest(request, _exchanges?.OpenExchange($"Modbus TCP {request.Name}"));
+            if (_channel!.Writer.TryWrite(queued))
             {
                 LogRequestEnqueued(request.Name, request.Id);
             }
@@ -191,26 +200,27 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
                 // TryWrite only returns false if BoundedChannelFullMode.Wait were set and the channel were full, which is not supported here, or when the channel is completed.
                 LogRequestDroppedChannelCompleted(request.Name, request.Id);
                 request.HandleRequestFailed(new RequestDroppedException(request.Name));
+                queued.Exchange?.Dispose();
             }
         }
 
-        private async Task ConsumeAsync(Channel<IRequest> channel, CancellationToken token)
+        private async Task ConsumeAsync(Channel<QueuedRequest> channel, CancellationToken token)
         {
             LogConsumerStarted();
             try
             {
-                await foreach (var request in channel.Reader.ReadAllAsync(token).ConfigureAwait(false))
+                await foreach (var queued in channel.Reader.ReadAllAsync(token).ConfigureAwait(false))
                 {
                     // A request the reader had already been handed when the token cancelled leaves through this
                     // arm rather than through the drain below. It is dropped, not run: the client behind it is
                     // being torn down.
                     if (token.IsCancellationRequested)
                     {
-                        DropOnDisposal(request);
+                        DropOnDisposal(queued);
                         continue;
                     }
 
-                    await ProcessRequestAsync(request, token);
+                    await ProcessRequestAsync(queued, token);
                 }
 
                 LogConsumerCompleted();
@@ -229,8 +239,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             }
         }
 
-        private async Task ProcessRequestAsync(IRequest request, CancellationToken token)
+        private async Task ProcessRequestAsync(QueuedRequest queued, CancellationToken token)
         {
+            var request = queued.Request;
             LogProcessingRequest(request.Name, request.Id);
             try
             {
@@ -239,6 +250,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             catch (Exception exception)
             {
                 LogUnexpectedRequestError(request.Name, request.Id, exception);
+            }
+            finally
+            {
+                queued.Exchange?.Dispose();
             }
         }
 
@@ -279,11 +294,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         ///     block's teardown for as long as the in-flight operation takes to observe its cancelled token. A request
         ///     already dequeued is in flight and completes through its own execution, not here.
         /// </remarks>
-        private void DrainRemainingRequests(Channel<IRequest> channel)
+        private void DrainRemainingRequests(Channel<QueuedRequest> channel)
         {
-            while (channel.Reader.TryRead(out var request))
+            while (channel.Reader.TryRead(out var queued))
             {
-                DropOnDisposal(request);
+                DropOnDisposal(queued);
             }
         }
 
@@ -291,10 +306,30 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         ///     The one arm every request still in the queue at disposal leaves by, whether the reader handed it over
         ///     or the drain found it after the loop threw.
         /// </summary>
-        private void DropOnDisposal(IRequest request)
+        private void DropOnDisposal(QueuedRequest queued)
         {
-            LogRequestDroppedOnDisposal(request.Name, request.Id);
-            request.HandleRequestFailed(new RequestDroppedException(request.Name));
+            LogRequestDroppedOnDisposal(queued.Request.Name, queued.Request.Id);
+            queued.Request.HandleRequestFailed(new RequestDroppedException(queued.Request.Name));
+            queued.Exchange?.Dispose();
+        }
+
+        /// <summary>
+        ///     A request and the exchange a development host counts it as. The exchange closes on every way the request
+        ///     leaves the queue — run, evicted by the overflow policy, refused by a completed channel, dropped on disposal —
+        ///     and only after the request's completion has been handed to the block, so a stepped host never sees the
+        ///     request gone before its result is in the block's mailbox.
+        /// </summary>
+        private readonly struct QueuedRequest
+        {
+            public QueuedRequest(IRequest request, IDisposable? exchange)
+            {
+                Request = request;
+                Exchange = exchange;
+            }
+
+            public IRequest Request { get; }
+
+            public IDisposable? Exchange { get; }
         }
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Request dropped because the client was disposed (RequestName={RequestName}, RequestId={RequestId})")]
