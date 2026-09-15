@@ -64,3 +64,4 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · VION-222 · The follow-up review found the write-ordering test labelled Act and Assert where the two cannot separate, and the server exchange's new endpoint in its name asserted by no test. (self)
 
 2026-09-15 · review · VION-222 · The third review found the server exchange-name assertion sharing a counting test, the HTTP client exchange name pinned by no test, and a stored-value assert under a combined Act / Assert marker. (self)
+2026-09-15 · review · VION-220 · The review found the guard's reason moved into AnalyzerHelper.UnresolvedRoleNamesInAncestry still saying the caller found no [LogicInterface], true for DALE043's caller only; comment-conventions.md's comment-is-a-claim rule should have prevented it. (self)
