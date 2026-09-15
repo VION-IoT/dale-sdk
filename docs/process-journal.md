@@ -192,3 +192,9 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · decision · spec-process · A draft item for an engineering finding takes the dale-sdk-feedback skill's item shape whole, `file:line` chain included, rather than a spec-ids exception stated beside it; the shape has one owner. → codified: docs/spec-process.md
 
 2026-09-15 · review · dale-sdk-feedback · The review found the item shape's Origin line naming only a consumer report once engineering findings take that shape whole, and a one-word reflow stub in spec-process; walking a draft through the template should have caught the first. (self)
+
+2026-09-15 · review · verify-packages · The CI-speedup proposal said verify-packages sees nothing on pull requests, read off its version-check comment; the script also fails a lib-packed analyzer and missing required content on every run, so only its self-test moved. (self)
+
+2026-09-15 · review · publish.yml · The changes job took a pull request's diff base from pull_request.base.sha, the base at the last pull request event; the merge commit's first parent was needed, since main can move without one. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · CLAUDE.md · The CI style scope was written into CLAUDE.md twice and again into the cleanup command; the harness pass cut it to the one sentence in CLAUDE.md. (self)
