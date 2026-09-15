@@ -23,14 +23,21 @@ namespace Vion.Dale.Sdk.Generators.Test
     ///         default, so no shipped project carries one that exists only to fail.
     ///     </para>
     ///     <para>
-    ///         It shells out to <c>dotnet build</c> because that is the thing under test: the real MSBuild
-    ///         compilation of the real project, not a compilation this project assembles. The proof is that
-    ///         compilation and never where its output lands, so every output of the whole dependency graph is
-    ///         sent to a disposable directory. Release 0.11.1 is what happens without that: the child build
-    ///         carries no <c>/p:Version</c>, CI runs the tests between the stamped build and the pack, and the
-    ///         three <c>lib</c> assemblies of this probe's build graph shipped stamped <c>0.0.0.0</c> while
-    ///         their nuspecs said <c>0.11.1</c> — every consumer of them died at startup.
+    ///         It shells out to MSBuild because that is the thing under test: the real MSBuild compilation of the
+    ///         real project, not a compilation this project assembles. The proof is that compilation and never
+    ///         where its output lands, so every output of the whole dependency graph is sent to a disposable
+    ///         directory. Release 0.11.1 is what happens without that: the child build carries no
+    ///         <c>/p:Version</c>, CI runs the tests between the stamped build and the pack, and the three
+    ///         <c>lib</c> assemblies of this probe's build graph shipped stamped <c>0.0.0.0</c> while their
+    ///         nuspecs said <c>0.11.1</c> — every consumer of them died at startup.
     ///         <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> is the standing guard.
+    ///     </para>
+    ///     <para>
+    ///         Every build runs once, before the first test: one MSBuild invocation per set of global properties,
+    ///         building all of that set's projects. A separate <c>dotnet build</c> per project recompiled the
+    ///         shared dependency graph each time, and those builds were most of this project's test time. A
+    ///         diagnostic is judged by the project MSBuild attributes it to, the <c>[path.csproj]</c> suffix
+    ///         every diagnostic line carries.
     ///     </para>
     /// </summary>
     [TestClass]
@@ -42,9 +49,13 @@ namespace Vion.Dale.Sdk.Generators.Test
         /// <summary>The HTTP package, whose project name and declared published namespace are the same string.</summary>
         private const string HttpPackage = "Vion.Dale.Sdk.Http";
 
+        private const string IoProbeProperty = "DaleAnalyzerWiringProbe";
+
         private const string HttpProbeProperty = "DaleHttpAnalyzerWiringProbe";
 
         private const string ModbusProbeProperty = "DaleModbusAnalyzerWiringProbe";
+
+        private const string TestKitProbeProperty = "DaleTestKitAnalyzerWiringProbe";
 
         /// <summary>
         ///     The three Modbus packages and the published namespace each declares. Until the analyzer
@@ -62,9 +73,9 @@ namespace Vion.Dale.Sdk.Generators.Test
         /// <summary>
         ///     Every project <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" />'s own builds reach:
         ///     the two I/O projects it probes, plus what they pull in by <c>ProjectReference</c>. That set is
-        ///     exactly the blast radius of the 0.11.1 clobber. The other nine probed packages are not in it —
-        ///     they run through the same <see cref="Build" /> helper and its scratch redirect, which is what
-        ///     the guard proves; nothing here fingerprints their outputs.
+        ///     exactly the blast radius of the 0.11.1 clobber. The other probed packages are not in it — they
+        ///     run through the same <see cref="Build" /> helper and its scratch redirect, which is what the
+        ///     guard proves; nothing here fingerprints their outputs.
         /// </summary>
         private static readonly string[] ProbeBuildGraph =
         [
@@ -91,6 +102,78 @@ namespace Vion.Dale.Sdk.Generators.Test
             ("Vion.Dale.Sdk.Http.TestKit", "Vion.Dale.Sdk.Http.TestKit"),
         ];
 
+        private static readonly BuildSet IoProbe = new(nameof(IoProbe), IoProbeProperty, null, ProbedProjects);
+
+        private static readonly BuildSet TestKitProbe = new(nameof(TestKitProbe), TestKitProbeProperty, null, ProbedKits.Select(kit => kit.Project).ToArray());
+
+        private static readonly BuildSet ModbusProbe = new(nameof(ModbusProbe), ModbusProbeProperty, null, ProbedModbusPackages.Select(package => package.Project).ToArray());
+
+        private static readonly BuildSet HttpProbe = new(nameof(HttpProbe), HttpProbeProperty, null, [HttpPackage]);
+
+        /// <summary>Every probed project with no probe property set: the build a consumer of the SDK gets.</summary>
+        private static readonly BuildSet Ordinary = new(nameof(Ordinary),
+                                                        null,
+                                                        null,
+                                                        ProbedProjects.Concat(TestKitProbe.Projects).Concat(ModbusProbe.Projects).Append(HttpPackage).ToArray());
+
+        /// <summary>
+        ///     The two sets <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> needs, stamped with a
+        ///     version no other build uses. What triggered the clobber in CI was the child build's inputs
+        ///     DIFFERING from the stamped build's: a same-inputs child build is up to date and rewrites nothing,
+        ///     which is how an unisolated build looks innocent locally. Naming a version no other build uses
+        ///     forces the recompile the guard has to survive.
+        /// </summary>
+        private static readonly BuildSet[] GuardSets =
+        [
+            new("GuardProbe", IoProbeProperty, WiringGuardVersion, ProbedProjects),
+            new("GuardOrdinary", null, WiringGuardVersion, ProbedProjects),
+        ];
+
+        private static readonly Dictionary<string, BuildResult> Results = new(StringComparer.Ordinal);
+
+        private static Dictionary<string, string> _fingerprintsBefore = null!;
+
+        private static Dictionary<string, string> _fingerprintsAfter = null!;
+
+        private static string _scratch = null!;
+
+        [ClassInitialize]
+        public static void BuildEverySet(TestContext context)
+        {
+            // Everything these builds produce — for the projects and for their whole ProjectReference graph —
+            // lands under here and is thrown away after the last test.
+            _scratch = Path.Combine(Path.GetTempPath(), "dale-analyzer-wiring", Guid.NewGuid().ToString("N"));
+
+            // The fingerprints bracket every build of this class, not only the guard's own.
+            _fingerprintsBefore = FingerprintProbeBuildGraph();
+
+            foreach (var set in new[] { IoProbe, TestKitProbe, ModbusProbe, HttpProbe, Ordinary }.Concat(GuardSets))
+            {
+                Results[set.Name] = Build(set);
+            }
+
+            _fingerprintsAfter = FingerprintProbeBuildGraph();
+        }
+
+        [ClassCleanup]
+        public static void DiscardScratch()
+        {
+            try
+            {
+                if (Directory.Exists(_scratch))
+                {
+                    Directory.Delete(_scratch, true);
+                }
+            }
+            catch (IOException)
+            {
+                // A leftover scratch directory under the temp path is harmless; failing the run over it is not.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-017.4")]
         [DataRow("Vion.Dale.Sdk.DigitalIo")]
@@ -98,13 +181,11 @@ namespace Vion.Dale.Sdk.Generators.Test
         public void RunDaleAnalyzersOverIoProjects(string projectName)
         {
             // Arrange / Act / Assert
-            var project = ProjectFile(projectName);
-            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
+            var build = Results[IoProbe.Name];
 
-            var (exitCode, output) = Build(project);
-
-            Assert.AreNotEqual(0, exitCode, $"The probe build of {projectName} succeeded, so the Dale analyzers did not run over it.\n{output}");
-            Assert.Contains("DALE046", output, $"The probe build of {projectName} failed for some other reason than DALE046.\n{output}");
+            Assert.AreNotEqual(0, build.ExitCode, $"The probe build of {projectName} succeeded, so the Dale analyzers did not run over it.\n{build.Output}");
+            Assert.IsTrue(build.LinesOf(projectName).Any(line => line.Contains("error DALE046")),
+                          $"The probe build of {projectName} failed for some other reason than DALE046.\n{build.Output}");
         }
 
         [TestMethod]
@@ -116,9 +197,7 @@ namespace Vion.Dale.Sdk.Generators.Test
             // Arrange / Act / Assert
             // The probe is only a gate as long as it is invisible the rest of the time — a build without the
             // property must not see it, or every build of the SDK would fail.
-            var (exitCode, output) = Build(ProjectFile(projectName), false);
-
-            Assert.AreEqual(0, exitCode, $"An ordinary build of {projectName} must not compile the analyzer-wiring probe.\n{output}");
+            AssertOrdinaryBuildOf(projectName, "DALE046");
         }
 
         [TestMethod]
@@ -136,17 +215,12 @@ namespace Vion.Dale.Sdk.Generators.Test
             // proof is the diagnostic it emitted — asserting a non-zero exit code here would pass on any
             // broken build and fail on a working analyzer.
             var declaredNamespace = ProbedKits.Single(kit => kit.Project == projectName).Namespace;
-            var project = ProjectFile(projectName);
-            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
 
             // Act
-            var (_, output) = Build(project, probeProperty: "DaleTestKitAnalyzerWiringProbe");
+            var build = Results[TestKitProbe.Name];
 
             // Assert
-            Assert.Contains("DALE014", output, $"The probe build of {projectName} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{output}");
-            Assert.Contains($"in namespace '{declaredNamespace}'",
-                            output,
-                            $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{output}");
+            AssertDale014InOwnNamespace(build, projectName, declaredNamespace);
         }
 
         [TestMethod]
@@ -157,27 +231,18 @@ namespace Vion.Dale.Sdk.Generators.Test
             // Like the kits above and unlike the I/O probe, DALE014 is a warning, so this build SUCCEEDS and
             // the proof is the diagnostic it emitted. Until the reference landed beside it, three of the five
             // public types this package ships carried no surface mark and nothing said so.
-            var project = ProjectFile(HttpPackage);
-            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
+            var build = Results[HttpProbe.Name];
 
-            // Act
-            var (_, output) = Build(project, probeProperty: HttpProbeProperty);
-
-            // Assert
-            Assert.Contains("DALE014", output, $"The probe build of {HttpPackage} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{output}");
-            Assert.Contains($"in namespace '{HttpPackage}'", output, $"The DALE014 in the probe build of {HttpPackage} named another namespace.{Environment.NewLine}{output}");
+            // Act / Assert
+            AssertDale014InOwnNamespace(build, HttpPackage, HttpPackage);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-013.2")]
         public void KeepHttpProbeOutOfOrdinaryBuild()
         {
-            // Arrange / Act
-            var (exitCode, output) = Build(ProjectFile(HttpPackage), false, probeProperty: HttpProbeProperty);
-
-            // Assert — the probe is only a gate as long as it is invisible the rest of the time
-            Assert.AreEqual(0, exitCode, $"An ordinary build of {HttpPackage} must succeed.{Environment.NewLine}{output}");
-            Assert.DoesNotContain("DALE014", output, $"An ordinary build of {HttpPackage} must not compile the analyzer-wiring probe.{Environment.NewLine}{output}");
+            // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time
+            AssertOrdinaryBuildOf(HttpPackage, "DALE014");
         }
 
         [TestMethod]
@@ -193,17 +258,12 @@ namespace Vion.Dale.Sdk.Generators.Test
             // separates "the analyzer ran" from "the analyzer ran and this package's own declaration was
             // the reason": Core declared none at all, so an armed analyzer there judged nothing.
             var declaredNamespace = ProbedModbusPackages.Single(package => package.Project == projectName).Namespace;
-            var project = ProjectFile(projectName);
-            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
 
             // Act
-            var (_, output) = Build(project, probeProperty: ModbusProbeProperty);
+            var build = Results[ModbusProbe.Name];
 
             // Assert
-            Assert.Contains("DALE014", output, $"The probe build of {projectName} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{output}");
-            Assert.Contains($"in namespace '{declaredNamespace}'",
-                            output,
-                            $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{output}");
+            AssertDale014InOwnNamespace(build, projectName, declaredNamespace);
         }
 
         [TestMethod]
@@ -213,14 +273,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         [DataRow("Vion.Dale.Sdk.Modbus.Tcp")]
         public void KeepModbusProbeOutOfOrdinaryBuild(string projectName)
         {
-            // Arrange / Act
-            var (exitCode, output) = Build(ProjectFile(projectName), false, probeProperty: ModbusProbeProperty);
-
-            // Assert - the probe is only a gate as long as it is invisible the rest of the time, and an
+            // Arrange / Act / Assert - the probe is only a gate as long as it is invisible the rest of the time, and an
             // ordinary build of these three carries no DALE014 of its own now that every public type of all
             // three is marked. Both halves matter: a leaked probe and an unmarked type look the same here.
-            Assert.AreEqual(0, exitCode, $"An ordinary build of {projectName} must succeed.{Environment.NewLine}{output}");
-            Assert.DoesNotContain("DALE014", output, $"An ordinary build of {projectName} must not compile the analyzer-wiring probe.{Environment.NewLine}{output}");
+            AssertOrdinaryBuildOf(projectName, "DALE014");
         }
 
         [TestMethod]
@@ -233,12 +289,8 @@ namespace Vion.Dale.Sdk.Generators.Test
         [DataRow("Vion.Dale.Sdk.Http.TestKit")]
         public void KeepTestKitProbeOutOfOrdinaryBuild(string projectName)
         {
-            // Arrange / Act
-            var (exitCode, output) = Build(ProjectFile(projectName), false, probeProperty: "DaleTestKitAnalyzerWiringProbe");
-
-            // Assert — the probe is only a gate as long as it is invisible the rest of the time
-            Assert.AreEqual(0, exitCode, $"An ordinary build of {projectName} must succeed.{Environment.NewLine}{output}");
-            Assert.DoesNotContain("DALE014", output, $"An ordinary build of {projectName} must not compile the analyzer-wiring probe.{Environment.NewLine}{output}");
+            // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time
+            AssertOrdinaryBuildOf(projectName, "DALE014");
         }
 
         [TestMethod]
@@ -247,34 +299,26 @@ namespace Vion.Dale.Sdk.Generators.Test
         {
             // Arrange / Act / Assert
             // The 0.11.1 regression, pinned. CI builds the solution stamped, runs the tests, then packs the
-            // Release outputs it already built — so a test that shells an unstamped `dotnet build` of any
-            // project in this graph replaces those outputs with 0.0.0.0 ones between the stamp and the pack.
+            // Release outputs it already built — so a test that shells an unstamped build of any project in
+            // this graph replaces those outputs with 0.0.0.0 ones between the stamp and the pack.
             //
             // Compare bytes, not versions: locally nothing is stamped (Directory.Build.props falls back to
             // 0.0.0-local), so a clobbered assembly and an intact one carry the same 0.0.0.0 and a version
             // comparison would pass here while CI went on shipping the wrong bytes. That asymmetry is exactly
             // why the clobber stayed invisible until the packages were on nuget.org. Assembly fingerprints
             // carry the version as well, so a failure still names the stamp that was lost.
-            //
-            // The version passed here is what makes the guard bite everywhere. What triggered the clobber in
-            // CI was the child build's inputs DIFFERING from the stamped build's: a same-inputs child build is
-            // up to date and rewrites nothing, which is how an unisolated build looks innocent locally. Naming
-            // a version no other build uses forces the recompile the guard has to survive.
-            var before = FingerprintProbeBuildGraph();
+            // The probe half fails by design and emits nothing, so only the ordinary half can show the guard's
+            // builds reached the compile at all.
+            var guardOrdinary = Results[GuardSets[1].Name];
+            Assert.IsTrue(ProbedProjects.All(guardOrdinary.Built),
+                          $"The guard's ordinary build did not produce the probed projects, so there was nothing to guard.\n{guardOrdinary.Output}");
 
-            foreach (var projectName in ProbedProjects)
-            {
-                Build(ProjectFile(projectName), version: WiringGuardVersion);
-                Build(ProjectFile(projectName), false, WiringGuardVersion);
-            }
-
-            var after = FingerprintProbeBuildGraph();
-
-            var disturbed = after.Where(entry => !before.TryGetValue(entry.Key, out var fingerprint) || fingerprint != entry.Value)
-                                 .Select(entry => $"{entry.Key}\n    before: {(before.TryGetValue(entry.Key, out var was) ? was : "(did not exist)")}\n    after:  {entry.Value}")
-                                 .Concat(before.Keys.Where(path => !after.ContainsKey(path)).Select(path => $"{path}\n    deleted"))
-                                 .OrderBy(line => line, StringComparer.Ordinal)
-                                 .ToList();
+            var disturbed = _fingerprintsAfter.Where(entry => !_fingerprintsBefore.TryGetValue(entry.Key, out var fingerprint) || fingerprint != entry.Value)
+                                              .Select(entry =>
+                                                          $"{entry.Key}\n    before: {(_fingerprintsBefore.TryGetValue(entry.Key, out var was) ? was : "(did not exist)")}\n    after:  {entry.Value}")
+                                              .Concat(_fingerprintsBefore.Keys.Where(path => !_fingerprintsAfter.ContainsKey(path)).Select(path => $"{path}\n    deleted"))
+                                              .OrderBy(line => line, StringComparer.Ordinal)
+                                              .ToList();
 
             Assert.IsEmpty(disturbed,
                            "The analyzer-wiring builds wrote into the repository's own build outputs. Those are what `dotnet pack` ships, " +
@@ -282,31 +326,67 @@ namespace Vion.Dale.Sdk.Generators.Test
                            $"child build somewhere disposable instead.\n{string.Join("\n", disturbed)}");
         }
 
-        private static (int ExitCode, string Output) Build(string projectPath, bool withProbe = true, string? version = null, string probeProperty = "DaleAnalyzerWiringProbe")
+        private static void AssertDale014InOwnNamespace(BuildResult build, string projectName, string declaredNamespace)
+        {
+            var lines = build.LinesOf(projectName).Where(line => line.Contains("DALE014")).ToList();
+
+            Assert.IsNotEmpty(lines, $"The probe build of {projectName} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{build.Output}");
+            Assert.IsTrue(lines.Any(line => line.Contains($"in namespace '{declaredNamespace}'")),
+                          $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{build.Output}");
+        }
+
+        /// <summary>
+        ///     The ordinary build attributes no error and no <paramref name="diagnostic" /> to this project, and produced it —
+        ///     the last so that a project that dropped out of the set, or whose lines stopped being attributed, cannot pass
+        ///     by never having been built. Judged per project, so a probe leaking into one project fails that project's
+        ///     test and not every other one sharing the build.
+        /// </summary>
+        private static void AssertOrdinaryBuildOf(string projectName, string diagnostic)
+        {
+            var build = Results[Ordinary.Name];
+            var lines = build.LinesOf(projectName).ToList();
+
+            Assert.IsFalse(lines.Any(line => line.Contains(": error ")), $"An ordinary build of {projectName} must succeed.{Environment.NewLine}{build.Output}");
+            Assert.IsFalse(lines.Any(line => line.Contains(diagnostic)),
+                           $"An ordinary build of {projectName} must not compile the analyzer-wiring probe.{Environment.NewLine}{build.Output}");
+            Assert.IsTrue(build.Built(projectName), $"The ordinary build did not produce {projectName}.{Environment.NewLine}{build.Output}");
+        }
+
+        private static BuildResult Build(BuildSet set)
         {
             var configuration = typeof(AnalyzerWiringShould).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration ?? "Debug";
+            var directory = Path.Combine(_scratch, set.Name);
+            Directory.CreateDirectory(directory);
 
-            // Everything this build produces — for the project and for its whole ProjectReference graph — lands
-            // here and is thrown away. BaseIntermediateOutputPath is deliberately NOT moved: NuGet reads
-            // project.assets.json from it, so redirecting it fails a --no-restore build with NETSDK1004. The
-            // (non-Base) IntermediateOutputPath moves the compile while leaving the restore artefacts in place.
-            var scratch = Path.Combine(Path.GetTempPath(), "dale-analyzer-wiring", Guid.NewGuid().ToString("N"));
+            var projectPaths = set.Projects.ToDictionary(project => project, ProjectFile, StringComparer.Ordinal);
 
+            // One traversal per set, so the projects that share a dependency graph build it once. Every set's
+            // projects share one output directory: their assemblies are named for their projects, and a
+            // dependency they share builds once per invocation.
+            var traversal = Path.Combine(directory, "wiring.proj");
+            File.WriteAllText(traversal,
+                              "<Project><Target Name=\"Build\"><MSBuild Projects=\"" + string.Join(";", projectPaths.Values) +
+                              "\" Targets=\"Build\" BuildInParallel=\"true\" /></Target></Project>");
+
+            // BaseIntermediateOutputPath is deliberately NOT moved: NuGet reads project.assets.json from it, so
+            // redirecting it fails a build with no restore with NETSDK1004. The (non-Base) IntermediateOutputPath
+            // moves the compile while leaving the restore artefacts in place. No -restore, for the same reason.
             var arguments = new List<string>
                             {
-                                "build", projectPath, "-c", configuration, "--no-restore", "-nodereuse:false", "--nologo", "-v", "q",
-                                "-p:BaseOutputPath=" + MsBuildDirectory(scratch, "bin"),
-                                "-p:IntermediateOutputPath=" + MsBuildDirectory(scratch, "obj"),
+                                "msbuild", traversal, "-m", "-nodereuse:false", "-nologo", "-v:q",
+                                "-p:Configuration=" + configuration,
+                                "-p:BaseOutputPath=" + MsBuildDirectory(directory, "bin"),
+                                "-p:IntermediateOutputPath=" + MsBuildDirectory(directory, "obj"),
                             };
 
-            if (withProbe)
+            if (set.ProbeProperty is not null)
             {
-                arguments.Add($"-p:{probeProperty}=true");
+                arguments.Add($"-p:{set.ProbeProperty}=true");
             }
 
-            if (version is not null)
+            if (set.Version is not null)
             {
-                arguments.Add("-p:Version=" + version);
+                arguments.Add("-p:Version=" + set.Version);
             }
 
             var startInfo = new ProcessStartInfo("dotnet")
@@ -322,22 +402,15 @@ namespace Vion.Dale.Sdk.Generators.Test
                 startInfo.ArgumentList.Add(argument);
             }
 
-            try
-            {
-                using var process = Process.Start(startInfo);
-                Assert.IsNotNull(process, "Could not start dotnet build.");
+            using var process = Process.Start(startInfo);
+            Assert.IsNotNull(process, "Could not start MSBuild.");
 
-                var output = new StringBuilder();
-                output.Append(process.StandardOutput.ReadToEnd());
-                output.Append(process.StandardError.ReadToEnd());
-                process.WaitForExit();
+            var error = process.StandardError.ReadToEndAsync();
+            var output = new StringBuilder(process.StandardOutput.ReadToEnd());
+            output.Append(error.GetAwaiter().GetResult());
+            process.WaitForExit();
 
-                return (process.ExitCode, output.ToString());
-            }
-            finally
-            {
-                Discard(scratch);
-            }
+            return new BuildResult(process.ExitCode, output.ToString(), projectPaths, Path.Combine(directory, "bin"));
         }
 
         /// <summary>
@@ -348,24 +421,6 @@ namespace Vion.Dale.Sdk.Generators.Test
         private static string MsBuildDirectory(string scratch, string leaf)
         {
             return Path.Combine(scratch, leaf).Replace('\\', '/') + '/';
-        }
-
-        private static void Discard(string directory)
-        {
-            try
-            {
-                if (Directory.Exists(directory))
-                {
-                    Directory.Delete(directory, true);
-                }
-            }
-            catch (IOException)
-            {
-                // A leftover scratch directory under the temp path is harmless; failing the test over it is not.
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
         }
 
         private static Dictionary<string, string> FingerprintProbeBuildGraph()
@@ -405,7 +460,9 @@ namespace Vion.Dale.Sdk.Generators.Test
 
         private static string ProjectFile(string projectName)
         {
-            return Path.Combine(RepositoryRoot(), projectName, projectName + ".csproj");
+            var project = Path.Combine(RepositoryRoot(), projectName, projectName + ".csproj");
+            Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
+            return project;
         }
 
         private static string RepositoryRoot()
@@ -418,6 +475,27 @@ namespace Vion.Dale.Sdk.Generators.Test
 
             Assert.IsNotNull(directory, "Could not locate the repository root (no Vion.Dale.Sdk.sln above the test output directory).");
             return directory.FullName;
+        }
+
+        /// <summary>One MSBuild invocation: the global properties it sets and the projects it builds under them.</summary>
+        private sealed record BuildSet(string Name, string? ProbeProperty, string? Version, string[] Projects);
+
+        private sealed record BuildResult(int ExitCode, string Output, Dictionary<string, string> ProjectPaths, string OutputDirectory)
+        {
+            /// <summary>
+            ///     The lines MSBuild attributes to <paramref name="projectName" />: each diagnostic ends in
+            ///     <c>[path.csproj]</c>, or <c>[path.csproj::TargetFramework=…]</c> for a multi-targeted project.
+            /// </summary>
+            public IEnumerable<string> LinesOf(string projectName)
+            {
+                var path = ProjectPaths[projectName];
+                return Output.Split('\n').Where(line => line.Contains($"[{path}]") || line.Contains($"[{path}::"));
+            }
+
+            public bool Built(string projectName)
+            {
+                return Directory.Exists(OutputDirectory) && Directory.EnumerateFiles(OutputDirectory, projectName + ".dll", SearchOption.AllDirectories).Any();
+            }
         }
     }
 }
