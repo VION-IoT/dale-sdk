@@ -829,7 +829,7 @@ is the review report only.
 | `scripts/run-script-tests.ps1` | `spec-gates.yml` + on demand | any `scripts/*.tests.ps1` self-test fails, or a gate script has neither a self-test nor an exemption-with-reason |
 
 `spec-gates.yml` runs on every PR (it is file-greps only — no build), because `publish.yml`
-ignores `docs/**` and a docs-only PR must still be gated.
+skips its build for a docs-only change and a docs-only PR must still be gated.
 
 **Run them with `pwsh -File scripts/check.ps1`, or the `/check` command.** It derives them
 from `spec-gates.yml` rather than repeating the table above — a gate added to the workflow with

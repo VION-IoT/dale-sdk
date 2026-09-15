@@ -11,9 +11,7 @@ Run the repo's canonical code-cleanup and report the result:
    builds, and runs the exact `dotnet jb cleanupcode` invocation the CI "verify code style"
    gate runs (profile `Custom: Full Cleanup (excl. optimize usings)`, the same one
    ReSharper/Rider apply on save), applying fixes in place. (Drop `-Changed` for a full-solution
-   pass; CI always runs the full `-Verify` gate as the authoritative backstop, so the two
-   can't diverge. Note: dale-sdk's cleanupcode is Metalama-heavy, so `-Changed` mainly wins
-   on the skip path — a `.cs` run is only modestly faster than full.)
+   pass.)
 2. Summarize what changed from its `git diff --stat` output.
 3. If it applied changes, remind the user to commit them before opening the PR (or do
    so if appropriate). If it reported "Already clean", say so.

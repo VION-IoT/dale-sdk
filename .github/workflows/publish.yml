@@ -1,9 +1,11 @@
 name: Pack & Publish
-# Three jobs:
-#   - publish: delegates the build/test/style gate (gate: true) + pack/push to
-#     VION-IoT/shared-workflows (publish-nuget.yml). The gate runs on every PR/main/tag
-#     this workflow triggers on, reusing the pack build — see the Code Style section in
-#     CLAUDE.md and VION-IoT/shared-workflows actions/dotnet-gate.
+# Jobs:
+#   - changes: decides what this run needs from the diff, so a change that cannot affect the
+#     build skips it instead of paying for it.
+#   - publish: delegates build + test + pack/push to VION-IoT/shared-workflows
+#     (publish-nuget.yml, gate: true, run-style: false).
+#   - style: the ReSharper cleanupcode gate (scripts/cleanup-code.ps1 -Verify) on its own
+#     runner, beside publish instead of after its tests — see the Code Style section in CLAUDE.md.
 #   - verify-packages: the artifact gate for the 0.11.1 class — a packed assembly whose
 #     AssemblyVersion disagrees with its package version. See the job below for why it
 #     runs here and what that placement does not cover.
@@ -12,47 +14,154 @@ name: Pack & Publish
 #     impossible AND unnecessary — every change lands via a PR whose run
 #     already refreshed the snapshots; main drift only warns), push API
 #     reference to documentation on main
+#   - ci: the one required check. A skipped job counts as passed, so a run that skips
+#     everything still reports a result instead of leaving the check waiting.
 #
-# Both jobs are gated on github.actor != github-actions[bot] so the snapshot
-# auto-commit's push triggers an empty (skipped) workflow run instead of an
-# infinite loop. The previous loop-break used a commit-message marker but
-# that marker leaked into squash-merge commits and suppressed legitimate
-# post-merge runs.
-#
-# Pipeline logic for the publish job lives in VION-IoT/shared-workflows.
+# Every job but ci is gated on github.actor != github-actions[bot] so the snapshot
+# auto-commit's push triggers a run where only ci runs, passing on the gates the
+# commit's parent already passed, instead of an infinite loop. The previous loop-break
+# used a commit-message marker but that marker leaked into squash-merge commits and
+# suppressed legitimate post-merge runs.
 
 on:
   push:
     branches: [main]
     tags: ['v*']
-    paths-ignore:
-      - 'examples/**'
-      - 'docs/**'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - 'examples/**'
-      - 'docs/**'
   workflow_dispatch:
 
+concurrency:
+  # A new push to a pull request cancels that pull request's previous run. Every other run gets a
+  # group of its own: a shared group would let a newer push to main replace an older one still queued.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  # Skip the entire workflow when the trigger is our own snapshot auto-commit.
-  # Replaces a previous [skip ci] marker in the commit message — that marker
-  # got carried into squash-merge commits on main and silently suppressed the
-  # post-merge run.
-  publish:
+  changes:
     if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      dotnet: ${{ steps.scope.outputs.dotnet }}
+      style: ${{ steps.scope.outputs.style }}
+      base: ${{ steps.scope.outputs.base }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A pull request checks out its merge commit and a push to main is one squash commit, so
+          # the diff base is one parent away. A deeper base does not resolve and runs everything.
+          fetch-depth: 2
+
+      # dotnet: false when every changed file is inert to the build: Markdown at the root, under docs/
+      #   (except docs/package-readme.md, which is packed) or under .claude/; .claude/settings.json;
+      #   Markdown, CODEOWNERS and release.yml directly under .github/; a scripts/*.ps1 the build
+      #   neither runs nor reads. Any other file builds. A file matching `inert` that the build or a
+      #   test reads must be listed in read_by_build. A rename counts under both of its paths.
+      # style: skip (a pull request with no .cs and no style input, a push that does not build, or a
+      #   tag, whose commit main already checked) | changed (a pull request's changed .cs; the cleanup
+      #   profile is per-file) | full (a style-input change, a push to main that builds, a manual
+      #   run). The full run on main catches what a pull request's scope cannot: an edit that
+      #   reformats a file it did not touch, or a project setting cleanup reads.
+      # A base that does not resolve runs everything. grep reads here-strings: piped, grep -q's early
+      # exit can fail the pipe under pipefail.
+      - name: Scope the run
+        id: scope
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$REF_TYPE" = "tag" ]; then
+            echo "tag - build and publish, style already checked on main"
+            { echo "dotnet=true"; echo "style=skip"; echo "base="; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A pull request's base is its merge commit's first parent, not pull_request.base.sha: that
+          # is the base at the last pull request event, and main may have moved since.
+          case "$EVENT" in
+            pull_request) base="$(git rev-parse --verify --quiet HEAD^1 || true)" ;;
+            push) base="$PUSH_BEFORE" ;;
+            *) base="" ;;
+          esac
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "diff base unresolvable - running everything"
+            { echo "dotnet=true"; echo "style=full"; echo "base="; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff --name-only --no-renames "$base"...HEAD)"
+
+          inert='^([^/]+\.md|docs/.*\.md|\.claude/(.*\.md|settings\.json)|\.github/([^/]+\.md|CODEOWNERS|release\.yml)|scripts/[^/]+\.ps1)$'
+          read_by_build='^(docs/package-readme\.md|scripts/(cleanup-code|set-version|stage-xml-docs|verify-packed-assembly-versions)\.ps1)$'
+          others="$(grep -vE "$inert" <<< "$changed" || true)"
+          if [ -n "$others" ] || grep -qE "$read_by_build" <<< "$changed"; then
+            dotnet=true
+          else
+            dotnet=false
+          fi
+
+          if grep -qE '(^|/)\.editorconfig$|\.DotSettings$|^\.config/dotnet-tools\.json$|^scripts/cleanup-code\.ps1$' <<< "$changed"; then
+            style=full
+          elif [ "$EVENT" != "pull_request" ]; then
+            if [ "$dotnet" = "true" ]; then style=full; else style=skip; fi
+          elif grep -q '\.cs$' <<< "$changed"; then
+            style=changed
+          else
+            style=skip
+          fi
+
+          { echo "dotnet=$dotnet"; echo "style=$style"; echo "base=$base"; } >> "$GITHUB_OUTPUT"
+          echo "dotnet=$dotnet style=$style"
+
+  publish:
+    needs: changes
+    if: github.actor != 'github-actions[bot]' && needs.changes.outputs.dotnet == 'true'
     uses: VION-IoT/shared-workflows/.github/workflows/publish-nuget.yml@v1
     with:
       solution: Vion.Dale.Sdk.sln
-      # Build + test + ReSharper cleanupcode style gate before packing, in the pack job
-      # (one build). Runs on every PR/main/tag this workflow triggers on. Requires the
-      # cleanup setup in this repo (.config/dotnet-tools.json, scripts/cleanup-code.ps1,
-      # Vion.Dale.Sdk.sln.DotSettings). See VION-IoT/shared-workflows dotnet-gate.
+      # Build + test before packing, in the pack job (one build). The style verify runs in the style
+      # job below instead, so it no longer queues behind the tests.
       gate: true
+      run-style: false
     permissions:
       contents: read
     secrets: inherit
+
+  # The same cleanup devs and agents run before a PR. It builds the solution itself, as /cleanup
+  # does locally.
+  style:
+    needs: changes
+    if: github.actor != 'github-actions[bot]' && needs.changes.outputs.style != 'skip'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # -Changed diffs against the merge commit's first parent, which the changes job resolved
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1
+        with:
+          pat: ${{ secrets.AZURE_DEVOPS_PAT }}
+
+      - name: Verify code style (jb cleanupcode)
+        shell: pwsh
+        env:
+          STYLE: ${{ needs.changes.outputs.style }}
+          BASE: ${{ needs.changes.outputs.base }}
+        run: |
+          if ($env:STYLE -eq 'changed') {
+            ./scripts/cleanup-code.ps1 -Verify -Changed -Base $env:BASE
+          }
+          else {
+            ./scripts/cleanup-code.ps1 -Verify
+          }
 
   # Release 0.11.1 shipped three lib assemblies stamped 0.0.0.0 under correct nuspecs and
   # every consumer of them died at startup. The packages were well-formed, the tests were
@@ -65,10 +174,14 @@ jobs:
   # difference that mattered in 0.11.1 — but it does not prevent the push. Moving the same
   # script between Pack and Push belongs in VION-IoT/shared-workflows (publish-nuget.yml).
   #
-  # It is also, by nature, a release-time check: PR and main runs pack 0.0.0-ci.N, whose
+  # Its version check is, by nature, a release-time check: PR and main runs pack 0.0.0-ci.N, whose
   # AssemblyVersion is 0.0.0.0 — the same value a clobbered assembly carries, so the shape
   # is invisible there. What guards the PR is the behavioural test that owns the cause,
-  # Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould.
+  # Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould. Its lib-asset and required-content
+  # checks do not depend on the version, and bite on every run.
+  #
+  # The script's own -SelfTest runs in spec-gates.yml, through
+  # scripts/verify-packed-assembly-versions.tests.ps1.
   verify-packages:
     if: github.actor != 'github-actions[bot]'
     needs: publish
@@ -83,18 +196,19 @@ jobs:
           name: nupkg
           path: ./artifacts
 
-      # The gate checking itself: fixtures built in a temp dir, no network, no build.
-      - name: Self-test the gate
-        shell: pwsh
-        run: ./scripts/verify-packed-assembly-versions.ps1 -SelfTest
-
       - name: Verify packed assembly versions
         shell: pwsh
         run: ./scripts/verify-packed-assembly-versions.ps1 -PackagesDir ./artifacts
 
+  # Waits for every other gate, not only for the packages it reads: its snapshot commit starts a run
+  # that cancels this one and skips every job but ci, so a failure still in flight here would never
+  # reach the pull request head.
   drift-and-docs:
-    if: github.actor != 'github-actions[bot]'
-    needs: publish
+    if: >-
+      !cancelled() && github.actor != 'github-actions[bot]'
+      && needs.publish.result == 'success' && needs.verify-packages.result == 'success'
+      && (needs.style.result == 'success' || needs.style.result == 'skipped')
+    needs: [publish, style, verify-packages]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for snapshot auto-commit on PR head and on main
@@ -158,7 +272,7 @@ jobs:
       # steps below sees the API-surface change. On main this only WARNS: main is branch-protected
       # (PRs + required checks only), so the bot cannot push to it — and doesn't need to, since
       # every change reaches main via a PR whose run refreshed the snapshots. Residual drift
-      # (generator nondeterminism, paths-ignore edge cases) self-heals on the next PR.
+      # (generator nondeterminism) self-heals on the next PR that builds.
       - name: Regenerate snapshots
         id: snapshots
         if: steps.version.outputs.is_release == 'false' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
@@ -208,7 +322,7 @@ jobs:
       - name: Report snapshot drift on main (warn only — branch protection forbids bot pushes)
         if: steps.snapshots.outputs.drift == 'true' && github.event_name == 'push'
         run: |
-          echo "::warning::Docs snapshots drifted on main. They self-heal with the next PR's auto-commit; to fix sooner, regenerate them in any PR."
+          echo "::warning::Docs snapshots drifted on main. They self-heal with the auto-commit of the next PR that builds; to fix sooner, regenerate them in any PR."
           git diff --cached --stat
           git reset --hard HEAD
 
@@ -313,3 +427,21 @@ jobs:
             git push
           fi
           rm -rf /tmp/docs
+
+  # The required check. Branch protection names this one job instead of each job above, so a job
+  # skipped by the changes job, or added later, never leaves a pull request waiting on a check that
+  # will not report. A skipped job passes; a failed or cancelled one fails this.
+  ci:
+    if: always()
+    needs: [changes, publish, style, verify-packages, drift-and-docs]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Every job passed or was skipped
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS"
+          if grep -qE '"result":[[:space:]]*"(failure|cancelled)"' <<< "$NEEDS"; then
+            exit 1
+          fi
