@@ -17,7 +17,9 @@
   temp cleanup), side by side, prints one line per test in name order, and dumps full output
   only on failure. New *.tests.ps1 files are picked up automatically. Because they run side by
   side, a self-test writes only to a temp directory of its own (GUID-named) and never to the
-  repository; reading the repository is fine.
+  repository. It may read the repository at a path the "Scope the self-tests" step of
+  spec-gates.yml lists; one that reads any other path adds it there, or a pull request that breaks
+  it skips it.
 
   META-GATE: it then checks that every scripts/*.ps1 either has a sibling *.tests.ps1 or
   is in the $exempt list below with a reason — so a gate shipped without a self-test
