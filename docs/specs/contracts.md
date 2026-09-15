@@ -226,12 +226,12 @@ states where a host discovers those registrations from.
   of its interface the search reaches, whatever else implements it.
 - `AC-BIND-008.2` (Event-driven): WHEN no implementation of a contract is loaded THE SYSTEM SHALL
   refuse the configuration naming the contract and the binding that wanted it.
-- `AC-BIND-008.3` (Event-driven): WHEN an assembly the search considers cannot be enumerated THE SYSTEM SHALL refuse the configuration naming the assembly and the contract. GAP: no fixture can make a contract search's assembly fail to enumerate inside the test process.
+- `AC-BIND-008.3` (Event-driven): WHEN an assembly the search considers cannot be enumerated THE SYSTEM SHALL refuse the configuration naming the assembly and the contract.
 
-The two discoveries of this page do not share a rule, and the divergence is real: this one filters the
-assemblies by whether they reference the one that declares what it is looking for, and refuses what it
-cannot enumerate, while `AC-BIND-005.1`'s scans everything and degrades. Neither is stated as the
-other's mistake here.
+The two discoveries of this page do not share a rule, and the divergence is real: this one passes over
+dynamic assemblies, filters the rest by whether they reference the one that declares what it is looking
+for, and refuses what it cannot enumerate, while `AC-BIND-005.1`'s scans everything and degrades.
+Neither is stated as the other's mistake here.
 
 The same search answers a *scan* — "which concrete implementations are loaded" — with a list, and an
 empty list is an answer rather than a failure: the development host's handler discovery and this
@@ -242,7 +242,9 @@ repository's own exclusion suite both read it that way, and only the singular lo
 implement one contract, one of them is bound and the other is not, and which is not predictable from
 the source. The search itself considers only the assembly that declares the contract's own interface
 and the assemblies that reference it — which for a contract a consumer declares is the consumer's
-package and not the SDK's — and where one type name occurs in several of them it takes the
+package and not the SDK's — and never a dynamic assembly, so a type a proxy generator emits at run time
+is not an implementation it can bind, and a type still being emitted cannot fail the search. Where one
+type name occurs in several of the assemblies it considers it takes the
 highest-versioned assembly's, the same identity question [`plugin-loading.md`](plugin-loading.md)
 settles for a plugin's types.
 
