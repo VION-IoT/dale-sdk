@@ -102,9 +102,10 @@ $invocation = @{
     'packed-msbuild-lint' = @{ Args = @(); RepoRootArg = $true }
     'sweep-residue-lint'  = @{ Args = @(); RepoRootArg = $true }
     'self-reference-lint' = @{ Args = @(); RepoRootArg = $true }
-    # The workflow passes the action no inputs and lets its default path apply, which resolves to
-    # this folder. Naming the folder here is the same run with the path anchored to the repository,
-    # so the check does not lint whatever journal the caller's working directory happens to hold.
+    # The workflow passes the action no inputs, so its -Path default applies - a .md path the action
+    # resolves to the folder of the same name when the file is absent. Naming that folder here is the
+    # same run with the path pinned to the repository, so the check does not lint whatever journal the
+    # caller's working directory happens to hold.
     'journal-lint'        = @{ Shared = 'actions/journal-lint/journal-lint.ps1'; Args = @('-Path', (Join-Path $RepoRoot 'docs/process-journal')) }
 }
 

@@ -58,3 +58,11 @@
 2026-09-16 · gate · Bash tool · The migration script was launched through the Bash tool with a backslashed Windows path; the backslashes were stripped, pwsh got a run-together path and exited 64 having done nothing. The same command from the PowerShell tool ran. (self)
 
 2026-09-16 · review · process-journal · The new fragment and README were reported as carrying 101 and 297 carriage returns, from an od -c piped into grep for a backslash-r that matched the letter r instead; a byte claim needs a byte dump, and cat -A showed LF throughout. The pasted command is what exposed it. (self)
+
+2026-09-16 · review · spec-process.md · The branch review found both lint gate rows still calling their out-of-scope set the append-only logs after the scans began judging the journal's header; the sweep grepped the literal file name and these rows name the journal in words, which review-checks.md P3 is about. (self) → codified: docs/spec-process.md
+
+2026-09-16 · review · check.ps1 · The rewritten journal-lint comment said the action's default path resolves to the folder, resting the desk-equals-CI claim on a fallback it never named; review check D10 and comment-conventions.md ask a mechanism to be checkable at the site. (second ask) (self) → codified: scripts/check.ps1
+
+2026-09-16 · review · spec-process.md · The replaced review-priorities line left a 66-character line mid-paragraph where the rest wraps at 94 to 96, the reflow stub the same document's own sweep item tells a reviewer to read for, and no gate sees it inside a fence. (self) → codified: docs/spec-process.md
+
+2026-09-16 · review · self-reference-lint · The new README-in-scope case held only the two journal files, so excluding the whole folder reddened it through the zero-markdown floor rather than the exclusion; review-checks.md P5 calls that a fixture that cannot reach the clause. (self) → codified: scripts/self-reference-lint.tests.ps1
