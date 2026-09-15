@@ -562,14 +562,15 @@ namespace Vion.Dale.DevHost.Control
             _events.ServiceProviderContractChanged -= OnServiceProviderContract;
         }
 
-        // Whether the wired configuration carries this endpoint triple. Every endpoint the builder and the
-        // topology loader auto-create comes with the block mapping that reaches it, so an endpoint that exists
-        // is an endpoint something is linked to — there is no third "exists but nothing maps it" state to
-        // report.
+        // Whether some block's final contract mapping addresses this endpoint triple — the same source the
+        // stand-ins' link map is built from, so a carried endpoint is exactly one a drive can reach. Not
+        // ServiceProviders: a topology's contractMappings rewrite a block's triple and leave the auto-created
+        // endpoints on their generated ids, so that list holds endpoints nothing maps and lacks renamed ones.
         private bool CarriesContractEndpoint(string serviceProviderId, string serviceId, string contractId)
         {
-            return _configuration.ServiceProviders.Any(sp => sp.Id == serviceProviderId &&
-                                                             sp.Services.Any(svc => svc.Identifier == serviceId && svc.Contracts.Any(c => c.Identifier == contractId)));
+            return _configuration.LogicBlocks.Any(lb => lb.ContractMappings.Any(m => m.ServiceProviderIdentifier == serviceProviderId &&
+                                                                                     m.ServiceIdentifier == serviceId &&
+                                                                                     m.ContractEndpointIdentifier == contractId));
         }
 
         // Walk a captured command's JSON to the addressed field, or return null when a segment is missing. The
