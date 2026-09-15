@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml.Linq;
 
 namespace Vion.Dale.Sdk.Generators.Test
 {
@@ -33,11 +34,12 @@ namespace Vion.Dale.Sdk.Generators.Test
     ///         <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> is the standing guard.
     ///     </para>
     ///     <para>
-    ///         Every build runs once, before the first test: one MSBuild invocation per set of global properties,
-    ///         building all of that set's projects. A separate <c>dotnet build</c> per project recompiled the
-    ///         shared dependency graph each time, and those builds were most of this project's test time. A
-    ///         diagnostic is judged by the project MSBuild attributes it to, the <c>[path.csproj]</c> suffix
-    ///         every diagnostic line carries.
+    ///         Every build but the guard's runs once, before the first test: one MSBuild invocation per set of
+    ///         global properties builds all of that set's projects, so the dependency graph they share builds once
+    ///         per set rather than once per project. A diagnostic is judged by the project MSBuild attributes it to,
+    ///         the <c>[path.csproj]</c> suffix every diagnostic line carries. Because those builds are the system
+    ///         under test and run in <c>[ClassInitialize]</c>, a test's <c>// Act</c> reads its set's result rather
+    ///         than starting the build itself (testing-conventions § 13).
     ///     </para>
     /// </summary>
     [TestClass]
@@ -117,23 +119,18 @@ namespace Vion.Dale.Sdk.Generators.Test
                                                         ProbedProjects.Concat(TestKitProbe.Projects).Concat(ModbusProbe.Projects).Append(HttpPackage).ToArray());
 
         /// <summary>
-        ///     The two sets <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> needs, stamped with a
+        ///     The probe half of the builds <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> runs, stamped with a
         ///     version no other build uses. What triggered the clobber in CI was the child build's inputs
         ///     DIFFERING from the stamped build's: a same-inputs child build is up to date and rewrites nothing,
         ///     which is how an unisolated build looks innocent locally. Naming a version no other build uses
         ///     forces the recompile the guard has to survive.
         /// </summary>
-        private static readonly BuildSet[] GuardSets =
-        [
-            new("GuardProbe", IoProbeProperty, WiringGuardVersion, ProbedProjects),
-            new("GuardOrdinary", null, WiringGuardVersion, ProbedProjects),
-        ];
+        private static readonly BuildSet GuardProbe = new(nameof(GuardProbe), IoProbeProperty, WiringGuardVersion, ProbedProjects);
+
+        /// <summary>The ordinary half of the guard's builds, stamped like <see cref="GuardProbe" />.</summary>
+        private static readonly BuildSet GuardOrdinary = new(nameof(GuardOrdinary), null, WiringGuardVersion, ProbedProjects);
 
         private static readonly Dictionary<string, BuildResult> Results = new(StringComparer.Ordinal);
-
-        private static Dictionary<string, string> _fingerprintsBefore = null!;
-
-        private static Dictionary<string, string> _fingerprintsAfter = null!;
 
         private static string _scratch = null!;
 
@@ -144,15 +141,10 @@ namespace Vion.Dale.Sdk.Generators.Test
             // lands under here and is thrown away after the last test.
             _scratch = Path.Combine(Path.GetTempPath(), "dale-analyzer-wiring", Guid.NewGuid().ToString("N"));
 
-            // The fingerprints bracket every build of this class, not only the guard's own.
-            _fingerprintsBefore = FingerprintProbeBuildGraph();
-
-            foreach (var set in new[] { IoProbe, TestKitProbe, ModbusProbe, HttpProbe, Ordinary }.Concat(GuardSets))
+            foreach (var set in new[] { IoProbe, TestKitProbe, ModbusProbe, HttpProbe, Ordinary })
             {
                 Results[set.Name] = Build(set);
             }
-
-            _fingerprintsAfter = FingerprintProbeBuildGraph();
         }
 
         [ClassCleanup]
@@ -180,12 +172,12 @@ namespace Vion.Dale.Sdk.Generators.Test
         [DataRow("Vion.Dale.Sdk.AnalogIo")]
         public void RunDaleAnalyzersOverIoProjects(string projectName)
         {
-            // Arrange / Act / Assert
+            // Arrange / Act
             var build = Results[IoProbe.Name];
 
-            Assert.AreNotEqual(0, build.ExitCode, $"The probe build of {projectName} succeeded, so the Dale analyzers did not run over it.\n{build.Output}");
+            // Assert — on the lines attributed to this project: the set's exit code is shared by both rows
             Assert.IsTrue(build.LinesOf(projectName).Any(line => line.Contains("error DALE046")),
-                          $"The probe build of {projectName} failed for some other reason than DALE046.\n{build.Output}");
+                          $"The probe build of {projectName} reported no DALE046, so the Dale analyzers did not fail it.\n{build.Output}");
         }
 
         [TestMethod]
@@ -231,9 +223,11 @@ namespace Vion.Dale.Sdk.Generators.Test
             // Like the kits above and unlike the I/O probe, DALE014 is a warning, so this build SUCCEEDS and
             // the proof is the diagnostic it emitted. Until the reference landed beside it, three of the five
             // public types this package ships carried no surface mark and nothing said so.
+
+            // Act
             var build = Results[HttpProbe.Name];
 
-            // Act / Assert
+            // Assert
             AssertDale014InOwnNamespace(build, HttpPackage, HttpPackage);
         }
 
@@ -307,18 +301,25 @@ namespace Vion.Dale.Sdk.Generators.Test
             // comparison would pass here while CI went on shipping the wrong bytes. That asymmetry is exactly
             // why the clobber stayed invisible until the packages were on nuget.org. Assembly fingerprints
             // carry the version as well, so a failure still names the stamp that was lost.
-            // The probe half fails by design and emits nothing, so only the ordinary half can show the guard's
-            // builds reached the compile at all.
-            var guardOrdinary = Results[GuardSets[1].Name];
+            //
+            // The fingerprints bracket only this test's own builds, run here rather than with the others. A
+            // `dotnet test` of the solution that also builds it writes these same outputs while the tests run,
+            // and a bracket held open across every set's build catches that build instead of this one.
+            var before = FingerprintProbeBuildGraph();
+            Build(GuardProbe);
+            var guardOrdinary = Build(GuardOrdinary);
+            var after = FingerprintProbeBuildGraph();
+
+            // The probe half fails before either probed assembly exists, so only the ordinary half can show the
+            // guard's builds reached the compile.
             Assert.IsTrue(ProbedProjects.All(guardOrdinary.Built),
                           $"The guard's ordinary build did not produce the probed projects, so there was nothing to guard.\n{guardOrdinary.Output}");
 
-            var disturbed = _fingerprintsAfter.Where(entry => !_fingerprintsBefore.TryGetValue(entry.Key, out var fingerprint) || fingerprint != entry.Value)
-                                              .Select(entry =>
-                                                          $"{entry.Key}\n    before: {(_fingerprintsBefore.TryGetValue(entry.Key, out var was) ? was : "(did not exist)")}\n    after:  {entry.Value}")
-                                              .Concat(_fingerprintsBefore.Keys.Where(path => !_fingerprintsAfter.ContainsKey(path)).Select(path => $"{path}\n    deleted"))
-                                              .OrderBy(line => line, StringComparer.Ordinal)
-                                              .ToList();
+            var disturbed = after.Where(entry => !before.TryGetValue(entry.Key, out var fingerprint) || fingerprint != entry.Value)
+                                 .Select(entry => $"{entry.Key}\n    before: {(before.TryGetValue(entry.Key, out var was) ? was : "(did not exist)")}\n    after:  {entry.Value}")
+                                 .Concat(before.Keys.Where(path => !after.ContainsKey(path)).Select(path => $"{path}\n    deleted"))
+                                 .OrderBy(line => line, StringComparer.Ordinal)
+                                 .ToList();
 
             Assert.IsEmpty(disturbed,
                            "The analyzer-wiring builds wrote into the repository's own build outputs. Those are what `dotnet pack` ships, " +
@@ -336,10 +337,11 @@ namespace Vion.Dale.Sdk.Generators.Test
         }
 
         /// <summary>
-        ///     The ordinary build attributes no error and no <paramref name="diagnostic" /> to this project, and produced it —
-        ///     the last so that a project that dropped out of the set, or whose lines stopped being attributed, cannot pass
-        ///     by never having been built. Judged per project, so a probe leaking into one project fails that project's
-        ///     test and not every other one sharing the build.
+        ///     The ordinary build attributes no error and no <paramref name="diagnostic" /> to this project, and produced it.
+        ///     Judged per project, so a probe leaking into one project fails that project's test and not every other one
+        ///     sharing the build. The last check is for a project whose dependency failed: it never compiles, so it logs
+        ///     nothing of its own and would otherwise pass on silence. That lines are attributed at all is proven by the
+        ///     <c>RunDaleAnalyzers…</c> tests, which read the same lines and fail on none.
         /// </summary>
         private static void AssertOrdinaryBuildOf(string projectName, string diagnostic)
         {
@@ -364,9 +366,15 @@ namespace Vion.Dale.Sdk.Generators.Test
             // projects share one output directory: their assemblies are named for their projects, and a
             // dependency they share builds once per invocation.
             var traversal = Path.Combine(directory, "wiring.proj");
-            File.WriteAllText(traversal,
-                              "<Project><Target Name=\"Build\"><MSBuild Projects=\"" + string.Join(";", projectPaths.Values) +
-                              "\" Targets=\"Build\" BuildInParallel=\"true\" /></Target></Project>");
+
+            // The paths go into an MSBuild item list, so the characters MSBuild reads there are escaped; XElement
+            // escapes what XML reads.
+            var projects = string.Join(";", projectPaths.Values.Select(EscapeForMsBuild));
+            new XElement("Project",
+                         new XElement("Target",
+                                      new XAttribute("Name", "Build"),
+                                      new XElement("MSBuild", new XAttribute("Projects", projects), new XAttribute("Targets", "Build"), new XAttribute("BuildInParallel", "true"))))
+                .Save(traversal);
 
             // BaseIntermediateOutputPath is deliberately NOT moved: NuGet reads project.assets.json from it, so
             // redirecting it fails a build with no restore with NETSDK1004. The (non-Base) IntermediateOutputPath
@@ -411,6 +419,11 @@ namespace Vion.Dale.Sdk.Generators.Test
             process.WaitForExit();
 
             return new BuildResult(process.ExitCode, output.ToString(), projectPaths, Path.Combine(directory, "bin"));
+        }
+
+        private static string EscapeForMsBuild(string value)
+        {
+            return value.Replace("%", "%25").Replace(";", "%3B").Replace("$", "%24").Replace("@", "%40").Replace("'", "%27").Replace("*", "%2A").Replace("?", "%3F");
         }
 
         /// <summary>
