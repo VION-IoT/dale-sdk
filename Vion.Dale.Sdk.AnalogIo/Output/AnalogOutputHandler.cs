@@ -27,6 +27,8 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
 
         private readonly ILogger _logger;
 
+        private readonly HashSet<LogicBlockContractId> _unmappedContractsReported = [];
+
         /// <summary>
         ///     Initializes a new instance of the <see cref="AnalogOutputHandler" /> class.
         /// </summary>
@@ -75,6 +77,15 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         }
 
         /// <inheritdoc />
+        protected override void OnContractActorsLinked(LinkLogicBlockContractActors message)
+        {
+            // A new link message is a new configuration, and the mapping it carries is the one the
+            // warning below is about. Forgetting what was reported under the previous one is what lets
+            // an operator who fixes a mapping, or breaks a different one, see the answer.
+            _unmappedContractsReported.Clear();
+        }
+
+        /// <inheritdoc />
         protected override void HandleContractMessage(IContractMessage message)
         {
             if (message is ContractMessage<SetAnalogOutput> m)
@@ -97,7 +108,14 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
             var mappedServiceProviderContractIds = FindMappedServiceProviderContracts(setAnalogOutputMessage.LogicBlockContractId);
             if (mappedServiceProviderContractIds.Count == 0)
             {
-                LogNoServiceProviderContractMappingFound(setAnalogOutputMessage.LogicBlockContractId);
+                // Once per contract per configuration: a block drives its output on every state change,
+                // so reporting each dropped write would bury the gateway's log under one mis-mapped
+                // block. The set is cleared when a new configuration is linked.
+                if (_unmappedContractsReported.Add(setAnalogOutputMessage.LogicBlockContractId))
+                {
+                    LogNoServiceProviderContractMappingFound(setAnalogOutputMessage.LogicBlockContractId);
+                }
+
                 return;
             }
 
@@ -156,8 +174,9 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
                            "Dropped a AO command whose value is not finite; JSON carries no number for it, so no command reached any service provider (LogicBlockContractId={LogicBlockContractId}, Value={Value})")]
         private partial void LogRejectedNonFiniteCommand(LogicBlockContractId logicBlockContractId, double value);
 
-        [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "No service provider contract mapping found for contract — cannot send set AO command (LogicBlockContractId={LogicBlockContractId})")]
+        [LoggerMessage(Level = LogLevel.Warning,
+                       Message =
+                           "Dropped a set AO command; no service provider contract is mapped to this logic block contract, so nothing reached the hardware and further drops on it are not reported until the configuration changes (LogicBlockContractId={LogicBlockContractId})")]
         private partial void LogNoServiceProviderContractMappingFound(LogicBlockContractId logicBlockContractId);
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Publishing AO request (Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]

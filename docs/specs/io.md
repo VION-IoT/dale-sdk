@@ -248,6 +248,12 @@ refused is invisible to the block, and the only evidence a command took effect i
 that follows a successful one, arriving as `AC-IO-002.4`. Subscribing it would be a new wire
 behaviour: a new message type, a new arm, and a decision about what a block observes.
 
+`AC-IO-006.4` leaves the *block* nothing to observe, which is the criterion; it does not leave the
+*operator* nothing. The handler reports the first drop per logic-block contract at warning level, and
+stays quiet for that contract until a new configuration is linked — a block drives its output on every
+state change, so reporting each one would bury the log. Like `AC-IO-007.3`'s refusal, the line is a
+trace and not a criterion: nothing may depend on its text, its level or its once-ness.
+
 `AC-IO-006.5` states both halves of the cache deliberately. A handler is resolved per actor, so its
 cache lives as long as that actor and holds an entry for every contract it has ever commanded — the
 map being replaced does not release one. The growth is bounded by the configuration and is not the

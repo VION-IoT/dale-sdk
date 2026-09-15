@@ -27,6 +27,8 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
 
         private readonly ILogger _logger;
 
+        private readonly HashSet<LogicBlockContractId> _unmappedContractsReported = [];
+
         /// <summary>
         ///     Initializes a new instance of the <see cref="DigitalOutputHandler" /> class.
         /// </summary>
@@ -75,6 +77,15 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
         }
 
         /// <inheritdoc />
+        protected override void OnContractActorsLinked(LinkLogicBlockContractActors message)
+        {
+            // A new link message is a new configuration, and the mapping it carries is the one the
+            // warning below is about. Forgetting what was reported under the previous one is what lets
+            // an operator who fixes a mapping, or breaks a different one, see the answer.
+            _unmappedContractsReported.Clear();
+        }
+
+        /// <inheritdoc />
         protected override void HandleContractMessage(IContractMessage message)
         {
             if (message is ContractMessage<SetDigitalOutput> m)
@@ -88,7 +99,14 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
             var mappedServiceProviderContractIds = FindMappedServiceProviderContracts(setDigitalOutputMessage.LogicBlockContractId);
             if (mappedServiceProviderContractIds.Count == 0)
             {
-                LogNoServiceProviderContractMappingFound(setDigitalOutputMessage.LogicBlockContractId);
+                // Once per contract per configuration: a block drives its output on every state change,
+                // so reporting each dropped write would bury the gateway's log under one mis-mapped
+                // block. The set is cleared when a new configuration is linked.
+                if (_unmappedContractsReported.Add(setDigitalOutputMessage.LogicBlockContractId))
+                {
+                    LogNoServiceProviderContractMappingFound(setDigitalOutputMessage.LogicBlockContractId);
+                }
+
                 return;
             }
 
@@ -142,8 +160,9 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
                            "Dropped a DO state message labelled with another payload type; no value reached any block and this contract's input holds its last value (ServiceProviderContractId={ServiceProviderContractId}, Schema={Schema}, Topic={Topic})")]
         private partial void LogRejectedForeignSchema(ServiceProviderContractId serviceProviderContractId, string? schema, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "No service provider contract mapping found for contract — cannot send set DO command (LogicBlockContractId={LogicBlockContractId})")]
+        [LoggerMessage(Level = LogLevel.Warning,
+                       Message =
+                           "Dropped a set DO command; no service provider contract is mapped to this logic block contract, so nothing reached the hardware and further drops on it are not reported until the configuration changes (LogicBlockContractId={LogicBlockContractId})")]
         private partial void LogNoServiceProviderContractMappingFound(LogicBlockContractId logicBlockContractId);
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Publishing DO request (Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
