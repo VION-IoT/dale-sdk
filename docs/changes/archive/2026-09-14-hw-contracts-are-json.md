@@ -267,8 +267,9 @@ None. Every test in the four rewritten suites maps to a row or to a criterion th
 - `2026-09-15`: Review round, taken over by a second session. The operator reversed Reviewer's
   question 1 — a non-finite analog value does not cross — so the named-literal option leaves
   `JsonSerialization.DefaultOptions` and `JsonSerializationShould` is deleted with it: every one of its
-  rows existed to pin the two paths agreeing on a non-finite value, and the finite row pins nothing a
-  handler test does not. The harnesses' non-finite branches go too, since no row arranges such a
+  rows existed to pin the two paths agreeing on a non-finite value, and the finite row pinned
+  `DefaultOptions` against `HwJsonContext`, a pairing no payload on this wire is serialized through any
+  more. The harnesses' non-finite branches go too, since no row arranges such a
   document through them any more. Sibling sweep: done — `git grep -n "AllowNamedFloatingPointLiterals\|NaN\|Infinity"`
   over `Vion.Dale.Sdk*` and `docs/specs/` re-read; `testkit.md`'s `AC-TKIT-007.2` prose was the one
   page outside `io.md` citing the value rule for non-finite values.
