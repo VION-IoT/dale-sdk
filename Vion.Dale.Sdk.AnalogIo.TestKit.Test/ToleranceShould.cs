@@ -109,8 +109,8 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
         [DataRow(Helper.InputDriven, double.NegativeInfinity)]
         public void MatchNonFiniteValueBitIdenticalToExpected(Helper helper, double written)
         {
-            // Arrange — the value contract carries these to the wire unaltered, so a block that writes
-            // one has to be assertable; the difference comparison alone is false for every pair here
+            // Arrange — a block can write any of these, so a value it wrote has to be assertable; the
+            // difference comparison alone is false for every pair here
             var fixture = Drive(helper, written);
 
             // Act / Assert
@@ -127,7 +127,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
             // Arrange
             var fixture = Drive(helper, -0.0);
 
-            // Act / Assert — a signed zero does not survive the wire, and it compares equal either way
+            // Act / Assert — a signed zero compares equal to an unsigned one either way
             fixture.AtDefaultTolerance(0.0);
         }
 

@@ -176,3 +176,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · hw-contracts-are-json · The review found the change doc still in flight under docs/changes/ on the pull request that lands it; asked for it archived. CLAUDE.md's feature-sized lane, archived in the pull request that lands it, should have caught it.
 
 2026-09-15 · gate · mutation runner · A mutation was restored with git checkout, which also discarded the session's uncommitted edit to the same file; the edit had to be re-applied before the round could go on. (self) → codified: docs/testing-conventions.md
+
+2026-09-15 · review · hw-contracts-are-json · The correction-round review found the analog TestKit's tolerance doc and two ToleranceShould comments still saying the wire carries non-finite values unaltered and drops a signed zero, beside the testkit.md paragraph this round edited; the sweep grepped NaN and Infinity, not the prose words. docs/review-checks.md P3 should have caught it. (self)

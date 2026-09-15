@@ -249,8 +249,7 @@ difference. A truth value has no near miss, so the digital comparison is equalit
 tolerance. A real number has near misses, so the analog comparison takes an inclusive tolerance
 defaulting to zero — and compares **bit equality first**, because a block can set a non-number or
 either infinity, and the difference comparison is false for every one of them against itself at
-every tolerance. A signed zero matches an unsigned one
-either way, which matches what the wire does with it.
+every tolerance. A signed zero matches an unsigned one either way.
 
 `AC-TKIT-007.3` is the sibling rule. A tolerance is a width, so it is a number of at least zero: a
 non-number or a negative one empties the band and rejects even an exact value, which no caller can
