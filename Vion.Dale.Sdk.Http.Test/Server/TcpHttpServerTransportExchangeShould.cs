@@ -27,7 +27,7 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
         [TestMethod]
-        public async Task KeepExchangeOpenUntilRequestIsRecorded()
+        public async Task KeepExchangeOpenUntilRequestRecorded()
         {
             // Arrange — the handler parks inside Delivered, after the response is written and before the request is recorded.
             var monitor = new CountingMonitor();

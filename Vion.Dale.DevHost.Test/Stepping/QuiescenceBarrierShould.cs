@@ -29,7 +29,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///         ten-second default. The barrier is the half that still has no seam.
     ///     </para>
     ///     <para>
-    ///         <see cref="ReturnWithExchangeOpenWhenExchangesAreNotCounted" /> cites no criterion: it pins the premise the
+    ///         <see cref="ReturnWithExchangeOpenWhenExchangesNotCounted" /> cites no criterion: it pins the premise the
     ///         teardown drain rests on — that the barrier it builds does not wait on a socket — which no page states as a
     ///         consumer-observable rule.
     ///     </para>
@@ -128,7 +128,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        public async Task ReturnWithExchangeOpenWhenExchangesAreNotCounted()
+        public async Task ReturnWithExchangeOpenWhenExchangesNotCounted()
         {
             // Arrange
             var activity = new InFlightActivityMonitor();

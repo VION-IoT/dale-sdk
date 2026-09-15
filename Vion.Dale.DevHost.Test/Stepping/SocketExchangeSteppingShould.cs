@@ -91,7 +91,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.11")]
-        public async Task NameHeldExchangeWhenQuiescenceBudgetIsSpent()
+        public async Task NameHeldExchangeWhenQuiescenceBudgetSpent()
         {
             // Arrange — a budget shorter than the client's own one-second operation timeout, and a peer that never answers
             // on its own, so the budget is what ends the wait.
