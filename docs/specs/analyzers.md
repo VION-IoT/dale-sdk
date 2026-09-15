@@ -85,8 +85,7 @@ changes no diagnostic in this repository.
 `AC-ANLZ-002.2`'s last clause is a live limitation, not a design: a preset attribute — a class
 deriving from `ServicePropertyAttribute` so that `[Kilowatts]` carries a unit — is honoured by the
 runtime and matched by exactly one rule, `DALE019`, whose job is to catch two of them on one member.
-Every other rule is blind to it. Widening the match re-aims all of them at once, which is why it is
-a ledger line rather than a fix.
+Every other rule is blind to it. Widening the match re-aims all of them at once.
 
 `AC-ANLZ-002.6`'s two halves are what make a gate's error message confusing on a non-public
 `[InstantiationParameter]`: the parameter's own declaration is judged, the type walk that would

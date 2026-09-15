@@ -22,8 +22,7 @@
   MSBuild file can parse and still fail to import (an unknown element is `MSB4067`, not `MSB4024`).
   A real pack-and-consume round trip is the only thing that proves an import, and it belongs in a
   pre-public release regression suite rather than in `verify-packages`, which runs after both
-  pushes and so can report a bad release without preventing one - see `docs/specs/_findings.md`
-  § `RELEASE`.
+  pushes and so can report a bad release without preventing one.
 
   What it scans is DERIVED, not listed: every `Pack="true"` item whose `PackagePath` lands in
   `build/`, `buildTransitive/` or `buildMultiTargeting/`. A file added to one of those folders is

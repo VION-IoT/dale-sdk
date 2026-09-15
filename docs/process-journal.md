@@ -134,3 +134,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · review · VION-215 · The review found the reworded AC-CTRL-006.2 adding a browser-address clause no test reaches, without a GAP, and the no-web-UI port fallback promised in prose with no criterion; spec-process.md states both. (self)
 
 2026-09-14 · review · devhost-smoke · The review found the skill boots sharing one fixed output file, waiting without a deadline, and keeping pid and port only in shell state a later call loses, where smoke-modbus.ps1 already had per-run files and a bound; review-checks.md P3 names the shape. (self)
+
+2026-09-15 · decision · spec-process · The in-repo finding ledger is removed: a finding not fixed, stated on a page or marked GAP becomes a draft Jira item under VION-62, and lane 3's `park` classification is `file`. Nothing emptied the ledger between triages, and its one bulk triage deleted most of it.
