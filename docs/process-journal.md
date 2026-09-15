@@ -198,3 +198,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · publish.yml · The changes job took a pull request's diff base from pull_request.base.sha, the base at the last pull request event; the merge commit's first parent was needed, since main can move without one. (self) → codified: .github/workflows/publish.yml
 
 2026-09-15 · review · CLAUDE.md · The CI style scope was written into CLAUDE.md twice and again into the cleanup command; the harness pass cut it to the one sentence in CLAUDE.md. (self)
+
+2026-09-15 · review · publish.yml · The review found drift-and-docs pushing its snapshot commit while style and verify-packages still ran; that push starts a run which cancels the first and passes ci with every job skipped, so a style failure never reached the head. The ci step was tested on one run's results only. (self) → codified: .github/workflows/publish.yml

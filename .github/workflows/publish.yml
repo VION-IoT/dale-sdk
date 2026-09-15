@@ -18,10 +18,10 @@ name: Pack & Publish
 #     everything still reports a result instead of leaving the check waiting.
 #
 # Every job but ci is gated on github.actor != github-actions[bot] so the snapshot
-# auto-commit's push triggers an empty (skipped) workflow run instead of an
-# infinite loop. The previous loop-break used a commit-message marker but
-# that marker leaked into squash-merge commits and suppressed legitimate
-# post-merge runs.
+# auto-commit's push triggers a run where only ci runs, passing on the gates the
+# commit's parent already passed, instead of an infinite loop. The previous loop-break
+# used a commit-message marker but that marker leaked into squash-merge commits and
+# suppressed legitimate post-merge runs.
 
 on:
   push:
@@ -196,9 +196,15 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-packed-assembly-versions.ps1 -PackagesDir ./artifacts
 
+  # Waits for every other gate, not only for the packages it reads: its snapshot commit starts a run
+  # that cancels this one and skips every job but ci, so a failure still in flight here would never
+  # reach the pull request head.
   drift-and-docs:
-    if: github.actor != 'github-actions[bot]'
-    needs: publish
+    if: >-
+      always() && github.actor != 'github-actions[bot]'
+      && needs.publish.result == 'success' && needs.verify-packages.result == 'success'
+      && (needs.style.result == 'success' || needs.style.result == 'skipped')
+    needs: [publish, style, verify-packages]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for snapshot auto-commit on PR head and on main
