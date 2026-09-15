@@ -37,11 +37,15 @@
   prior step built it). cleanupcode needs up-to-date build output.
 
 .PARAMETER Changed
-  Dev-loop fast mode: scope cleanupcode to the .cs files this branch changed (vs
-  origin/main), plus the working tree, plus untracked .cs, and skip entirely when no .cs
-  changed. The 'Full Cleanup (excl. optimize usings)' profile is per-file (no cross-file
-  edits), so a scoped pass is equivalent for the changed files. Run this once right before a
-  PR; the full-solution default and the CI gate (-Verify) stay the authoritative backstop.
+  Scope cleanupcode to the .cs files this branch changed vs -Base, plus the working tree,
+  plus untracked .cs, and skip entirely when no .cs changed. The 'Full Cleanup (excl.
+  optimize usings)' profile is per-file (no cross-file edits), so a scoped pass is
+  equivalent for the changed files. CI uses this scope on pull requests and the full
+  solution on pushes to main, which catches an edit that reformats a file the PR did not touch.
+
+.PARAMETER Base
+  The ref -Changed diffs against (default origin/main). When it cannot be diffed - not
+  fetched, or no such commit - the run falls back to the full solution rather than skipping.
 
 .EXAMPLE
   pwsh scripts/cleanup-code.ps1
@@ -59,7 +63,8 @@
 param(
     [switch]$Verify,
     [switch]$NoBuild,
-    [switch]$Changed
+    [switch]$Changed,
+    [string]$Base = 'origin/main'
 )
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -116,29 +121,38 @@ try {
         }
     }
 
-    # -Changed scopes the (slow) full-solution cleanup to just the .cs this branch touched (vs origin/main +
-    # the working tree). The profile is per-file, so the result is identical for those files — the dev-loop
-    # fast path. Detect FIRST: when no .cs changed, skip restore+build+cleanup entirely. CI stays full (-Verify).
+    # -Changed scopes the (slow) full-solution cleanup to just the .cs this branch touched (vs -Base + the
+    # working tree). The profile is per-file, so the result is identical for those files. Detect FIRST: when
+    # no .cs changed, skip restore+build+cleanup entirely.
     $includeArgs = @()
     if ($Changed) {
-        # The three `git diff` forms below see TRACKED files only. A brand-new .cs that has not been
-        # `git add`ed is invisible to all of them, so it used to slip past the scoped pass entirely and
-        # only surface as CI style drift. `git ls-files --others` is the fourth source that closes it.
-        $csFiles = @(
-            (git diff --name-only 'origin/main...HEAD' 2>$null)
-            (git diff --name-only 2>$null)
-            (git diff --name-only --cached 2>$null)
-            (Get-UntrackedFiles)
-        ) | Where-Object { $_ -and $_.EndsWith('.cs') } | Sort-Object -Unique
-        if ($csFiles.Count -eq 0) {
-            Write-Host 'No changed .cs files (vs origin/main + working tree + untracked) - skipping cleanupcode.'
-            exit 0
+        # A branch diff that fails must not read as "no .cs changed": that printed a clean verdict having
+        # checked nothing. Its exit code is taken before any other git call overwrites $LASTEXITCODE.
+        # Deleted files are filtered out, since there is nothing left to clean in them.
+        $branchFiles = @(git diff --name-only --diff-filter=d "$Base...HEAD" 2>$null)
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "warning: could not diff against '$Base' (not fetched?) - falling back to a full-solution cleanup."
         }
+        else {
+            # The `git diff` forms see TRACKED files only. A brand-new .cs that has not been `git add`ed is
+            # invisible to all of them, so it used to slip past the scoped pass entirely and only surface as
+            # CI style drift. `git ls-files --others` is the source that closes it.
+            $csFiles = @(
+                $branchFiles
+                (git diff --name-only --diff-filter=d 2>$null)
+                (git diff --name-only --diff-filter=d --cached 2>$null)
+                (Get-UntrackedFiles)
+            ) | Where-Object { $_ -and $_.EndsWith('.cs') } | Sort-Object -Unique
+            if ($csFiles.Count -eq 0) {
+                Write-Host "No changed .cs files (vs $Base + working tree + untracked) - skipping cleanupcode."
+                exit 0
+            }
 
-        # --include resolves against the .sln directory; the solution sits at the repo root, so git's
-        # repo-relative paths are already solution-relative.
-        $includeArgs = @("--include=$($csFiles -join ';')")
-        Write-Host "Cleanup scoped to $($csFiles.Count) changed .cs file(s)."
+            # --include resolves against the .sln directory; the solution sits at the repo root, so git's
+            # repo-relative paths are already solution-relative.
+            $includeArgs = @("--include=$($csFiles -join ';')")
+            Write-Host "Cleanup scoped to $($csFiles.Count) changed .cs file(s)."
+        }
     }
 
     dotnet tool restore
