@@ -648,7 +648,8 @@ function Invoke-SelfTest
         # The rule table against the tree it is a rule about. A mis-typed package id matches no
         # package, so every fixture above still reports OK and no floor fires — the one mutation a
         # fixture cannot catch. This case reads the repository, so it holds wherever this self-test
-        # runs: spec-gates.yml, through verify-packed-assembly-versions.tests.ps1, on every pull request.
+        # runs: spec-gates.yml, through verify-packed-assembly-versions.tests.ps1, on every push to main and
+        # on any pull request that changes a script or a project file, which is everything this case reads.
         # Name comparison is -ceq throughout: a Windows file system answers Test-Path for
         # Vion.Dale.SDK, so a case built on Test-Path would catch a mis-typed id on the Linux runner
         # and pass at every desk.

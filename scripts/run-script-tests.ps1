@@ -14,8 +14,12 @@
     thrown error (non-zero exit)       -> failed
 
   This runner runs each in its OWN pwsh process (isolating cwd / $ErrorActionPreference /
-  temp cleanup), prints one line per test, and dumps full output only on failure. New
-  *.tests.ps1 files are picked up automatically.
+  temp cleanup), side by side, prints one line per test in name order, and dumps full output
+  only on failure. New *.tests.ps1 files are picked up automatically. Because they run side by
+  side, a self-test writes only to a temp directory of its own (GUID-named) and never to the
+  repository. It may read the repository at a path the "Scope the self-tests" step of
+  spec-gates.yml lists; one that reads any other path adds it there, or a pull request that breaks
+  it skips it.
 
   META-GATE: it then checks that every scripts/*.ps1 either has a sibling *.tests.ps1 or
   is in the $exempt list below with a reason — so a gate shipped without a self-test
@@ -40,22 +44,25 @@ $exempt = @{
 
 $tests = Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.tests.ps1' | Sort-Object Name
 
+$results = $tests | ForEach-Object -ThrottleLimit ([Environment]::ProcessorCount) -Parallel {
+    $output = & pwsh -NoProfile -File $_.FullName 2>&1
+    [pscustomobject]@{ Name = $_.Name; Exit = $LASTEXITCODE; Output = @($output | ForEach-Object { "$_" }) }
+} | Sort-Object Name
+
 $failed = @()
 $skipped = 0
-foreach ($t in $tests) {
-    $output = & pwsh -NoProfile -File $t.FullName 2>&1
-    $rc = $LASTEXITCODE
-    if ($rc -ne 0) {
-        Write-Host "  FAIL  $($t.Name)"
-        $output | ForEach-Object { Write-Host "        $_" }
-        $failed += $t.Name
+foreach ($r in $results) {
+    if ($r.Exit -ne 0) {
+        Write-Host "  FAIL  $($r.Name)"
+        $r.Output | ForEach-Object { Write-Host "        $_" }
+        $failed += $r.Name
     }
-    elseif (($output -join "`n") -match 'SKIPPED') {
-        Write-Host "  SKIP  $($t.Name)"
+    elseif (($r.Output -join "`n") -match 'SKIPPED') {
+        Write-Host "  SKIP  $($r.Name)"
         $skipped++
     }
     else {
-        Write-Host "  PASS  $($t.Name)"
+        Write-Host "  PASS  $($r.Name)"
     }
 }
 
