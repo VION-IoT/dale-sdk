@@ -271,8 +271,10 @@ cannot diverge.
 - `AC-IO-007.1` (Ubiquitous): THE SYSTEM SHALL carry one bare value on each message of a face — a
   truth value on a digital face, a real number on an analog one — with no unit, range, scale,
   deadband, timestamp or quality alongside it.
-- `AC-IO-007.2` (Ubiquitous): THE SYSTEM SHALL carry any value its type can hold unaltered in both
-  directions, a non-number and both infinities included, rejecting and clamping none of them.
+- `AC-IO-007.2` (Ubiquitous): THE SYSTEM SHALL carry any finite value its type can hold unaltered in
+  both directions, rejecting and clamping none of them.
+- `AC-IO-007.3` (Event-driven): WHEN a block commands an analog output with a value that is not finite
+  THE SYSTEM SHALL publish no command.
 
 `AC-IO-007.1` is a contract, not an omission. Units, ranges and presentation belong to the block's own
 service properties ([`emission.md`](emission.md)); scaling and engineering conversion belong to the
@@ -283,15 +285,15 @@ block. Nothing here interprets a value, which is why the same two faces serve a 
 writes its value member whatever the value is, so `-0.0` reaches the far side as `-0` and a `false`
 command is distinguishable from one that was never sent. Inbound the distinction is the publisher's
 to make and not this area's: a document carrying no value member reads as the member's default, so a
-publisher that omits it is indistinguishable from one that meant `false` or `0`. Validating a
-non-finite value is not this area's either — the reader is the hardware abstraction layer, and
-analog I/O is served by the simulating layer alone today.
+publisher that omits it is indistinguishable from one that meant `false` or `0`. The two halves are
+one rule and are tested as one, with the digital rows being the whole of a truth value's domain and
+the analog rows the extremes a `double` reaches.
 
-The inbound half is the one a block feels. A service provider that reports `NaN` for a reading it
-cannot take reports `NaN` to every block bound to that contract, because nothing between the decode and
-the face substitutes, clamps or refuses a value: a block that needs a finite number tests for one
-itself. The two halves are one rule and are tested as one, with the digital rows being the whole of a
-truth value's domain and the analog rows the extremes and the non-numbers a `double` reaches.
+`AC-IO-007.3` exists because JSON has no number for a non-number or either infinity, so no document
+can carry one. The block observes nothing, as with any command the far side never acts on
+(`AC-IO-006.1`); the handler reports the drop at warning level, which is a trace and not a criterion.
+The inbound counterpart needs no rule of its own: a document spelling such a value as a string is a
+value of a type the member does not hold, which `AC-IO-005.2` refuses.
 
 ## Multiplicity and development surface
 
@@ -362,14 +364,13 @@ something a consumer can observe of either one, so it mints no criterion
 ([`../spec-process.md`](../spec-process.md) § IDs & EARS) — and it is a contract on every change, not
 an observation about today: a fix applied to one package
 is applied to the other in the same commit, or the change doc says why not. What the diff legitimately
-still shows, after normalising `Digital`/`Analog` and the payload type names, is exactly five things:
-the value type itself, `bool` against `double`; the English article each package's noun takes; each
-package's `using` block sorted by its own namespace names, which puts `Vion.Dale.Sdk.Core` in a
-different place in each `ConfigureServices.cs`; and the wire's own abbreviations `DI`/`DO` and
-`AI`/`AO` inside log templates. Nothing else survives the normalisation, and anything that later does
-is a residue to fix or to add to this list. The two serialisation buffer sizes that used to appear
-here — one per package, each builder sized for its own command payload — went with the FlatBuffer
-encoding; a JSON writer sizes itself.
+still shows, after normalising `Digital`/`Analog` and the payload type names, is the value type
+itself, `bool` against `double`; the analog output handler's refusal of a non-finite command
+(`AC-IO-007.3`), which a truth value has no counterpart for; the English article each package's noun
+takes; each package's `using` block sorted by its own namespace names, which puts
+`Vion.Dale.Sdk.Core` in a different place in each `ConfigureServices.cs`; and the wire's own
+abbreviations `DI`/`DO` and `AI`/`AO` inside log templates. Nothing else survives the normalisation,
+and anything that does is a residue to fix or to add to this list.
 
 ## Test discipline
 

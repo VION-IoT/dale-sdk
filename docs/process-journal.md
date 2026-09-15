@@ -148,3 +148,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · hw-contracts-are-json · The review found the publish records and helper defaulting the content type to JSON, which relabels dale's FlatBuffer Remote/Func publish that omits it and went against the spec's leave-the-default-alone; asked instead for no default at all. CLAUDE.md's decision-nobody-named STOP should have surfaced it.
 
 2026-09-15 · review · hw-contracts-are-json · The review found the named-literal NumberHandling on JsonSerialization.DefaultOptions reaching the DevHost scenario codec and dale's Func payloads, well past hw/*; the operator took it out rather than record it, together with its upstream twin. spec-process.md's previously-inert-inputs sweep should have caught the reach.
+
+2026-09-15 · decision · hw-contracts-are-json · A non-finite analog value does not cross the hw/* JSON wire: AC-IO-007.2 narrows to finite values and the analog output handler drops a non-finite command with a warning, reversing the 2026-09-14 named-literal outcome; operator, with the author, to keep every analog value on the wire a JSON number.
+
+2026-09-15 · review · hw-contracts-are-json · The review found both harnesses' Number comment, the change doc and the PR body saying double.ToString renders the Unicode infinity sign; the harness formatted with the invariant culture, which renders ASCII Infinity. comment-conventions.md's verify-the-mechanism rule should have caught it.

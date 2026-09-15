@@ -85,6 +85,15 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
 
         private void PublishSetAoMqttMessage(ContractMessage<SetAnalogOutput> setAnalogOutputMessage)
         {
+            // JSON has no number for NaN or either infinity, so no document can carry one to the service
+            // provider, and serializing one throws out of this arm into the actor middleware. Dropping it
+            // here reports the refusal against the contract instead of as a stack trace.
+            if (!double.IsFinite(setAnalogOutputMessage.Data.Value))
+            {
+                LogRejectedNonFiniteCommand(setAnalogOutputMessage.LogicBlockContractId, setAnalogOutputMessage.Data.Value);
+                return;
+            }
+
             var mappedServiceProviderContractIds = FindMappedServiceProviderContracts(setAnalogOutputMessage.LogicBlockContractId);
             if (mappedServiceProviderContractIds.Count == 0)
             {
@@ -141,6 +150,10 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
                        Message =
                            "Dropped a AO state message labelled with another payload type; no value reached any block and this contract's input holds its last value (ServiceProviderContractId={ServiceProviderContractId}, Schema={Schema}, Topic={Topic})")]
         private partial void LogRejectedForeignSchema(ServiceProviderContractId serviceProviderContractId, string? schema, string topic);
+
+        [LoggerMessage(Level = LogLevel.Warning,
+                       Message = "Dropped a AO command whose value is not finite; JSON carries no number for it, so no command reached any service provider (LogicBlockContractId={LogicBlockContractId}, Value={Value})")]
+        private partial void LogRejectedNonFiniteCommand(LogicBlockContractId logicBlockContractId, double value);
 
         [LoggerMessage(Level = LogLevel.Debug,
                        Message = "No service provider contract mapping found for contract — cannot send set AO command (LogicBlockContractId={LogicBlockContractId})")]

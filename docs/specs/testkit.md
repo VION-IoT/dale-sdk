@@ -247,9 +247,9 @@ criterion's own marker says.
 `AC-TKIT-007.2` states one rule over two value types, and the analog half carries the whole of the
 difference. A truth value has no near miss, so the digital comparison is equality and takes no
 tolerance. A real number has near misses, so the analog comparison takes an inclusive tolerance
-defaulting to zero — and compares **bit equality first**, because the value contract carries a
-non-number and both infinities to the wire unaltered (`AC-IO-007.2`) and the difference comparison is
-false for every one of them against itself at every tolerance. A signed zero matches an unsigned one
+defaulting to zero — and compares **bit equality first**, because a block can set a non-number or
+either infinity, and the difference comparison is false for every one of them against itself at
+every tolerance. A signed zero matches an unsigned one
 either way, which matches what the wire does with it.
 
 `AC-TKIT-007.3` is the sibling rule. A tolerance is a width, so it is a number of at least zero: a

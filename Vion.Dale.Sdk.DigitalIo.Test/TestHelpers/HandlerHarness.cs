@@ -173,31 +173,8 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
             return value ? "true" : "false";
         }
 
-        /*
-         * JSON has no numeric literal for a non-finite double, so the three below go on the wire as
-         * quoted named literals: a non-finite value is a JSON string where every finite one is a number.
-         * That is what System.Text.Json reads and writes once a context allows them, and what a
-         * hardware-abstraction layer puts on the wire. double.ToString renders these three unquoted, and
-         * two of them as the Unicode infinity sign, which no JSON reader accepts — so formatting the
-         * value would arrange a document nothing could ever send.
-         */
         private static string Number(double value)
         {
-            if (double.IsNaN(value))
-            {
-                return "\"NaN\"";
-            }
-
-            if (double.IsPositiveInfinity(value))
-            {
-                return "\"Infinity\"";
-            }
-
-            if (double.IsNegativeInfinity(value))
-            {
-                return "\"-Infinity\"";
-            }
-
             return value.ToString("R", CultureInfo.InvariantCulture);
         }
     }

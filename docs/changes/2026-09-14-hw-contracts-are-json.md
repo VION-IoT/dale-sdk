@@ -5,7 +5,7 @@ blocked-on: none
 areas: IO, BIND, MODB
 author: Fabien Graf
 created: 2026-09-14
-updated: 2026-09-14
+updated: 2026-09-15
 supersedes: none
 ---
 
@@ -31,9 +31,11 @@ exist at all. A clean cut: no dual format, no sniffing, no fallback.
 `docs/specs/io.md` carries most of it: the decode prose under `AC-IO-005.2` (what a JSON decode
 refuses, and that the handler catches rather than letting the throw escape), `AC-IO-006.2`'s content
 type, `AC-IO-005.3`'s and `AC-IO-005.5`'s prose (the payload no longer carries identity strings, and
-the label is judged before the decode rather than before the verifier), `AC-IO-007.2`'s asymmetry
-paragraph, the mirror's list of legitimate differences (the two buffer-size literals are gone) and
-the test-discipline paragraph.
+the label is judged before the decode rather than before the verifier), `AC-IO-007.2` narrowed to
+finite values and `AC-IO-007.3` refusing a non-finite command, the mirror's list of legitimate
+differences (the two buffer-size literals are gone, the non-finite refusal joins) and the
+test-discipline paragraph. `docs/specs/testkit.md`'s prose under `AC-TKIT-007.2` stops citing the value
+rule for non-finite values, which a block can still set; the kit's rule is unchanged.
 
 `docs/specs/contracts.md` carries `AC-BIND-011.3`: a publish declares the content type its caller
 names, and nothing defaults it.
@@ -91,17 +93,16 @@ whose hits are all about the transport and the socket, never the payload format.
    `Vion.Contracts` 11.0.0 sets no `JsonNumberHandling`. A dale-sdk-local workaround — copying the
    context's options and adding `NumberHandling` — would make dale write documents the AOT HALs
    cannot read, which is worse than the break.
-   **OUTCOME: resolved upstream, criterion untouched.** Operator decision 2026-09-14, in session: the
-   fix belongs in `Vion.Contracts`, and `11.0.1` ships it —
-   `NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals` on `HwJsonContext`, symmetric
-   on both sides. This repo pins `11.0.1` and the nine rows pass with `AC-IO-007.2`'s text never
-   reworded and none of them deleted. `JsonSerialization.DefaultOptions` takes the same option, because
-   the reflection-based overloads still use it and would otherwise refuse a value the typed path
-   round-trips.
-   The wire form is a **quoted** named literal — `{"value":"NaN"}`, `{"value":"Infinity"}`,
-   `{"value":"-Infinity"}` — so a non-finite value crosses as a JSON string where every finite one
-   crosses as a number. Nothing in the design anticipated that, and it is what a HAL author needs to
-   know; `JsonSerializationShould.WriteNonFiniteValueAsQuotedNamedLiteral` pins it.
+   **OUTCOME: a non-finite value does not cross; `AC-IO-007.2` narrows to finite values and
+   `AC-IO-007.3` refuses a non-finite command.** Operator decision 2026-09-15, in review, with the
+   author. It reverses the 2026-09-14 outcome, which kept the criterion whole by allowing the named
+   floating-point literals — `Vion.Contracts` 11.0.1 on `HwJsonContext`, the same option on
+   `JsonSerialization.DefaultOptions` — and so put a non-finite value on the wire as a quoted string
+   in a field that is otherwise a number. The option is taken out of `DefaultOptions` here and out of
+   `HwJsonContext` in a `Vion.Contracts` release this change pins. Outbound, the analog output handler
+   drops a non-finite command with a warning rather than letting the serializer throw into the actor
+   middleware (the operator chose that over the throw and over a refusal inside the block's own face).
+   Inbound, a quoted literal is a value of the wrong type and `AC-IO-005.2` refuses it.
 2. **Is the `JsonTypeInfo<T>` overload worth a criterion?** No, and deliberately. The wire it produces
    for the `hw/*` payloads is byte-identical to what the reflection overload produces — camelCase
    either way, the enums pinned by their own type attribute either way, `data` by the record's own
@@ -185,16 +186,15 @@ content type. Rows are the observable behaviours the cut changes or newly reache
 | 5 | WHEN a state document's value is of a type the member does not hold THE SYSTEM SHALL drop it. | same | `ForwardNothingWhenPayloadUndecodable` rows 6–7 | intended | newly reachable; FlatBuffers accepted it |
 | 6 | WHEN a state document carries no value member THE SYSTEM SHALL deliver the member's default. | `System.Text.Json` parameterized-constructor binding | none — stated in `io.md` prose | out-of-spec | unchanged from FlatBuffers' absent-field default; the wire cannot distinguish it from a publisher that meant the default |
 | 7 | THE SYSTEM SHALL carry a signed zero to the far side. | probe: `{"value":-0}` round-trips | none | out-of-spec | an improvement that falls out of the encoding; `AC-IO-007.2` already covers "unaltered" |
-| 8 | THE SYSTEM SHALL carry a non-finite analog value unaltered in both directions, as a quoted named literal. | `Vion.Contracts` 11.0.1's `HwJsonContext`; `JsonSerialization.cs:27` | `ForwardStateValueUnaltered`, `ForwardConfirmedValueUnaltered`, `PublishCommandValueUnaltered`, `JsonSerializationShould` | intended | `AC-IO-007.2`, unchanged text, resolved upstream |
+| 8 | WHEN a block commands an analog output with a value that is not finite THE SYSTEM SHALL publish no command. | `AnalogOutputHandler.cs:91` | `AnalogOutputHandlerShould.PublishNothingWhenCommandValueNotFinite` | intended | `AC-IO-007.3`; JSON has no number for it |
 | 9 | THE SYSTEM SHALL serialize a payload through caller-supplied type metadata when given it. | `ServiceProviderHandlerBase.cs:246` | exercised by every handler test | out-of-spec | no reachable mutation — the wire is identical either way; see Reviewer's question 2 |
 | 10 | THE SYSTEM SHALL name the Modbus function and response codes by their member names on the wire. | `ModbusFunctionCode.cs`'s own `[JsonConverter]` | `ModbusRtuHandlerShould`'s literal-JSON arrangements | intended | the record's contract, carried not specified here |
 
-**Row 8, and what it cost.** On `Vion.Contracts` 11.0.0 the row was a blocker: a block driving an
-analog output to `NaN` — a plausible "I have no value" idiom — got an `ArgumentException` out of
-`JsonSerializer` into the actor middleware and the command was never published, and a HAL reporting
-`NaN` for a reading it cannot take had no document it could publish. Under FlatBuffers both worked.
-The fix was upstream and symmetric rather than local, because options copied on this side alone would
-have made dale write documents the AOT HALs cannot read. `11.0.1` carries it.
+**Row 8, and what it costs.** Under FlatBuffers a block could drive an analog output to `NaN` — a
+plausible "I have no value" idiom — and a HAL could report `NaN` for a reading it cannot take. On the
+JSON wire neither crosses. A block that needs to say "no value" says it some other way, and a HAL that
+cannot take a reading does not publish one; the digital family has no counterpart, since a truth value
+is always finite.
 
 ### Consolidation map
 
@@ -204,7 +204,7 @@ have made dale write documents the AOT HALs cannot read. `11.0.1` carries it.
 | 3 | `AC-BIND-011.3` (MODIFIED — no default) |
 | 4, 5 | `AC-IO-005.2` (text unchanged; prose rewritten — the reach widened, the rule did not) |
 | 6, 7 | no criterion — stated in `io.md`'s `AC-IO-007.2` prose; neither is a rule this area declares |
-| 8 | `AC-IO-007.2` — text untouched, proven by the three analog rows it already had |
+| 8 | `AC-IO-007.3` (ADDED); `AC-IO-007.2` (MODIFIED — finite values only) |
 | 9 | no criterion — no reachable mutation (Reviewer's question 2) |
 | 10 | no criterion — `Vion.Contracts` owns the record's wire form; `io.md` cites rather than restates |
 
@@ -239,10 +239,12 @@ None. Every test in the four rewritten suites maps to a row or to a criterion th
   (`sdk-surface-conventions.md` § 3). Verified with `git grep -n "Truncated(" -- '*.Test'` → no hits.
 - `2026-09-14`: `AC-IO-007.2` resolved on `Vion.Contracts` 11.0.1 rather than by rewording. The wire
   form turned out to be a **quoted** named literal, which no part of the design had stated: both
-  harnesses were arranging non-finite documents by formatting the `double`, which renders `∞`
-  unquoted and is not JSON, so three inbound rows still failed after the bump for a defect in the
-  arrangement rather than in the handler. Sibling sweep: done — both harnesses fixed together, and
-  `JsonSerializationShould` pins the spelling so neither can drift back.
+  harnesses were arranging non-finite documents by formatting the `double`, which under the
+  invariant culture renders bare `NaN`, `Infinity` and `-Infinity` — not JSON unquoted — so three
+  inbound rows still failed after the bump for a defect in the arrangement rather than in the handler.
+  Sibling sweep: done — both harnesses fixed together, and `JsonSerializationShould` pins the spelling
+  so neither can drift back. (Corrected 2026-09-15: this entry first said the formatting rendered the
+  Unicode infinity sign, which only a culture such as en-US does.)
 - `2026-09-14`: The amendment's item 2 asked for a regenerated `publicapi-manifest.json` whose diff
   shows the three added members, gated by `scripts/check.ps1`. Neither premise holds: the manifest
   has exactly two keys, `assemblies` and `types` (148 of them), so it records no members at all and
@@ -250,6 +252,14 @@ None. Every test in the four rewritten suites maps to a row or to a criterion th
   provably unchanged; and `check.ps1` has no manifest step — CI's snapshot bot regenerates it onto
   the pull request head. `node` is additionally not installed on this machine, so the generator could
   not have been run locally either way. Sibling sweep: N/A — one manifest, one generator.
+- `2026-09-15`: Review round, taken over by a second session. The operator reversed Reviewer's
+  question 1 — a non-finite analog value does not cross — so the named-literal option leaves
+  `JsonSerialization.DefaultOptions` and `JsonSerializationShould` is deleted with it: every one of its
+  rows existed to pin the two paths agreeing on a non-finite value, and the finite row pins nothing a
+  handler test does not. The harnesses' non-finite branches go too, since no row arranges such a
+  document through them any more. Sibling sweep: done — `git grep -n "AllowNamedFloatingPointLiterals\|NaN\|Infinity"`
+  over `Vion.Dale.Sdk*` and `docs/specs/` re-read; `testkit.md`'s `AC-TKIT-007.2` prose was the one
+  page outside `io.md` citing the value rule for non-finite values.
 
 ---
 
@@ -261,9 +271,10 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
   `Vion.Contracts.Hw` records through `HwJsonContext` instead of FlatBuffers. Topics, QoS, retain,
   correlation data and the `schema` user property are unchanged; no logic-block API moves, so a block
   author's source needs no edit.
-- **A non-finite analog value crosses as a quoted named literal** — `{"value":"NaN"}`,
-  `{"value":"Infinity"}`, `{"value":"-Infinity"}` — where every finite value crosses as a number.
-  Anything reading this wire by hand must accept both shapes for one field.
+- **A non-finite analog value does not cross the wire.** A block commanding `NaN` or an infinity on an
+  analog output publishes nothing, and the handler logs a warning naming the contract; a state document
+  spelling one as `"NaN"`, `"Infinity"` or `"-Infinity"` is refused like any other undecodable
+  document. Every analog value on this wire is a JSON number.
 - **`Vion.Contracts` floor is 11.0.1.** A consumer pinning `Vion.Contracts` directly below that gets
   a downgrade at restore, because a direct pin wins by nearest-wins.
 - **`ModbusFunctionCode` moved namespace** to `Vion.Contracts.Hw.Modbus`. It appears in
@@ -283,6 +294,8 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
 
 ## Spec delta (to distill)
 
+- MODIFIED AC-IO-007.2 -> docs/specs/io.md : THE SYSTEM SHALL carry any finite value its type can hold unaltered in both directions, rejecting and clamping none of them.
+- ADDED AC-IO-007.3 -> docs/specs/io.md : WHEN a block commands an analog output with a value that is not finite THE SYSTEM SHALL publish no command.
 - MODIFIED AC-IO-006.2 -> docs/specs/io.md : THE SYSTEM SHALL publish each command under a correlation identifier of its own, labelled with its payload type's schema name and the JSON content type, not retained, and carrying that payload type's encoding of the commanded value and nothing else.
 - MODIFIED AC-BIND-011.3 -> docs/specs/contracts.md : THE SYSTEM SHALL declare a published message's content type as the one its caller names.
 
@@ -297,4 +310,7 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
 - `T-003` (`AC-IO-006.2`, `AC-BIND-011.3`): distil the delta into `io.md` and `contracts.md`.
 - `T-004` (`AC-IO-007.2`): bump to `Vion.Contracts` 11.0.1, take the same `NumberHandling` on
   `JsonSerialization.DefaultOptions`, and pin that the two serialization paths agree on a non-finite
-  value in both directions.
+  value in both directions. Reverted by `T-005`.
+- `T-005` (`AC-IO-007.2`, `AC-IO-007.3`): take the named-literal option out of `DefaultOptions`, drop
+  a non-finite analog command in the handler, narrow the value rule to finite values, and pin the
+  `Vion.Contracts` release that takes the option out of `HwJsonContext`.

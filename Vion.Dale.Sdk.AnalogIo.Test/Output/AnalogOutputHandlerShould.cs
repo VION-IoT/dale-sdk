@@ -329,15 +329,12 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         [DataRow(0.0, DisplayName = "zero")]
         [DataRow(4.2, DisplayName = "an ordinary reading")]
         [DataRow(-12.5, DisplayName = "a negative reading")]
-        [DataRow(double.NaN, DisplayName = "not a number")]
-        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
-        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
         [DataRow(double.MaxValue, DisplayName = "the largest value the type holds")]
         [DataRow(double.Epsilon, DisplayName = "the smallest value above zero")]
         public void ForwardConfirmedValueUnaltered(double value)
         {
-            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps a
-            // non-finite reading or rounds an extreme one, so a HAL that reports one is reported to the block.
+            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps or
+            // rounds an extreme reading, so a HAL that reports one is reported to the block.
             _harness.Link(_sut);
 
             // Act
@@ -352,9 +349,6 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         [DataRow(0.0, DisplayName = "zero")]
         [DataRow(4.2, DisplayName = "an ordinary setpoint")]
         [DataRow(-12.5, DisplayName = "a negative setpoint")]
-        [DataRow(double.NaN, DisplayName = "not a number")]
-        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
-        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
         [DataRow(double.MaxValue, DisplayName = "the largest value the type holds")]
         [DataRow(double.Epsilon, DisplayName = "the smallest value above zero")]
         public void PublishCommandValueUnaltered(double value)
@@ -367,6 +361,23 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
 
             // Assert
             Assert.AreEqual(value, JsonSerializer.Deserialize(_harness.Published().Single().Payload!, HwJsonContext.Default.SetAoPayload)!.Value);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-007.3")]
+        [DataRow(double.NaN, DisplayName = "not a number")]
+        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
+        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
+        public void PublishNothingWhenCommandValueNotFinite(double value)
+        {
+            // Arrange
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(HandlerHarness.BlockContract, new SetAnalogOutput(value)));
+
+            // Assert
+            Assert.IsEmpty(_harness.Published());
         }
     }
 }
