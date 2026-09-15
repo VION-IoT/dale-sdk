@@ -3,17 +3,5 @@
     "commit": "",
     "pr": "",
     "sessionUrl": false
-  },
-  "enabledPlugins": {
-    "vion-git@vion": true,
-    "vion-improve@vion": true
-  },
-  "extraKnownMarketplaces": {
-    "vion": {
-      "source": {
-        "source": "directory",
-        "path": "../architecture"
-      }
-    }
   }
 }
