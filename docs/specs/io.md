@@ -249,10 +249,16 @@ that follows a successful one, arriving as `AC-IO-002.4`. Subscribing it would b
 behaviour: a new message type, a new arm, and a decision about what a block observes.
 
 `AC-IO-006.4` leaves the *block* nothing to observe, which is the criterion; it does not leave the
-*operator* nothing. The handler reports the first drop per logic-block contract at warning level, and
-stays quiet for that contract until a new configuration is linked — a block drives its output on every
-state change, so reporting each one would bury the log. Like `AC-IO-007.3`'s refusal, the line is a
-trace and not a criterion: nothing may depend on its text, its level or its once-ness.
+*operator* nothing. Once the handler holds a link map, it reports the first drop per logic-block
+contract at warning level, and stays quiet for that contract until the next link map arrives — a block
+drives its output on every state change, so reporting each one would bury the log. Before the first
+link map the drop is silent, because the runtime links the block actors before it links the contracts,
+so a block that writes from `Ready()` reaches the arm on a correctly mapped gateway and an unmapped one
+alike. None of this is what makes an absent mapping visible: a contract the configuration maps to
+nothing never reaches the handler at all, its write being dropped a layer earlier, and the warning an
+operator sees for it is the block's own at start-up (`contracts.md`, `AC-BIND-009.*`). Like
+`AC-IO-007.3`'s refusal, the line is a trace and not a criterion: nothing may depend on its text, its
+level or its once-ness.
 
 `AC-IO-006.5` states both halves of the cache deliberately. A handler is resolved per actor, so its
 cache lives as long as that actor and holds an entry for every contract it has ever commanded — the
