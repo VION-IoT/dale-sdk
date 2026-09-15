@@ -224,3 +224,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · publish.yml · The fourth review found a .csproj under docs/ or .claude/ still skipping the build after topology and .dale files were added; each round had added one more exception to a list of skipped directories, so the rule became a list of inert file kinds and everything else builds. (self) → codified: .github/workflows/publish.yml
 
 2026-09-15 · review · publish.yml · The fourth review found the snapshot comment and main's drift warning promising a heal on the next PR, which a PR that does not build never gives, and CLAUDE.md keeping its own list of style cases that missed a manual run. (self)
+
+2026-09-15 · review · publish.yml · The fifth review found the inert-change comment naming more .github/ files than its regex skips and promising no test input needs a rule, and CLAUDE.md still saying every push publishes; a sweep found the same claim in releasing.md, the CLI's CLAUDE.md and the modbus-smoke skill. (self)

@@ -151,7 +151,7 @@ Stop-Process -Id <the printed pid> -Force
 ## CI
 
 `Vion.Examples.ModbusTcp.IntegrationTest` runs the same two committed scenario files headlessly
-through `ScenarioRunner`, so `dotnet test Vion.Dale.Sdk.sln` guards the link policy on every push —
+through `ScenarioRunner`, so `dotnet test Vion.Dale.Sdk.sln` guards the link policy on every push that builds —
 against the published packages, which is what a release smoke should test. It adds about 35 s to the
 suite, nearly all of it the link-policy scenario's real waits. Select just it with:
 
