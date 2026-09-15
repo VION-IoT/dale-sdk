@@ -194,3 +194,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · dale-sdk-feedback · The review found the item shape's Origin line naming only a consumer report once engineering findings take that shape whole, and a one-word reflow stub in spec-process; walking a draft through the template should have caught the first. (self)
 
 2026-09-15 · brief · VION-224 · The brief listed a shared endpoint, two blocks mapped to one renamed triple, as a guard green before and after the fix; on origin/main that drive is refused like any renamed triple, so the case is a second red proof, not a guard. (self)
+
+2026-09-15 · review · VION-224 · The review found the HTTP renamed-endpoint test ignoring the advance response, so a refused advance would fail as the drive not reaching the block; WebControlEndpointsShould, the precedent it copied, asserts it. (self)

@@ -95,9 +95,10 @@ namespace Vion.Dale.DevHost.Test
 
             // Act
             var drive = await client.PostAsJsonAsync($"/api/contracts/drive/{handler}/{sp}/{svc}/{contract}", new { value = true });
-            await client.PostAsync("/api/control/advance?seconds=1", null);
+            var advance = await client.PostAsync("/api/control/advance?seconds=1", null);
 
             // Assert
+            Assert.AreEqual(HttpStatusCode.OK, advance.StatusCode);
             Assert.AreEqual("sp_io_a/svc_io_a/EnableInput", $"{sp}/{svc}/{contract}", "the fixture must address the renamed triple");
             Assert.AreEqual(HttpStatusCode.OK, drive.StatusCode, await drive.Content.ReadAsStringAsync());
             var enabled = JsonDocument.Parse(await client.GetStringAsync("/api/state/IoA/IsEnabled")).RootElement;
