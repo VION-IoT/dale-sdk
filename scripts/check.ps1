@@ -102,9 +102,10 @@ $invocation = @{
     'packed-msbuild-lint' = @{ Args = @(); RepoRootArg = $true }
     'sweep-residue-lint'  = @{ Args = @(); RepoRootArg = $true }
     'self-reference-lint' = @{ Args = @(); RepoRootArg = $true }
-    # The workflow passes the action no inputs, so its defaults apply; the script's own parameter
-    # defaults are the same values, and only the path needs anchoring to the repository.
-    'journal-lint'        = @{ Shared = 'actions/journal-lint/journal-lint.ps1'; Args = @('-Path', (Join-Path $RepoRoot 'docs/process-journal.md')) }
+    # The workflow passes the action no inputs and lets its default path apply, which resolves to
+    # this folder. Naming the folder here is the same run with the path anchored to the repository,
+    # so the check does not lint whatever journal the caller's working directory happens to hold.
+    'journal-lint'        = @{ Shared = 'actions/journal-lint/journal-lint.ps1'; Args = @('-Path', (Join-Path $RepoRoot 'docs/process-journal')) }
 }
 
 # Derive the gate list, in the workflow's own order, from the scripts its steps invoke and the

@@ -87,9 +87,16 @@ try {
     Write-Doc 'docs/changes/archive/old-pass.md' ($tableHead + @('| a | done | (this PR) |'))
     Write-Doc 'docs/retro/note.md' ($tableHead + @('| a | done | (this PR) |'))
     Write-Doc 'docs/snapshots/s.md' ($tableHead + @('| a | done | (this PR) |'))
-    Write-Doc 'docs/process-journal.md' ($tableHead + @('| a | done | (this PR) |'))
+    Write-Doc 'docs/process-journal/2026-01-01-chore-x.md' ($tableHead + @('| a | done | (this PR) |'))
     Write-Doc 'docs/changes/live.md' ($tableHead + @('| a | done | #209 |'))
     Expect 0 'Case 6 (history out of scope)' 'none self-referential'
+
+    # Case 6b: the journal folder's README is the header, revised like any other harness doc, so it
+    # is NOT excluded. A fragment beside it carrying the same defect pins where the boundary falls.
+    Reset-Tree
+    Write-Doc 'docs/process-journal/README.md' ($tableHead + @('| a | done | (this PR) |'))
+    Write-Doc 'docs/process-journal/2026-01-01-chore-x.md' ($tableHead + @('| a | done | (this PR) |'))
+    Expect 1 'Case 6b (the journal README is in scope)' '1 self-referential cell(s)'
 
     # Case 7: a fenced block that looks like a table is code, not a table -> 0.
     Reset-Tree

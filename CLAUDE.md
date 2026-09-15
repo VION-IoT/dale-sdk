@@ -33,7 +33,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
 | reviewing a change | `/vion-git:review` — it reads [`docs/review-checks.md`](docs/review-checks.md), this repo's named checks |
-| writing a process-journal line | `/vion-improve:journal` — the line goes in [`docs/process-journal.md`](docs/process-journal.md) |
+| writing a process-journal line | `/vion-improve:journal` — the line goes in this branch's fragment under [`docs/process-journal/`](docs/process-journal/), whose `README.md` states the grammar and the rule for finding it |
 | writing or editing a harness file — `CLAUDE.md`, a convention doc, a command, a skill, settings, the journal header | `/vion-improve:harness` |
 
 **Before writing new code, read similar existing files** in the same area and replicate their

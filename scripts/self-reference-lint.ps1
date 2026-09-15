@@ -32,8 +32,10 @@
   slices of its window.
 
   Out of scope, by repo-root-relative path: history and append-only logs (`docs/retro/`,
-  `docs/changes/archive/`), the generated snapshots, and the journal - each is written once and
-  never revised, so a self-reference in them is a fact about its own moment.
+  `docs/changes/archive/`), the generated snapshots, and the journal's dated fragments
+  (`docs/process-journal/` - every file there whose name starts with its date) - each is written
+  once and never revised, so a self-reference in them is a fact about its own moment. The folder's
+  `README.md` stays in scope: it is a header that gets revised, not an entry.
 
   Scans the tracked files (`git ls-files`); with -RepoRoot outside a git repo it walks the tree,
   skipping bin/, obj/, node_modules/ and .git/ (the self-test's path).
@@ -50,8 +52,10 @@ if (-not $RepoRoot) {
 }
 $RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
 
-# Written once and never revised: a self-reference there names its own moment correctly.
-$outOfScopeRx = '^docs/(retro|changes/archive|snapshots)/|^docs/process-journal\.md$|(^|/)(bin|obj|node_modules|\.git)/'
+# Written once and never revised: a self-reference there names its own moment correctly. A journal
+# fragment is matched by its leading date, which no other name in the folder starts with, so the
+# README - revised like any other header - is left in scope.
+$outOfScopeRx = '^docs/(retro|changes/archive|snapshots)/|^docs/process-journal/[0-9]|(^|/)(bin|obj|node_modules|\.git)/'
 # The cell must BE the pointer. Markdown decoration and the punctuation a pointer is written
 # inside are stripped first, so `**(this PR)**` and `(this PR)` reduce to the same phrase and a
 # cell that merely mentions one does not reduce to anything.

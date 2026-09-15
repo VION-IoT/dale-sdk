@@ -52,3 +52,5 @@
 2026-09-15 · review · upload-libraries.yml · The review found the merge note asserting a fourth, ungated production approval for Vion.Diagnostics with no file:line behind it and without saying the library carries no I/O package; review check D10 asks for the mechanism. (self)
 
 2026-09-15 · gate · Vion.Dale.Plugin.Test · The /check test gate went red on two of 40 plugin tests with the same Application Control block, on assemblies emitted into TEMP under a fresh name each run, so it recurs at 2, 2 then 1 failure; the § 8 rule covered build output only. (self) → codified: docs/testing-conventions.md
+
+2026-09-16 · review · check.ps1 · The journal-lint comment was reworded to state shared-workflows' default -Path as the pre-migration file name, a claim about another repo that no gate here can keep true and that this brief's own process-journal.md sweep then flagged; comment-conventions.md asks a mechanism comment to be cheap to verify. (self)
