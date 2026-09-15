@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Linq;
 
@@ -77,7 +76,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         ///     the two I/O projects it probes, plus what they pull in by <c>ProjectReference</c>. That set is
         ///     exactly the blast radius of the 0.11.1 clobber. The other probed packages are not in it — they
         ///     run through the same <see cref="Build" /> helper and its scratch redirect, which is what the
-        ///     guard proves; nothing here fingerprints their outputs.
+        ///     guard proves; nothing here scans their outputs.
         /// </summary>
         private static readonly string[] ProbeBuildGraph =
         [
@@ -175,7 +174,9 @@ namespace Vion.Dale.Sdk.Generators.Test
             // Arrange / Act
             var build = Results[IoProbe.Name];
 
-            // Assert — on the lines attributed to this project: the set's exit code is shared by both rows
+            // Assert
+            // The set's exit code is not asserted: both projects share it, so one project's DALE046 would pass the
+            // other project's row.
             Assert.IsTrue(build.LinesOf(projectName).Any(line => line.Contains("error DALE046")),
                           $"The probe build of {projectName} reported no DALE046, so the Dale analyzers did not fail it.\n{build.Output}");
         }
@@ -291,40 +292,39 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-ANLZ-018.4")]
         public void LeaveBuildOutputsOfDependencyGraphUntouched()
         {
-            // Arrange / Act / Assert
+            // Arrange
             // The 0.11.1 regression, pinned. CI builds the solution stamped, runs the tests, then packs the
             // Release outputs it already built — so a test that shells an unstamped build of any project in
             // this graph replaces those outputs with 0.0.0.0 ones between the stamp and the pack.
             //
-            // Compare bytes, not versions: locally nothing is stamped (Directory.Build.props falls back to
-            // 0.0.0-local), so a clobbered assembly and an intact one carry the same 0.0.0.0 and a version
-            // comparison would pass here while CI went on shipping the wrong bytes. That asymmetry is exactly
-            // why the clobber stayed invisible until the packages were on nuget.org. Assembly fingerprints
-            // carry the version as well, so a failure still names the stamp that was lost.
-            //
-            // The fingerprints bracket only this test's own builds, run here rather than with the others. A
-            // `dotnet test` of the solution that also builds it writes these same outputs while the tests run,
-            // and a bracket held open across every set's build catches that build instead of this one.
-            var before = FingerprintProbeBuildGraph();
-            Build(GuardProbe);
-            var guardOrdinary = Build(GuardOrdinary);
-            var after = FingerprintProbeBuildGraph();
+            // The guard's builds carry a version nothing else builds with, and what is judged is whether that
+            // version reached the repository's outputs. A byte comparison of the outputs before and after cannot
+            // tell these builds' writes from those of a `dotnet test` of the solution that builds the same
+            // projects while the tests run; no other build can write this version.
+            var stamp = Encoding.UTF8.GetBytes(WiringGuardVersion);
 
-            // The probe half fails before either probed assembly exists, so only the ordinary half can show the
-            // guard's builds reached the compile.
+            // Act
+            var guardProbe = Build(GuardProbe);
+            var guardOrdinary = Build(GuardOrdinary);
+
+            // Assert
+            // Each half shows in its own way that it reached the compile: the probe half by the DALE046 it fails
+            // on, the ordinary half by the assemblies it produced. Those assemblies carrying the stamp is what
+            // makes its absence from the repository mean something.
+            Assert.IsTrue(ProbedProjects.All(project => guardProbe.LinesOf(project).Any(line => line.Contains("error DALE046"))),
+                          $"The guard's probe build did not reach the compile of both probed projects.\n{guardProbe.Output}");
             Assert.IsTrue(ProbedProjects.All(guardOrdinary.Built),
                           $"The guard's ordinary build did not produce the probed projects, so there was nothing to guard.\n{guardOrdinary.Output}");
+            Assert.IsNotEmpty(FilesCarrying(stamp, [guardOrdinary.OutputDirectory]),
+                              $"The guard's own outputs do not carry {WiringGuardVersion}, so its absence from the repository proves nothing.");
 
-            var disturbed = after.Where(entry => !before.TryGetValue(entry.Key, out var fingerprint) || fingerprint != entry.Value)
-                                 .Select(entry => $"{entry.Key}\n    before: {(before.TryGetValue(entry.Key, out var was) ? was : "(did not exist)")}\n    after:  {entry.Value}")
-                                 .Concat(before.Keys.Where(path => !after.ContainsKey(path)).Select(path => $"{path}\n    deleted"))
-                                 .OrderBy(line => line, StringComparer.Ordinal)
-                                 .ToList();
+            var leaked = FilesCarrying(stamp, ProbeBuildGraph.SelectMany(project => new[] { "bin", "obj" }.Select(output => Path.Combine(RepositoryRoot(), project, output))));
 
-            Assert.IsEmpty(disturbed,
+            Assert.IsEmpty(leaked,
                            "The analyzer-wiring builds wrote into the repository's own build outputs. Those are what `dotnet pack` ships, " +
-                           "and these builds carry no /p:Version — this is how 0.11.1 shipped lib assemblies stamped 0.0.0.0. Send the " +
-                           $"child build somewhere disposable instead.\n{string.Join("\n", disturbed)}");
+                           "and a child build carries none of CI's /p:Version — this is how 0.11.1 shipped lib assemblies stamped 0.0.0.0. Send " +
+                           "the child build somewhere disposable instead. A file left by an earlier leaking run stays until its project is " +
+                           $"rebuilt.\n{string.Join("\n", leaked)}");
         }
 
         private static void AssertDale014InOwnNamespace(BuildResult build, string projectName, string declaredNamespace)
@@ -421,9 +421,17 @@ namespace Vion.Dale.Sdk.Generators.Test
             return new BuildResult(process.ExitCode, output.ToString(), projectPaths, Path.Combine(directory, "bin"));
         }
 
+        /// <summary>A value MSBuild reads literally, in an item list or a <c>-p:</c> switch, whatever path it names.</summary>
         private static string EscapeForMsBuild(string value)
         {
-            return value.Replace("%", "%25").Replace(";", "%3B").Replace("$", "%24").Replace("@", "%40").Replace("'", "%27").Replace("*", "%2A").Replace("?", "%3F");
+            return value.Replace("%", "%25")
+                        .Replace(";", "%3B")
+                        .Replace(",", "%2C")
+                        .Replace("$", "%24")
+                        .Replace("@", "%40")
+                        .Replace("'", "%27")
+                        .Replace("*", "%2A")
+                        .Replace("?", "%3F");
         }
 
         /// <summary>
@@ -433,42 +441,20 @@ namespace Vion.Dale.Sdk.Generators.Test
         /// </summary>
         private static string MsBuildDirectory(string scratch, string leaf)
         {
-            return Path.Combine(scratch, leaf).Replace('\\', '/') + '/';
+            return EscapeForMsBuild(Path.Combine(scratch, leaf).Replace('\\', '/')) + '/';
         }
 
-        private static Dictionary<string, string> FingerprintProbeBuildGraph()
+        /// <summary>
+        ///     Every file under <paramref name="directories" /> whose bytes contain <paramref name="stamp" />: an assembly
+        ///     carries its informational version as UTF-8, and the generated <c>AssemblyInfo.cs</c> carries it as text.
+        /// </summary>
+        private static List<string> FilesCarrying(byte[] stamp, IEnumerable<string> directories)
         {
-            var fingerprints = new Dictionary<string, string>(StringComparer.Ordinal);
-
-            var outputDirectories = ProbeBuildGraph.SelectMany(project => new[] { "bin", "obj" }.Select(output => Path.Combine(RepositoryRoot(), project, output)))
-                                                   .Where(Directory.Exists);
-
-            foreach (var file in outputDirectories.SelectMany(directory => Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)))
-            {
-                fingerprints[file] = Fingerprint(file);
-            }
-
-            return fingerprints;
-        }
-
-        private static string Fingerprint(string file)
-        {
-            using var stream = File.OpenRead(file);
-            var content = Convert.ToHexString(SHA256.HashData(stream))[..16];
-
-            return file.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? $"sha={content} assemblyVersion={AssemblyVersionOf(file)}" : $"sha={content}";
-        }
-
-        private static string AssemblyVersionOf(string file)
-        {
-            try
-            {
-                return AssemblyName.GetAssemblyName(file).Version?.ToString() ?? "none";
-            }
-            catch (BadImageFormatException)
-            {
-                return "not a managed assembly";
-            }
+            return directories.Where(Directory.Exists)
+                              .SelectMany(directory => Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+                              .Where(file => File.ReadAllBytes(file).AsSpan().IndexOf(stamp) >= 0)
+                              .OrderBy(file => file, StringComparer.Ordinal)
+                              .ToList();
         }
 
         private static string ProjectFile(string projectName)
