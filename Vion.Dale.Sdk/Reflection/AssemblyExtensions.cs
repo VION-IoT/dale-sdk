@@ -89,8 +89,8 @@ namespace Vion.Dale.Sdk.Reflection
             /// </remarks>
             private static bool AssemblyCouldContainType(Assembly assembly, Type derivedFrom, string derivedFromAssemblyName)
             {
-                return !assembly.IsDynamic &&
-                       (assembly == derivedFrom.Assembly || assembly.GetReferencedAssemblies().Any(assemblyName => assemblyName.Name == derivedFromAssemblyName));
+                return !assembly.IsDynamic && (assembly == derivedFrom.Assembly ||
+                                               assembly.GetReferencedAssemblies().Any(assemblyName => assemblyName.Name == derivedFromAssemblyName));
             }
         }
     }

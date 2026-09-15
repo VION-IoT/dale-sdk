@@ -76,7 +76,8 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
             // time, which is why the factory is driven directly rather than through a block's configuration.
             var coreLibrary = typeof(object).Assembly;
             var declaringBuilder = new PersistedAssemblyBuilder(new AssemblyName($"Declaring{Guid.NewGuid():N}"), coreLibrary);
-            var contractType = declaringBuilder.DefineDynamicModule("Declaring").DefineType("IRuntimeContract", TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
+            var contractType = declaringBuilder.DefineDynamicModule("Declaring")
+                                               .DefineType("IRuntimeContract", TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
             contractType.CreateType();
             var absentBuilder = new PersistedAssemblyBuilder(new AssemblyName($"Absent{Guid.NewGuid():N}"), coreLibrary);
             var absentBase = absentBuilder.DefineDynamicModule("Absent").DefineType("AbsentBase", TypeAttributes.Public);
