@@ -144,3 +144,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · brief · hw-contracts-are-json · The amendment asked for a regenerated publicapi manifest showing three added members, gated by check.ps1; the manifest is type-level with only assemblies and types keys, this change declares no new [PublicApi] type, and check.ps1 has no manifest step. (self)
 
 2026-09-14 · gate · publicapi-manifest · scripts/generate-api-reference.cjs needs node, absent on this machine, so the manifest cannot be regenerated locally at all; CI's snapshot bot on the pull request head is the only path. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The review found the publish records and helper defaulting the content type to JSON, which relabels dale's FlatBuffer Remote/Func publish that omits it and went against the spec's leave-the-default-alone; asked instead for no default at all. CLAUDE.md's decision-nobody-named STOP should have surfaced it.

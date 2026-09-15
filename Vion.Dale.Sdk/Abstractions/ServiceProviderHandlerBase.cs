@@ -179,10 +179,7 @@ namespace Vion.Dale.Sdk.Abstractions
         /// <param name="topic">The full MQTT topic to publish to.</param>
         /// <param name="payload">The serialized payload bytes.</param>
         /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
-        /// <param name="contentType">
-        ///     The MQTT content type (e.g., <c>MessageMimeTypes.Json</c>, <c>MessageMimeTypes.FlatBuffer</c>).
-        ///     Defaults to <c>MessageMimeTypes.Json</c> if not specified.
-        /// </param>
+        /// <param name="contentType">The MQTT content type, such as <c>MessageMimeTypes.Json</c> or <c>MessageMimeTypes.FlatBuffer</c>.</param>
         /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
         /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
         /// <param name="retain">Whether the message should be retained by the broker.</param>
@@ -190,20 +187,16 @@ namespace Vion.Dale.Sdk.Abstractions
         protected Guid Publish(string topic,
                                byte[] payload,
                                string schemaName,
-                               string? contentType = null,
+                               string contentType,
                                Guid? correlationId = null,
                                string? responseTopic = null,
                                bool retain = false)
         {
             var id = correlationId ?? Guid.NewGuid();
             var schema = new MqttUserProperty(MqttUserProperties.Schema.Name, schemaName);
-
-            // Positional arguments bypass the record's own default, so an omitted content type used to reach
-            // the broker as none at all — against this method's documentation, against the record, and
-            // against every handler that passes one explicitly.
             var mqttMessage = new PublishMqttMessage(topic,
                                                      payload,
-                                                     contentType ?? MessageMimeTypes.Json,
+                                                     contentType,
                                                      id.ToByteArray(),
                                                      responseTopic,
                                                      [schema],

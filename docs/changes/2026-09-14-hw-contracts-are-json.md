@@ -35,8 +35,8 @@ the label is judged before the decode rather than before the verifier), `AC-IO-0
 paragraph, the mirror's list of legitimate differences (the two buffer-size literals are gone) and
 the test-discipline paragraph.
 
-`docs/specs/contracts.md` carries `AC-BIND-011.3`: the default content type a publish declares when
-the caller names none flips from FlatBuffer to JSON.
+`docs/specs/contracts.md` carries `AC-BIND-011.3`: a publish declares the content type its caller
+names, and nothing defaults it.
 
 `docs/specs/modbus.md` needs no edit. It states the RTU handler's routing, expiry and receipt rules
 and is silent on the encoding — verified by `git grep -n "MQTT|wire|Contracts" -- docs/specs/modbus.md`,
@@ -48,11 +48,16 @@ whose hits are all about the transport and the socket, never the payload format.
   FlatBuffers fallback. Rests on the author-sourced claim that `hw/*` FlatBuffers have never been in
   productive use; unverifiable from any repository, and the protection is coordinated majors plus
   profile pinning.
-- `D2` — **Content type explicit *and* the default flipped.** Every `hw/*` publish goes through
-  `PublishJson`, which names `MessageMimeTypes.Json` at the one site serving all five handlers, so no
-  `hw/*` publish rides a default; and the three defaults flip to JSON anyway, because after this cut
-  FlatBuffers is not a wire this SDK's provider handlers speak and a FlatBuffer default is a trap for
-  the next handler.
+- `D2` — **The content type is a required argument, with no default anywhere.** Every `hw/*` publish
+  goes through `PublishJson`, which names `MessageMimeTypes.Json` at the one site serving all five
+  handlers. `ServiceProviderHandlerBase.Publish` takes a non-null `contentType`, and
+  `PublishMqttMessage` / `PublishMqttMessageRequest` take `Payload` and `ContentType` without
+  defaults — `Payload` loses its default because C# puts every optional parameter after the required
+  ones — with `ContentType` still nullable, so a message with no body passes `null`. A default of
+  either value relabels whatever a caller that omits it publishes: dale's `Remote`/`Func` publish
+  (`RemoteFunctionInterfaceProxyHandler.cs:102` at dale `a846619`) sends FlatBuffer bytes through the
+  record without naming a content type. Operator decision 2026-09-15, in review, replacing the
+  flipped default the first round took.
 - `D3` — **`MessageMimeTypes.FlatBuffer` and `Google.FlatBuffers` are retained.** dale↔dale
   `Remote`/`Func` still uses them. `GetFlatBufferPayload` stays on both message types as published
   surface with no in-repo caller left — a third-party provider-face author may still decode one, and
@@ -175,7 +180,7 @@ content type. Rows are the observable behaviours the cut changes or newly reache
 |---|---|---|---|---|---|
 | 1 | WHEN a block sets an output THE SYSTEM SHALL publish a JSON document carrying the commanded value alone. | `DigitalOutputHandler.cs:88`, `AnalogOutputHandler.cs:88` | `PublishCommandPayloadEncodingValueAlone` | intended | the wire the HALs read |
 | 2 | THE SYSTEM SHALL declare a command's content type as JSON. | `ServiceProviderHandlerBase.cs:235` | `PublishCommandLabelledWithPayloadSchemaAndContentType` | intended | `AC-IO-006.2` |
-| 3 | THE SYSTEM SHALL declare a published message's content type as JSON where the caller names none. | `ServiceProviderHandlerBase.cs:205`, `Mqtt/ActorMessages.cs:92,124` | `DeclareJsonContentTypeWhereCallerNamesNone` | intended | `AC-BIND-011.3`, inverted |
+| 3 | THE SYSTEM SHALL declare a published message's content type as the one its caller names. | `ServiceProviderHandlerBase.cs:190`, `Mqtt/ActorMessages.cs:92,124` | `ProviderPublishShould.DeclareContentTypeCallerNames` | intended | `AC-BIND-011.3`, the default removed |
 | 4 | WHEN a state document cannot be decoded THE SYSTEM SHALL drop it, delivering nothing to any block. | the four handlers' `catch` arms | `ForwardNothingWhenPayloadUndecodable` | intended | `AC-IO-005.2`, same rule, wider reach |
 | 5 | WHEN a state document's value is of a type the member does not hold THE SYSTEM SHALL drop it. | same | `ForwardNothingWhenPayloadUndecodable` rows 6–7 | intended | newly reachable; FlatBuffers accepted it |
 | 6 | WHEN a state document carries no value member THE SYSTEM SHALL deliver the member's default. | `System.Text.Json` parameterized-constructor binding | none — stated in `io.md` prose | out-of-spec | unchanged from FlatBuffers' absent-field default; the wire cannot distinguish it from a publisher that meant the default |
@@ -196,7 +201,7 @@ have made dale write documents the AOT HALs cannot read. `11.0.1` carries it.
 | Row | Criterion |
 |---|---|
 | 1, 2 | `AC-IO-006.2` (MODIFIED — content type) |
-| 3 | `AC-BIND-011.3` (MODIFIED — default) |
+| 3 | `AC-BIND-011.3` (MODIFIED — no default) |
 | 4, 5 | `AC-IO-005.2` (text unchanged; prose rewritten — the reach widened, the rule did not) |
 | 6, 7 | no criterion — stated in `io.md`'s `AC-IO-007.2` prose; neither is a rule this area declares |
 | 8 | `AC-IO-007.2` — text untouched, proven by the three analog rows it already had |
@@ -264,9 +269,11 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
 - **`ModbusFunctionCode` moved namespace** to `Vion.Contracts.Hw.Modbus`. It appears in
   `Vion.Dale.Sdk.Modbus.Rtu` *signatures*, so anything compiling against that package changes a
   `using`. No member renamed, none renumbered.
-- **The default MQTT content type is now JSON** on `ServiceProviderHandlerBase.Publish`,
-  `PublishMqttMessage` and `PublishMqttMessageRequest`. A hand-written handler relying on the old
-  FlatBuffer default now publishes `application/json` unless it names a content type.
+- **The MQTT content type is a required argument** on `ServiceProviderHandlerBase.Publish`,
+  `PublishMqttMessage` and `PublishMqttMessageRequest`, and `Payload` is required on the two records.
+  Code that relied on the old FlatBuffer default stops compiling rather than changing its label; it
+  names the content type it publishes, or `null` for a message with no body. dale's own publishes
+  through the records are such code.
 - **A logic-block library must be rebuilt against `Vion.Dale.Sdk.DigitalIo`, `.AnalogIo` and
   `.Modbus.Rtu` 0.14.0** before a JSON HAL is deployed where it runs: those packages reach a gateway
   as `[DaleSharedAssembly]` plugins pinned by the library, not by dale, so a stale library keeps the
@@ -277,7 +284,7 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
 ## Spec delta (to distill)
 
 - MODIFIED AC-IO-006.2 -> docs/specs/io.md : THE SYSTEM SHALL publish each command under a correlation identifier of its own, labelled with its payload type's schema name and the JSON content type, not retained, and carrying that payload type's encoding of the commanded value and nothing else.
-- MODIFIED AC-BIND-011.3 -> docs/specs/contracts.md : THE SYSTEM SHALL declare a published message's content type as JSON where the caller names none.
+- MODIFIED AC-BIND-011.3 -> docs/specs/contracts.md : THE SYSTEM SHALL declare a published message's content type as the one its caller names.
 
 ---
 

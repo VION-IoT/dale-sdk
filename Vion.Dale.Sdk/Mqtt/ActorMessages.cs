@@ -88,8 +88,8 @@ namespace Vion.Dale.Sdk.Mqtt
     /// </summary>
     public readonly record struct PublishMqttMessage(
         string Topic,
-        byte[]? Payload = null,
-        string? ContentType = MessageMimeTypes.Json,
+        byte[]? Payload,
+        string? ContentType,
         byte[]? CorrelationData = null,
         string? ResponseTopic = null,
         List<MqttUserProperty>? UserProperties = null,
@@ -120,8 +120,8 @@ namespace Vion.Dale.Sdk.Mqtt
     /// </summary>
     public readonly record struct PublishMqttMessageRequest(
         string Topic,
-        byte[]? Payload = null,
-        string? ContentType = MessageMimeTypes.Json,
+        byte[]? Payload,
+        string? ContentType,
         byte[]? CorrelationData = null,
         string? ResponseTopic = null,
         List<MqttUserProperty>? UserProperties = null,

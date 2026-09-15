@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
@@ -178,8 +179,8 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
             _actionPaths = actionPaths ?? ["/state"];
         }
 
-        /// <summary>Publishes with whatever content type the caller passes, so the default is observable.</summary>
-        public Guid PublishProbe(string? contentType = null, Guid? correlationId = null, string? responseTopic = null, bool retain = false)
+        /// <summary>Publishes with whatever content type the caller passes.</summary>
+        public Guid PublishProbe(string contentType = MessageMimeTypes.Json, Guid? correlationId = null, string? responseTopic = null, bool retain = false)
         {
             return Publish("probe/topic",
                            [1, 2, 3],

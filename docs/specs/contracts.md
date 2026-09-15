@@ -317,15 +317,14 @@ wildcard receives frames for every endpoint of its kind on the installation, map
   SHALL report the correlation identifier used.
 - `AC-BIND-011.2` (Ubiquitous): THE SYSTEM SHALL mint a correlation identifier where the caller
   supplies none, reuse the one it supplies, and carry it as its sixteen raw bytes.
-- `AC-BIND-011.3` (Ubiquitous): THE SYSTEM SHALL declare a published message's content type as
-  JSON where the caller names none.
+- `AC-BIND-011.3` (Ubiquitous): THE SYSTEM SHALL declare a published message's content type as the
+  one its caller names.
 - `AC-BIND-011.4` (Ubiquitous): THE SYSTEM SHALL serialize a JSON publish with camel-cased names and
   string-named enum values, and declare its content type as JSON.
 
-`AC-BIND-011.3`'s value is JSON because JSON is the only wire this SDK's provider handlers speak: the
-`hw/*` handlers name it explicitly at every publish, and a default naming anything else would be a
-trap for the next handler rather than a convenience. The three places that carry it — the publish
-helper and the two publish message records — are one decision and move together.
+`AC-BIND-011.3` has no fallback. The publish helper and both publish message records take the content
+type as a required argument, so a publish cannot carry a label its caller did not choose; a message
+with no body passes `null`.
 
 `AC-BIND-011.4` is the shape a caller gets without supplying options. A caller that supplies its own
 source-generated type metadata instead gets that metadata's naming policy and converters, which is how
