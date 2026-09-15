@@ -272,7 +272,7 @@ jobs:
       # steps below sees the API-surface change. On main this only WARNS: main is branch-protected
       # (PRs + required checks only), so the bot cannot push to it — and doesn't need to, since
       # every change reaches main via a PR whose run refreshed the snapshots. Residual drift
-      # (generator nondeterminism) self-heals on the next PR.
+      # (generator nondeterminism) self-heals on the next PR that builds.
       - name: Regenerate snapshots
         id: snapshots
         if: steps.version.outputs.is_release == 'false' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
@@ -322,7 +322,7 @@ jobs:
       - name: Report snapshot drift on main (warn only — branch protection forbids bot pushes)
         if: steps.snapshots.outputs.drift == 'true' && github.event_name == 'push'
         run: |
-          echo "::warning::Docs snapshots drifted on main. They self-heal with the next PR's auto-commit; to fix sooner, regenerate them in any PR."
+          echo "::warning::Docs snapshots drifted on main. They self-heal with the auto-commit of the next PR that builds; to fix sooner, regenerate them in any PR."
           git diff --cached --stat
           git reset --hard HEAD
 

@@ -222,3 +222,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · CLAUDE.md · The third review found cleanup-code.ps1 pointing at a CLAUDE.md sentence that omitted a style-input change running full, and a publish.yml comment naming a snapshot drift cause no non-build change can produce. (self)
 
 2026-09-15 · review · publish.yml · The fourth review found a .csproj under docs/ or .claude/ still skipping the build after topology and .dale files were added; each round had added one more exception to a list of skipped directories, so the rule became a list of inert file kinds and everything else builds. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The fourth review found the snapshot comment and main's drift warning promising a heal on the next PR, which a PR that does not build never gives, and CLAUDE.md keeping its own list of style cases that missed a manual run. (self)
