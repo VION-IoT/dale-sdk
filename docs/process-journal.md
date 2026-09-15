@@ -200,3 +200,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · CLAUDE.md · The CI style scope was written into CLAUDE.md twice and again into the cleanup command; the harness pass cut it to the one sentence in CLAUDE.md. (self)
 
 2026-09-15 · review · publish.yml · The review found drift-and-docs pushing its snapshot commit while style and verify-packages still ran; that push starts a run which cancels the first and passes ci with every job skipped, so a style failure never reached the head. The ci step was tested on one run's results only. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The review found the changes job diffing with rename detection on, so moving a compiled file into docs/ or scripts/ listed only its new path and skipped the build. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The review found the changes job skipping the build for a set-version.ps1 edit a solution test reads, and style on main for a project-file change; the scope was tested against past commits holding neither. (self) → codified: .github/workflows/publish.yml
