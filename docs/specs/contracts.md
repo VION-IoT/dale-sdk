@@ -321,16 +321,17 @@ wildcard receives frames for every endpoint of its kind on the installation, map
   one its caller names.
 - `AC-BIND-011.4` (Ubiquitous): THE SYSTEM SHALL serialize a JSON publish with camel-cased names and
   string-named enum values, and declare its content type as JSON.
+- `AC-BIND-011.5` (Ubiquitous): THE SYSTEM SHALL serialize a JSON publish through the type metadata its
+  caller supplies, in place of the shared options.
 
 `AC-BIND-011.3` has no fallback. The publish helper and both publish message records take the content
 type as a required argument, so a publish cannot carry a label its caller did not choose; a message
 with no body passes `null`.
 
-`AC-BIND-011.4` is the shape a caller gets without supplying options. A caller that supplies its own
-source-generated type metadata instead gets that metadata's naming policy and converters, which is how
-the `hw/*` handlers share one serialization path with the hardware-abstraction layers rather than
-maintaining a second; the wire it produces for those payloads is the same, so the choice is about
-where the policy is declared and not about what reaches the broker.
+`AC-BIND-011.4` is the shape a caller gets without supplying type metadata. `AC-BIND-011.5` and its
+reading counterpart `AC-BIND-012.8` are what a caller gets with it: that metadata's naming policy and
+converters and nothing of the shared options, which is how the `hw/*` handlers share one serialization
+path with the hardware-abstraction layers.
 
 ## Reading a topic
 
@@ -351,6 +352,8 @@ where the policy is declared and not about what reaches the broker.
   correlation data through actor message headers, encoding the correlation data as text, and SHALL
   carry neither where the message did not have both.
 - `AC-BIND-012.7` (Event-driven): WHEN the installation topic is read before it has been assigned THE SYSTEM SHALL refuse the read. GAP: the configuration is process-wide and write-once, so no test in a shared test assembly can observe the unassigned state.
+- `AC-BIND-012.8` (Ubiquitous): THE SYSTEM SHALL read a JSON payload through the type metadata its
+  caller supplies, in place of the shared options.
 
 `AC-BIND-012.2` is the difference between a handler that logs a topic it cannot route and one whose
 message arm dies with an exception nothing documents. The parse runs in the sealed dispatch, before a

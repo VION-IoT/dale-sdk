@@ -110,7 +110,11 @@ the encoding before, so nothing pinned the outbound request at all.
    `DefaultOptions` reddens nothing, so the rule is not observable and minting it would mint a
    criterion no mutation can reach (`spec-process.md` § Implement). It is stated in `contracts.md`'s
    prose under `AC-BIND-011.4` instead.
-   **OUTCOME: accepted, no criterion minted.**
+   **OUTCOME: first accepted with no criterion; reversed 2026-09-15 in review — `AC-BIND-011.5` and
+   `AC-BIND-012.8` minted.** The argument held only for the `hw/*` records, whose naming matches the
+   shared options. Both overloads are public surface a handler author calls with metadata of their own,
+   and a test context with a snake-case naming policy makes the fallback mutation observable on the
+   publish and on the read alike.
 3. **Does `AC-IO-005.2` still say the right thing?** Its EARS text is encoding-agnostic — "a payload
    that is not one the schema accepts" — and stays. What changed is its *reach*: JSON refuses a value
    of the wrong type, which FlatBuffers accepted whenever the layouts agreed. The prose said that gap
@@ -187,7 +191,7 @@ content type. Rows are the observable behaviours the cut changes or newly reache
 | 6 | WHEN a state document carries no value member THE SYSTEM SHALL deliver the member's default. | `System.Text.Json` parameterized-constructor binding | none — stated in `io.md` prose | out-of-spec | unchanged from FlatBuffers' absent-field default; the wire cannot distinguish it from a publisher that meant the default |
 | 7 | THE SYSTEM SHALL carry a signed zero to the far side. | probe: `{"value":-0}` round-trips | none | out-of-spec | an improvement that falls out of the encoding; `AC-IO-007.2` already covers "unaltered" |
 | 8 | WHEN a block commands an analog output with a value that is not finite THE SYSTEM SHALL publish no command. | `AnalogOutputHandler.cs:91` | `AnalogOutputHandlerShould.PublishNothingWhenCommandValueNotFinite` | intended | `AC-IO-007.3`; JSON has no number for it |
-| 9 | THE SYSTEM SHALL serialize a payload through caller-supplied type metadata when given it. | `ServiceProviderHandlerBase.cs:246` | exercised by every handler test | out-of-spec | no reachable mutation — the wire is identical either way; see Reviewer's question 2 |
+| 9 | THE SYSTEM SHALL serialize a publish, and read a payload, through caller-supplied type metadata when given it. | `ServiceProviderHandlerBase.cs:243-251`, `MqttMessageExtensions.cs:57-67`, `ServiceProviderMqttMessage.cs:105-108` | `ProviderPublishShould.SerializeJsonPayloadThroughSuppliedTypeMetadata`, `ServiceProviderMqttMessageShould.ReadJsonPayloadThroughSuppliedTypeMetadata` | intended | reachable with metadata whose policy differs from the shared options; see Reviewer's question 2 |
 | 10 | THE SYSTEM SHALL name the Modbus function and response codes by their member names on the wire. | `ModbusFunctionCode.cs`'s own `[JsonConverter]` | `ModbusRtuHandlerShould.PublishRequestAsLabelledJsonDocument` for the function code; the literal-JSON response arrangements for the response code | intended | the record's contract, carried not specified here |
 | 11 | THE SYSTEM SHALL publish each Modbus RTU request as its payload record's JSON document, labelled with its schema name and the JSON content type. | `ModbusRtuHandler.cs:223-229`, `:388-394` | `ModbusRtuHandlerShould.PublishRequestAsLabelledJsonDocument` | intended | nothing asserted the request wire in either encoding |
 
@@ -206,7 +210,7 @@ is always finite.
 | 4, 5 | `AC-IO-005.2` (text unchanged; prose rewritten — the reach widened, the rule did not) |
 | 6, 7 | no criterion — stated in `io.md`'s `AC-IO-007.2` prose; neither is a rule this area declares |
 | 8 | `AC-IO-007.3` (ADDED); `AC-IO-007.2` (MODIFIED — finite values only) |
-| 9 | no criterion — no reachable mutation (Reviewer's question 2) |
+| 9 | `AC-BIND-011.5`, `AC-BIND-012.8` (ADDED) |
 | 10 | no criterion — `Vion.Contracts` owns the record's wire form; `io.md` cites rather than restates |
 | 11 | `AC-MODB-015.10` (ADDED) |
 
@@ -305,6 +309,8 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
 - MODIFIED AC-IO-007.2 -> docs/specs/io.md : THE SYSTEM SHALL carry any finite value its type can hold unaltered in both directions, rejecting and clamping none of them.
 - ADDED AC-IO-007.3 -> docs/specs/io.md : WHEN a block commands an analog output with a value that is not finite THE SYSTEM SHALL publish no command.
 - MODIFIED AC-IO-006.2 -> docs/specs/io.md : THE SYSTEM SHALL publish each command under a correlation identifier of its own, labelled with its payload type's schema name and the JSON content type, not retained, and carrying that payload type's encoding of the commanded value and nothing else.
+- ADDED AC-BIND-011.5 -> docs/specs/contracts.md : THE SYSTEM SHALL serialize a JSON publish through the type metadata its caller supplies, in place of the shared options.
+- ADDED AC-BIND-012.8 -> docs/specs/contracts.md : THE SYSTEM SHALL read a JSON payload through the type metadata its caller supplies, in place of the shared options.
 - MODIFIED AC-BIND-011.3 -> docs/specs/contracts.md : THE SYSTEM SHALL declare a published message's content type as the one its caller names.
 
 ---

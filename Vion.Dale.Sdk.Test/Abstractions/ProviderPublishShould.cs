@@ -140,6 +140,18 @@ namespace Vion.Dale.Sdk.Test.Abstractions
             Assert.AreEqual("""{"measuredValue":7,"quality":"Uncertain"}""", Encoding.UTF8.GetString(Published().Payload!));
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-BIND-011.5")]
+        public void SerializeJsonPayloadThroughSuppliedTypeMetadata()
+        {
+            // Arrange / Act — the supplied metadata names members in snake case and writes the enum as its
+            // number, neither of which the shared options would produce.
+            _sut.PublishProbeAsJson(BindProbeSnakeCaseContext.Default.BindProbeReading);
+
+            // Assert
+            Assert.AreEqual("""{"measured_value":7,"quality":1}""", Encoding.UTF8.GetString(Published().Payload!));
+        }
+
         private PublishMqttMessage Published()
         {
             return _context.Sent.Select(sent => sent.Message).OfType<PublishMqttMessage>().Single();
