@@ -156,3 +156,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · hw-contracts-are-json · The review found ForwardNothingWhenPayloadWiderThanTopicCarries surviving deletion of the label check it cites, since the bool decode refuses the same document, and the identity tests reaching no field beside the value; the first is deleted and the second arranges a document naming another endpoint. testing-conventions.md § 11 should have caught both.
 
 2026-09-15 · review · hw-contracts-are-json · The review found the AnalogIo harness keeping three helpers nothing called, string literals where the DigitalIo mirror uses nameof, and an unused FlatBuffers using in the Modbus RTU tests; asked for the helpers deleted and the mirror matched. io.md's mirror rule should have caught the second.
+
+2026-09-15 · review · hw-contracts-are-json · The review found two DevHost comments still contrasting a scenario value with a FlatBuffer frame from the production handler; the drift sweep had grepped Vion.Dale.Sdk/ only. comment-conventions.md's falsified-comment rule should have widened it to the tree.

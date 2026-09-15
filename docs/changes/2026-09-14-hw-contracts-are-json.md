@@ -229,7 +229,12 @@ None. Every test in the four rewritten suites maps to a row or to a criterion th
   corrected as drift, not as part of the cut. Two others
   (`ServiceProviderMqttMessage.cs:96`, `MqttMessageExtensions.cs:46`) describe `GetFlatBufferPayload`
   itself, are true, and are left alone. Sibling sweep: done —
-  `git grep -n FlatBuffer -- 'Vion.Dale.Sdk/'` re-read line by line.
+  `git grep -n FlatBuffer -- 'Vion.Dale.Sdk/'` re-read line by line. (Widened 2026-09-15: the sweep
+  stopped at `Vion.Dale.Sdk/` and missed two DevHost comments contrasting a scenario value with "a
+  FlatBuffer frame" — `Mocking/ServiceProviderContractHandler.cs:113-114` and
+  `Scenarios/ScenarioWireCodec.cs:19` — both now fixed; a whole-tree `git grep -n FlatBuffer` leaves
+  only `GetFlatBufferPayload`, its content type, the plugin-loading tests and `CLAUDE.md`'s description
+  of `Vion.Contracts`, all true.)
 - `2026-09-14`: `AC-IO-007.2` cannot be met on a JSON wire. Recorded as Reviewer's question 1; the
   criterion is not reworded and the nine rows proving it stand red. Sibling sweep: done — the digital
   and Modbus families carry no floating-point value, so the break is analog-only, confirmed by the

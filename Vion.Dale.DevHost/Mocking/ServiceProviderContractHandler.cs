@@ -110,8 +110,8 @@ namespace Vion.Dale.DevHost.Mocking
         }
 
         // Build the exact closed ContractMessage<TInbound> from the scenario value and forward it to every
-        // logic block mapped to the contract — the same CLR payload the production handler forwards from a
-        // FlatBuffer frame, sourced from JSON instead.
+        // logic block mapped to the contract — the same CLR payload the production handler forwards from an
+        // MQTT frame, sourced from a scenario value instead.
         private void Drive(ServiceProviderContractId contract, JsonElement value, IActorContext actorContext)
         {
             if (!_codec.CanDrive)
