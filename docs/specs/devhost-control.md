@@ -368,8 +368,9 @@ host's side: when the engine is built, from what, and with which budget.
   for the rest of the generation, so a host on the real clock is refused only when stepping is
   actually requested.
 
-The barrier that engine waits on reads the host's own mailbox statistics and its actor-activity
-monitor; the predicate over them is `AC-SCEN-012.5`'s.
+The barrier that engine waits on reads the host's own mailbox statistics and its activity monitor,
+which counts the handlers running and the exchanges the SDK's socket clients and hosted HTTP server
+have open; the predicate over them is `AC-SCEN-012.5`'s. The teardown drain reads handlers only.
 
 ## Safety budgets
 

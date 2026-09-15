@@ -151,8 +151,10 @@ Two things a simulator block must not become:
 
 - **A second copy of the logic under test.** If the sim mirrors the consumer's decision, the bench
   passes whatever the consumer does and asserts nothing. Model the *device*, from the device's side.
-- **A socket.** A simulator that opens a TCP server is invisible to the quiescence barrier and
-  wall-clock forever. Contract-hosted sims step; that is the whole point.
+- **A socket of its own.** Serve through the SDK's hosted Modbus TCP or HTTP server, or bind a
+  contract. A stepped host waits for the requests those servers and the SDK's clients carry
+  (`AC-SCEN-012.5`); a listener opened any other way — a `TcpListener`, a Modbus library used
+  directly — is invisible to the quiescence barrier and wall-clock forever.
 
 ## 5. Simulating against a real gateway
 

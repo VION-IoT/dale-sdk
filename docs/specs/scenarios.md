@@ -372,7 +372,8 @@ handlers, so message order is pinned as well.
 - `AC-SCEN-012.4` (Ubiquitous): THE SYSTEM SHALL never move the virtual clock backward, and SHALL
   refuse a negative advance budget.
 - `AC-SCEN-012.5` (Ubiquitous): THE SYSTEM SHALL treat the actor system as quiescent exactly when
-  every mailbox is empty and no handler is in flight.
+  every mailbox is empty, no handler is in flight, and no Modbus TCP or HTTP exchange started or served
+  through the SDK is still open.
 - `AC-SCEN-012.6` (State-driven): WHILE the quiescence predicate does not hold THE SYSTEM SHALL keep
   waiting rather than treat the system as settled, and SHALL fail naming the predicate that never held
   once its real-clock budget is spent.
@@ -384,10 +385,18 @@ handlers, so message order is pinned as well.
   moved from the baseline captured when it was built.
 - `AC-SCEN-012.10` (Ubiquitous): THE SYSTEM SHALL guarantee a scenario run a clean slate on the
   topology the scenario declares, one active run per host, and no override.
+- `AC-SCEN-012.11` (Unwanted): IF the quiescence budget is spent while an exchange is still open THEN
+  THE SYSTEM SHALL name each open exchange in the failure.
 
 `AC-SCEN-012.5` is exact rather than a time window: mailbox depth alone reads zero between a dequeue
 and the handler's entry, and the in-flight count closes that window, so a single satisfying
-observation is true quiescence. `AC-SCEN-012.6` is the other half of that: never a heuristic
+observation is true quiescence. An exchange a block's Modbus TCP or HTTP client has under way, or a
+request a block's hosted HTTP server has accepted, holds its result outside every mailbox, so it counts
+with the handlers in the same observation until that result has reached the block or the request is
+recorded. The guarantee stops at the SDK's own clients and servers: a socket a block opens any other
+way is not seen. An open exchange is waited for until its own bound ends it — a refused connect, an
+operation timeout, a client's timeout — in real time, and it moves no virtual time; `AC-SCEN-012.11`
+names what was still open when a bound longer than the budget outlasted it. `AC-SCEN-012.6` is the other half of that: never a heuristic
 stand-down. Its budget is a backstop, not a tolerance — no scenario is meant to reach it — and it is
 the host's, not this page's ([`devhost-control.md`](devhost-control.md)). `AC-SCEN-012.10` is what makes a run reproducible; the round-trip a
 caller performs to get there is the control API's contract

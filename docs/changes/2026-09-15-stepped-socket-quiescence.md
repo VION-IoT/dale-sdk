@@ -1,6 +1,6 @@
 ---
 slug: stepped-socket-quiescence
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: SCEN, MODB, HTTP, CTRL
 author: jonasbertsch
@@ -61,7 +61,8 @@ No wall-clock behaviour, no test-kit behaviour and nothing on a gateway changes.
   during it on a stepped host; the page says so rather than a mechanism working around it.
 - `D7` — **Test peers are test-owned raw sockets that hold their answer**, on an OS-assigned port
   (`ContractPairingShould.FreePort`, `Vion.Dale.DevHost.Test/ContractPairingShould.cs:439`); the
-  server-side proofs grow `Vion.Dale.DevHost.SmokeHost`.
+  stepped fixtures are test blocks in `Vion.Dale.DevHost.Test` (a Drift checkpoint records the move
+  from the SmokeHost).
 
 ### Reviewer's questions
 
@@ -69,7 +70,8 @@ No wall-clock behaviour, no test-kit behaviour and nothing on a gateway changes.
    the predicate, with no transport swap and no refusal; concurrent stepped hosts in one process are
    out of scope (`AC-MODB-006.3`, `AC-HTTP-015.4` untouched); no timing window, `AC-SCEN-012.6`'s
    fail-rather-than-assume stays; nothing observable changes outside a stepped host. VION-222 brief,
-   2026-09-15. Not relitigated. OUTCOME: (pending implementation)
+   2026-09-15. Not relitigated. OUTCOME: implemented as ratified; the test kits and the gateway runtime
+   register no counting monitor, and a wall-clock host never reads it (D3, D5).
 2. (c) propose-and-wait — **what a stepped run does when a counted exchange waits on a real-clock
    bound** (an absent or slow peer). Options in § Full design › The absent peer. Recommendation:
    **A, wait honestly within the existing quiescence budget, and name the open exchanges when it is
@@ -86,21 +88,23 @@ No wall-clock behaviour, no test-kit behaviour and nothing on a gateway changes.
    real-clock wait, `DevHostControl.cs:354-356`; a failed start is decided by the real-clock
    `WaitAsync`, `DevLogicSystemInitializer.cs:200`), so the window is closed only if a stepped advance
    can reach one of the timeout entries with an observable effect; otherwise "not reachable from an
-   advance", with the evidence in Drift checkpoints. (reachability pending implementation)
+   advance", with the evidence in Drift checkpoints. OUTCOME: not reachable from an advance — no
+   `T-006` code; the evidence is the Drift checkpoint on the timeout waits.
 4. (b) decide-and-document — **D3 crosses the public surface by one interface** in
    `Vion.Dale.Sdk.Abstractions`, unmarked like its four siblings, so the PublicApi manifest does not
    move (`docs/sdk-surface-conventions.md` § 8). Rejected: reusing `IActorActivityMonitor` (it would
    feed exchanges to the teardown drain and to a counter documented as "handlers"); an
    `InternalsVisibleTo` from `Vion.Dale.Sdk` to the two packages (ties one shipped package to another's
-   internals across independent versions). OUTCOME: (pending implementation)
+   internals across independent versions). OUTCOME: decided as written — `IExchangeActivityMonitor`
+   in `Vion.Dale.Sdk/Abstractions/`, unmarked; on review.
 5. (b) decide-and-document — **how much of `simulator-authoring.md:154` reverses**: both SDK-hosted
    servers and both SDK clients. The HTTP server records a request only after its response is written
    (`TcpHttpServerTransport.cs:327`), after the client can already have finished, so it counts its own
    requests. The Modbus TCP server needs none on one premise: FluentModbus applies a client write and
    raises its change notification before it sends the response [assumed — probed before any code relies
    on it; refuted, it is a STOP]. A block opening a raw socket, and the consumer's
-   `SmartLogger3000Simulator` (FluentModbus built directly), stay invisible. OUTCOME: (pending
-   implementation)
+   `SmartLogger3000Simulator` (FluentModbus built directly), stay invisible. OUTCOME: decided as
+   written; the premise was probed and held (Drift checkpoint on the FluentModbus probe).
 
 ---
 
@@ -160,8 +164,7 @@ mailbox, which raises the count until that run drains, and the drain's exit is t
 (order of tens of milliseconds, a constant in the barrier, not a budget) exists for the case that
 argument does not cover — a message posted to a mailbox that is never scheduled (a stopped actor) —
 where today's poll also never settles and the budget fails the run. It re-evaluates an exact predicate;
-it is not a window (constraint 3). The implementation counts fallback-woken evaluations so the barrier
-share measurement can show whether it is ever the path.
+it is not a window (constraint 3).
 
 Rejected: **yield-then-spin** (the reporter's experiment) — it burns a core the serial scheduler and
 the socket I/O share, which is exactly the 2-vCPU runner criterion 3 worries about; **a shorter
@@ -170,8 +173,8 @@ timer** — Windows rounds a sub-15 ms delay up regardless.
 ### D3/D4 — where accounting lives
 
 A new opt-in interface in `Vion.Dale.Sdk.Abstractions` (working name `IExchangeActivityMonitor`),
-shaped for naming what is open: opening returns a handle carrying a short description (protocol,
-endpoint, operation), disposing it closes the exchange. The DevHost registers one implementation, in
+shaped for naming what is open: opening returns a handle carrying a short description, disposing it
+closes the exchange. The DevHost registers one implementation, in
 `DevHostBuilder` beside `InFlightActivityMonitor` (`DevHostBuilder.cs:205-209`), on both clock modes —
 only the stepper reads it (D5), so registering it unconditionally changes nothing a wall-clock host
 shows.
@@ -227,8 +230,8 @@ re-points a connection at dead port 5999 by design, and its simulator treats `Mo
 per-request timeout to a peer that accepts and never answers exceeds the budget and fails the run.
 
 - **A — wait honestly (recommended).** The settle waits for the exchange, bounded by the existing
-  budget; when the budget is spent the failure names each open exchange (protocol, endpoint,
-  operation) rather than "the cascade is stuck". An exchange's result lands in the step that issued it
+  budget; when the budget is spent the failure names each open exchange rather than "the cascade is
+  stuck". An exchange's result lands in the step that issued it
   on every OS; a slow refusal costs real time, never virtual time. The author's lever for a longer
   exchange is the budget. Cost: Windows benches that talk to dead ports by design pay ~2 s per attempt
   — criterion 3's consumer run measures it.
@@ -287,13 +290,13 @@ when a block fails to acknowledge on a stepped host.
 
 - **Discriminating (the brief's Verify).** A stepped host runs a block that issues one Modbus TCP read
   (and, separately, one HTTP GET) from a timer; the peer is a test-owned `TcpListener` that parks the
-  request until the advance task has completed **or** a 2 s real-time fallback passes (the
+  request until the test has taken its read **or** a real-time fallback passes (the
   `scenario-in-flight-reads` shape, `docs/changes/archive/2026-09-14-scenario-in-flight-reads.md`).
   With accounting the advance cannot complete while the answer is parked, the fallback releases it,
   and the value read after the advance is the answer. Without accounting and with D2's fast settle the
   advance completes while parked, the peer releases, and the read is stale — deterministically,
   because the hold makes the window, not the machine. Proven red against D2 with the exchange handle
-  disabled, never against origin/main's poll (the brief's first hazard). The fallback costs 2 s per
+  disabled, never against origin/main's poll (the brief's first hazard). The fallback is paid on every
   green run.
 - **HTTP server.** A SmokeHost block serving through `ILogicBlockHttpServer`, a stepped host, a
   test-owned client; the server's recorded request is visible after the settle that follows the
@@ -326,6 +329,44 @@ when a block fails to acknowledge on a stepped host.
 - 2026-09-15: the brief's "Other off-schedule continuations" named `ActorContext.cs:84-96` as a
   bypass; on a stepped host that branch is not taken (`:71-75`). The window is real only for the two
   `ActorSystem` timeout waits (reviewer's question 3).
+- 2026-09-15: FluentModbus premise (reviewer's question 5) probed and held. Probe: a
+  `ModbusTcpServer` 5.3.2 with `EnableRaisingEvents` and `AlwaysRaiseChangedEvent`, a
+  `RegistersChanged` handler that parks until released, a `ModbusTcpClient` on loopback; after the
+  handler entered, the client's write was checked for completion over 500 ms. FC6 5 of 5 and FC16 3 of 3
+  runs: the write did not complete while the handler was parked. Windows 11 10.0.26200, .NET 10. The
+  ordering is the library's request handling, not a socket behaviour, so it was not repeated on Linux.
+- 2026-09-15: question 3's timeout waits are not reachable from an advance. The two plain schedule
+  entries are registered only by `ActorSystem.SendAndWaitForAcknowledgementAsync` and
+  `StopActorsAndWaitAsync` (`Vion.Dale.ProtoActor/ActorSystem.cs:154`, `:346`), whose only callers in
+  the repository are the host's start, restore and stop sequences
+  (`Vion.Dale.DevHost/DevLogicSystemInitializer.cs:187`, `:223`, `:286`, `:296`, `:326`, `:342`); no
+  block, library or example calls either (a grep over `examples/`, `libraries/`,
+  `Vion.Dale.DevHost.Web/` and the consumer checkout found only a comment,
+  `BatterySystemHuaweiLuna2000Should.cs:2454`). The acknowledgement path unregisters its entry when the
+  last answer arrives (`ActorSystem.cs:192`), so after a completed start nothing of it is left for an
+  advance to hop to. The one shape that reaches an entry is an advance issued concurrently with a start
+  or stop in which a block never answers, and the effect there is that sequence's own failure, decided by
+  its real-clock backstop (`DevLogicSystemInitializer.cs:200-207`), which no settle governs. No red test
+  was written; `T-006` has no code.
+- 2026-09-15: the proof's fallback is 500 ms, not the 2 s the Proof plan drafted — the Modbus client's
+  one-second default operation timeout ended a 2 s hold as a failed read (first run of
+  `SocketExchangeSteppingShould.DeliverModbusReadIssuedDuringAdvanceBeforeAdvanceReturns`).
+- 2026-09-15: the stepped fixtures are test blocks in `Vion.Dale.DevHost.Test`
+  (`Stepping/SocketExchangeFixtureBlocks.cs`) rather than SmokeHost blocks: the tests need a held
+  peer and a short budget, which a committed topology cannot carry.
+- 2026-09-15: the HTTP server's window between writing the response and recording the request has no
+  seam in a stepped host — the transport is internal and the server's only DI-visible collaborator is
+  its clock. `AC-HTTP-018.2` is carried end to end without a hold
+  (`SocketExchangeSteppingShould.RecordServedRequestFromClientInSameHostBeforeClockNextAdvances`), and
+  both server mutations (no exchange at accept; exchange closed before `Delivered`) survive there; the
+  ordering is pinned by uncited premise tests in `TcpHttpServerTransportExchangeShould`, which the same
+  two mutations redden.
+- 2026-09-15: a Modbus TCP exchange is named by its operation only (`Modbus TCP
+  ReadHoldingRegistersAsShort`), not by endpoint: the queue that opens it does not know the client's
+  address, and carrying it there changes `IRequestQueue`, which the Modbus TCP test kit implements.
+  HTTP exchanges carry the method and URL.
+- 2026-09-15: the quiescence failure message now renders its budget in the invariant culture; it
+  rendered in the current culture before, so a German-locale host wrote `0,4s`.
 
 ---
 
@@ -357,19 +398,31 @@ Ratified by amendment 1 (2026-09-15): `AC-SCEN-012.5`, `AC-SCEN-012.11`, `AC-MOD
 > One-commit tasks, each tagged with ≥1 AC id. Ephemeral — they live and die with this change doc.
 > Plain list, no checkboxes — the PR's per-task commits are the completion record.
 
-Not started: the brief's STOP sits here. Draft order, fixed at ratification:
-
 - `T-001` (`AC-SCEN-012.5`): the exchange monitor abstraction, the DevHost's combined and handler-only
   counts, and the barrier's wake (D1, D2, D5) — the discriminating tests written first with the handle
   disabled.
 - `T-002` (`AC-MODB-020.1`): Modbus TCP client accounting in the request queue.
 - `T-003` (`AC-HTTP-018.1`): HTTP client accounting in the executor.
 - `T-004` (`AC-HTTP-018.2`): HTTP server accounting in the transport; the Modbus TCP server premise probe.
-- `T-005` (`AC-SCEN-012.11`, if ratified): the named-exchange failure.
-- `T-006`: the timeout continuations, if question 3 is accepted.
+- `T-005` (`AC-SCEN-012.11`): the named-exchange failure.
+- `T-006`: none — question 3 is not reachable from an advance.
 - `T-007`: prose in `devhost-control.md`, `http.md`, `simulator-authoring.md`; barrier-share
   measurement; distill and archive.
 
 ## Relay notes for the PR body
 
-- _(none yet — written as each consumer-visible change lands)_
+- A stepped DevHost settle no longer polls on a 1 ms real-clock delay; it wakes when the host's
+  activity count reaches zero. Stepped runs that spent their time in that delay run many times faster.
+- A stepped settle waits for Modbus TCP and HTTP requests a block makes through the SDK, and for
+  requests a block's hosted HTTP server accepted from a client in the same host, until each result has
+  reached the block (`AC-SCEN-012.5`, `AC-MODB-020.1`, `AC-HTTP-018.1`, `AC-HTTP-018.2`). Stepped
+  benches over SDK clients and SDK-hosted servers on loopback are supported; a socket a block opens any
+  other way is still not seen.
+- Behaviour change on stepped hosts: a client talking to an absent or silent peer now holds the settle
+  until its own real-clock bound ends the request — on Windows a refused loopback connect takes about
+  2 s. A bound longer than the quiescence budget fails the advance, and the failure names each open
+  exchange (`AC-SCEN-012.11`); raise the budget with `WithSafetyBudgets`.
+- While a counted request is open on a stepped host, virtual time does not move, so an HTTP per-request
+  timeout and the Modbus maximum queued age cannot elapse during it.
+- New public, unmarked opt-in interface `Vion.Dale.Sdk.Abstractions.IExchangeActivityMonitor`. Nothing
+  outside a development host registers one; the gateway runtime and the test kits are unchanged.
