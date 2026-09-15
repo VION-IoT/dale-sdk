@@ -135,8 +135,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///         Transitive, because <c>DeclarativeInterfaceBinder</c> binds on <c>Type.GetInterfaces()</c>:
         ///         an endpoint inherited from a base class, or reached through an interface that extends the
         ///         generated one, binds exactly like a directly declared one. A name that already resolved is
-        ///         skipped wherever it is written: the caller's symbol half found no <c>[LogicInterface]</c> on
-        ///         it, so it is an ordinary type sharing a role's spelling, and the binder will not bind it.
+        ///         skipped wherever it is written: a resolved type is the symbol half's to judge, from the
+        ///         attributes it actually carries, so matching its spelling here could only add a binding that
+        ///         half has already ruled out.
         ///     </para>
         /// </summary>
         internal static IEnumerable<string> UnresolvedRoleNamesInAncestry(INamedTypeSymbol type, HashSet<string> roleNames, CancellationToken cancellationToken)
