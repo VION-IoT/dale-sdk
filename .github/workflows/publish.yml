@@ -269,7 +269,7 @@ jobs:
       # steps below sees the API-surface change. On main this only WARNS: main is branch-protected
       # (PRs + required checks only), so the bot cannot push to it — and doesn't need to, since
       # every change reaches main via a PR whose run refreshed the snapshots. Residual drift
-      # (generator nondeterminism, a change the changes job classes as non-build) self-heals on the next PR.
+      # (generator nondeterminism) self-heals on the next PR.
       - name: Regenerate snapshots
         id: snapshots
         if: steps.version.outputs.is_release == 'false' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))

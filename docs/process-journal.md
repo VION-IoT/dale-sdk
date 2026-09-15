@@ -218,3 +218,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · publish.yml · The re-review found a paths-ignore cause left in a publish.yml comment, cleanup-code.ps1's -Changed doc still saying main always runs full, and io.md crediting one step with three steps' work, after a commit meant to correct the stale claims. (self)
 
 2026-09-15 · review · publish.yml · The third review found the build-input exceptions matching topology and .dale schema files only under docs/, while the tests that read them search the whole repository. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · CLAUDE.md · The third review found cleanup-code.ps1 pointing at a CLAUDE.md sentence that omitted a style-input change running full, and a publish.yml comment naming a snapshot drift cause no non-build change can produce. (self)
