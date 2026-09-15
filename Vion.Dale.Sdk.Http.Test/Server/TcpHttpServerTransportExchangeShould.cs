@@ -89,12 +89,14 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             await requesting.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /value HTTP/1.1\r\n\r\n")).AsTask().WaitAsync(Timeout);
             Assert.IsTrue(handler.AnswerEntered.Wait(Timeout));
             var openedWhileAnswering = monitor.Opened;
+            var description = monitor.LastDescription;
             handler.Release();
             await ReadUntilClosedAsync(requesting.GetStream()).WaitAsync(Timeout);
 
             // Assert
             Assert.AreEqual(0, openedWhileIdle);
             Assert.AreEqual(1, openedWhileAnswering);
+            Assert.AreEqual($"HTTP server GET /value on 127.0.0.1:{port}", description);
             Assert.IsTrue(monitor.AllClosed.Wait(Timeout));
         }
 
@@ -165,8 +167,11 @@ namespace Vion.Dale.Sdk.Http.Test.Server
                 get => Volatile.Read(ref _opened);
             }
 
+            public string? LastDescription { get; private set; }
+
             public IDisposable OpenExchange(string description)
             {
+                LastDescription = description;
                 Interlocked.Increment(ref _opened);
                 Interlocked.Increment(ref _open);
                 AllClosed.Reset();

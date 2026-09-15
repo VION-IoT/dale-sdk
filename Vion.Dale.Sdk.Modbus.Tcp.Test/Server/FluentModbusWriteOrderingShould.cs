@@ -49,11 +49,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
 
             try
             {
-                // Act
+                // Act / Assert — inseparable: the write must be seen not completing while the notification is still parked.
                 var write = Task.Run(() => Write(client, functionCode));
                 Assert.IsTrue(entered.Wait(Timeout));
-
-                // Assert — the write has not completed while the notification is parked, and the value was already stored.
                 await Assert.ThrowsExactlyAsync<TimeoutException>(() => write.WaitAsync(Window));
                 released.Set();
                 await write.WaitAsync(Timeout);

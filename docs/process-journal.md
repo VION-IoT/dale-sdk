@@ -248,3 +248,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · gate · Bash tool · Two Python edit scripts passed through a quoted Bash heredoc failed with "unexpected EOF while looking for matching quote" and applied nothing; the same scripts written to a file ran. (self)
 
 2026-09-15 · review · VION-222 · The re-review found the stop test asserting a signal its Arrange had awaited, the FluentModbus ordering pinned for register writes while the server also takes coil writes, the server exchange named without its endpoint, and a transport test summary naming one premise for three tests. (self)
+
+2026-09-15 · review · VION-222 · The follow-up review found the write-ordering test labelled Act and Assert where the two cannot separate, and the server exchange's new endpoint in its name asserted by no test. (self)
