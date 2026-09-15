@@ -36,7 +36,6 @@ $exempt = @{
     'pack-examples.ps1'                    = 'on-demand pack helper; needs a full dotnet build + feeds, not a fast self-test'
     'smoke-modbus.ps1'                     = 'driver for the modbus-smoke skill; needs a live DevHost on a real socket pair, not a CI gate'
     'stage-xml-docs.ps1'                   = 'CI staging helper over packed .nupkg artifacts; its input is the publish job''s output, not reproducible in a fast fixture'
-    'verify-packed-assembly-versions.ps1'  = 'carries its own built-in self-test (-SelfTest), run by the verify-packages CI job'
 }
 
 $tests = Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.tests.ps1' | Sort-Object Name

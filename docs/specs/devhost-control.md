@@ -323,6 +323,12 @@ over. A run's hollow-acknowledgement detection reads that silence for itself and
 (`AC-SCEN-009.10`), so it consumes the refusal rather than reporting it. `AC-CTRL-009.5` is what makes
 a drive deterministic under stepping — the barrier is the synchronisation, not an acknowledgement.
 
+The wired network **carries** an endpoint when some block's contract mapping, as the topology's
+`contractMappings` left it, addresses that service provider, service and contract — the same mappings
+a drive is delivered along. An endpoint a topology renamed a contract to is carried; the generated
+endpoint the rename replaced is not, although the exported configuration still lists it under its
+service providers.
+
 ## The observation stream
 
 - `AC-CTRL-010.1` (Ubiquitous): THE SYSTEM SHALL surface a service-property change, a write

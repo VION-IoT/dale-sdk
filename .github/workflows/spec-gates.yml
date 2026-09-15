@@ -2,8 +2,8 @@ name: Spec Gates
 # The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint, spec-trace,
 # test-style-lint, doc-comment-lint, pragma-reason-lint, bom-lint, packed-msbuild-lint,
 # sweep-residue-lint, self-reference-lint, and the shared journal-lint action as its own job.
-# Its own workflow — not a publish.yml job — because publish.yml ignores docs/** on both triggers
-# and a docs-only PR (a spec page, a change doc) must still be gated. Pure file scans, no dotnet
+# Its own workflow — not a publish.yml job — because publish.yml skips its build for a docs-only
+# change and a docs-only PR (a spec page, a change doc) must still be gated. Pure file scans, no dotnet
 # build: cheap enough to run on every PR.
 
 on:

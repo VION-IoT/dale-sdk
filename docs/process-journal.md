@@ -193,6 +193,46 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-15 · review · dale-sdk-feedback · The review found the item shape's Origin line naming only a consumer report once engineering findings take that shape whole, and a one-word reflow stub in spec-process; walking a draft through the template should have caught the first. (self)
 
+2026-09-15 · review · verify-packages · The CI-speedup proposal said verify-packages sees nothing on pull requests, read off its version-check comment; the script also fails a lib-packed analyzer and missing required content on every run, so only its self-test moved. (self)
+
+2026-09-15 · review · publish.yml · The changes job took a pull request's diff base from pull_request.base.sha, the base at the last pull request event; the merge commit's first parent was needed, since main can move without one. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · CLAUDE.md · The CI style scope was written into CLAUDE.md twice and again into the cleanup command; the harness pass cut it to the one sentence in CLAUDE.md. (self)
+
+2026-09-15 · review · publish.yml · The review found drift-and-docs pushing its snapshot commit while style and verify-packages still ran; that push starts a run which cancels the first and passes ci with every job skipped, so a style failure never reached the head. The ci step was tested on one run's results only. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The review found the changes job diffing with rename detection on, so moving a compiled file into docs/ or scripts/ listed only its new path and skipped the build. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The review found the changes job skipping the build for a set-version.ps1 edit a solution test reads, and style on main for a project-file change; the scope was tested against past commits holding neither. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The review found the new ci job left on the repository's default token scope where every other job in the workflow declares its own. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · CLAUDE.md · The review found spec-gates.yml, io.md's line citations and cleanup-code.ps1's CI example still describing the old publish.yml, and CLAUDE.md and a publish.yml comment claiming more than the code does; docs/comment-conventions.md's rule on comments a change falsifies should have caught it. (self)
+
+2026-09-15 · review · publish.yml · The re-review found the snapshot fix gating drift-and-docs on always(), which keeps the job alive in a run a newer push cancelled, so it could still push a snapshot commit over that push and hide its gates; !cancelled() was needed. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The re-review found the changes job still skipping the build for the API manifest, topology and .dale schema files and examples/ projects that solution tests read, after set-version.ps1 alone was added. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The re-review found an examples project-file change skipping style on the pull request and on main, while the scope comment said main's full run catches a project setting cleanup reads. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The re-review found a paths-ignore cause left in a publish.yml comment, cleanup-code.ps1's -Changed doc still saying main always runs full, and io.md crediting one step with three steps' work, after a commit meant to correct the stale claims. (self)
+
+2026-09-15 · review · publish.yml · The third review found the build-input exceptions matching topology and .dale schema files only under docs/, while the tests that read them search the whole repository. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · CLAUDE.md · The third review found cleanup-code.ps1 pointing at a CLAUDE.md sentence that omitted a style-input change running full, and a publish.yml comment naming a snapshot drift cause no non-build change can produce. (self)
+
+2026-09-15 · review · publish.yml · The fourth review found a .csproj under docs/ or .claude/ still skipping the build after topology and .dale files were added; each round had added one more exception to a list of skipped directories, so the rule became a list of inert file kinds and everything else builds. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The fourth review found the snapshot comment and main's drift warning promising a heal on the next PR, which a PR that does not build never gives, and CLAUDE.md keeping its own list of style cases that missed a manual run. (self)
+
+2026-09-15 · review · publish.yml · The fifth review found the inert-change comment naming more .github/ files than its regex skips and promising no test input needs a rule, and CLAUDE.md still saying every push publishes; a sweep found the same claim in releasing.md, the CLI's CLAUDE.md and the modbus-smoke skill. (self)
+
+2026-09-15 · review · publish.yml · The sixth review found the read_by_build rule naming only Markdown and .ps1 while inert also skips settings.json, CODEOWNERS and release.yml, the .github/ list readable as root files, and three docs saying "a push that builds" with no pointer to what decides it. (self)
+
+2026-09-15 · brief · VION-224 · The brief listed a shared endpoint, two blocks mapped to one renamed triple, as a guard green before and after the fix; on origin/main that drive is refused like any renamed triple, so the case is a second red proof, not a guard. (self)
+
+2026-09-15 · review · VION-224 · The review found the HTTP renamed-endpoint test ignoring the advance response, so a refused advance would fail as the drive not reaching the block; WebControlEndpointsShould, the precedent it copied, asserts it. (self)
+
 2026-09-15 · review · VION-222 · The change doc's question 3 named a refused write and a failed start as the effects of the stepped timeout-continuation window; the operator's amendment found both decided by real-clock waits elsewhere and made closing the window conditional on a reachable red test, which there was not.
 
 2026-09-15 · review · VION-222 · The drafted stepped criteria promised delivery before "the step that issued the request" returns; the amendment reworded them to before the clock next advances and before an advance in progress returns, because a step spans many hops and a request can be issued outside any advance.
