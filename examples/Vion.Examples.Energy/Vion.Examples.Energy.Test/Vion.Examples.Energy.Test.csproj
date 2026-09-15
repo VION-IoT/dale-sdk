@@ -8,10 +8,10 @@
     <!-- TestKit refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
          local project refs so you can test working-tree SDK changes against this example without editing the csproj. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.Sdk.AnalogIo.TestKit" Version="0.13.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.DigitalIo.TestKit" Version="0.13.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.Http.TestKit" Version="0.13.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.13.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.AnalogIo.TestKit" Version="0.14.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.DigitalIo.TestKit" Version="0.14.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.Http.TestKit" Version="0.14.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.14.0"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.AnalogIo.TestKit\Vion.Dale.Sdk.AnalogIo.TestKit.csproj"/>
