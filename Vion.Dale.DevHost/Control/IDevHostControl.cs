@@ -212,17 +212,19 @@ namespace Vion.Dale.DevHost.Control
         ///     rate — a <c>[Timer(1)]</c> fires 5× under <c>AdvanceAsync(5s)</c>, and self-rescheduling /
         ///     dynamic-delay timers fire correctly too.
         ///     <para>
-        ///         Quiescence is the EXACT predicate <c>Σ MailboxDepth == 0 AND InFlight == 0</c>: every
-        ///         mailbox empty AND no user handler currently executing. Each event boundary therefore lands
-        ///         on a settled, reproducible state, so a given (block set, budget) yields the same result
-        ///         run-to-run.
+        ///         Quiescence is an EXACT predicate: every mailbox empty, no user handler currently executing,
+        ///         and no Modbus TCP or HTTP exchange a block started or served through the SDK still open. Each
+        ///         event boundary therefore lands on a settled, reproducible state, so a given (block set,
+        ///         budget) yields the same result run-to-run. An open exchange holds the settle until its own
+        ///         real-clock bound ends it — a refused connect, an operation timeout, a client's timeout — and
+        ///         moves no virtual time meanwhile.
         ///     </para>
         ///     <para>
         ///         Requires a <c>FakeTimeProvider</c> registered as the <see cref="TimeProvider" /> (throws
         ///         <see cref="InvalidOperationException" /> on a real clock — stepping a wall clock by hand is
         ///         meaningless). A system that never settles surfaces as a thrown
         ///         <see cref="TimeoutException" />, bounded by a generous real-clock safety budget — never an
-        ///         infinite wait.
+        ///         infinite wait. Its message names each exchange still open when the budget was spent.
         ///     </para>
         /// </summary>
         Task AdvanceAsync(TimeSpan virtualTime, CancellationToken cancellationToken = default);

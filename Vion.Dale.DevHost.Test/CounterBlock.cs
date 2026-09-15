@@ -1,7 +1,10 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost.Test.Stepping;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Http;
+using Vion.Dale.Sdk.Modbus.Tcp;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -61,6 +64,11 @@ namespace Vion.Dale.DevHost.Test
             serviceCollection.AddTransient<UnresolvableGateBlock>();
             serviceCollection.AddTransient<BoundedParameterBlock>();
             serviceCollection.AddTransient<SlowStoppingBlock>();
+            serviceCollection.AddDaleModbusTcpSdk();
+            serviceCollection.AddDaleHttpSdk();
+            serviceCollection.AddTransient<ModbusPollerBlock>();
+            serviceCollection.AddTransient<HttpFetcherBlock>();
+            serviceCollection.AddTransient<HttpServingBlock>();
         }
     }
 }

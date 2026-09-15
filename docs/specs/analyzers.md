@@ -427,13 +427,25 @@ one id whose rules split across two severities.
   relation-bearing contract interface but carries no service surface THE SYSTEM SHALL report
   `DALE045` as a warning, once per property however many such interfaces that type implements.
 - `AC-ANLZ-021.5` (Ubiquitous): THE SYSTEM SHALL resolve a relation-bearing interface both by symbol
-  and by the name written in a base list, so a contract interface that does not resolve is still
-  matched.
+  and by the declared base-list names of the property's type, its base classes and the interfaces it
+  implements, matched against this compilation's relation-bearing contract role interfaces, so a
+  contract interface that does not resolve is still matched — directly, through a base class, or
+  through an interface extending it.
+- `AC-ANLZ-021.6` (Unwanted): IF such a base-list name matches a role interface but already resolves to
+  an ancestor of the property's type, THEN THE SYSTEM SHALL not read it as a relation-bearing
+  interface.
 
 `AC-ANLZ-021.4` is the silent case the whole id exists for: the endpoint wires normally and emits no
 relation half, so the block works and the cloud draws no edge. `AC-ANLZ-021.5` is § 5's rule as a
 criterion — the by-symbol path alone reaches a contract in a *referenced* assembly and nothing else,
-and this is the worked example that convention doc points at.
+and this is the worked example that convention doc points at. Its reach is the binder's, as
+`AC-ANLZ-014.4`'s is: `DeclarativeInterfaceBinder` binds on the transitive `Type.GetInterfaces()` and
+drops the half of any endpoint on a service-less component, wherever in the ancestry the endpoint was
+declared.
+
+`AC-ANLZ-021.6` is `AC-ANLZ-014.5`'s guard with the opposite cost. A resolved same-name type carries no
+`[LogicInterface]`, so the binder binds nothing there and there is no half to lose; matching it would
+warn about an endpoint that does not exist.
 
 ## Emission knobs
 

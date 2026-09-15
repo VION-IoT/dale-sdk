@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Http.Server;
 
@@ -71,7 +72,8 @@ namespace Vion.Dale.Sdk.Http
             serviceCollection.AddTransient<ILogicBlockHttpServer, LogicBlockHttpServer>();
             serviceCollection.AddTransient<IHttpServerTransport>(serviceProvider =>
                                                                      new TcpHttpServerTransport(serviceProvider.GetRequiredService<ILogger<TcpHttpServerTransport>>(),
-                                                                                                TcpHttpServerTransport.DefaultReadBound));
+                                                                                                TcpHttpServerTransport.DefaultReadBound,
+                                                                                                serviceProvider.GetService<IExchangeActivityMonitor>()));
 
             // The executor measures a per-request timeout and the server stamps each request on this clock. The
             // full SDK registers one too; TryAdd keeps that one, and a test kit's controllable clock, authoritative.

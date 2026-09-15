@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -27,6 +28,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///         <c>SafetyBudgetsShould</c> reaches the <see cref="TimeoutException" /> without waiting out the
     ///         ten-second default. The barrier is the half that still has no seam.
     ///     </para>
+    ///     <para>
+    ///         <see cref="ReturnWithExchangeOpenWhenExchangesNotCounted" /> cites no criterion: it pins the premise the
+    ///         teardown drain rests on — that the barrier it builds does not wait on a socket — which no page states as a
+    ///         consumer-observable rule.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class QuiescenceBarrierShould
@@ -45,7 +51,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Arrange
             var vitals = new RuntimeVitals(TimeProvider.System);
             var activity = new InFlightActivityMonitor();
-            var barrier = new QuiescenceBarrier(vitals, activity);
+            var barrier = new QuiescenceBarrier(vitals, activity, true);
 
             // Act
             await barrier.WaitForQuiescenceAsync(CancellationToken.None);
@@ -61,7 +67,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Arrange — the blind spot mailbox depth alone has: a handler that has dequeued its message and
             // has not yet posted the next hop, so depth reads zero while the cascade is still live.
             var activity = new InFlightActivityMonitor();
-            var barrier = new QuiescenceBarrier(new RuntimeVitals(TimeProvider.System), activity);
+            var barrier = new QuiescenceBarrier(new RuntimeVitals(TimeProvider.System), activity, true);
             activity.EnterHandler();
 
             // Act
@@ -89,7 +95,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             vitals.OnMessagePosted("actor-1");
             vitals.OnMessagePosted("actor-1");
             vitals.OnMessageReceived("actor-1");
-            var barrier = new QuiescenceBarrier(vitals, new InFlightActivityMonitor());
+            var barrier = new QuiescenceBarrier(vitals, new InFlightActivityMonitor(), true);
 
             // Act
             var waiting = barrier.WaitForQuiescenceAsync(CancellationToken.None);
@@ -100,6 +106,40 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Draining the mailbox satisfies the predicate.
             vitals.OnMessageReceived("actor-1");
             await waiting.WaitAsync(Timeout);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.5")]
+        public async Task KeepWaitingWhileExchangeOpenWithNoHandlerRunningAndEveryMailboxDrained()
+        {
+            // Arrange — a request on the wire: nothing queued, nothing executing, and its result not yet anywhere.
+            var activity = new InFlightActivityMonitor();
+            var barrier = new QuiescenceBarrier(new RuntimeVitals(TimeProvider.System), activity, true);
+            var exchange = activity.OpenExchange("Modbus TCP ReadHoldingRegistersAsShort");
+
+            // Act
+            var waiting = barrier.WaitForQuiescenceAsync(CancellationToken.None);
+
+            // Assert — the same load-safe window as the siblings, then the close releases it.
+            await Assert.ThrowsExactlyAsync<TimeoutException>(() => waiting.WaitAsync(Window));
+            CollectionAssert.AreEqual(new[] { "Modbus TCP ReadHoldingRegistersAsShort" }, barrier.OpenExchanges.ToArray());
+            exchange.Dispose();
+            await waiting.WaitAsync(Timeout);
+        }
+
+        [TestMethod]
+        public async Task ReturnWithExchangeOpenWhenExchangesNotCounted()
+        {
+            // Arrange
+            var activity = new InFlightActivityMonitor();
+            var barrier = new QuiescenceBarrier(new RuntimeVitals(TimeProvider.System), activity, false);
+            using var exchange = activity.OpenExchange("HTTP GET http://127.0.0.1:1/value");
+
+            // Act
+            await barrier.WaitForQuiescenceAsync(CancellationToken.None).WaitAsync(Timeout);
+
+            // Assert
+            Assert.AreEqual(1, activity.Busy);
         }
     }
 }

@@ -45,6 +45,27 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-15 · review · CLAUDE.md · The branch review found the first-retro instruction left standing after this round read that window whole; the P3 clause on text a change makes false, added on the same branch, should have prevented it. (self)
 
+2026-09-15 · review · VION-222 · The change doc's question 3 named a refused write and a failed start as the effects of the stepped timeout-continuation window; the operator's amendment found both decided by real-clock waits elsewhere and made closing the window conditional on a reachable red test, which there was not.
+
+2026-09-15 · review · VION-222 · The drafted stepped criteria promised delivery before "the step that issued the request" returns; the amendment reworded them to before the clock next advances and before an advance in progress returns, because a step spans many hops and a request can be issued outside any advance.
+
+2026-09-15 · gate · mutation runner · A scripted mutation restored its source file but not its build, and a later --no-build suite run ran the mutated binaries, reporting eight failures across two suites as regressions until a rebuild turned them green. (self) → codified: docs/testing-conventions.md
+
+2026-09-15 · gate · test-style-lint · A new cited test was named NameHeldExchangeWhenQuiescenceBudgetIsSpent; the lint failed it for the filler word and three uncited premise tests carried the same shape. (self)
+
+2026-09-15 · review · VION-222 · The branch review found AdvanceAsync and the barrier summary defining quiescence without open exchanges, an absolute "every settle" fallback comment, measurement counts pasted without their commands, and the teardown drain choice and the FluentModbus ordering proven by nothing committed; comment-conventions should have caught the first two. (self)
+
+2026-09-15 · review · VION-222 · The hosted HTTP server opened its stepped exchange at accept, so an idle connection from outside the host could hold a settle for the 10 s read bound; amendment 2 moved the open point to the end of the request's full read.
+
+2026-09-15 · gate · Bash tool · Two Python edit scripts passed through a quoted Bash heredoc failed with "unexpected EOF while looking for matching quote" and applied nothing; the same scripts written to a file ran. (self)
+
+2026-09-15 · review · VION-222 · The re-review found the stop test asserting a signal its Arrange had awaited, the FluentModbus ordering pinned for register writes while the server also takes coil writes, the server exchange named without its endpoint, and a transport test summary naming one premise for three tests. (self)
+
+2026-09-15 · review · VION-222 · The follow-up review found the write-ordering test labelled Act and Assert where the two cannot separate, and the server exchange's new endpoint in its name asserted by no test. (self)
+
+2026-09-15 · review · VION-222 · The third review found the server exchange-name assertion sharing a counting test, the HTTP client exchange name pinned by no test, and a stored-value assert under a combined Act / Assert marker. (self)
+2026-09-15 · review · VION-220 · The review found the guard's reason moved into AnalyzerHelper.UnresolvedRoleNamesInAncestry still saying the caller found no [LogicInterface], true for DALE043's caller only; comment-conventions.md's comment-is-a-claim rule should have prevented it. (self)
+
 2026-09-15 · gate · dotnet test · Two example test projects reported a catastrophic failure discovering no test, which reads as a 0.14.0 incompatibility; this host's Smart App Control had blocked the Debug build artefact, and the same projects passed in Release. (self) → codified: docs/testing-conventions.md
 
 2026-09-15 · brief · references-0-14-0 · The brief put 37 Vion.Dale.Sdk* PackageReference lines under examples/ and Vion.Examples.Energy.Test at 40 tests; its own regex counts 36 lines, 37 is the file count across examples, templates and libraries, and that project has held 50 tests since PR #231. (self)
