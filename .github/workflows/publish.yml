@@ -54,11 +54,10 @@ jobs:
           # the diff base is one parent away. A deeper base does not resolve and runs everything.
           fetch-depth: 2
 
-      # dotnet: false when every changed file is under docs/, examples/, scripts/, .claude/, .github/
-      #   outside workflows/, or a root *.md — except docs/package-readme.md, which packages without
-      #   a README of their own ship, the scripts this workflow runs, and set-version.ps1, which a
-      #   solution test reads. The examples reference published packages, so an examples-only change
-      #   cannot move the SDK. A rename counts under both of its paths.
+      # dotnet: false when every changed file is under docs/, scripts/, .claude/, .github/ outside
+      #   workflows/, or a root *.md — except what the build or a solution test reads there:
+      #   docs/package-readme.md (packed), docs/snapshots/, topology and .dale schema files, the
+      #   scripts this workflow runs, and set-version.ps1. A rename counts under both of its paths.
       # style: skip (a pull request with no .cs and no style input, a push that does not build, or a
       #   tag, whose commit main already checked) | changed (a pull request's changed .cs; the cleanup
       #   profile is per-file) | full (a style-input change, a push to main that builds, a manual
@@ -93,8 +92,8 @@ jobs:
           fi
           changed="$(git diff --name-only --no-renames "$base"...HEAD)"
 
-          others="$(grep -vE '^(docs/|examples/|scripts/|\.claude/|\.github/|[^/]+\.md$)' <<< "$changed" || true)"
-          if [ -n "$others" ] || grep -qE '^(docs/package-readme\.md|\.github/workflows/.*|scripts/(cleanup-code|set-version|stage-xml-docs|verify-packed-assembly-versions)\.ps1|scripts/generate-api-reference\.cjs)$' <<< "$changed"; then
+          others="$(grep -vE '^(docs/|scripts/|\.claude/|\.github/|[^/]+\.md$)' <<< "$changed" || true)"
+          if [ -n "$others" ] || grep -qE '^(docs/package-readme\.md|docs/snapshots/.*|docs/.*\.topology\.json|docs/.*/\.dale/.*|\.github/workflows/.*|scripts/(cleanup-code|set-version|stage-xml-docs|verify-packed-assembly-versions)\.ps1|scripts/generate-api-reference\.cjs)$' <<< "$changed"; then
             dotnet=true
           else
             dotnet=false

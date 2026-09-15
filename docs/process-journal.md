@@ -210,3 +210,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · CLAUDE.md · The review found spec-gates.yml, io.md's line citations and cleanup-code.ps1's CI example still describing the old publish.yml, and CLAUDE.md and a publish.yml comment claiming more than the code does; docs/comment-conventions.md's rule on comments a change falsifies should have caught it. (self)
 
 2026-09-15 · review · publish.yml · The re-review found the snapshot fix gating drift-and-docs on always(), which keeps the job alive in a run a newer push cancelled, so it could still push a snapshot commit over that push and hide its gates; !cancelled() was needed. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The re-review found the changes job still skipping the build for the API manifest, topology and .dale schema files and examples/ projects that solution tests read, after set-version.ps1 alone was added. (self) → codified: .github/workflows/publish.yml
+
+2026-09-15 · review · publish.yml · The re-review found an examples project-file change skipping style on the pull request and on main, while the scope comment said main's full run catches a project setting cleanup reads. (self) → codified: .github/workflows/publish.yml
