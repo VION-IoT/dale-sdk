@@ -191,7 +191,8 @@ whole of this area's decode surface.
 
 `AC-IO-005.2` is what the payload's own decode buys. It refuses an empty payload, one truncated
 anywhere, one that is not JSON at all, a bare `null` document, and a value of a type the member does
-not hold — a real number on a digital topic, a truth value or a quoted number on an analog one. What
+not hold — a real number on a digital topic; a truth value, a quoted number, or a quoted `NaN`,
+`Infinity` or `-Infinity` on an analog one. What
 it accepts is a document carrying no `value` member at all, which reads as the member's default and
 is delivered; the wire cannot distinguish that from a publisher that meant the default.
 

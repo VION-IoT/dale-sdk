@@ -188,7 +188,7 @@ content type. Rows are the observable behaviours the cut changes or newly reache
 | 2 | THE SYSTEM SHALL declare a command's content type as JSON. | `ServiceProviderHandlerBase.cs:235` | `PublishCommandLabelledWithPayloadSchemaAndContentType` | intended | `AC-IO-006.2` |
 | 3 | THE SYSTEM SHALL declare a published message's content type as the one its caller names. | `ServiceProviderHandlerBase.cs:190`, `Mqtt/ActorMessages.cs:92,124` | `ProviderPublishShould.DeclareContentTypeCallerNames` | intended | `AC-BIND-011.3`, the default removed |
 | 4 | WHEN a state document cannot be decoded THE SYSTEM SHALL drop it, delivering nothing to any block. | the four handlers' `catch` arms | `ForwardNothingWhenPayloadUndecodable` | intended | `AC-IO-005.2`, same rule, wider reach |
-| 5 | WHEN a state document's value is of a type the member does not hold THE SYSTEM SHALL drop it. | same | `ForwardNothingWhenPayloadUndecodable` rows 6–7 | intended | newly reachable; FlatBuffers accepted it |
+| 5 | WHEN a state document's value is of a type the member does not hold THE SYSTEM SHALL drop it. | same | `ForwardNothingWhenPayloadUndecodable`'s wrong-type rows, the analog suites' three named-literal rows included | intended | newly reachable; FlatBuffers accepted it |
 | 6 | WHEN a state document carries no value member THE SYSTEM SHALL deliver the member's default. | `System.Text.Json` parameterized-constructor binding | none — stated in `io.md` prose | out-of-spec | unchanged from FlatBuffers' absent-field default; the wire cannot distinguish it from a publisher that meant the default |
 | 7 | THE SYSTEM SHALL carry a signed zero to the far side. | probe: `{"value":-0}` round-trips | none | out-of-spec | an improvement that falls out of the encoding; `AC-IO-007.2` already covers "unaltered" |
 | 8 | WHEN a block commands an analog output with a value that is not finite THE SYSTEM SHALL publish no command. | `AnalogOutputHandler.cs:91` | `AnalogOutputHandlerShould.PublishNothingWhenCommandValueNotFinite` | intended | `AC-IO-007.3`; JSON has no number for it |
@@ -272,6 +272,14 @@ None. Every test in the four rewritten suites maps to a row or to a criterion th
   document through them any more. Sibling sweep: done — `git grep -n "AllowNamedFloatingPointLiterals\|NaN\|Infinity"`
   over `Vion.Dale.Sdk*` and `docs/specs/` re-read; `testkit.md`'s `AC-TKIT-007.2` prose was the one
   page outside `io.md` citing the value rule for non-finite values.
+- `2026-09-15`: `Vion.Contracts` 11.0.2 (PR #26, `3674f55`) takes the named literals out of
+  `HwJsonContext`; this repo pins it. The analog suites' three named-literal rows under
+  `ForwardNothingWhenPayloadUndecodable` were written first and run on 11.0.1, where all six failed
+  (`Assert.IsEmpty failed … Actual: 1`), then passed on 11.0.2 unedited — the defect proof for the pin.
+  `service-provider-sdk-dotnet` 10.1.0, `hal-sim` 5.0.0 and `hal-raspberry` 5.0.0 are released on
+  11.0.1 and would still write a quoted literal for a non-finite reading; this side refuses it as an
+  undecodable document, and moving them is the cross-repo spec's to schedule. Sibling sweep: done — one
+  pin (`git grep -n 'Vion.Contracts"' -- '*.csproj' '*.props' '*.targets'`, one hit).
 
 ---
 
@@ -287,7 +295,7 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
   analog output publishes nothing, and the handler logs a warning naming the contract; a state document
   spelling one as `"NaN"`, `"Infinity"` or `"-Infinity"` is refused like any other undecodable
   document. Every analog value on this wire is a JSON number.
-- **`Vion.Contracts` floor is 11.0.1.** A consumer pinning `Vion.Contracts` directly below that gets
+- **`Vion.Contracts` floor is 11.0.2.** A consumer pinning `Vion.Contracts` directly below that gets
   a downgrade at restore, because a direct pin wins by nearest-wins.
 - **`ModbusFunctionCode` moved namespace** to `Vion.Contracts.Hw.Modbus`. It appears in
   `Vion.Dale.Sdk.Modbus.Rtu` *signatures*, so anything compiling against that package changes a

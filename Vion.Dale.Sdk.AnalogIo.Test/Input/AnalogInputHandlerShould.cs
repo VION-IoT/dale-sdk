@@ -106,6 +106,9 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         [DataRow("not json", DisplayName = "not JSON at all")]
         [DataRow("""{"value":true}""", DisplayName = "a truth value where a real number belongs")]
         [DataRow("""{"value":"4.2"}""", DisplayName = "a real number spelled as a string")]
+        [DataRow("""{"value":"NaN"}""", DisplayName = "not a number spelled as a named literal")]
+        [DataRow("""{"value":"Infinity"}""", DisplayName = "positive infinity spelled as a named literal")]
+        [DataRow("""{"value":"-Infinity"}""", DisplayName = "negative infinity spelled as a named literal")]
         public void ForwardNothingWhenPayloadUndecodable(string document)
         {
             // Arrange — every row carries this topic's own label, so the decode is the only thing left to

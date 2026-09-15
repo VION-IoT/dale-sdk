@@ -166,3 +166,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · hw-contracts-are-json · The review found the typed PublishJson inheriting Publish's docs, which describe payload as serialized bytes and leave typeInfo undocumented, copied from the reflection overload beside it; both overloads now carry their own parameter docs. sdk-surface-conventions.md § 2's verify-against-the-code rule should have caught it.
 
 2026-09-15 · review · hw-contracts-are-json · The review found io.md announcing exactly five things before four, narrating the cut with now, no longer and used-to, and arguing a catch that changes nothing observable, and contracts.md arguing why its default was not another; asked for current truth with no counts and no history. spec-process.md § The corpus should have caught it.
+
+2026-09-15 · decision · hw-contracts-are-json · Vion.Contracts 11.0.2 takes the named literals back out of HwJsonContext and this repo pins it, so a quoted NaN or infinity on an analog state topic is refused as undecodable; the three HALs and the service-provider SDK released on 11.0.1 are left to the cross-repo spec to move.
