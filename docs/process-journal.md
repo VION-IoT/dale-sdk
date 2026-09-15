@@ -200,3 +200,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · gate · mutation runner · A scripted mutation restored its source file but not its build, and a later --no-build suite run ran the mutated binaries, reporting eight failures across two suites as regressions until a rebuild turned them green. (self) → codified: docs/testing-conventions.md
 
 2026-09-15 · gate · test-style-lint · A new cited test was named NameHeldExchangeWhenQuiescenceBudgetIsSpent; the lint failed it for the filler word and three uncited premise tests carried the same shape. (self)
+
+2026-09-15 · review · VION-222 · The branch review found IDevHostControl.AdvanceAsync and the barrier summary still defining quiescence without open exchanges, an absolute "every settle" fallback comment, measurement counts pasted without their commands, and the teardown drain choice and the FluentModbus ordering proven by nothing committed; comment-conventions and CLAUDE.md Communication should have caught the first three. (self)
