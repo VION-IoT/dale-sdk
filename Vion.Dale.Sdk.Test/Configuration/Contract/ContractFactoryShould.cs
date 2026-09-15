@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.Loader;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
@@ -42,8 +43,9 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
             // assembly in while it emits: the assembly already references the contract's own, and enumerating it
             // fails on the unfinished type. It is left unfinished for the rest of the process, as a generator mid-way
             // through an emission would leave it at the instant of a binding.
-            var dynamicModule = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(Guid.NewGuid().ToString()), AssemblyBuilderAccess.Run).DefineDynamicModule("Proxies");
-            dynamicModule.DefineType("PendingProxy", TypeAttributes.Public).AddInterfaceImplementation(typeof(IMidEmissionContract));
+            var dynamicModule = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(Guid.NewGuid().ToString()), AssemblyBuilderAccess.Run)
+                                               .DefineDynamicModule(Guid.NewGuid().ToString());
+            dynamicModule.DefineType(Guid.NewGuid().ToString(), TypeAttributes.Public).AddInterfaceImplementation(typeof(IMidEmissionContract));
             var block = new MidEmissionContractBlock();
 
             // Act
@@ -70,29 +72,34 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
         [TestProperty("spec", "AC-BIND-008.3")]
         public void RefuseContractWhereConsideredAssemblyCannotBeEnumerated()
         {
-            // Arrange — three saved assemblies, two of them loaded: one declares the contract, and the other implements it
-            // on a base type from the third, which is never loaded, so enumerating the implementation fails. Every name is
-            // fresh, so no other binding in the process considers either loaded assembly. The contract exists only at run
-            // time, which is why the factory is driven directly rather than through a block's configuration.
+            // Arrange — three saved assemblies, two of them loaded into one load context, where the implementing assembly
+            // resolves the declaring one by name. It implements the contract on a base type from the third, which is never
+            // loaded, so enumerating the implementing assembly fails on that base type alone. Every name is fresh, so no
+            // other binding in the process considers either loaded assembly. The contract exists only at run time, which is
+            // why the factory is driven directly rather than through a block's configuration.
             var coreLibrary = typeof(object).Assembly;
-            var declaringBuilder = new PersistedAssemblyBuilder(new AssemblyName($"Declaring{Guid.NewGuid():N}"), coreLibrary);
-            var contractType = declaringBuilder.DefineDynamicModule("Declaring")
-                                               .DefineType("IRuntimeContract", TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
+            var declaringBuilder = new PersistedAssemblyBuilder(new AssemblyName(Guid.NewGuid().ToString()), coreLibrary);
+            var contractTypeName = Guid.NewGuid().ToString();
+            var contractType = declaringBuilder.DefineDynamicModule(Guid.NewGuid().ToString())
+                                               .DefineType(contractTypeName, TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
             contractType.CreateType();
-            var absentBuilder = new PersistedAssemblyBuilder(new AssemblyName($"Absent{Guid.NewGuid():N}"), coreLibrary);
-            var absentBase = absentBuilder.DefineDynamicModule("Absent").DefineType("AbsentBase", TypeAttributes.Public);
+            var absentBuilder = new PersistedAssemblyBuilder(new AssemblyName(Guid.NewGuid().ToString()), coreLibrary);
+            var absentBase = absentBuilder.DefineDynamicModule(Guid.NewGuid().ToString()).DefineType(Guid.NewGuid().ToString(), TypeAttributes.Public);
             absentBase.CreateType();
-            var unenumerableName = $"Unenumerable{Guid.NewGuid():N}";
+            var unenumerableName = Guid.NewGuid().ToString();
             var unenumerableBuilder = new PersistedAssemblyBuilder(new AssemblyName(unenumerableName), coreLibrary);
-            var implementation = unenumerableBuilder.DefineDynamicModule("Unenumerable").DefineType("RuntimeContract", TypeAttributes.Public, absentBase);
+            var implementation = unenumerableBuilder.DefineDynamicModule(Guid.NewGuid().ToString()).DefineType(Guid.NewGuid().ToString(), TypeAttributes.Public, absentBase);
             implementation.AddInterfaceImplementation(contractType);
             implementation.CreateType();
             var declaringImage = new MemoryStream();
             declaringBuilder.Save(declaringImage);
+            declaringImage.Position = 0;
             var unenumerableImage = new MemoryStream();
             unenumerableBuilder.Save(unenumerableImage);
-            var contract = Assembly.Load(declaringImage.ToArray()).GetType("IRuntimeContract", true)!;
-            Assembly.Load(unenumerableImage.ToArray());
+            unenumerableImage.Position = 0;
+            var loadContext = new AssemblyLoadContext(Guid.NewGuid().ToString());
+            var contract = loadContext.LoadFromStream(declaringImage).GetType(contractTypeName, true)!;
+            loadContext.LoadFromStream(unenumerableImage);
             var factory = new ContractFactory((_, _) => { }, null!, BindHosts.Bare);
 
             // Act / Assert

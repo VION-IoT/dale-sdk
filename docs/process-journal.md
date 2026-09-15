@@ -234,3 +234,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · VION-224 · The review found the HTTP renamed-endpoint test ignoring the advance response, so a refused advance would fail as the drive not reaching the block; WebControlEndpointsShould, the precedent it copied, asserts it. (self)
 
 2026-09-15 · review · VION-132 · The regression test for the dynamic-assembly contract search was named BindContractWhileDynamicAssemblyIsMidEmission; test-style-lint refused the filler word Is, which testing-conventions.md section 12 already forbids, and the name became BindContractDuringDynamicAssemblyEmission. (self)
+
+2026-09-15 · review · VION-132 · The review found the AC-BIND-008.3 fixture comment blaming the never-loaded base assembly while each image loaded from bytes into its own context, so the declaring assembly was unresolvable too and the base did nothing; comment-conventions.md asks a mechanism comment to be verified. (self)
+
+2026-09-15 · review · VION-132 · The review found module and type names in both new ContractFactoryShould fixtures written as literals no assertion reads; testing-conventions.md section 14 asks for Guid strings there. (self)
