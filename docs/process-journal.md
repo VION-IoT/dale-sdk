@@ -178,3 +178,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · gate · mutation runner · A mutation was restored with git checkout, which also discarded the session's uncommitted edit to the same file; the edit had to be re-applied before the round could go on. (self) → codified: docs/testing-conventions.md
 
 2026-09-15 · review · hw-contracts-are-json · The correction-round review found the analog TestKit's tolerance doc and two ToleranceShould comments still saying the wire carries non-finite values unaltered and drops a signed zero, beside the testkit.md paragraph this round edited; the sweep grepped NaN and Infinity, not the prose words. docs/review-checks.md P3 should have caught it. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The correction-round review found AC-BIND-012.8's test building a single-segment payload, so the reader path for a segmented one could ignore the caller's metadata unnoticed; a segmented row was added. testing-conventions.md § 9's statement-by-statement walk should have caught it. (self)
