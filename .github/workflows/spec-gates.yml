@@ -24,7 +24,29 @@ jobs:
           # spec-lint -Diff needs the merge base to see what a PR ADDS to docs/specs/.
           fetch-depth: 0
 
+      # A pull request runs the self-tests only when something they read changed: a script, this
+      # workflow, or a project file, which set-version.tests.ps1 and the packed-assembly gate's
+      # self-test read from the repository. A push to main always runs them. A pull request checks out
+      # its merge commit, so its base is the first parent; one that does not resolve runs them.
+      - name: Scope the self-tests
+        id: scope
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          base="$(git rev-parse --verify --quiet HEAD^1 || true)"
+          if [ "$EVENT" != "pull_request" ] || [ -z "$base" ]; then
+            selftests=true
+          elif grep -qE '^scripts/|^\.github/workflows/spec-gates\.yml$|\.csproj$' <<< "$(git diff --name-only --no-renames "$base"...HEAD)"; then
+            selftests=true
+          else
+            selftests=false
+          fi
+          echo "selftests=$selftests" >> "$GITHUB_OUTPUT"
+          echo "selftests=$selftests"
+
       - name: Script self-tests
+        if: steps.scope.outputs.selftests == 'true'
         shell: pwsh
         run: ./scripts/run-script-tests.ps1
 
