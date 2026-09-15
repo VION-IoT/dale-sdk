@@ -47,10 +47,7 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="logger">Logger used for logging.</param>
         /// <param name="timeProvider">The clock a per-request timeout is measured on.</param>
         /// <param name="exchanges">The development host's exchange monitor, when one is registered.</param>
-        public HttpRequestExecutor(IHttpClientFactory httpClientFactory,
-                                   ILogger<HttpRequestExecutor> logger,
-                                   TimeProvider timeProvider,
-                                   IExchangeActivityMonitor? exchanges = null)
+        public HttpRequestExecutor(IHttpClientFactory httpClientFactory, ILogger<HttpRequestExecutor> logger, TimeProvider timeProvider, IExchangeActivityMonitor? exchanges = null)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;

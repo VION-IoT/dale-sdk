@@ -72,8 +72,11 @@ namespace Vion.Dale.Sdk.Http.Server
 
         private CancellationTokenSource? _stopping;
 
-        public TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound, IExchangeActivityMonitor? exchanges = null) :
-            this(logger, readBound, DefaultConnectionLimit, listener => listener.AcceptTcpClientAsync(), exchanges)
+        public TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound, IExchangeActivityMonitor? exchanges = null) : this(logger,
+            readBound,
+            DefaultConnectionLimit,
+            listener => listener.AcceptTcpClientAsync(),
+            exchanges)
         {
         }
 

@@ -689,11 +689,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 
         private sealed class CountingExchangeMonitor : IExchangeActivityMonitor
         {
+            private readonly TaskCompletionSource<bool> _allClosed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
             private int _open;
 
             private int _opened;
-
-            private readonly TaskCompletionSource<bool> _allClosed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
             // Completed asynchronously: the last close runs on the queue's consumer, which a test continuation resumed
             // inline there would otherwise block.

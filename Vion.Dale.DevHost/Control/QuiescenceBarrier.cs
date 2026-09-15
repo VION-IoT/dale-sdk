@@ -76,6 +76,12 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly RuntimeVitals _vitals;
 
+        /// <summary>What every exchange still open was opened as; empty when exchanges are not counted.</summary>
+        public IReadOnlyList<string> OpenExchanges
+        {
+            get => _countExchanges && _activity is not null ? _activity.OpenExchanges : Array.Empty<string>();
+        }
+
         /// <param name="vitals">The per-actor mailbox statistics.</param>
         /// <param name="activity">The host's handler and exchange counts.</param>
         /// <param name="countExchanges">
@@ -87,12 +93,6 @@ namespace Vion.Dale.DevHost.Control
             _vitals = vitals ?? throw new ArgumentNullException(nameof(vitals));
             _activity = activity;
             _countExchanges = countExchanges;
-        }
-
-        /// <summary>What every exchange still open was opened as; empty when exchanges are not counted.</summary>
-        public IReadOnlyList<string> OpenExchanges
-        {
-            get => _countExchanges && _activity is not null ? _activity.OpenExchanges : Array.Empty<string>();
         }
 
         /// <summary>

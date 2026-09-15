@@ -84,18 +84,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             };
 
             _channel = Channel.CreateBounded<QueuedRequest>(new BoundedChannelOptions(capacity)
-                                                       {
-                                                           SingleReader = true,
-                                                           SingleWriter = true,
-                                                           FullMode = fullMode,
-                                                           AllowSynchronousContinuations =
-                                                               false, // Prevent synchronous continuations to avoid blocking the channel writer thread.
-                                                       },
-                                                       queued =>
-                                                       {
-                                                           queued.Request.HandleRequestFailed(new RequestDroppedException(queued.Request.Name, capacity, overflowPolicy));
-                                                           queued.Exchange?.Dispose();
-                                                       });
+                                                            {
+                                                                SingleReader = true,
+                                                                SingleWriter = true,
+                                                                FullMode = fullMode,
+                                                                AllowSynchronousContinuations =
+                                                                    false, // Prevent synchronous continuations to avoid blocking the channel writer thread.
+                                                            },
+                                                            queued =>
+                                                            {
+                                                                queued.Request.HandleRequestFailed(new RequestDroppedException(queued.Request.Name, capacity, overflowPolicy));
+                                                                queued.Exchange?.Dispose();
+                                                            });
             LogQueueCreated(capacity, overflowPolicy);
 
             _cts = new CancellationTokenSource();
@@ -313,25 +313,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             queued.Exchange?.Dispose();
         }
 
-        /// <summary>
-        ///     A request and the exchange a development host counts it as. The exchange closes on every way the request
-        ///     leaves the queue — run, evicted by the overflow policy, refused by a completed channel, dropped on disposal —
-        ///     and only after the request's completion has been handed to the block, so a stepped host never sees the
-        ///     request gone before its result is in the block's mailbox.
-        /// </summary>
-        private readonly struct QueuedRequest
-        {
-            public QueuedRequest(IRequest request, IDisposable? exchange)
-            {
-                Request = request;
-                Exchange = exchange;
-            }
-
-            public IRequest Request { get; }
-
-            public IDisposable? Exchange { get; }
-        }
-
         [LoggerMessage(Level = LogLevel.Debug, Message = "Request dropped because the client was disposed (RequestName={RequestName}, RequestId={RequestId})")]
         private partial void LogRequestDroppedOnDisposal(string requestName, Guid requestId);
 
@@ -370,5 +351,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         [LoggerMessage(Level = LogLevel.Information, Message = "{name} disposed")]
         private partial void LogDisposed(string name);
+
+        /// <summary>
+        ///     A request and the exchange a development host counts it as. The exchange closes on every way the request
+        ///     leaves the queue — run, evicted by the overflow policy, refused by a completed channel, dropped on disposal —
+        ///     and only after the request's completion has been handed to the block, so a stepped host never sees the
+        ///     request gone before its result is in the block's mailbox.
+        /// </summary>
+        private readonly struct QueuedRequest
+        {
+            public QueuedRequest(IRequest request, IDisposable? exchange)
+            {
+                Request = request;
+                Exchange = exchange;
+            }
+
+            public IRequest Request { get; }
+
+            public IDisposable? Exchange { get; }
+        }
     }
 }

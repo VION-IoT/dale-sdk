@@ -32,6 +32,14 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         private int _held;
 
+        public int Port { get; }
+
+        /// <summary>Completes when the first request has reached the peer and is being held.</summary>
+        public Task RequestArrived
+        {
+            get => _requestArrived.Task;
+        }
+
         private HeldAnswerPeer(Func<Stream, Func<Task>, CancellationToken, Task<bool>> answerOne, TimeSpan fallback)
         {
             _fallback = fallback;
@@ -40,14 +48,6 @@ namespace Vion.Dale.DevHost.Test.Stepping
             _listener.Start();
             Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
             _acceptLoop = AcceptAsync();
-        }
-
-        public int Port { get; }
-
-        /// <summary>Completes when the first request has reached the peer and is being held.</summary>
-        public Task RequestArrived
-        {
-            get => _requestArrived.Task;
         }
 
         public async ValueTask DisposeAsync()
@@ -73,7 +73,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
             return new HeldAnswerPeer((stream, hold, token) => AnswerModbusReadAsync(stream, value, hold, token), fallback);
         }
 
-        /// <summary>An HTTP server answering every request with the JSON body <paramref name="json" />, one request per connection.</summary>
+        /// <summary>
+        ///     An HTTP server answering every request with the JSON body <paramref name="json" />, one request per
+        ///     connection.
+        /// </summary>
         public static HeldAnswerPeer Http(string json, TimeSpan fallback)
         {
             return new HeldAnswerPeer((stream, hold, token) => AnswerHttpAsync(stream, json, hold, token), fallback);

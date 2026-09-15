@@ -15,7 +15,8 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///     on the wire; these tests pin that a stepped advance still waits for it.
     ///     <para>
     ///         The peers are test-owned raw sockets that hold their first answer until the test has taken its read, or until
-    ///         a half-second fallback passes (<see cref="HeldAnswerPeer" />). Holding is what makes the window deterministic: a
+    ///         a half-second fallback passes (<see cref="HeldAnswerPeer" />). Holding is what makes the window deterministic:
+    ///         a
     ///         loopback round trip is sub-millisecond, so without it a settle that ignores the exchange would still usually
     ///         lose the race and pass. With the exchange counted, the advance cannot return while the answer is held, so the
     ///         fallback releases it and the read after the advance sees the answer; without, the advance returns first and the
