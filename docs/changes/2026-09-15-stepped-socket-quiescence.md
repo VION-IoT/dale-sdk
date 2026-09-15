@@ -221,7 +221,7 @@ Probed this session, a refused connect to a closed loopback port:
 | Linux 6.6.87.2-microsoft-standard-WSL2 (the `docker-desktop` distro) | busybox `nc -z -w 5 127.0.0.1 5999` | refused, 0 ms |
 
 The Linux probe is the kernel's answer through `nc`, not .NET's `TcpClient`; the implementation
-repeats it with .NET on the PR's Linux CI run. What the numbers mean: on Windows every connect attempt
+repeated it with .NET in a Linux container (Drift checkpoint on barrier share). What the numbers mean: on Windows every connect attempt
 to a dead loopback port costs ~2 s of real time and stays under the budget; the connect backoff
 (two failures, then 1 s doubling to 30 s of **virtual** time, `ModbusTcpClientWrapper.cs:23-27`,
 `:235-245`) caps how many attempts a stepped run makes. The consumer's `askoma-boiler-comms-watchdog`
@@ -325,7 +325,7 @@ when a block fails to acknowledge on a stepped host.
 
 - 2026-09-15: the brief assumed a refused loopback connect takes ~2 s on Windows and asked for a probe
   on Linux too — probed (§ The absent peer): Windows 2034–2062 ms, Linux 0 ms (through busybox `nc`,
-  not .NET; repeated with .NET in CI).
+  not .NET; repeated with .NET in a Linux container: 18 ms and 0 ms).
 - 2026-09-15: the brief's "Other off-schedule continuations" named `ActorContext.cs:84-96` as a
   bypass; on a stepped host that branch is not taken (`:71-75`). The window is real only for the two
   `ActorSystem` timeout waits (reviewer's question 3).
@@ -367,6 +367,18 @@ when a block fails to acknowledge on a stepped host.
   HTTP exchanges carry the method and URL.
 - 2026-09-15: the quiescence failure message now renders its budget in the invariant culture; it
   rendered in the current culture before, so a German-locale host wrote `0,4s`.
+- 2026-09-15: barrier share, before and after. Fixture: a stepped host with one `TickerBlock`
+  (`[Timer(1)]`), warmed by a 1 s advance, then one `AdvanceAsync(2000 s)` timed — 2034 settles, 2001
+  ticks; an uncommitted stopwatch around the stepper's settle, applied identically to origin/main
+  (7c8343a1) and to the branch. Windows 11 10.0.26200: origin/main 22805–26233 ms wall, 99.8–99.9% in
+  the barrier; branch 63–69 ms wall, 81–89% in the barrier. Linux (`mcr.microsoft.com/dotnet/sdk:10.0`
+  on Docker Desktop, kernel 6.6.87.2): origin/main 8168–10680 ms, 99.7%; branch 60–70 ms, 89–90%.
+  Three runs each. The share stays high after the change because in this fixture every handler runs
+  while a settle is waiting for it, so the barrier's time is the actor work itself; the idle part is
+  what fell, from ~11 ms (Windows) and ~4–5 ms (Linux) per settle to ~30 µs including the handler.
+  The same container ran `SocketExchangeSteppingShould` and `QuiescenceBarrierShould` green (9 of 9)
+  and repeated the refused-connect probe through .NET's `TcpClient`: `ConnectionRefused` after 18 ms and
+  0 ms. The consumer journal's 99.7% figure is a whole lane; a lane was not re-run here.
 
 ---
 
