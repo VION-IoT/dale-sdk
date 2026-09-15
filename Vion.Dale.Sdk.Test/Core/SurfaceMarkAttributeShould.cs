@@ -79,8 +79,8 @@ namespace Vion.Dale.Sdk.Test.Core
         // GenerateDocumentationFile - so GetDocumentationCommentXml() is empty for every type in it and
         // the diagnostic fires on any [PublicApi] here however documented. Measured: 1 occurrence, and 0
         // under -p:GenerateDocumentationFile=true. The summary below is real; turning the doc file on for
-        // a test project of this size is a change to what the whole project warns about, so the entry is
-        // in the finding ledger instead.
+        // a test project of this size is a change to what the whole project warns about, so the pragma
+        // suppresses it here instead.
 #pragma warning disable DALE013 // the project generates no doc XML, so DALE013 cannot see this summary
         /// <summary>A published type, standing in for <c>LogicBlockContractBase</c>.</summary>
         [PublicApi]

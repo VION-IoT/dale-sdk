@@ -21,6 +21,11 @@ for the PR body" section. -->
 <!-- Only when a spec, brief or change doc was given: where the change departs from it. Omit the
 section otherwise. -->
 
+## Draft items
+
+<!-- Only when a finding is neither fixed nor stated on a page: one draft Jira item each, for the
+operator to file or drop (`docs/spec-process.md` § Routing). Omit the section otherwise. -->
+
 ## Verification
 
 <!-- What no check run shows: a test proven red first, a smoke skill, a probe, an observation

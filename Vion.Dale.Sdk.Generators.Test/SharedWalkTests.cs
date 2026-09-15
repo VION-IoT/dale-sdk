@@ -20,7 +20,7 @@ namespace Vion.Dale.Sdk.Generators.Test
             // A preset attribute — one deriving from a Dale attribute so it can carry a unit — is matched by
             // nothing but DALE019. The runtime honours it (AttributeInheritanceShould), so this pins a live
             // limitation rather than a rule: the by-name match is what makes every other analyzer blind to
-            // it, and widening the match re-aims all of them at once. Recorded in docs/specs/_findings.md.
+            // it, and widening the match re-aims all of them at once.
             var source = @"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;

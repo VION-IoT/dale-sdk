@@ -61,7 +61,7 @@ namespace Vion.Dale.DevHost.Test
     ///     A block that throws from <see cref="LogicBlockBase.Ready" /> — the configuration phase of
     ///     <c>InitializeLogicBlock</c>. The send that carries it is fire-and-forget, so the throw is caught by
     ///     the actor middleware and the block still acknowledges start: the host comes up over a block whose
-    ///     members never publish. The finding ledger's GATE row 66, and what the health surface reports.
+    ///     members never publish, and the health surface reports the failure.
     /// </summary>
     [LogicBlock(Name = "Failing configure")]
     public class FailingConfigureBlock : LogicBlockBase
