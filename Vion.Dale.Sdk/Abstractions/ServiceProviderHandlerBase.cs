@@ -208,7 +208,13 @@ namespace Vion.Dale.Sdk.Abstractions
         /// <summary>
         ///     Serializes the payload as JSON and publishes it with <c>application/json</c> content type.
         /// </summary>
-        /// <inheritdoc cref="Publish" />
+        /// <param name="topic">The full MQTT topic to publish to.</param>
+        /// <param name="payload">The value to serialize as the message body.</param>
+        /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
+        /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
+        /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
+        /// <param name="retain">Whether the message should be retained by the broker.</param>
+        /// <returns>The correlation ID used for the published message.</returns>
         protected Guid PublishJson<T>(string topic,
                                       T payload,
                                       string schemaName,
@@ -232,7 +238,14 @@ namespace Vion.Dale.Sdk.Abstractions
         ///     <see cref="JsonSerialization.DefaultOptions" /> — and publishes it with <c>application/json</c>
         ///     content type.
         /// </summary>
-        /// <inheritdoc cref="Publish" />
+        /// <param name="topic">The full MQTT topic to publish to.</param>
+        /// <param name="payload">The value to serialize as the message body.</param>
+        /// <param name="typeInfo">The source-generated metadata <paramref name="payload" /> is serialized through.</param>
+        /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
+        /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
+        /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
+        /// <param name="retain">Whether the message should be retained by the broker.</param>
+        /// <returns>The correlation ID used for the published message.</returns>
         protected Guid PublishJson<T>(string topic,
                                       T payload,
                                       JsonTypeInfo<T> typeInfo,

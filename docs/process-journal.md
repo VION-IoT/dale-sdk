@@ -162,3 +162,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · hw-contracts-are-json · The review found no test reading a published Modbus RTU request — its document, schema label or content type — and row 10 citing the inbound response arrangements as evidence for the outbound function code; asked for tests on the request wire. docs/review-checks.md P2 should have caught it.
 
 2026-09-15 · review · hw-contracts-are-json · The review found the no-reachable-mutation reason for leaving the JsonTypeInfo overloads unspecified true only of hw/* records, whose naming matches the shared options; a snake-case test context makes the fallback observable on publish and read, so AC-BIND-011.5 and 012.8 are minted. docs/review-checks.md P4 should have caught it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the typed PublishJson inheriting Publish's docs, which describe payload as serialized bytes and leave typeInfo undocumented, copied from the reflection overload beside it; both overloads now carry their own parameter docs. sdk-surface-conventions.md § 2's verify-against-the-code rule should have caught it.
