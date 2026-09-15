@@ -2,15 +2,17 @@
 
 **Date:** 2026-09-15 · **Window:** 2026-09-13 → 2026-09-15, 106 entries (review 72, gate 15, brief 13, decision 6), archived in [`journal-2026-09-13-to-2026-09-15.md`](journal-2026-09-13-to-2026-09-15.md) · **Extra path:** [`journal-2026-09-10-to-2026-09-11.md`](journal-2026-09-10-to-2026-09-11.md), mode *whole*, 54 entries · **Previous records:** [`2026-09-10-sdd-migration-retro.md`](2026-09-10-sdd-migration-retro.md), [`2026-08-12-review-mining-round.md`](2026-08-12-review-mining-round.md)
 
-One fresh-context reader over the window, the extra path and both records; every number below was
-recounted against `origin/main` at `8231636c`. The reader read the checkout of an unmerged branch whose
-journal carried four more entries; they are not in this window and fall into the next one when that
-branch merges.
+One fresh-context reader over the window, the extra path and both records; the counts below were
+recounted against `origin/main` at `8231636c` with the commands under § Commands. Cluster membership,
+and the hygiene lists marked as judgement, are the reader's classification: a command confirms each
+pointer is an entry, not which cluster it belongs to. The reader read the checkout of an unmerged branch
+whose journal carried four more entries; they are not in this window and fall into the next one when
+that branch merges.
 
 ## The clusters
 
 `AR:n` is a line of the archive above; `RJ:n` a line of the extra path. Each entry has one primary
-cluster; the 106 and the 54 partition exactly.
+cluster; with the lines outside every cluster listed below, the 106 and the 54 partition exactly.
 
 | Cluster | Count (window + RJ) | Window (`AR`) | RJ |
 | --- | ---: | --- | --- |
@@ -29,7 +31,7 @@ cluster; the 106 and the 54 partition exactly.
 | O — one rule with more than one owner | 2 + 0 | 9, 179 | — |
 
 Outside every cluster: decisions `AR` 93, 121, 131, 149, 167, 171; singletons `AR` 27, 39, 73, 109, 147,
-155. `(second ask)`: `AR` 77 (after 61), `AR` 87 (after 57, 71), `RJ` 30.
+155 and `RJ` 15, 18, 19, 23, 44; positive signals `RJ` 5, 33. `(second ask)`: `AR` 77 (after 61), `AR` 87 (after 57, 71), `RJ` 30.
 
 **Recurred despite earlier landings.** Retro-1's P5 did not stop cluster A. Rules stamped inside the
 window recurred after their stamp: a red read off an escaping exception (`AR` 151, 165 after 21), a
@@ -67,7 +69,8 @@ the CI scope (`AR` 183–203 after 177), journal-lint SKIPped locally (`AR` 61, 
   (`AR` 15, 21, 29, 45, 49, 61, 77, 79, 177, 181, 203). Both are the reader's judgement, not recounted.
 - Entries quoting: 4 (`AR` 45, 73, 75, 209).
 - Review entries naming neither the file that should have prevented them nor a stamp: 19 (`AR` 11, 13,
-  23, 39, 61, 67, 95, 101, 103, 105, 109, 175, 179, 197, 201, 205, 207, 209, 213).
+  23, 39, 61, 67, 95, 101, 103, 105, 109, 175, 179, 197, 201, 205, 207, 209, 213) — judgement: a
+  phrase grep finds 23, and the other four name a file in words it misses.
 - Brief entries the agent found carrying no `(self)`: `AR` 3, 5, 17, 31, 117, 119 (the reader's reading).
 - `AR` 87 carries `(self)` beside `(second ask)`.
 
@@ -86,7 +89,7 @@ Nothing. No check has gone three rounds unnamed. D4 is named in neither retro-1'
 - **N** — reached rung 3 inside the window (`check.ps1`, `publish.yml`); nothing recurred after the last
   stamp.
 - **E's byte traps** (`AR` 33, 51, 99; `RJ` 24) — three different tools, one caught by the build. A gate
-  is feasible: 0 invalid-UTF-8 files and 0 tab bytes in `.cs` across 1,183 tracked files at `8231636c`.
+  is feasible: 0 invalid-UTF-8 files and 0 tab bytes in `.cs` across the 1,183 tracked `.cs .md .ps1 .yml .json .props .targets` files at `8231636c`.
 - **F** folded into the P5 clause; **I**, **H**, **Q**, **O** too small to act on.
 
 ## The proposal's shape
@@ -95,6 +98,25 @@ The first proposal relayed the reader's report whole and then a table with one l
 the human found the report overwhelming and the table missing context. The second — per landing, what
 changes in the repo, what it costs, the alternatives, and a pick — was the one decided on, and was asked
 for as the level of the next round. Journaled in the architecture repo, where the retro skill lives.
+
+## Commands
+
+PowerShell from the repository root. `$AR` and `$RJ` are the archive and the extra path.
+
+```powershell
+$AR = 'docs/retro/journal-2026-09-13-to-2026-09-15.md'; $RJ = 'docs/retro/journal-2026-09-10-to-2026-09-11.md'
+$entries = { param($f) Select-String -Path $f -Pattern '^\d{4}-\d{2}-\d{2} · ' }
+(& $entries $AR).Count                                                      # 106
+& $entries $AR | Group-Object { ($_.Line -split ' · ')[1] } | Select-Object Name, Count   # review 72, gate 15, brief 13, decision 6
+(& $entries $RJ).Count                                                      # 54
+(& $entries $AR | Where-Object { $_.Line.Length -gt 400 }).Count            # 0
+(& $entries $AR | Where-Object Line -match '"[^"`]{6,}"').LineNumber        # quotes: 45, 73, 75, 209
+Select-String -Path $AR, $RJ -Pattern '\(second ask\)' | ForEach-Object LineNumber      # AR 77, 87; RJ 8, 13 (quoted), 30
+Select-String -Path $AR, $RJ, 'docs/retro/journal-2026-08-12-to-2026-09-10.md' -Pattern '\bD4\b'   # none
+# every cited pointer is an entry, and with the outside lists the pointers cover every entry once:
+# compare (& $entries $AR).LineNumber against the union of the table's AR column and the outside lists
+@(git ls-tree -r --name-only 8231636c | Where-Object { $_ -match '\.(cs|md|ps1|yml|json|props|targets)$' }).Count   # 1183
+```
 
 ## For the next round
 

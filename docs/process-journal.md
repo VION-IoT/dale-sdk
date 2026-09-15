@@ -20,3 +20,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 ## Entries
 
 <!-- retro-2 marker -->
+
+2026-09-15 · review · retro-2 record · The branch review found the record claiming the extra path partitioned while seven of its entries sat in no cluster, and its counts carrying no command, one file tally unscoped; CLAUDE.md's count-with-its-command rule and review-checks.md P1 should have prevented it. (self)
