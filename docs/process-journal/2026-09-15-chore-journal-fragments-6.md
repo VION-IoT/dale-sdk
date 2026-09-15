@@ -53,4 +53,6 @@
 
 2026-09-15 · gate · Vion.Dale.Plugin.Test · The /check test gate went red on two of 40 plugin tests with the same Application Control block, on assemblies emitted into TEMP under a fresh name each run, so it recurs at 2, 2 then 1 failure; the § 8 rule covered build output only. (self) → codified: docs/testing-conventions.md
 
-2026-09-16 · review · check.ps1 · The journal-lint comment was reworded to state shared-workflows' default -Path as the pre-migration file name, a claim about another repo that no gate here can keep true and that this brief's own process-journal.md sweep then flagged; comment-conventions.md asks a mechanism comment to be cheap to verify. (self)
+2026-09-16 · review · check.ps1 · The journal-lint comment explained the folder path by naming the pre-migration file name as the action's default - the before-after framing comment-conventions.md forbids as a claim that rots - and it tripped the brief's own sweep for that file name. (self)
+
+2026-09-16 · gate · Bash tool · The migration script was launched through the Bash tool with a backslashed Windows path; the backslashes were stripped, pwsh got a run-together path and exited 64 having done nothing. The same command from the PowerShell tool ran. (self)
