@@ -102,9 +102,11 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         [TestMethod]
         public async Task NameExchangeByMethodPathAndLocalEndpoint()
         {
-            // Arrange — the answer parks, so the exchange is open when its name is read.
+            // Arrange — the transport opens the exchange before it writes the response, so reading the response to its end
+            // orders the name's read after the open.
             var monitor = new CountingMonitor();
             var handler = new ParkingHandler(true);
+            handler.Release();
             using var transport = new TcpHttpServerTransport(NullLogger<TcpHttpServerTransport>.Instance, TcpHttpServerTransport.DefaultReadBound, monitor);
             var port = FreePort();
             transport.Start(IPAddress.Loopback, port, handler);
@@ -113,13 +115,10 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
             // Act
             await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes("GET /value HTTP/1.1\r\n\r\n")).AsTask().WaitAsync(Timeout);
-            Assert.IsTrue(handler.AnswerEntered.Wait(Timeout));
-            var description = monitor.LastDescription;
-            handler.Release();
             await ReadUntilClosedAsync(client.GetStream()).WaitAsync(Timeout);
 
             // Assert — the name a stepped host's quiescence failure shows for this request.
-            Assert.AreEqual($"HTTP server GET /value on 127.0.0.1:{port}", description);
+            Assert.AreEqual($"HTTP server GET /value on 127.0.0.1:{port}", monitor.LastDescription);
         }
 
         [TestMethod]
