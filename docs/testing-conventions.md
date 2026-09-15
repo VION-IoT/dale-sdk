@@ -283,7 +283,9 @@ mutation, so a red summary line proves nothing until the failure message is the 
 test is green without the mutation. A runner that filters by `Name~` matches a `[DataRow]` test by its
 `DisplayName`, not its method, and runs nothing — filter by `FullyQualifiedName~`. A mutation that does not
 compile runs nothing too, and an output filter that keeps only test lines hides why, so read the build's own
-result before reading a mutation run's absence of a red line.
+result before reading a mutation run's absence of a red line. Restore a mutation from a copy of the
+file taken before it, or by its exact reverse edit — never `git checkout`, which also discards the
+uncommitted work that file carries.
 
 **A criterion that decides between two readings is tested where they part.** When a thing is recorded,
 what a bound covers, which of two orders wins: a test on the path where both readings give the same
