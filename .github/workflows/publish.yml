@@ -65,10 +65,14 @@ jobs:
   # difference that mattered in 0.11.1 — but it does not prevent the push. Moving the same
   # script between Pack and Push belongs in VION-IoT/shared-workflows (publish-nuget.yml).
   #
-  # It is also, by nature, a release-time check: PR and main runs pack 0.0.0-ci.N, whose
+  # Its version check is, by nature, a release-time check: PR and main runs pack 0.0.0-ci.N, whose
   # AssemblyVersion is 0.0.0.0 — the same value a clobbered assembly carries, so the shape
   # is invisible there. What guards the PR is the behavioural test that owns the cause,
-  # Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould.
+  # Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould. Its lib-asset and required-content
+  # checks do not depend on the version, and bite on every run.
+  #
+  # The script's own -SelfTest runs in spec-gates.yml, through
+  # scripts/verify-packed-assembly-versions.tests.ps1.
   verify-packages:
     if: github.actor != 'github-actions[bot]'
     needs: publish
@@ -82,11 +86,6 @@ jobs:
         with:
           name: nupkg
           path: ./artifacts
-
-      # The gate checking itself: fixtures built in a temp dir, no network, no build.
-      - name: Self-test the gate
-        shell: pwsh
-        run: ./scripts/verify-packed-assembly-versions.ps1 -SelfTest
 
       - name: Verify packed assembly versions
         shell: pwsh
