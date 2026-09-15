@@ -162,7 +162,7 @@ namespace Vion.Dale.Cli.Commands
                                   DaleConsole.Info("Next steps:");
                                   DaleConsole.Info($"  cd {name}");
                                   DaleConsole.Info("  dale build");
-                                  DaleConsole.Info("  dale dev                                 web UI at localhost:5000 — open the Thermostat block:");
+                                  DaleConsole.Info("  dale dev                                 web UI at localhost:5000, or the next free port — open the Thermostat block:");
                                   DaleConsole.Info("                                             • drag the TargetTemperature slider and watch CurrentTemperature track it");
                                   DaleConsole.Info("                                             • the State pill changes colour (Idle / Heating / Cooling)");
                                   DaleConsole.Info("  dale scenario run thermostat             drive the bundled scenario (while `dale dev` runs)");

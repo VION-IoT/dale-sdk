@@ -114,3 +114,23 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-14 · decision · publish.yml · A trial proposed a feature-branch push trigger so Linux CI runs before a PR opens; the operator dismissed it: vion-git:commit pushes per commit, so a run per commit for a failure seen once, and shared publish-nuget.yml:145-151 pushes packages on every non-pull_request event, so it would publish unreviewed branch builds.
 
 2026-09-14 · review · spec-process · The review found the archive rule still owing a map row from any post-archive fix, lane 2 included, after the edit scoped the map to rounds with a classified table; the clause is now scoped too. (self)
+
+2026-09-14 · brief · VION-215 · The brief named the branch feat/VION-215-devhost-next-free-port, which carries a ticket key the branch naming rule forbids; the operator chose feat/devhost-next-free-port.
+
+2026-09-14 · gate · Python on Windows · A Python rewrite of WebHostService.cs read and wrote with the locale code page, so three em dashes it inserted landed as single 0x97 bytes; the diff showed replacement glyphs and the bytes were rewritten as UTF-8. (self)
+
+2026-09-14 · review · VION-215 · The supervised readiness line named the pinned port rather than the port its generation bound, so mutation M5 (no pin) survived the rebind test; the line now names each generation's own bound port and the test requests that port. (self)
+
+2026-09-14 · review · VION-215 · The recycle-failure test awaited the runner unbounded, so the mutations that let a generation walk hung the suite for minutes instead of failing it; the wait is now bounded. (self)
+
+2026-09-14 · review · VION-215 · The readiness test took its unrelated runner port from FreePort(), which hands out consecutive ports, so it was the port the walk landed on and green code failed; the port is now taken below the preferred one. (self)
+
+2026-09-14 · review · devhost-smoke · The rewritten skill boots started the host with -NoNewWindow, so the tool shell running a boot waited on the host's inherited console handles until the host died; the boots and smoke-modbus.ps1 now start it with -WindowStyle Hidden. (self) → codified: .claude/skills/devhost-smoke/SKILL.md
+
+2026-09-14 · review · VION-215 · The review found every port the walk passed leaving an event broadcaster subscribed from a disposed attempt, and a non-bind start failure leaking its attempt; the broadcaster now subscribes only for the kept application and any failed attempt is disposed. (self)
+
+2026-09-14 · review · VION-215 · The review found the walk tests accepting any port up to nineteen above, so a walk skipping a free port passed, and rows selecting the entry point and the holder kind; testing-conventions.md §11 and §13 state both rules. (self)
+
+2026-09-14 · review · VION-215 · The review found the reworded AC-CTRL-006.2 adding a browser-address clause no test reaches, without a GAP, and the no-web-UI port fallback promised in prose with no criterion; spec-process.md states both. (self)
+
+2026-09-14 · review · devhost-smoke · The review found the skill boots sharing one fixed output file, waiting without a deadline, and keeping pid and port only in shell state a later call loses, where smoke-modbus.ps1 already had per-run files and a bound; review-checks.md P3 names the shape. (self)

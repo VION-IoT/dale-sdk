@@ -9,7 +9,7 @@ namespace Vion.Dale.DevHost.SmokeHost
 {
     /// <summary>
     ///     Boots the smoke-host DevHost: folder-driven discovery of <c>./topologies</c> + <c>./scenarios</c>
-    ///     (relative to the working directory), web UI + API on port 5000. Run with
+    ///     (relative to the working directory), web UI + API on port 5000 or the next free port above it. Run with
     ///     <c>DALE_DEVHOST_STEPPED=1</c> for the deterministic clock and <c>DALE_DEVHOST_NO_BROWSER=1</c> for
     ///     headless agent/CI use. This is the boot target for the /devhost-smoke skill's live-UI tier.
     /// </summary>

@@ -19,7 +19,7 @@ client side, `ILogicBlockHttpServerFactory` on the server side.
 
 2. **Run the DevHost:**
    - Press `F5` to run
-   - The browser should open automatically at `http://localhost:5000`
+   - The browser should open automatically at `http://localhost:5000` — or at the next free port, which the console prints, when another DevHost holds 5000
 
 The default topology starts two blocks: `SimServer` (binding `127.0.0.1:18080`, with three routes) and
 `DebugClient` (already pointed at `http://127.0.0.1:18080/api/status`). Press **Send now** in

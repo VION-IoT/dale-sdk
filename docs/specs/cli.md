@@ -275,11 +275,10 @@ tool does is find the project, set four variables, compose the run, and bound th
 - `AC-CLI-009.8` (Event-driven): WHEN an export was asked for THE SYSTEM SHALL exit 0 whenever every
   export file was written, whatever code the host itself exited with, and SHALL report a failure
   only when nothing was written.
-- `AC-CLI-009.9` (Ubiquitous): THE SYSTEM SHALL announce what it is about to do — a web UI, a
-  control API, or a one-shot export that starts no server.
+- `AC-CLI-009.9` (Ubiquitous): THE SYSTEM SHALL announce what it is about to do — a web UI, a control API, or a one-shot export that starts no server — and SHALL name no port, which only the host knows once it has bound one.
 
-The address the tool announces is the configured default, not a bound port — nothing here checks
-what the host actually binds, and the readiness handshake that would answer it is the host's.
+The host binds its preferred port or the next free one above it (`AC-CTRL-002.6`), so the address is
+the host's to print: its console line, and its readiness line in headless mode.
 
 ## The `scenario` group
 
@@ -307,6 +306,10 @@ deliberately lite, language-neutral mirror of them. The command surface is this 
 - `AC-CLI-010.12` (Event-driven): WHEN no host answers on the port THE SYSTEM SHALL refuse to report
   a scenario as opened.
 - `AC-CLI-010.13` (Event-driven): WHEN the host stops answering while a run is in flight THE SYSTEM SHALL report that and exit 1. GAP: a host that answers the apply and then dies mid-poll is a window no seam in this area constructs; the guarded and unguarded calls are eleven lines apart and the fix is the `catch` the apply already had.
+
+The scenario verbs' 5000 is a default, not a discovery: a host started while 5000 was taken serves on
+the port it printed, and a verb reaches it only when that port is passed. The refusal a verb prints
+when no host answers on its port says so.
 
 `AC-CLI-010.10` is a deliberate asymmetry with a deprecation in it: `--out` is the file, `--output`
 is the format, `-O` is the file's short form, and `-o` remains an alias for it for one release
