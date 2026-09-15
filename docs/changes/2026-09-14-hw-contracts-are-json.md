@@ -29,7 +29,8 @@ exist at all. A clean cut: no dual format, no sniffing, no fallback.
 ### Spec implications
 
 `docs/specs/io.md` carries most of it: the decode prose under `AC-IO-005.2` (what a JSON decode
-refuses, and that the handler catches rather than letting the throw escape), `AC-IO-006.2`'s content
+refuses; that the handler catches rather than letting the throw escape is `D6`'s and changes nothing a
+block observes, so the page does not state it), `AC-IO-006.2`'s content
 type, `AC-IO-005.3`'s and `AC-IO-005.5`'s prose (the payload no longer carries identity strings, and
 the label is judged before the decode rather than before the verifier), `AC-IO-007.2` narrowed to
 finite values and `AC-IO-007.3` refusing a non-finite command, the mirror's list of legitimate

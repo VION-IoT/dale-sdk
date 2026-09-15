@@ -195,11 +195,6 @@ not hold — a real number on a digital topic, a truth value or a quoted number 
 it accepts is a document carrying no `value` member at all, which reads as the member's default and
 is delivered; the wire cannot distinguish that from a publisher that meant the default.
 
-The refusal is the handler's own, not an exception escaping it. The decode throws, and each of the
-four handlers catches and drops, because letting it leave the arm would put a stack trace in a
-gateway's log for what is an ordinary bad frame — the message would be dropped either way
-(`AC-LIFE-014.2`).
-
 `AC-IO-005.5` names the payload type rather than inspecting it, and it is judged **before** the
 decode, so a foreign payload is refused by name rather than by whatever the decode happens to make of
 it. Every publisher on this wire sets the payload type's name as the message's schema user property,
@@ -207,7 +202,7 @@ and the service-provider side of the same wire refuses a message whose label is 
 another type; this side refuses on the same two grounds, which is why a message with no label is
 refused rather than admitted on the strength of its bytes.
 
-The two checks overlap without either being redundant. A neighbouring family's document is now
+The two checks overlap without either being redundant. A neighbouring family's document is
 refused twice over — by its label here, and by its value's type at `AC-IO-005.2` had it carried this
 topic's label — but only the label can refuse a *sibling* payload of the same shape, a `DoStatePayload`
 on a `di/state` topic, whose document is byte-for-byte what this topic's own payload would be.
@@ -220,9 +215,9 @@ refusal stays at debug for the opposite reason: state is published retained, so 
 reaches it on a topic nothing is wrong with. Neither level is a criterion, log text being no contract
 ([`../testing-conventions.md`](../testing-conventions.md) § 15).
 
-`AC-IO-005.3` is a rule about the topic, and the payload no longer offers anything to break it with:
-a state payload carries its value and nothing else, so the endpoint identity a captured message is
-interpretable against is the topic's alone. `AC-IO-005.4` fixes a block's first value:
+`AC-IO-005.3` is a rule about the topic: a member of a state document beside its value is ignored,
+whatever endpoint it names, so the identity a captured message is interpretable against is the
+topic's alone. `AC-IO-005.4` fixes a block's first value:
 this area issues no read of its own, so a block sees the next state message after its contract is
 linked, and one that arrives before is dropped. Both hardware abstraction layers publish state
 retained, which is what makes that first value arrive at all.
