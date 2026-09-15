@@ -60,7 +60,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
                                          }
                                          else
                                          {
-                                             client.WriteSingleRegister(0, 1, (short)42);
+                                             client.WriteSingleRegister(0, 1, 42);
                                          }
                                      });
                 Assert.IsTrue(entered.Wait(Timeout));
