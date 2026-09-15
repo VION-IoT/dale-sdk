@@ -809,8 +809,7 @@ is the review report only.
 - **Engineering findings** — what a lane-3 extraction, a review or any other reading turns up →
   intended behavior into the spec page; small area-local defects fixed in the same PR; GAPs as
   marked rows on the page; the rest a draft Jira item under VION-62 in the PR body's `Draft items`
-  section, which the operator files or drops. A draft takes the `dale-sdk-feedback` skill's item
-  shape.
+  section, which the operator files or drops. A draft takes the `dale-sdk-feedback` skill's shape.
 
 ## Gates
 

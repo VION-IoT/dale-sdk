@@ -22,7 +22,7 @@ Summary: `<area>: <symptom>` · Type: **Bug** · Parent: VION-62 · Label: `dale
     - <dale-sdk file:line — one clause on why it matters>          (≤6 bullets, verified by us)
 
     ## Origin
-    Consumer report (<channel/customer, or legacy DF-nn>, <version reported>) · verified on <tag/sha>, <date> · <reproduced | traced | not reproduced>.
+    <Consumer report (<channel/customer, or legacy DF-nn>, <version reported>) | Engineering finding (<the PR or change doc that found it>)> · verified on <tag/sha>, <date> · <reproduced | traced | not reproduced>.
     <optional, one line: what the reporter proposed / a hint worth knowing>
 
     ## Done when
@@ -38,10 +38,10 @@ Summary: `<area>: <need>` · Type: **Story** · Parent: VION-62 · Label: `dale-
     <what cannot be done or costs time today, and why it matters — ≤4 sentences, solution-independent>
 
     ## Origin
-    Consumer report (<channel/customer, or legacy DF-nn>, <version reported>) · verified on <tag/sha>, <date> · <reproduced | traced | not reproduced>.
+    <Consumer report (<channel/customer, or legacy DF-nn>, <version reported>) | Engineering finding (<the PR or change doc that found it>)> · verified on <tag/sha>, <date> · <reproduced | traced | not reproduced>.
 
     ## Directions
-    - <the reporter's proposal, one line>
+    - <the reporter's proposal, if any, one line>
     - <our hint / constraint / a fact that narrows the space, one line each>   (≤4 bullets total)
 
     ## Done when
