@@ -464,6 +464,11 @@ contract type and `AC-BIND-*` states what binds it and what the handler base doe
   the caller asked for and cannot be done, and to `ProtocolError` otherwise.
 - `AC-MODB-015.9` (Event-driven): WHEN a logic block contract is linked a second time to a different
   service provider THE SYSTEM SHALL keep the first mapping.
+- `AC-MODB-015.10` (Ubiquitous): THE SYSTEM SHALL publish each request as its payload record's JSON
+  document, labelled with that record's schema name and the JSON content type.
+
+`AC-MODB-015.10`'s document shape — the function code by its member name, register data as base64 —
+belongs to the `Vion.Contracts` record and is carried, not specified here.
 
 `AC-MODB-015.1` is why an outcome of `Dropped` on one binding may have been caused by another block's
 traffic; the zero queue depth is the honest consequence of the same sharing, because there is no

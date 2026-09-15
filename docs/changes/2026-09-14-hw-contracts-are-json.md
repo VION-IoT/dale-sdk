@@ -40,9 +40,9 @@ rule for non-finite values, which a block can still set; the kit's rule is uncha
 `docs/specs/contracts.md` carries `AC-BIND-011.3`: a publish declares the content type its caller
 names, and nothing defaults it.
 
-`docs/specs/modbus.md` needs no edit. It states the RTU handler's routing, expiry and receipt rules
-and is silent on the encoding — verified by `git grep -n "MQTT|wire|Contracts" -- docs/specs/modbus.md`,
-whose hits are all about the transport and the socket, never the payload format.
+`docs/specs/modbus.md` gains `AC-MODB-015.10`: the RTU handler publishes each request as its payload
+record's JSON document, labelled with the schema name and the JSON content type. The page was silent on
+the encoding before, so nothing pinned the outbound request at all.
 
 ### Decisions
 
@@ -188,7 +188,8 @@ content type. Rows are the observable behaviours the cut changes or newly reache
 | 7 | THE SYSTEM SHALL carry a signed zero to the far side. | probe: `{"value":-0}` round-trips | none | out-of-spec | an improvement that falls out of the encoding; `AC-IO-007.2` already covers "unaltered" |
 | 8 | WHEN a block commands an analog output with a value that is not finite THE SYSTEM SHALL publish no command. | `AnalogOutputHandler.cs:91` | `AnalogOutputHandlerShould.PublishNothingWhenCommandValueNotFinite` | intended | `AC-IO-007.3`; JSON has no number for it |
 | 9 | THE SYSTEM SHALL serialize a payload through caller-supplied type metadata when given it. | `ServiceProviderHandlerBase.cs:246` | exercised by every handler test | out-of-spec | no reachable mutation — the wire is identical either way; see Reviewer's question 2 |
-| 10 | THE SYSTEM SHALL name the Modbus function and response codes by their member names on the wire. | `ModbusFunctionCode.cs`'s own `[JsonConverter]` | `ModbusRtuHandlerShould`'s literal-JSON arrangements | intended | the record's contract, carried not specified here |
+| 10 | THE SYSTEM SHALL name the Modbus function and response codes by their member names on the wire. | `ModbusFunctionCode.cs`'s own `[JsonConverter]` | `ModbusRtuHandlerShould.PublishRequestAsLabelledJsonDocument` for the function code; the literal-JSON response arrangements for the response code | intended | the record's contract, carried not specified here |
+| 11 | THE SYSTEM SHALL publish each Modbus RTU request as its payload record's JSON document, labelled with its schema name and the JSON content type. | `ModbusRtuHandler.cs:223-229`, `:388-394` | `ModbusRtuHandlerShould.PublishRequestAsLabelledJsonDocument` | intended | nothing asserted the request wire in either encoding |
 
 **Row 8, and what it costs.** Under FlatBuffers a block could drive an analog output to `NaN` — a
 plausible "I have no value" idiom — and a HAL could report `NaN` for a reading it cannot take. On the
@@ -207,6 +208,7 @@ is always finite.
 | 8 | `AC-IO-007.3` (ADDED); `AC-IO-007.2` (MODIFIED — finite values only) |
 | 9 | no criterion — no reachable mutation (Reviewer's question 2) |
 | 10 | no criterion — `Vion.Contracts` owns the record's wire form; `io.md` cites rather than restates |
+| 11 | `AC-MODB-015.10` (ADDED) |
 
 ### Unmapped tests
 
@@ -299,6 +301,7 @@ Consumer-visible in `v0.14.0`, the next breaking minor above `v0.13.0`:
 
 ## Spec delta (to distill)
 
+- ADDED AC-MODB-015.10 -> docs/specs/modbus.md : THE SYSTEM SHALL publish each request as its payload record's JSON document, labelled with that record's schema name and the JSON content type.
 - MODIFIED AC-IO-007.2 -> docs/specs/io.md : THE SYSTEM SHALL carry any finite value its type can hold unaltered in both directions, rejecting and clamping none of them.
 - ADDED AC-IO-007.3 -> docs/specs/io.md : WHEN a block commands an analog output with a value that is not finite THE SYSTEM SHALL publish no command.
 - MODIFIED AC-IO-006.2 -> docs/specs/io.md : THE SYSTEM SHALL publish each command under a correlation identifier of its own, labelled with its payload type's schema name and the JSON content type, not retained, and carrying that payload type's encoding of the commanded value and nothing else.

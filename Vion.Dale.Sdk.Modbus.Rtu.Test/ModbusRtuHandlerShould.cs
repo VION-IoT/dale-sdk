@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Vion.Contracts.Constants;
 using Vion.Contracts.Hw.Modbus;
+using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
@@ -164,6 +166,36 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                                                   ((PublishMqttMessage)message).ResponseTopic == SetResponseTopic),
                                                                          It.IsAny<Dictionary<string, string>?>()),
                                      Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.10")]
+        [DataRow(TargetMethod.Read,
+                 nameof(GetModbusPayload),
+                 """{"functionCode":"ReadHoldingRegisters","unitIdentifier":7,"startingAddress":10,"quantity":4}""",
+                 DisplayName = "a read")]
+        [DataRow(TargetMethod.Write,
+                 nameof(SetModbusPayload),
+                 """{"functionCode":"WriteMultipleRegisters","unitIdentifier":7,"address":20,"data":"qrs="}""",
+                 DisplayName = "a write")]
+        public async Task PublishRequestAsLabelledJsonDocument(TargetMethod targetMethod, string expectedSchema, string expectedDocument)
+        {
+            // Arrange
+
+            // Act
+            await SendRequestAsync(targetMethod);
+
+            // Assert — the document as written, so a writer that swapped two members of one type would not
+            // decode back to the same request and pass.
+            object? capturedMessage = null;
+            _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
+                                                                         It.Is<object>(message => CaptureAndMatch(message, ref capturedMessage, m => m is PublishMqttMessage)),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
+                                     Times.Once);
+            var published = (PublishMqttMessage)capturedMessage!;
+            Assert.AreEqual(expectedDocument, Encoding.UTF8.GetString(published.Payload!));
+            Assert.AreEqual(MessageMimeTypes.Json, published.ContentType);
+            Assert.AreEqual(expectedSchema, published.UserProperties!.Single(property => property.Name == MqttUserProperties.Schema.Name).Value);
         }
 
         [TestMethod]

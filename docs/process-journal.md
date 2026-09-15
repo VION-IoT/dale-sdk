@@ -158,3 +158,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · hw-contracts-are-json · The review found the AnalogIo harness keeping three helpers nothing called, string literals where the DigitalIo mirror uses nameof, and an unused FlatBuffers using in the Modbus RTU tests; asked for the helpers deleted and the mirror matched. io.md's mirror rule should have caught the second.
 
 2026-09-15 · review · hw-contracts-are-json · The review found two DevHost comments still contrasting a scenario value with a FlatBuffer frame from the production handler; the drift sweep had grepped Vion.Dale.Sdk/ only. comment-conventions.md's falsified-comment rule should have widened it to the tree.
+
+2026-09-15 · review · hw-contracts-are-json · The review found no test reading a published Modbus RTU request — its document, schema label or content type — and row 10 citing the inbound response arrangements as evidence for the outbound function code; asked for tests on the request wire. docs/review-checks.md P2 should have caught it.
