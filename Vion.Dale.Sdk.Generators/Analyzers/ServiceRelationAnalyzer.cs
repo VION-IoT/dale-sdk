@@ -219,8 +219,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///             assembly.
         ///         </item>
         ///         <item>
-        ///             <b>By name</b> — match the type's declared base list against the interface names of
-        ///             this compilation's own relation-bearing contracts. Necessary because a contract's
+        ///             <b>By name</b> — match the declared base lists of the type, its base classes and the
+        ///             interfaces it implements against the interface names of this compilation's own
+        ///             relation-bearing contracts, skipping a name that resolves to an ancestor (see
+        ///             <c>AnalyzerHelper.UnresolvedRoleNamesInAncestry</c>). Necessary because a contract's
         ///             interfaces are emitted by <c>LogicClassGenerator</c>, and in this repo's build the
         ///             generator output is not part of the compilation analyzers see: a
         ///             <c>class ChargePoint : IConsumer</c> resolves <c>IConsumer</c> to an error type (or
@@ -250,13 +252,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             if (localRelationInterfaceNames.Count > 0)
             {
-                foreach (var baseTypeName in AnalyzerHelper.DeclaredBaseTypeNames(type, cancellationToken))
-                {
-                    if (localRelationInterfaceNames.Contains(baseTypeName))
-                    {
-                        result.Add(baseTypeName);
-                    }
-                }
+                result.UnionWith(AnalyzerHelper.UnresolvedRoleNamesInAncestry(type, localRelationInterfaceNames, cancellationToken));
             }
 
             return result.OrderBy(n => n, System.StringComparer.Ordinal).ToList();

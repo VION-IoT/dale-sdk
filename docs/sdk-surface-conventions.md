@@ -174,10 +174,11 @@ Pin it with a test whose contract interface is genuinely unresolved (the test ex
 alongside the Dale diagnostic). A test using a resolvable stub interface does not reproduce the real
 build and will pass either way. `ServiceRelationAnalyzer` /
 [`ServiceRelationAnalyzerTests`](../Vion.Dale.Sdk.Generators.Test/ServiceRelationAnalyzerTests.cs) is
-the worked example of the *pin* — see the two `CS0246` tests. Copy its **reach** from
-`IncludedWhenPredicateAnalyzer.TypeImplementsLogicInterface` instead: the binder these mirror walks the
-whole ancestry, and `RelationBearingInterfaces` reads only the type's own base list, which is the
-narrow reach `AC-ANLZ-014.4` was first written with and had to be widened out of. The other analyzers that resolve a contract interface are pinned in
+the worked example of the *pin* — see its `CS0246` tests. For the **reach**, call
+`AnalyzerHelper.UnresolvedRoleNamesInAncestry`, which both it and
+`IncludedWhenPredicateAnalyzer.TypeImplementsLogicInterface` use: the binder these mirror walks the
+whole ancestry, so reading only the type's own base list is the narrow reach `AC-ANLZ-014.4` and
+`AC-ANLZ-021.5` were both first written with and had to be widened out of. The other analyzers that resolve a contract interface are pinned in
 [`UnresolvedContractInterfacePinTests`](../Vion.Dale.Sdk.Generators.Test/UnresolvedContractInterfacePinTests.cs),
 the inclusion gate's `IncludedWhenPredicateAnalyzer` among them — its gateable test carries the same
 two lookups (`AC-ANLZ-014.4`). Know what the proxy can and cannot say — a fixture
