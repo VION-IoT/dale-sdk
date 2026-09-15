@@ -91,20 +91,8 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.TestHelpers
             return new StatePayload(Json($$"""{"value":{{Number(value)}}}"""), nameof(AoStatePayload));
         }
 
-        /// <summary>The neighbouring family's input payload — a truth value under its own label.</summary>
-        internal static StatePayload DigitalStatePayload(bool value)
-        {
-            return new StatePayload(Json($$"""{"value":{{Truth(value)}}}"""), "DiStatePayload");
-        }
-
-        /// <summary>The neighbouring family's output payload, for the same reason as <see cref="DigitalStatePayload" />.</summary>
-        internal static StatePayload DigitalOutputStatePayload(bool value)
-        {
-            return new StatePayload(Json($$"""{"value":{{Truth(value)}}}"""), "DoStatePayload");
-        }
-
-        /// <summary>An arbitrary document under this topic's own label — a payload the decode must refuse.</summary>
-        internal static StatePayload Undecodable(string json, string schema)
+        /// <summary>A literal document under the given label, for a shape no payload helper writes.</summary>
+        internal static StatePayload Document(string json, string schema)
         {
             return new StatePayload(Json(json), schema);
         }
@@ -164,11 +152,6 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.TestHelpers
         private static byte[] Json(string document)
         {
             return Encoding.UTF8.GetBytes(document);
-        }
-
-        private static string Truth(bool value)
-        {
-            return value ? "true" : "false";
         }
 
         private static string Number(double value)

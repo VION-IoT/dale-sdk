@@ -110,7 +110,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Input
             // Arrange — every row carries this topic's own label, so the decode is the only thing left to
             // refuse on.
             _harness.Link(_sut);
-            var undecodable = HandlerHarness.Undecodable(document, nameof(DiStatePayload));
+            var undecodable = HandlerHarness.Document(document, nameof(DiStatePayload));
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), undecodable));
@@ -153,32 +153,21 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Input
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.5")]
-        public void ForwardNothingWhenPayloadWiderThanTopicCarries()
-        {
-            // Arrange — the neighbouring family's wider payload under its own label, so the label refuses it
-            // before the decode is reached.
-            _harness.Link(_sut);
-
-            // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), HandlerHarness.AnalogStatePayload(4.2)));
-
-            // Assert
-            Assert.IsEmpty(_harness.Forwarded<DigitalInputChanged>());
-        }
-
-        [TestMethod]
         [TestProperty("spec", "AC-IO-005.3")]
         public void ForwardContractIdentityReadFromTopicRatherThanPayload()
         {
-            // Arrange — the payload carries a value and nothing else; the topic says sp0/svc0/c0.
+            // Arrange — the document names another endpoint in members beside its value; the topic says
+            // sp0/svc0/c0.
             _harness.Link(_sut);
+            var document = HandlerHarness.Document("""{"hardwareBlockInstanceId":"hw9","endpointIdentifier":"ep9","value":true}""", nameof(DiStatePayload));
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), HandlerHarness.DigitalStatePayload(true)));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), document));
 
             // Assert
-            Assert.AreEqual(HandlerHarness.BlockContract, _harness.Forwarded<DigitalInputChanged>().Single().LogicBlockContractId);
+            var forwarded = Assert.ContainsSingle(_harness.Forwarded<DigitalInputChanged>());
+            Assert.AreEqual(HandlerHarness.BlockContract, forwarded.LogicBlockContractId);
+            Assert.AreEqual(true, forwarded.Data.Value);
         }
 
         [TestMethod]

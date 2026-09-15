@@ -1,12 +1,9 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using Moq;
-using Vion.Contracts.Hw.Ai;
-using Vion.Contracts.Hw.Ao;
 using Vion.Contracts.Hw.Di;
 using Vion.Contracts.Hw.Do;
 using Vion.Contracts.Mqtt;
@@ -93,20 +90,8 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
             return new StatePayload(Json($$"""{"value":{{Truth(value)}}}"""), nameof(DoStatePayload));
         }
 
-        /// <summary>The neighbouring family's input payload — a wider value under its own label.</summary>
-        internal static StatePayload AnalogStatePayload(double value)
-        {
-            return new StatePayload(Json($$"""{"value":{{Number(value)}}}"""), nameof(AiStatePayload));
-        }
-
-        /// <summary>The neighbouring family's output payload, for the same reason as <see cref="AnalogStatePayload" />.</summary>
-        internal static StatePayload AnalogOutputStatePayload(double value)
-        {
-            return new StatePayload(Json($$"""{"value":{{Number(value)}}}"""), nameof(AoStatePayload));
-        }
-
-        /// <summary>An arbitrary document under this topic's own label — a payload the decode must refuse.</summary>
-        internal static StatePayload Undecodable(string json, string schema)
+        /// <summary>A literal document under the given label, for a shape no payload helper writes.</summary>
+        internal static StatePayload Document(string json, string schema)
         {
             return new StatePayload(Json(json), schema);
         }
@@ -171,11 +156,6 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
         private static string Truth(bool value)
         {
             return value ? "true" : "false";
-        }
-
-        private static string Number(double value)
-        {
-            return value.ToString("R", CultureInfo.InvariantCulture);
         }
     }
 }

@@ -152,3 +152,7 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · decision · hw-contracts-are-json · A non-finite analog value does not cross the hw/* JSON wire: AC-IO-007.2 narrows to finite values and the analog output handler drops a non-finite command with a warning, reversing the 2026-09-14 named-literal outcome; operator, with the author, to keep every analog value on the wire a JSON number.
 
 2026-09-15 · review · hw-contracts-are-json · The review found both harnesses' Number comment, the change doc and the PR body saying double.ToString renders the Unicode infinity sign; the harness formatted with the invariant culture, which renders ASCII Infinity. comment-conventions.md's verify-the-mechanism rule should have caught it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found ForwardNothingWhenPayloadWiderThanTopicCarries surviving deletion of the label check it cites, since the bool decode refuses the same document, and the identity tests reaching no field beside the value; the first is deleted and the second arranges a document naming another endpoint. testing-conventions.md § 11 should have caught both.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the AnalogIo harness keeping three helpers nothing called, string literals where the DigitalIo mirror uses nameof, and an unused FlatBuffers using in the Modbus RTU tests; asked for the helpers deleted and the mirror matched. io.md's mirror rule should have caught the second.

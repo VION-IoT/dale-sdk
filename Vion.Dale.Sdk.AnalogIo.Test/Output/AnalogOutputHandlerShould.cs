@@ -6,6 +6,7 @@ using Vion.Contracts.Constants;
 using Vion.Contracts.Hw;
 using Vion.Contracts.Hw.Ai;
 using Vion.Contracts.Hw.Ao;
+using Vion.Contracts.Hw.Do;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
@@ -88,7 +89,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
             // Arrange — every row carries this topic's own label, so the decode is the only thing left to
             // refuse on.
             _harness.Link(_sut);
-            var undecodable = HandlerHarness.Undecodable(document, nameof(AoStatePayload));
+            var undecodable = HandlerHarness.Document(document, nameof(AoStatePayload));
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), undecodable));
@@ -100,7 +101,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.5")]
         [DataRow(nameof(AiStatePayload), DisplayName = "the sibling contract's payload type")]
-        [DataRow("DoStatePayload", DisplayName = "the neighbouring family's payload type")]
+        [DataRow(nameof(DoStatePayload), DisplayName = "the neighbouring family's payload type")]
         public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
             // Arrange — this topic's own payload under another payload type's label, so the label is the only

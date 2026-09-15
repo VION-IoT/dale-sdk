@@ -88,7 +88,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
             // Arrange — every row carries this topic's own label, so the decode is the only thing left to
             // refuse on.
             _harness.Link(_sut);
-            var undecodable = HandlerHarness.Undecodable(document, nameof(DoStatePayload));
+            var undecodable = HandlerHarness.Document(document, nameof(DoStatePayload));
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), undecodable));
@@ -125,21 +125,6 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), unlabelled));
-
-            // Assert
-            Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-IO-005.5")]
-        public void ForwardNothingWhenPayloadWiderThanTopicCarries()
-        {
-            // Arrange — the neighbouring family's wider payload under its own label, so the label refuses it
-            // before the decode is reached.
-            _harness.Link(_sut);
-
-            // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), HandlerHarness.AnalogOutputStatePayload(4.2)));
 
             // Assert
             Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());

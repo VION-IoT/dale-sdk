@@ -2,6 +2,7 @@ using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Contracts.Hw.Ai;
 using Vion.Contracts.Hw.Ao;
+using Vion.Contracts.Hw.Di;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
@@ -110,7 +111,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
             // Arrange — every row carries this topic's own label, so the decode is the only thing left to
             // refuse on.
             _harness.Link(_sut);
-            var undecodable = HandlerHarness.Undecodable(document, nameof(AiStatePayload));
+            var undecodable = HandlerHarness.Document(document, nameof(AiStatePayload));
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), undecodable));
@@ -122,7 +123,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.5")]
         [DataRow(nameof(AoStatePayload), DisplayName = "the sibling contract's payload type")]
-        [DataRow("DiStatePayload", DisplayName = "the neighbouring family's payload type")]
+        [DataRow(nameof(DiStatePayload), DisplayName = "the neighbouring family's payload type")]
         public void ForwardNothingWhenSchemaNamesAnotherPayloadType(string schema)
         {
             // Arrange — this topic's own payload under another payload type's label, so the label is the only
@@ -156,14 +157,18 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         [TestProperty("spec", "AC-IO-005.3")]
         public void ForwardContractIdentityReadFromTopicRatherThanPayload()
         {
-            // Arrange — the payload carries a value and nothing else; the topic says sp0/svc0/c0.
+            // Arrange — the document names another endpoint in members beside its value; the topic says
+            // sp0/svc0/c0.
             _harness.Link(_sut);
+            var document = HandlerHarness.Document("""{"hardwareBlockInstanceId":"hw9","endpointIdentifier":"ep9","value":4.2}""", nameof(AiStatePayload));
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), HandlerHarness.AnalogStatePayload(4.2)));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), document));
 
             // Assert
-            Assert.AreEqual(HandlerHarness.BlockContract, _harness.Forwarded<AnalogInputChanged>().Single().LogicBlockContractId);
+            var forwarded = Assert.ContainsSingle(_harness.Forwarded<AnalogInputChanged>());
+            Assert.AreEqual(HandlerHarness.BlockContract, forwarded.LogicBlockContractId);
+            Assert.AreEqual(4.2, forwarded.Data.Value);
         }
 
         [TestMethod]
