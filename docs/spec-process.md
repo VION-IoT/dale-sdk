@@ -710,7 +710,7 @@ Method:
    consolidation map, the drift checkpoints). The operator's classification is <path>: <summary of
    the decisions>.
 3. Report ONLY genuine misses: behaviors on your list absent from the page's criteria AND from the
-   table's classified rows (out-of-spec and file rows count as covered; a row folded into a
+   table's classified rows (`out-of-spec` and `file` rows count as covered; a row folded into a
    criterion by the consolidation map counts as covered). For each: the behavior stated
    observably, evidence file:line, why it matters to a consumer, WHICH SWEEP should have caught it
    (statement / consumer / edge-value / state-interaction), and THE MECHANISM YOU VERIFIED AT THE
@@ -750,8 +750,8 @@ with:
 - Scope: branch — <branch> (checked out, committed and pushed at <hash>; N commits, M files).
 - Spec (statement of intent): <the change doc> (the classified behavior table, the consolidation
   map, the drift checkpoints, the test-to-mutation list, the demonstrated evidence),
-  docs/specs/<page>.md (the distilled page, K criteria), docs/spec-process.md (the process
-  contract), and the operator's classification <path>.
+  docs/specs/<page>.md (the distilled page, K criteria), the REPORT's `File rows` section <path>,
+  docs/spec-process.md (the process contract), and the operator's classification <path>.
 - Notes (deliberate, operator-decided — do not flag as mistakes): <every flagged row's decision
   and its shape; the decisions; docs corrected; exemptions narrowed; premise tests kept uncited>.
 - The machine baseline was run by the implementing session and pasted in its REPORT: <the pasted
@@ -788,7 +788,7 @@ Review priorities beyond the checks in docs/review-checks.md:
 5. Wire and consumer surfaces: <the area's files, schemas, HTTP or CLI surfaces> changed exactly
    as classified; docs/snapshots/publicapi-manifest.json unchanged or changed only as intended;
    the process-journal lines follow the file's format and record rather than prescribe; every
-   file row carries a draft item with its reason, and a fixed row carries none.
+   `file` row carries a draft item with its reason, and a fixed row carries none.
 
 Every finding states the mechanism you verified at the call site — the line that makes the failure
 happen, quoted — or is marked (inferred). Report each finding as [blocker] / [convention] /
@@ -808,9 +808,10 @@ is the review report only.
   constraints; the design lives in the change doc.
 - **Engineering findings** — what a lane-3 extraction, a review or any other reading turns up →
   intended behavior into the spec page; small area-local defects fixed in the same PR; GAPs as
-  marked rows on the page; the rest a draft Jira item under VION-62, which the operator files or
-  drops. A filed item cites **spec ids and page sections, never `file:line`** — ids are stable and
-  the trace gate keeps them alive.
+  marked rows on the page; the rest a draft Jira item under VION-62 in the PR body's `Draft items`
+  section, which the operator files or drops. A draft takes the `dale-sdk-feedback` skill's item
+  shape but cites **spec ids and page sections where that shape asks for `file:line`** — ids are
+  stable and the trace gate keeps them alive.
 
 ## Gates
 
