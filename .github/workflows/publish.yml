@@ -93,7 +93,7 @@ jobs:
           changed="$(git diff --name-only --no-renames "$base"...HEAD)"
 
           others="$(grep -vE '^(docs/|scripts/|\.claude/|\.github/|[^/]+\.md$)' <<< "$changed" || true)"
-          if [ -n "$others" ] || grep -qE '^(docs/package-readme\.md|docs/snapshots/.*|docs/.*\.topology\.json|docs/.*/\.dale/.*|\.github/workflows/.*|scripts/(cleanup-code|set-version|stage-xml-docs|verify-packed-assembly-versions)\.ps1|scripts/generate-api-reference\.cjs)$' <<< "$changed"; then
+          if [ -n "$others" ] || grep -qE '^(docs/package-readme\.md|docs/snapshots/.*|.*\.topology\.json|(.*/)?\.dale/.*|\.github/workflows/.*|scripts/(cleanup-code|set-version|stage-xml-docs|verify-packed-assembly-versions)\.ps1|scripts/generate-api-reference\.cjs)$' <<< "$changed"; then
             dotnet=true
           else
             dotnet=false
