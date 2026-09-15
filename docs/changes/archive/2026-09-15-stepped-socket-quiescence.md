@@ -379,6 +379,30 @@ when a block fails to acknowledge on a stepped host.
   The same container ran `SocketExchangeSteppingShould` and `QuiescenceBarrierShould` green (9 of 9)
   and repeated the refused-connect probe through .NET's `TcpClient`: `ConnectionRefused` after 18 ms and
   0 ms. The consumer journal's 99.7% figure is a whole lane; a lane was not re-run here.
+- 2026-09-15: how the figures above were produced, so they can be re-run.
+  - Stopwatch patch, applied to `Vion.Dale.DevHost/Control/DeterministicStepper.cs` on each tree and never
+    committed: `SettleAsync` renamed `SettleCoreAsync`, and a new `SettleAsync` wraps it in
+    `Stopwatch.GetTimestamp()` before and after, adding the difference to a `public static long
+    MeasureBarrierTicks` and incrementing `MeasureSettles`.
+  - Measurement test, also uncommitted, `Vion.Dale.DevHost.Test/Stepping/BarrierShareMeasure.cs`: builds the
+    `TickerBlock` stepped host above, calls `AdvanceAsync(1 s)`, zeroes both counters, times
+    `AdvanceAsync(2000 s)` with a `Stopwatch`, and prints wall time, `MeasureBarrierTicks` as milliseconds,
+    `MeasureSettles` and the `Ticks` property.
+  - Run, three times per tree: `dotnet test Vion.Dale.DevHost.Test --no-build --filter
+    "FullyQualifiedName~BarrierShareMeasure" --logger "console;verbosity=detailed"`. origin/main came from
+    `git worktree add --detach <scratch> origin/main`.
+  - Linux: each tree tarred without `bin`/`obj`/`.git`, then `docker run --rm -v <scratch>:/in
+    mcr.microsoft.com/dotnet/sdk:10.0 bash /in/linux-measure.sh`. The script untars each tree, runs
+    `dotnet build Vion.Dale.DevHost.Test`, the three measurement runs above, and on the branch
+    `dotnet test Vion.Dale.DevHost.Test --no-build --filter
+    "FullyQualifiedName~SocketExchangeSteppingShould|FullyQualifiedName~QuiescenceBarrierShould"`, whose
+    summary line read `Passed! - Failed: 0, Passed: 9`. It then `dotnet run`s a console program that calls
+    `new TcpClient().ConnectAsync(IPAddress.Loopback, port)` for ports 5999 and 5998 and prints the
+    `SocketErrorCode` with the elapsed milliseconds.
+  - FluentModbus probe: a console program referencing `FluentModbus` 5.3.2, run with `dotnet run -c Release`.
+    Five `WriteSingleRegister` and three `WriteMultipleRegisters` iterations, each printing whether
+    `write.Wait(500 ms)` returned true after the parked handler had entered; all eight printed `False`. The
+    same ordering is now a committed premise test, `FluentModbusWriteOrderingShould`.
 
 ---
 
