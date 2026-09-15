@@ -82,9 +82,9 @@ every lane. Roughly half the classified rows become criteria (230 rows became 13
 losing one), so a round that produced a classified behavior table — lane 3's step 3 — owes a
 **consolidation map** in its change doc: row → criterion, or row → the line saying why it mints
 nothing; a row with neither is a blocker. A round with no classified rows, such as lane 2, owes no
-map. **A `park` row appears in the map by name and is never folded into a criterion**; a folded park
-is a lost ledger line, and one round wrote its ledger line late for exactly that. No criterion's
-subject is a test suite: a page states what a consumer observes, and test discipline is [`testing-conventions.md`](testing-conventions.md)'s.
+map. **A `file` row appears in the map by name and is never folded into a criterion**; a folded
+`file` row is a lost draft item. No criterion's subject is a test suite: a page states what a
+consumer observes, and test discipline is [`testing-conventions.md`](testing-conventions.md)'s.
 
 An AC is **covered** when its id appears as a quoted string literal in a test artifact:
 
@@ -227,9 +227,9 @@ did not name as a STOP says so rather than deciding quietly.
 app or on the phone, and where the launch carries a stored token that cannot be turned on afterwards
 — the tab is then the only surface the session has for its whole life.
 
-**A count in a brief or a task line is a hypothesis.** Re-derive every number — files, sites, ledger
-entries, suites — before acting on it, and record the correction where the work is recorded: the
-change doc's *Drift checkpoints* in lanes 2 and 3, the PR body in lane 1. Four of the SDD closeout's
+**A count in a brief or a task line is a hypothesis.** Re-derive every number — files, sites, suites —
+before acting on it, and record the correction where the work is recorded: the change doc's *Drift
+checkpoints* in lanes 2 and 3, the PR body in lane 1. Four of the SDD closeout's
 phase-1 task lines carried wrong counts, and one of them was wrong in the way that re-scopes a task.
 Lane 3 adds a coordinator-side check on top of this — a fresh reader over the brief before dispatch
 (§ 1 The brief) — which is a second reader, never a substitute for the session's own re-derivation.
@@ -394,21 +394,20 @@ Then four sweeps:
   a probe and paid three amendments for it.
 - **Test today** — the existing test proving it, or `GAP`.
 - **Rec** — one of five: `intended` (→ page) · `fix` (a defect, small and area-local → the criterion
-  worded for the correct behavior, fixed in this round) · `park` (too big or too far-reaching → one
-  line in `docs/specs/_findings.md`) · `out-of-spec` (implementation shape, not contract) ·
-  `propose`, where the brief pre-classified a class of rows as propose-and-wait (a wire shape, a
-  public member's semantics): the recommendation rides the row, implemented as a `fix` if the
-  operator accepts it and written to the ledger as a `park` if not, so that neither value misstates
-  it. One-line **Why** each. A row that *names a harm* names the consumer that suffers it by
-  `file:line`, or it is a guess wearing evidence's clothes. A `park` argued from a member's
+  worded for the correct behavior, fixed in this round) · `file` (too big or too far-reaching → a
+  draft Jira item, § Routing) · `out-of-spec` (implementation shape, not contract) · `propose`,
+  where the brief pre-classified a class of rows as propose-and-wait (a wire shape, a public member's
+  semantics): the recommendation rides the row, implemented as a `fix` if the operator accepts it
+  and drafted as a `file` if not, so that neither value misstates it. One-line **Why** each. A row that *names a harm* names the consumer that suffers it by
+  `file:line`, or it is a guess wearing evidence's clothes. A `file` argued from a member's
   *history* — added last, newer than its siblings — has no evidence column: recency is not a reason
-  to treat a member differently (an operator overruled one such park; the fix was four lines and
+  to treat a member differently (an operator overruled one such row; the fix was four lines and
   retired two special cases). A `Why` that cites a precedent — another area's criterion, another
   protocol's default — names the property the precedent rests on, and that property holds here too: a
   rule shared in shape only carries a reason that does not transfer. **The code doing a thing is
   evidence of behavior, not of intent:** a
-  surprising row gets `fix` or `park`, or the operator's explicit `intended` — never an `intended`
-  that only means "this is what it does". A `fix`/`park`/`propose` rec is flagged `⚠` and gets a
+  surprising row gets `fix` or `file`, or the operator's explicit `intended` — never an `intended`
+  that only means "this is what it does". A `fix`/`file`/`propose` rec is flagged `⚠` and gets a
   two-line failure sketch under the table; a `propose` sketch ends with the recommendation.
 
 **Map every existing test in scope** to a row; tests mapping to no row go in an *unmapped tests* list
@@ -440,11 +439,10 @@ reads, and a helper the row would route a discovery through that the runtime rej
 comments. The test for a `propose` row is unchanged — a silent wrong outcome made visible, no
 consumer depending on today's behaviour, small and area-local — but its second clause is answered by
 reading, and a wire change whose every reader was read and found not to read the field is a `fix`
-with a relay note, not a `park`.
+with a relay note, not a `file`.
 
-No Jira is filed by default: `fix` rows are fixed in this round, `park` rows go to the ledger, and
-Jira is for the finding the operator actively schedules. Do not implement without the
-classification.
+`fix` rows are fixed in this round; `file` rows are drafted as items for the operator to file, and
+the session writes nothing to Jira. Do not implement without the classification.
 
 #### 5. Implement
 
@@ -490,7 +488,7 @@ Ids, minting and the archive rule are § IDs & EARS and § Change docs. Beyond t
   synchronous observe would block teardown, and the criterion that reason rested on had six citations
   and no test constructing the case.
 - **Size guard.** If a fix turns out non-local or design-bearing while you implement it, STOP and
-  report — it becomes a `park` row or its own change doc, never a silent absorption.
+  report — it becomes a `file` row or its own change doc, never a silent absorption.
 - **The page** states current-truth prose plus the AC declarations, frontmatter `trace: enforced`.
   Prose states rules, never rosters: a list of today's instances drifts, "grep-enumerable" does not.
 - **The suite** comes to [`testing-conventions.md`](testing-conventions.md) §9–17 in full — ids cited
@@ -565,7 +563,7 @@ checks read it first:
    One round reached its close-out with the notes in two REPORTs and none in the doc.
 
 Then: commands run plus results · the `test → mutation` list · the GAP list · premise tests left
-uncited, with reasons · park rows written to the ledger · friction one-liners in
+uncited, with reasons · a draft item per `file` row · friction one-liners in
 [`process-journal.md`](process-journal.md)'s format.
 
 **Gates, all of them, results verbatim** — every line a paste, including the ones whose numbers did
@@ -586,7 +584,7 @@ style a report is filled in are the plugin's — see
 [`vion-dispatch/README.md`](https://github.com/VION-IoT/architecture/blob/main/plugins/vion-dispatch/README.md)
 § The envelope, and do not restate them here. Everything this section demands is carried as **extra
 sections**, which a lane 3 brief lists in its `sections:` line and the coordinator copies from here
-verbatim: `Self-check`, `Gates`, `Test to mutation`, `GAP`, `Park rows`, `Relay notes`. The session
+verbatim: `Self-check`, `Gates`, `Test to mutation`, `GAP`, `File rows`, `Relay notes`. The session
 ends with `/vion-dispatch:report` and the `Stop` hook files the report under the coordinator repo's
 `.claude/briefs/reports/`; "no PR yet" is the brief's `pr: stop-before`.
 
@@ -709,10 +707,10 @@ Method:
    attention to edge values (<list>), to <the parity rule, if any>, and to state interactions
    (<list>).
 2. THEN read docs/specs/<page>.md and the change doc <path> (the behavior table, the
-   consolidation map, the drift checkpoints; also docs/specs/_findings.md — a parked row counts as
-   classified). The operator's classification is <path>: <summary of the decisions>.
+   consolidation map, the drift checkpoints). The operator's classification is <path>: <summary of
+   the decisions>.
 3. Report ONLY genuine misses: behaviors on your list absent from the page's criteria AND from the
-   table's classified rows (out-of-spec and park rows count as covered; a row folded into a
+   table's classified rows (`out-of-spec` and `file` rows count as covered; a row folded into a
    criterion by the consolidation map counts as covered). For each: the behavior stated
    observably, evidence file:line, why it matters to a consumer, WHICH SWEEP should have caught it
    (statement / consumer / edge-value / state-interaction), and THE MECHANISM YOU VERIFIED AT THE
@@ -752,7 +750,7 @@ with:
 - Scope: branch — <branch> (checked out, committed and pushed at <hash>; N commits, M files).
 - Spec (statement of intent): <the change doc> (the classified behavior table, the consolidation
   map, the drift checkpoints, the test-to-mutation list, the demonstrated evidence),
-  docs/specs/<page>.md (the distilled page, K criteria), docs/specs/_findings.md (the ledger),
+  docs/specs/<page>.md (the distilled page, K criteria), the REPORT's `File rows` section <path>,
   docs/spec-process.md (the process contract), and the operator's classification <path>.
 - Notes (deliberate, operator-decided — do not flag as mistakes): <every flagged row's decision
   and its shape; the decisions; docs corrected; exemptions narrowed; premise tests kept uncited>.
@@ -789,8 +787,8 @@ Review priorities beyond the checks in docs/review-checks.md:
    (`scripts/spec-lint.ps1 -Diff main`); GAP markers only where the reason holds.
 5. Wire and consumer surfaces: <the area's files, schemas, HTTP or CLI surfaces> changed exactly
    as classified; docs/snapshots/publicapi-manifest.json unchanged or changed only as intended;
-   the process-journal lines follow the file's format and record rather than prescribe; the
-   ledger's new lines are parks with reasons and owners (a fixed row has no ledger line).
+   the process-journal lines follow the file's format and record rather than prescribe; every
+   `file` row carries a draft item with its reason, and a fixed row carries none.
 
 Every finding states the mechanism you verified at the call site — the line that makes the failure
 happen, quoted — or is marked (inferred). Report each finding as [blocker] / [convention] /
@@ -809,10 +807,9 @@ is the review report only.
   When architecture's `/fix` picks a single-repo dale-sdk item, its brief is the issue key +
   constraints; the design lives in the change doc.
 - **Engineering findings** — what a lane-3 extraction, a review or any other reading turns up →
-  intended behavior into the spec page; small area-local defects fixed in the same PR; the rest one
-  line in `docs/specs/_findings.md`, the in-repo ledger; GAPs as marked rows on the page. Jira only
-  for what the operator schedules, and a scheduled item cites **spec ids and page sections, never
-  `file:line`** — ids are stable and the trace gate keeps them alive.
+  intended behavior into the spec page; small area-local defects fixed in the same PR; GAPs as
+  marked rows on the page; the rest a draft Jira item under VION-62 in the PR body's `Draft items`
+  section, which the operator files or drops. A draft takes the `dale-sdk-feedback` skill's shape.
 
 ## Gates
 

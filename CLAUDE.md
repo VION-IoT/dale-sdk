@@ -128,7 +128,7 @@ In this order:
 3. `/vion-improve:codify`.
 
 The pull request body follows [`.github/pull_request_template.md`](.github/pull_request_template.md),
-which adds `## Spec ids touched` and `## Gates` to the base sections.
+which adds `## Draft items`, `## Spec ids touched` and `## Gates` to the base sections.
 
 ### The snapshot bot
 
