@@ -196,7 +196,7 @@ See [Vion.Dale.Cli/CLAUDE.md](Vion.Dale.Cli/CLAUDE.md) for architecture, pattern
 
 Versions are driven by git tags. No `<Version>` in any SDK `.csproj`. See [README.md#releases](README.md#releases) for the full flow.
 
-- Push to `main` → CI publishes `0.0.0-ci.{run_number}` to the private Azure DevOps feed.
+- Push to `main` that builds → CI publishes `0.0.0-ci.{run_number}` to the private Azure DevOps feed.
 - Push tag `vX.Y.Z` → CI publishes `X.Y.Z` to the private feed **and** nuget.org.
 
 After a release, bump the template/example `PackageReference` versions so the next commit ships consistent refs:
@@ -207,7 +207,7 @@ pwsh scripts/set-version.ps1 -Version X.Y.Z -Scope references
 
 ## CI/CD
 
-Single GitHub Actions workflow: [.github/workflows/publish.yml](.github/workflows/publish.yml). Builds, tests, packs, pushes to the private Azure DevOps feed on every push, and additionally pushes to nuget.org on tags.
+Single GitHub Actions workflow: [.github/workflows/publish.yml](.github/workflows/publish.yml). Builds, tests, packs, pushes to the private Azure DevOps feed on every push that builds (its "Scope the run" step decides), and additionally pushes to nuget.org on tags.
 
 ## Auth (CLI consumer-facing)
 
@@ -230,15 +230,13 @@ Code style is **ReSharper cleanupcode** with the `Custom: Full Cleanup (excl. op
 profile in `Vion.Dale.Sdk.sln.DotSettings` — the same profile ReSharper/Rider apply on save. The
 single source of truth is **`scripts/cleanup-code.ps1`**: it restores the pinned `jb` tool
 (`.config/dotnet-tools.json`) and runs the exact cleanup. CI runs the same script with `-Verify`
-(fails on drift) via the shared `VION-IoT/shared-workflows` gate: `.github/workflows/publish.yml`
-calls `publish-nuget.yml` with `gate: true`, which runs `scripts/cleanup-code.ps1 -Verify` (the
-`dotnet-gate` composite) before packing — so local and CI can't diverge.
+(fails on drift) in the `style` job of `.github/workflows/publish.yml`, beside the pack job, scoped
+as that workflow's "Scope the run" step decides — so local and CI can't diverge.
 
 **Before opening a PR: run `pwsh scripts/cleanup-code.ps1 -Changed` (or the `/cleanup` slash command),
 review `git diff`, and commit any changes** — this keeps the CI style gate from failing the PR.
 `-Changed` scopes the cleanup to the `.cs` your branch touched — including files you have not
-`git add`ed yet — and skips in ~0.5s when none did (the fast dev-loop path); the full-solution run
-(drop `-Changed`) and the CI `-Verify` gate stay the authoritative backstop. **Agents: do this
+`git add`ed yet — and skips in ~0.5s when none did (the fast dev-loop path). **Agents: do this
 automatically before `gh pr create`.** Do NOT run cleanup with `--profile="Built-in: Reformat Code"` —
 it differs from the DotSettings profile and fights cleanup-on-save.
 
