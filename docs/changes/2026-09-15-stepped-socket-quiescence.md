@@ -31,10 +31,10 @@ real loopback sockets become supported, and fast.
 ### Spec implications
 
 `scenarios.md` § Stepping guarantees: `AC-SCEN-012.5`'s predicate widens to name the exchanges it
-counts (`MODIFIED`); `AC-SCEN-012.6` is unchanged in text, and whether a new `.11` names the open
-exchanges on failure hangs on reviewer's question 2. `modbus.md` gains one criterion — a request's
-callback lands in the stepped step that issued the request — and `http.md` gains two, the client's
-equivalent and the hosted server's. Prose, no ids: `devhost-control.md:371-372` (what the barrier
+counts (`MODIFIED`); `AC-SCEN-012.6` is unchanged in text, and a new `.11` names the open exchanges
+when the budget is spent. `modbus.md` gains one criterion — a request's completion reaches the block
+before the virtual clock next moves and before an advance in progress returns — and `http.md` gains
+two, the client's equivalent and the hosted server's for a client in the same host. Prose, no ids: `devhost-control.md:371-372` (what the barrier
 reads), `http.md:576-577` and `simulator-authoring.md:154-155` (a socket bench "runs on the wall
 clock" — reversed, with the guarantee's edge stated: a block opening its own socket stays invisible).
 No wall-clock behaviour, no test-kit behaviour and nothing on a gateway changes.
@@ -73,14 +73,20 @@ No wall-clock behaviour, no test-kit behaviour and nothing on a gateway changes.
 2. (c) propose-and-wait — **what a stepped run does when a counted exchange waits on a real-clock
    bound** (an absent or slow peer). Options in § Full design › The absent peer. Recommendation:
    **A, wait honestly within the existing quiescence budget, and name the open exchanges when it is
-   spent** (`ADDED AC-SCEN-012.11`). OUTCOME: (pending operator)
+   spent** (`ADDED AC-SCEN-012.11`). OUTCOME: accepted as A — the operator, amendment 1 to the
+   VION-222 brief, 2026-09-15; B not chosen, C–E stay rejected; `AC-SCEN-012.11` and `T-005` in scope.
 3. (c) propose-and-wait — **the off-schedule timeout continuations** the brief asked to check
    (§ Full design › Other continuations the poll hides). Found: on a stepped host `SendToSelfAfter`
    arms no `Task.Delay`, but the acknowledgement and stop-wait timeouts in `ActorSystem` still do, and
    a fast settle can return before the timeout's continuation posts. Recommendation: **close it in
    this change** by having the stepper deliver those two timeouts, as it delivers timer sends.
    Alternative: a draft item, and the window ships (it is reached only when a block fails to
-   acknowledge on a stepped host). OUTCOME: (pending operator)
+   acknowledge on a stepped host). OUTCOME: changed — the operator, amendment 1, 2026-09-15: the
+   example effects named above come from elsewhere (a refused write is `DevHostControl`'s own
+   real-clock wait, `DevHostControl.cs:354-356`; a failed start is decided by the real-clock
+   `WaitAsync`, `DevLogicSystemInitializer.cs:200`), so the window is closed only if a stepped advance
+   can reach one of the timeout entries with an observable effect; otherwise "not reachable from an
+   advance", with the evidence in Drift checkpoints. (reachability pending implementation)
 4. (b) decide-and-document — **D3 crosses the public surface by one interface** in
    `Vion.Dale.Sdk.Abstractions`, unmarked like its four siblings, so the PublicApi manifest does not
    move (`docs/sdk-surface-conventions.md` § 8). Rejected: reusing `IActorActivityMonitor` (it would
@@ -336,13 +342,13 @@ when a block fails to acknowledge on a stepped host.
 > refuses until every line is applied. The `ID` must be an exact token greppable in the target
 > after distill (backticks stripped) — a real `AC-`/`SYS-` id, never an ad-hoc label.
 
-Draft wording, fixed at ratification. The `.11` line stands only if question 2 is answered A or B.
+Ratified by amendment 1 (2026-09-15): `AC-SCEN-012.5`, `AC-SCEN-012.11`, `AC-MODB-020.1` and `AC-HTTP-018.1` as written. `AC-HTTP-018.2`'s text is the session's, brought to the PR review: the server's handle opens at accept, so a request from a client outside the host accepted after a settle has already observed zero is not waited for; a client in the same host holds its own handle open across the accept.
 
 - MODIFIED AC-SCEN-012.5 -> docs/specs/scenarios.md : THE SYSTEM SHALL treat the actor system as quiescent exactly when every mailbox is empty, no handler is in flight, and no Modbus TCP or HTTP exchange started or served through the SDK is still open.
 - ADDED AC-SCEN-012.11 -> docs/specs/scenarios.md : IF the quiescence budget is spent while an exchange is still open THEN THE SYSTEM SHALL name each open exchange in the failure.
-- ADDED AC-MODB-020.1 -> docs/specs/modbus.md : WHILE the host is stepped THE SYSTEM SHALL deliver a Modbus TCP request's completion to the block before the step that issued the request returns.
-- ADDED AC-HTTP-018.1 -> docs/specs/http.md : WHILE the host is stepped THE SYSTEM SHALL deliver an HTTP request's callback to the block before the step that issued the request returns.
-- ADDED AC-HTTP-018.2 -> docs/specs/http.md : WHILE the host is stepped THE SYSTEM SHALL record a request the hosted server answered before the step during which it answered returns.
+- ADDED AC-MODB-020.1 -> docs/specs/modbus.md : WHILE the host is stepped THE SYSTEM SHALL deliver a Modbus TCP request's completion to the block before the virtual clock next advances and before a stepped advance in progress returns.
+- ADDED AC-HTTP-018.1 -> docs/specs/http.md : WHILE the host is stepped THE SYSTEM SHALL deliver an HTTP request's callback to the block before the virtual clock next advances and before a stepped advance in progress returns.
+- ADDED AC-HTTP-018.2 -> docs/specs/http.md : WHILE the host is stepped THE SYSTEM SHALL record a request the hosted server answered for a client in the same host before the virtual clock next advances and before a stepped advance in progress returns.
 
 ---
 
