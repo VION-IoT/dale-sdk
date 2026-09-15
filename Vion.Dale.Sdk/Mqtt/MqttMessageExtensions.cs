@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Google.FlatBuffers;
 using Vion.Dale.Sdk.Utils;
 
@@ -40,6 +41,29 @@ namespace Vion.Dale.Sdk.Mqtt
 
                 var reader = new Utf8JsonReader(payload);
                 return JsonSerializer.Deserialize<T>(ref reader, serializerOptions) ?? throw new InvalidOperationException("Deserialization of payload returned null");
+            }
+
+            /// <summary>
+            ///     Deserializes the MQTT message payload as JSON through the supplied type metadata.
+            /// </summary>
+            /// <typeparam name="T">The type to deserialize the JSON payload into.</typeparam>
+            /// <param name="typeInfo">
+            ///     The source-generated metadata for <typeparamref name="T" />, such as
+            ///     <c>HwJsonContext.Default.DiStatePayload</c>. It carries the naming policy and converters, so
+            ///     <see cref="JsonSerialization.DefaultOptions" /> is not consulted.
+            /// </param>
+            /// <returns>The deserialized object of type T.</returns>
+            /// <exception cref="InvalidOperationException">Thrown when deserialization returns null.</exception>
+            public T GetJsonPayload<T>(JsonTypeInfo<T> typeInfo)
+            {
+                var payload = message.Payload;
+                if (payload.IsSingleSegment)
+                {
+                    return JsonSerializer.Deserialize(payload.FirstSpan, typeInfo) ?? throw new InvalidOperationException("Deserialization of SingleSegment payload returned null");
+                }
+
+                var reader = new Utf8JsonReader(payload);
+                return JsonSerializer.Deserialize(ref reader, typeInfo) ?? throw new InvalidOperationException("Deserialization of payload returned null");
             }
 
             /// <summary>

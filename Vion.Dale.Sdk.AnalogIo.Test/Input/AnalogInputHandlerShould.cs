@@ -1,7 +1,8 @@
 using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
-using Vion.Contracts.FlatBuffers.Hw.Ao;
-using Vion.Contracts.FlatBuffers.Hw.Di;
+using Vion.Contracts.Hw.Ai;
+using Vion.Contracts.Hw.Ao;
+using Vion.Contracts.Hw.Di;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
@@ -83,7 +84,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.1")]
-        public void ForwardStateValueWhenPayloadVerifies()
+        public void ForwardStateValueWhenPayloadDecodes()
         {
             // Arrange — delivery is the rule this carries; it stands here as the guard's positive control, so
             // the refusals below cannot be read as "the guard refuses everything".
@@ -98,18 +99,25 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.2")]
-        [DataRow(0, DisplayName = "no payload at all")]
-        [DataRow(1, DisplayName = "one byte")]
-        [DataRow(10, DisplayName = "ten bytes")]
-        [DataRow(28, DisplayName = "half the message")]
-        public void ForwardNothingWhenPayloadDoesNotVerify(int length)
+        [DataRow("", DisplayName = "no payload at all")]
+        [DataRow("{", DisplayName = "an opening brace alone")]
+        [DataRow("""{"value":""", DisplayName = "cut off before the value")]
+        [DataRow("null", DisplayName = "a bare null document")]
+        [DataRow("not json", DisplayName = "not JSON at all")]
+        [DataRow("""{"value":true}""", DisplayName = "a truth value where a real number belongs")]
+        [DataRow("""{"value":"4.2"}""", DisplayName = "a real number spelled as a string")]
+        [DataRow("""{"value":"NaN"}""", DisplayName = "not a number spelled as a named literal")]
+        [DataRow("""{"value":"Infinity"}""", DisplayName = "positive infinity spelled as a named literal")]
+        [DataRow("""{"value":"-Infinity"}""", DisplayName = "negative infinity spelled as a named literal")]
+        public void ForwardNothingWhenPayloadUndecodable(string document)
         {
-            // Arrange
+            // Arrange — every row carries this topic's own label, so the decode is the only thing left to
+            // refuse on.
             _harness.Link(_sut);
-            var truncated = HandlerHarness.Truncated(HandlerHarness.AnalogStatePayload(4.2), length);
+            var undecodable = HandlerHarness.Document(document, nameof(AiStatePayload));
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), truncated));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), undecodable));
 
             // Assert — the refusal is that nothing reached a block, not that something was logged.
             Assert.IsEmpty(_harness.Forwarded<AnalogInputChanged>());
@@ -152,14 +160,18 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         [TestProperty("spec", "AC-IO-005.3")]
         public void ForwardContractIdentityReadFromTopicRatherThanPayload()
         {
-            // Arrange — the payload's own identity strings say "hw0"/"ep0"; the topic says sp0/svc0/c0.
+            // Arrange — the document names another endpoint in members beside its value; the topic says
+            // sp0/svc0/c0.
             _harness.Link(_sut);
+            var document = HandlerHarness.Document("""{"hardwareBlockInstanceId":"hw9","endpointIdentifier":"ep9","value":4.2}""", nameof(AiStatePayload));
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), HandlerHarness.AnalogStatePayload(4.2)));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), document));
 
             // Assert
-            Assert.AreEqual(HandlerHarness.BlockContract, _harness.Forwarded<AnalogInputChanged>().Single().LogicBlockContractId);
+            var forwarded = Assert.ContainsSingle(_harness.Forwarded<AnalogInputChanged>());
+            Assert.AreEqual(HandlerHarness.BlockContract, forwarded.LogicBlockContractId);
+            Assert.AreEqual(4.2, forwarded.Data.Value);
         }
 
         [TestMethod]
@@ -196,15 +208,12 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         [DataRow(0.0, DisplayName = "zero")]
         [DataRow(4.2, DisplayName = "an ordinary reading")]
         [DataRow(-12.5, DisplayName = "a negative reading")]
-        [DataRow(double.NaN, DisplayName = "not a number")]
-        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
-        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
         [DataRow(double.MaxValue, DisplayName = "the largest value the type holds")]
         [DataRow(double.Epsilon, DisplayName = "the smallest value above zero")]
         public void ForwardStateValueUnaltered(double value)
         {
-            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps a
-            // non-finite reading or rounds an extreme one, so a HAL that reports one is reported to the block.
+            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps or
+            // rounds an extreme reading, so a HAL that reports one is reported to the block.
             _harness.Link(_sut);
 
             // Act

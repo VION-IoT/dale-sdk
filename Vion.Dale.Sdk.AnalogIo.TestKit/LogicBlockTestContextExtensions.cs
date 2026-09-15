@@ -109,9 +109,9 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
 
         /// <summary>
         ///     Bit equality first, then the tolerance band. The difference comparison alone is false for a
-        ///     non-number against itself and for either infinity against itself at every tolerance, and the
-        ///     value contract admits all three unaltered in both directions — so a block that legitimately
-        ///     writes one has to be assertable. A signed zero matches an unsigned one either way.
+        ///     non-number against itself and for either infinity against itself at every tolerance, and a
+        ///     block can write any of the three — so a value it wrote has to be assertable. A signed zero
+        ///     matches an unsigned one either way.
         /// </summary>
         private static bool Matches(double actual, double? expected, double tolerance)
         {

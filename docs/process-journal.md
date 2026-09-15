@@ -135,6 +135,56 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-14 · review · devhost-smoke · The review found the skill boots sharing one fixed output file, waiting without a deadline, and keeping pid and port only in shell state a later call loses, where smoke-modbus.ps1 already had per-run files and a bound; review-checks.md P3 names the shape. (self)
 
+2026-09-14 · brief · hw-contracts-are-json · The brief required commit 1 to be the Vion.Contracts bump alone, green before any handler edit; 11.0.0 removes Vion.Contracts.FlatBuffers.Hw in the same major that adds Vion.Contracts.Hw, so the bump alone cannot compile and the two are one atomic change.
+
+2026-09-14 · brief · hw-contracts-are-json · The brief listed six comment sites as describing the service-provider wire as FlatBuffers; two describe service property state, which decision 0038 made JSON, and two truly describe GetFlatBufferPayload and are correct.
+
+2026-09-14 · decision · hw-contracts-are-json · JSON has no literal for a non-finite double, so AC-IO-007.2 could not be met on the new wire; rather than reword the criterion, the nine rows proving it were left red and the fix taken upstream, landing as Vion.Contracts 11.0.1. (self)
+
+2026-09-14 · brief · hw-contracts-are-json · The amendment asked for a regenerated publicapi manifest showing three added members, gated by check.ps1; the manifest is type-level with only assemblies and types keys, this change declares no new [PublicApi] type, and check.ps1 has no manifest step. (self)
+
+2026-09-14 · gate · publicapi-manifest · scripts/generate-api-reference.cjs needs node, absent on this machine, so the manifest cannot be regenerated locally at all; CI's snapshot bot on the pull request head is the only path. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The review found the publish records and helper defaulting the content type to JSON, which relabels dale's FlatBuffer Remote/Func publish that omits it and went against the spec's leave-the-default-alone; asked instead for no default at all. CLAUDE.md's decision-nobody-named STOP should have surfaced it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the named-literal NumberHandling on JsonSerialization.DefaultOptions reaching the DevHost scenario codec and dale's Func payloads, well past hw/*; the operator took it out rather than record it, together with its upstream twin. spec-process.md's previously-inert-inputs sweep should have caught the reach.
+
+2026-09-15 · decision · hw-contracts-are-json · A non-finite analog value does not cross the hw/* JSON wire: AC-IO-007.2 narrows to finite values and the analog output handler drops a non-finite command with a warning, reversing the 2026-09-14 named-literal outcome; operator, with the author, to keep every analog value on the wire a JSON number.
+
+2026-09-15 · review · hw-contracts-are-json · The review found both harnesses' Number comment, the change doc and the PR body saying double.ToString renders the Unicode infinity sign; the harness formatted with the invariant culture, which renders ASCII Infinity. comment-conventions.md's verify-the-mechanism rule should have caught it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found ForwardNothingWhenPayloadWiderThanTopicCarries surviving deletion of the label check it cites, since the bool decode refuses the same document, and the identity tests reaching no field beside the value; the first is deleted and the second arranges a document naming another endpoint. testing-conventions.md § 11 should have caught both.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the AnalogIo harness keeping three helpers nothing called, string literals where the DigitalIo mirror uses nameof, and an unused FlatBuffers using in the Modbus RTU tests; asked for the helpers deleted and the mirror matched. io.md's mirror rule should have caught the second.
+
+2026-09-15 · review · hw-contracts-are-json · The review found two DevHost comments still contrasting a scenario value with a FlatBuffer frame from the production handler; the drift sweep had grepped Vion.Dale.Sdk/ only. comment-conventions.md's falsified-comment rule should have widened it to the tree.
+
+2026-09-15 · review · hw-contracts-are-json · The review found no test reading a published Modbus RTU request — its document, schema label or content type — and row 10 citing the inbound response arrangements as evidence for the outbound function code; asked for tests on the request wire. docs/review-checks.md P2 should have caught it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the no-reachable-mutation reason for leaving the JsonTypeInfo overloads unspecified true only of hw/* records, whose naming matches the shared options; a snake-case test context makes the fallback observable on publish and read, so AC-BIND-011.5 and 012.8 are minted. docs/review-checks.md P4 should have caught it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the typed PublishJson inheriting Publish's docs, which describe payload as serialized bytes and leave typeInfo undocumented, copied from the reflection overload beside it; both overloads now carry their own parameter docs. sdk-surface-conventions.md § 2's verify-against-the-code rule should have caught it.
+
+2026-09-15 · review · hw-contracts-are-json · The review found io.md announcing exactly five things before four, narrating the cut with now, no longer and used-to, and arguing a catch that changes nothing observable, and contracts.md arguing why its default was not another; asked for current truth with no counts and no history. spec-process.md § The corpus should have caught it.
+
+2026-09-15 · decision · hw-contracts-are-json · Vion.Contracts 11.0.2 takes the named literals back out of HwJsonContext and this repo pins it, so a quoted NaN or infinity on an analog state topic is refused as undecodable; the three HALs and the service-provider SDK released on 11.0.1 are left to the cross-repo spec to move.
+
+2026-09-15 · review · hw-contracts-are-json · The review found the rewritten decode, encoding and content-type tests and the default test carrying no named mutation, and the obvious decode mutation reddening by an escaping exception rather than the assertion; asked for one test-to-mutation line each, read for the failing assertion. testing-conventions.md § 11 should have caught it.
+
+2026-09-15 · gate · vion-dispatch:spawn · The spawn skill's steer triggers found no STOP and no commit pause, so the vion-contracts worker launched unsteered on the stored token, while spec-process.md says a dispatched worker is always steered; nothing in the launch read that rule. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The review found the change doc still in flight under docs/changes/ on the pull request that lands it; asked for it archived. CLAUDE.md's feature-sized lane, archived in the pull request that lands it, should have caught it.
+
+2026-09-15 · gate · mutation runner · A mutation was restored with git checkout, which also discarded the session's uncommitted edit to the same file; the edit had to be re-applied before the round could go on. (self) → codified: docs/testing-conventions.md
+
+2026-09-15 · review · hw-contracts-are-json · The correction-round review found the analog TestKit's tolerance doc and two ToleranceShould comments still saying the wire carries non-finite values unaltered and drops a signed zero, beside the testkit.md paragraph this round edited; the sweep grepped NaN and Infinity, not the prose words. docs/review-checks.md P3 should have caught it. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The correction-round review found AC-BIND-012.8's test building a single-segment payload, so the reader path for a segmented one could ignore the caller's metadata unnoticed; a segmented row was added. testing-conventions.md § 9's statement-by-statement walk should have caught it. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The correction-round review found the change doc's reason for deleting JsonSerializationShould wrong, and neither test deletion's reason in a commit, which the commit skill gives no body for; the reasons go in the pull request body. testing-conventions.md § 9 should have caught it. (self)
+
+2026-09-15 · review · hw-contracts-are-json · The correction-round review found AC-IO-007.3 held by both the handler guard and the serializer's refusal, the guard-removal mutation reddening only by an escaping exception; the mutation list now names both guards. spec-process.md § Implement's over-determined rule should have caught it. (self)
+
 2026-09-15 · decision · spec-process · The in-repo finding ledger is removed: a finding not fixed, stated on a page or marked GAP becomes a draft Jira item under VION-62, and lane 3's `park` classification is `file`. Nothing emptied the ledger between triages, and its one bulk triage deleted most of it. → codified: docs/spec-process.md
 
 2026-09-15 · review · spec-process · The review found the draft item for an unfixed finding given no home outside lane 3, the review prompt asked to check drafts it is never handed, the item shape restated beside the skill that owns it, and `file` unticked in two prompts; the harness skill's walk-through rule should have caught the first two. (self)

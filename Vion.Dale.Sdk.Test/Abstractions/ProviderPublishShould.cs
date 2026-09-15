@@ -106,24 +106,15 @@ namespace Vion.Dale.Sdk.Test.Abstractions
 
         [TestMethod]
         [TestProperty("spec", "AC-BIND-011.3")]
-        public void DeclareFlatBufferContentTypeWhereCallerNamesNone()
+        [DataRow(MessageMimeTypes.Json, DisplayName = "the caller names JSON")]
+        [DataRow(MessageMimeTypes.FlatBuffer, DisplayName = "the caller names FlatBuffer")]
+        public void DeclareContentTypeCallerNames(string contentType)
         {
             // Arrange / Act
-            _sut.PublishProbe();
+            _sut.PublishProbe(contentType);
 
             // Assert
-            Assert.AreEqual(MessageMimeTypes.FlatBuffer, Published().ContentType);
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-BIND-011.3")]
-        public void DeclareContentTypeCallerNames()
-        {
-            // Arrange / Act
-            _sut.PublishProbe(MessageMimeTypes.Json);
-
-            // Assert
-            Assert.AreEqual(MessageMimeTypes.Json, Published().ContentType);
+            Assert.AreEqual(contentType, Published().ContentType);
         }
 
         [TestMethod]
@@ -147,6 +138,18 @@ namespace Vion.Dale.Sdk.Test.Abstractions
 
             // Assert
             Assert.AreEqual("""{"measuredValue":7,"quality":"Uncertain"}""", Encoding.UTF8.GetString(Published().Payload!));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-BIND-011.5")]
+        public void SerializeJsonPayloadThroughSuppliedTypeMetadata()
+        {
+            // Arrange / Act — the supplied metadata names members in snake case and writes the enum as its
+            // number, neither of which the shared options would produce.
+            _sut.PublishProbeAsJson(BindProbeSnakeCaseContext.Default.BindProbeReading);
+
+            // Assert
+            Assert.AreEqual("""{"measured_value":7,"quality":1}""", Encoding.UTF8.GetString(Published().Payload!));
         }
 
         private PublishMqttMessage Published()

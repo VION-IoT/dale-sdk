@@ -16,7 +16,7 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     matches from a scenario JSON value (drive), and decodes an output command back to a JSON value (assert).
     ///     Reflects over the declared wire <see cref="Type" /> — the DevHost never references a consumer's wire
     ///     structs. Test-only: it produces the SAME CLR wire payload the production handler forwards, just sourced
-    ///     from a scenario's JSON value instead of a FlatBuffer MQTT frame. A single-field wire struct round-trips
+    ///     from a scenario's JSON value instead of an MQTT frame. A single-field wire struct round-trips
     ///     as its scalar field (so a digital input is driven by <c>true</c>); a multi-field struct as a JSON object.
     /// </summary>
     internal sealed class ScenarioWireCodec

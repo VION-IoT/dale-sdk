@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
-using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Contracts.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;

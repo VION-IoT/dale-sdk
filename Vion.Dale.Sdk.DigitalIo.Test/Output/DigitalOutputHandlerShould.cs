@@ -1,11 +1,12 @@
-using System.Collections.Generic;
 using System.Linq;
-using Google.FlatBuffers;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Contracts.Constants;
-using Vion.Contracts.FlatBuffers.Hw.Ao;
-using Vion.Contracts.FlatBuffers.Hw.Di;
-using Vion.Contracts.FlatBuffers.Hw.Do;
+using Vion.Contracts.Hw;
+using Vion.Contracts.Hw.Ao;
+using Vion.Contracts.Hw.Di;
+using Vion.Contracts.Hw.Do;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.DigitalIo.Test.TestHelpers;
@@ -61,7 +62,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.1")]
-        public void ForwardConfirmedValueWhenPayloadVerifies()
+        public void ForwardConfirmedValueWhenPayloadDecodes()
         {
             // Arrange
             _harness.Link(_sut);
@@ -75,18 +76,22 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.2")]
-        [DataRow(0, DisplayName = "no payload at all")]
-        [DataRow(1, DisplayName = "one byte")]
-        [DataRow(10, DisplayName = "ten bytes")]
-        [DataRow(24, DisplayName = "half the message")]
-        public void ForwardNothingWhenPayloadDoesNotVerify(int length)
+        [DataRow("", DisplayName = "no payload at all")]
+        [DataRow("{", DisplayName = "an opening brace alone")]
+        [DataRow("""{"value":""", DisplayName = "cut off before the value")]
+        [DataRow("null", DisplayName = "a bare null document")]
+        [DataRow("not json", DisplayName = "not JSON at all")]
+        [DataRow("""{"value":4.2}""", DisplayName = "a real number where a truth value belongs")]
+        [DataRow("""{"value":"true"}""", DisplayName = "a truth value spelled as a string")]
+        public void ForwardNothingWhenPayloadUndecodable(string document)
         {
-            // Arrange
+            // Arrange — every row carries this topic's own label, so the decode is the only thing left to
+            // refuse on.
             _harness.Link(_sut);
-            var truncated = HandlerHarness.Truncated(HandlerHarness.DigitalOutputStatePayload(true), length);
+            var undecodable = HandlerHarness.Document(document, nameof(DoStatePayload));
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), truncated));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), undecodable));
 
             // Assert
             Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());
@@ -120,20 +125,6 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
 
             // Act
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), unlabelled));
-
-            // Assert
-            Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-IO-005.5")]
-        public void ForwardNothingWhenPayloadWiderThanTopicCarries()
-        {
-            // Arrange — the neighbouring family's wider payload, which the buffer check accepts.
-            _harness.Link(_sut);
-
-            // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DoState), HandlerHarness.AnalogOutputStatePayload(4.2)));
 
             // Assert
             Assert.IsEmpty(_harness.Forwarded<DigitalOutputChanged>());
@@ -181,15 +172,16 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
 
             // Assert
             var published = _harness.Published().Single();
-            Assert.AreEqual(MessageMimeTypes.FlatBuffer, published.ContentType);
+            Assert.AreEqual(MessageMimeTypes.Json, published.ContentType);
             Assert.AreEqual(nameof(SetDoPayload), published.UserProperties!.Single(property => property.Name == MqttUserProperties.Schema.Name).Value);
             Assert.IsFalse(published.Retain);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-006.2")]
-        [DynamicData(nameof(CommandPayloads))]
-        public void PublishCommandPayloadEncodingValueAlone(bool value, byte[] expectedPayload)
+        [DataRow(true, """{"value":true}""")]
+        [DataRow(false, """{"value":false}""")]
+        public void PublishCommandPayloadEncodingValueAlone(bool value, string expectedDocument)
         {
             // Arrange
             _harness.Link(_sut);
@@ -197,9 +189,9 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
             // Act
             _harness.Send(_sut, new ContractMessage<SetDigitalOutput>(HandlerHarness.BlockContract, new SetDigitalOutput(value)));
 
-            // Assert — the bytes as written, not a round-trip decode: a builder that wrote a different
-            // encoding of the same value would still decode back to it, and the far side reads bytes.
-            CollectionAssert.AreEqual(expectedPayload, _harness.Published().Single().Payload);
+            // Assert — the document as written, not a round-trip decode: a writer that named the member
+            // differently would still decode back to the same value, and the far side reads the text.
+            Assert.AreEqual(expectedDocument, Encoding.UTF8.GetString(_harness.Published().Single().Payload!));
         }
 
         [TestMethod]
@@ -361,18 +353,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
             _harness.Send(_sut, new ContractMessage<SetDigitalOutput>(HandlerHarness.BlockContract, new SetDigitalOutput(value)));
 
             // Assert
-            Assert.AreEqual(value, SetDoPayload.GetRootAsSetDoPayload(new ByteBuffer(_harness.Published().Single().Payload!)).Value);
-        }
-
-        /// <summary>
-        ///     The exact bytes a command carries, measured off the builder rather than described: a
-        ///     <c>SetDoPayload</c> whose value is the schema's default omits the field, which is why the two
-        ///     rows are different lengths.
-        /// </summary>
-        public static IEnumerable<object[]> CommandPayloads()
-        {
-            yield return [true, new byte[] { 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x08, 0x00, 0x07, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }];
-            yield return [false, new byte[] { 0x08, 0x00, 0x00, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00 }];
+            Assert.AreEqual(value, JsonSerializer.Deserialize(_harness.Published().Single().Payload!, HwJsonContext.Default.SetDoPayload)!.Value);
         }
     }
 }

@@ -1,5 +1,5 @@
 using System;
-using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Contracts.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;

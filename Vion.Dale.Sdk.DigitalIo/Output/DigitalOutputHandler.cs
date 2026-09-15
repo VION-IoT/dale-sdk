@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
-using Google.FlatBuffers;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Constants;
-using Vion.Contracts.FlatBuffers.Hw.Do;
+using Vion.Contracts.Hw;
+using Vion.Contracts.Hw.Do;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -20,11 +21,6 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
     [ScenarioWire(Inbound = typeof(DigitalOutputChanged), Outbound = typeof(SetDigitalOutput))]
     public partial class DigitalOutputHandler : ServiceProviderHandlerBase
     {
-        // The serialized size of a SetDoPayload carrying a non-default value, measured rather than guessed:
-        // a builder short of it grows once on every command, and one over it wastes the difference on every
-        // command. The analog twin's payload is a different size, so the two do not share a literal.
-        private const int SetDoPayloadBytes = 20;
-
         private readonly Dictionary<ServiceProviderContractId, string> _doResponseTopics = [];
 
         private readonly Dictionary<ServiceProviderContractId, string> _doTopics = [];
@@ -49,28 +45,31 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            // The buffer check below cannot separate this contract's payload from its sibling's: the layouts
-            // are identical, so the label the publisher sets is the only thing that can. Refusing it is a
-            // warning because the block's input then holds its last value, which nothing else reports.
+            // The label the publisher sets is what separates this contract's payload from its sibling's,
+            // and it is judged before the bytes so a foreign payload is refused by name rather than by
+            // whatever the decode happens to make of it. Refusing is a warning because the block's output
+            // then holds its last value, which nothing else reports.
             if (message.Schema != nameof(DoStatePayload))
             {
                 LogRejectedForeignSchema(message.ContractId, message.Schema, message.Topic);
                 return;
             }
 
-            // An unverified buffer does not fail loudly: a truncated one reads a value out of whatever
-            // survived the cut and forwards it as if a device had sent it, and an empty one throws out of
-            // the handler. The generated DoStatePayload.VerifyDoStatePayload wrapper cannot be used — it
-            // hardcodes an empty file identifier the runtime then rejects — so the verifier is driven
-            // directly, with no identifier to check.
-            var buffer = message.GetFlatBufferPayload();
-            if (!new Verifier(buffer).VerifyBuffer(null, false, DoStatePayloadVerify.Verify))
+            DoStatePayload payload;
+            try
             {
-                LogRejectedUnverifiablePayload(message.ContractId, message.Topic);
+                payload = message.GetJsonPayload(HwJsonContext.Default.DoStatePayload);
+            }
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+            {
+                // An empty, truncated or wrong-typed document throws out of the decode, and a bare `null`
+                // one deserializes to nothing and is refused by the read itself. Letting either leave this
+                // arm would put a stack trace in the gateway's log for what is an ordinary bad frame, and
+                // the actor middleware that caught it would drop the message anyway.
+                LogRejectedUndecodablePayload(message.ContractId, message.Topic);
                 return;
             }
 
-            var payload = DoStatePayload.GetRootAsDoStatePayload(buffer);
             LogReceivedStateChange(message.ContractId, payload.Value, message.CorrelationId, message.Topic);
             ForwardToLogicBlocks(message.ContractId, new DigitalOutputChanged(payload.Value));
         }
@@ -93,23 +92,14 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
                 return;
             }
 
-            var payload = CreateSetDoPayload(setDigitalOutputMessage.Data.Value);
+            var payload = new SetDoPayload(setDigitalOutputMessage.Data.Value);
             foreach (var serviceProviderContractId in mappedServiceProviderContractIds)
             {
                 var topic = GetOrAddDoSetTopic(serviceProviderContractId);
                 var responseTopic = GetOrAddDoResponseTopic(serviceProviderContractId);
-                var correlationId = Publish(topic, payload, nameof(SetDoPayload), MessageMimeTypes.FlatBuffer, responseTopic: responseTopic);
+                var correlationId = PublishJson(topic, payload, HwJsonContext.Default.SetDoPayload, nameof(SetDoPayload), responseTopic: responseTopic);
                 LogPublishingDoRequest(setDigitalOutputMessage.Data.Value, correlationId, topic);
             }
-        }
-
-        private static byte[] CreateSetDoPayload(bool value)
-        {
-            var builder = new FlatBufferBuilder(SetDoPayloadBytes);
-            var payloadOffset = SetDoPayload.CreateSetDoPayload(builder, value);
-            SetDoPayload.FinishSetDoPayloadBuffer(builder, payloadOffset);
-
-            return builder.SizedByteArray();
         }
 
         private string GetOrAddDoSetTopic(ServiceProviderContractId serviceProviderContractId)
@@ -144,8 +134,8 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
                        Message = "Received DO state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, bool value, Guid correlationId, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable DO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
-        private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected undecodable DO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        private partial void LogRejectedUndecodablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
         [LoggerMessage(Level = LogLevel.Warning,
                        Message =

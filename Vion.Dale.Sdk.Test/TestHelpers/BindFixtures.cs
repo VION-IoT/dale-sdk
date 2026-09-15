@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
@@ -159,6 +162,14 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>A JSON publish's payload: one Pascal-cased property and one enum member.</summary>
     public readonly record struct BindProbeReading(int MeasuredValue, BindProbeQuality Quality);
 
+    /// <summary>
+    ///     Type metadata for <see cref="BindProbeReading" /> under a naming policy and enum form the shared options
+    ///     never produce, so a document shows which of the two serialized or read it.
+    /// </summary>
+    [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+    [JsonSerializable(typeof(BindProbeReading))]
+    public partial class BindProbeSnakeCaseContext : JsonSerializerContext;
+
     /// <summary>The handler a bind probe addresses, driven directly through its dispatch.</summary>
     public class BindProbeHandler : ServiceProviderHandlerBase
     {
@@ -178,8 +189,8 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
             _actionPaths = actionPaths ?? ["/state"];
         }
 
-        /// <summary>Publishes with whatever content type the caller passes, so the default is observable.</summary>
-        public Guid PublishProbe(string? contentType = null, Guid? correlationId = null, string? responseTopic = null, bool retain = false)
+        /// <summary>Publishes with whatever content type the caller passes.</summary>
+        public Guid PublishProbe(string contentType = MessageMimeTypes.Json, Guid? correlationId = null, string? responseTopic = null, bool retain = false)
         {
             return Publish("probe/topic",
                            [1, 2, 3],
@@ -197,6 +208,12 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         public Guid PublishProbeAsJson()
         {
             return PublishJson("probe/topic", new BindProbeReading(7, BindProbeQuality.Uncertain), "ProbeSchema");
+        }
+
+        /// <summary>Publishes the same payload as <see cref="PublishProbeAsJson" />, through the type metadata given.</summary>
+        public Guid PublishProbeAsJson(JsonTypeInfo<BindProbeReading> typeInfo)
+        {
+            return PublishJson("probe/topic", new BindProbeReading(7, BindProbeQuality.Uncertain), typeInfo, "ProbeSchema");
         }
 
         public void ForwardProbe(ServiceProviderContractId contractId, int amount)

@@ -36,9 +36,9 @@ consumer, an input any number) and
 the logic-level simulation tier, and carries both development-only declarations) are the design
 authority for the declarations below and are cited, never re-argued.
 
-`Vion.Contracts` owns the MQTT topic constants and the FlatBuffer payload schemas this area writes
-and reads. They are carried, not specified here; a rename in that package is a wire change with its
-own readers.
+`Vion.Contracts` owns the MQTT topic constants, the JSON payload records this area writes and reads,
+and the source-generation context they are serialized through. They are carried, not specified here;
+a rename in that package is a wire change with its own readers.
 
 ## The four faces
 
@@ -189,26 +189,24 @@ whole of this area's decode surface.
   payload type its topic carries THE SYSTEM SHALL drop the message, delivering nothing to any block,
   a message carrying no label at all included.
 
-`AC-IO-005.2` is what the schema's own check buys and what it does not. It refuses an empty payload,
-a payload truncated anywhere but its last byte, and a payload of a *narrower* value type than the
-topic carries. It does **not** refuse a payload of a wider value type — the two layouts agree, so an
-analog payload read on a digital topic decodes as a value nothing sent — and it does not refuse
-trailing bytes past a complete message. The check costs one `Verifier` per inbound state message,
-constructed on the decode path at the option defaults its parameterless constructor sets — unmeasured,
-and stated once here so it is not rediscovered as a surprise. Before the check existed, an empty
-payload threw out of the handler (contained by `AC-LIFE-014.2`, so the message was dropped and the
-actor survived) and a truncated one delivered a fabricated value to every mapped block — which is why
-the guard is worth its line.
+`AC-IO-005.2` is what the payload's own decode buys. It refuses an empty payload, one truncated
+anywhere, one that is not JSON at all, a bare `null` document, and a value of a type the member does
+not hold — a real number on a digital topic; a truth value, a quoted number, or a quoted `NaN`,
+`Infinity` or `-Infinity` on an analog one. What
+it accepts is a document carrying no `value` member at all, which reads as the member's default and
+is delivered; the wire cannot distinguish that from a publisher that meant the default.
 
-`AC-IO-005.5` is what closes the case `AC-IO-005.2` cannot see, and it is the one failure in this area
-that was silent rather than merely absent: a wider payload decoded into a value nobody published, and
-the bound blocks acted on it. The label is the discriminator because the bytes are not — every
-publisher on this wire sets the payload type's name as the message's schema user property, and the
-service-provider side of the same wire refuses a message whose label is missing or names another type.
-This side now refuses on the same two grounds, which is why a message with no label is refused rather
-than admitted on the strength of its bytes. The label is judged before the buffer, so a payload of
-another family never reaches the verifier at all — including the narrower one `AC-IO-005.2` would
-also have refused, which is no longer reachable from the wire.
+`AC-IO-005.5` names the payload type rather than inspecting it, and it is judged **before** the
+decode, so a foreign payload is refused by name rather than by whatever the decode happens to make of
+it. Every publisher on this wire sets the payload type's name as the message's schema user property,
+and the service-provider side of the same wire refuses a message whose label is missing or names
+another type; this side refuses on the same two grounds, which is why a message with no label is
+refused rather than admitted on the strength of its bytes.
+
+The two checks overlap without either being redundant. A neighbouring family's document is
+refused twice over — by its label here, and by its value's type at `AC-IO-005.2` had it carried this
+topic's label — but only the label can refuse a *sibling* payload of the same shape, a `DoStatePayload`
+on a `di/state` topic, whose document is byte-for-byte what this topic's own payload would be.
 
 The drop is **reported at warning level**, which is what keeps it from trading one silence for
 another: the bound blocks hold their last value for as long as the mislabelling lasts, and no other
@@ -218,8 +216,9 @@ refusal stays at debug for the opposite reason: state is published retained, so 
 reaches it on a topic nothing is wrong with. Neither level is a criterion, log text being no contract
 ([`../testing-conventions.md`](../testing-conventions.md) § 15).
 
-`AC-IO-005.3` is why the identity strings a state payload carries are the publisher's own bookkeeping:
-the topic is the identity, and this area never reads them. `AC-IO-005.4` fixes a block's first value:
+`AC-IO-005.3` is a rule about the topic: a member of a state document beside its value is ignored,
+whatever endpoint it names, so the identity a captured message is interpretable against is the
+topic's alone. `AC-IO-005.4` fixes a block's first value:
 this area issues no read of its own, so a block sees the next state message after its contract is
 linked, and one that arrives before is dropped. Both hardware abstraction layers publish state
 retained, which is what makes that first value arrive at all.
@@ -230,7 +229,7 @@ retained, which is what makes that first value arrive at all.
   through the MQTT client actor to that output's set topic under the service-provider contract's
   identity, naming a response topic under the runtime's own identifier.
 - `AC-IO-006.2` (Ubiquitous): THE SYSTEM SHALL publish each command under a correlation identifier of
-  its own, labelled with its payload type's schema name and the FlatBuffer content type, not
+  its own, labelled with its payload type's schema name and the JSON content type, not
   retained, and carrying that payload type's encoding of the commanded value and nothing else.
 - `AC-IO-006.3` (Ubiquitous): THE SYSTEM SHALL publish one command for each service-provider contract
   the block's output is mapped to.
@@ -268,25 +267,29 @@ cannot diverge.
 - `AC-IO-007.1` (Ubiquitous): THE SYSTEM SHALL carry one bare value on each message of a face — a
   truth value on a digital face, a real number on an analog one — with no unit, range, scale,
   deadband, timestamp or quality alongside it.
-- `AC-IO-007.2` (Ubiquitous): THE SYSTEM SHALL carry any value its type can hold unaltered in both
-  directions, a non-number and both infinities included, rejecting and clamping none of them.
+- `AC-IO-007.2` (Ubiquitous): THE SYSTEM SHALL carry any finite value its type can hold unaltered in
+  both directions, rejecting and clamping none of them.
+- `AC-IO-007.3` (Event-driven): WHEN a block commands an analog output with a value that is not finite
+  THE SYSTEM SHALL publish no command.
 
 `AC-IO-007.1` is a contract, not an omission. Units, ranges and presentation belong to the block's own
 service properties ([`emission.md`](emission.md)); scaling and engineering conversion belong to the
 block. Nothing here interprets a value, which is why the same two faces serve a contactor, a
 0–10 V setpoint and a percentage without knowing which it is carrying.
 
-`AC-IO-007.2` has one consequence worth stating once so nobody re-derives it: the serialiser omits a
-field equal to the schema's default, and `-0.0` compares equal to `0.0`, so **a signed zero does not
-survive the wire** and neither does the difference between a `false` command and an absent field.
-Both read back as the default. Validating a non-finite value is not this area's — the reader is the
-hardware abstraction layer, and analog I/O is served by the simulating layer alone today.
+`AC-IO-007.2` has one asymmetry worth stating once so nobody re-derives it. Outbound, every command
+writes its value member whatever the value is, so `-0.0` reaches the far side as `-0` and a `false`
+command is distinguishable from one that was never sent. Inbound the distinction is the publisher's
+to make and not this area's: a document carrying no value member reads as the member's default, so a
+publisher that omits it is indistinguishable from one that meant `false` or `0`. The two halves are
+one rule and are tested as one, with the digital rows being the whole of a truth value's domain and
+the analog rows the extremes a `double` reaches.
 
-The inbound half is the one a block feels. A service provider that reports `NaN` for a reading it
-cannot take reports `NaN` to every block bound to that contract, because nothing between the decode and
-the face substitutes, clamps or refuses a value: a block that needs a finite number tests for one
-itself. The two halves are one rule and are tested as one, with the digital rows being the whole of a
-truth value's domain and the analog rows the extremes and the non-numbers a `double` reaches.
+`AC-IO-007.3` exists because JSON has no number for a non-number or either infinity, so no document
+can carry one. The block observes nothing, as with any command the far side never acts on
+(`AC-IO-006.1`); the handler reports the drop at warning level, which is a trace and not a criterion.
+The inbound counterpart needs no rule of its own: a document spelling such a value as a string is a
+value of a type the member does not hold, which `AC-IO-005.2` refuses.
 
 ## Multiplicity and development surface
 
@@ -357,21 +360,24 @@ something a consumer can observe of either one, so it mints no criterion
 ([`../spec-process.md`](../spec-process.md) § IDs & EARS) — and it is a contract on every change, not
 an observation about today: a fix applied to one package
 is applied to the other in the same commit, or the change doc says why not. What the diff legitimately
-still shows, after normalising `Digital`/`Analog` and the payload type names, is exactly five things:
-the value type itself, `bool` against `double`; the English article each package's noun takes; each
-package's `using` block sorted by its own namespace names, which puts `Vion.Dale.Sdk.Core` in a
-different place in each `ConfigureServices.cs`; the wire's own abbreviations `DI`/`DO` and `AI`/`AO`
-inside log templates; and the two serialisation buffer sizes, 20 bytes for a digital command's payload
-and 24 for an analog one, each builder sized for its own. Nothing else survives the normalisation, and
-anything that later does is a residue to fix or to add to this list.
+still shows, after normalising `Digital`/`Analog` and the payload type names, is the value type
+itself, `bool` against `double`; the analog output handler's refusal of a non-finite command
+(`AC-IO-007.3`), which a truth value has no counterpart for; the English article each package's noun
+takes; each package's `using` block sorted by its own namespace names, which puts
+`Vion.Dale.Sdk.Core` in a different place in each `ConfigureServices.cs`; and the wire's own
+abbreviations `DI`/`DO` and `AI`/`AO` inside log templates. Nothing else survives the normalisation,
+and anything that does is a residue to fix or to add to this list.
 
 ## Test discipline
 
 Each package has its own test suite, `Vion.Dale.Sdk.DigitalIo.Test` and `Vion.Dale.Sdk.AnalogIo.Test`,
 mirror projects in the solution. A handler is driven through its own message loop —
 `HandleMessageAsync` against a mocked actor context — because everything a handler does outwardly is
-what it hands that context. FlatBuffer payloads are built in the test. **No test in this area reaches
-a broker, the development host or a device**, and none asserts on a log call
+what it hands that context. Inbound payloads are written as the literal JSON a hardware-abstraction
+layer puts on the wire rather than serialized through the context the handler decodes with, so an
+arrangement cannot inherit the naming policy it exists to check; outbound assertions are the exact
+document. **No test in this area reaches a broker, the development host or a device**, and none
+asserts on a log call
 ([`../testing-conventions.md`](../testing-conventions.md) § 15): where the behaviour is a refusal, the
 assertion is that nothing reached a block.
 

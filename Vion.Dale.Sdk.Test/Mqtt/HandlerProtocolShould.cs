@@ -27,10 +27,10 @@ namespace Vion.Dale.Sdk.Test.Mqtt
                 yield return [new RegisterMqttHandler("Handler", "key", [])];
                 yield return [new MqttTopicGroup([])];
                 yield return [new MqttMessageReceived("topic", default, null, null, [])];
-                yield return [new PublishMqttMessage("topic")];
-                yield return [new PublishMqttMessageRequest("topic")];
+                yield return [new PublishMqttMessage("topic", null, null)];
+                yield return [new PublishMqttMessageRequest("topic", null, null)];
                 yield return [new PublishMqttMessageResponse(true)];
-                yield return [new RegisterMessageToSendOnConnect(new PublishMqttMessage("topic"))];
+                yield return [new RegisterMessageToSendOnConnect(new PublishMqttMessage("topic", null, null))];
             }
         }
 

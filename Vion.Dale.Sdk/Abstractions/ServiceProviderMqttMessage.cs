@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Google.FlatBuffers;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Core;
@@ -90,6 +91,20 @@ namespace Vion.Dale.Sdk.Abstractions
         public T GetJsonPayload<T>(JsonSerializerOptions? serializerOptions = null)
         {
             return _inner.GetJsonPayload<T>(serializerOptions);
+        }
+
+        /// <summary>
+        ///     Deserializes the payload as JSON through the supplied type metadata.
+        /// </summary>
+        /// <typeparam name="T">The type to deserialize into.</typeparam>
+        /// <param name="typeInfo">
+        ///     The source-generated metadata for <typeparamref name="T" />, such as
+        ///     <c>HwJsonContext.Default.DiStatePayload</c>. It carries the naming policy and converters, so
+        ///     <see cref="JsonSerialization.DefaultOptions" /> is not consulted.
+        /// </param>
+        public T GetJsonPayload<T>(JsonTypeInfo<T> typeInfo)
+        {
+            return _inner.GetJsonPayload(typeInfo);
         }
 
         /// <summary>

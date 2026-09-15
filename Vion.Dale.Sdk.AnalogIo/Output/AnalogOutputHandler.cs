@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
-using Google.FlatBuffers;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Constants;
-using Vion.Contracts.FlatBuffers.Hw.Ao;
+using Vion.Contracts.Hw;
+using Vion.Contracts.Hw.Ao;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -20,11 +21,6 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
     [ScenarioWire(Inbound = typeof(AnalogOutputChanged), Outbound = typeof(SetAnalogOutput))]
     public partial class AnalogOutputHandler : ServiceProviderHandlerBase
     {
-        // The serialized size of a SetAoPayload carrying a non-default value, measured rather than guessed:
-        // a builder short of it grows once on every command, and one over it wastes the difference on every
-        // command. The digital twin's payload is a different size, so the two do not share a literal.
-        private const int SetAoPayloadBytes = 24;
-
         private readonly Dictionary<ServiceProviderContractId, string> _aoResponseTopics = [];
 
         private readonly Dictionary<ServiceProviderContractId, string> _aoTopics = [];
@@ -49,28 +45,31 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            // The buffer check below cannot separate this contract's payload from its sibling's: the layouts
-            // are identical, so the label the publisher sets is the only thing that can. Refusing it is a
-            // warning because the block's input then holds its last value, which nothing else reports.
+            // The label the publisher sets is what separates this contract's payload from its sibling's,
+            // and it is judged before the bytes so a foreign payload is refused by name rather than by
+            // whatever the decode happens to make of it. Refusing is a warning because the block's output
+            // then holds its last value, which nothing else reports.
             if (message.Schema != nameof(AoStatePayload))
             {
                 LogRejectedForeignSchema(message.ContractId, message.Schema, message.Topic);
                 return;
             }
 
-            // An unverified buffer does not fail loudly: a truncated one reads a value out of whatever
-            // survived the cut and forwards it as if a device had sent it, and an empty one throws out of
-            // the handler. The generated AoStatePayload.VerifyAoStatePayload wrapper cannot be used — it
-            // hardcodes an empty file identifier the runtime then rejects — so the verifier is driven
-            // directly, with no identifier to check.
-            var buffer = message.GetFlatBufferPayload();
-            if (!new Verifier(buffer).VerifyBuffer(null, false, AoStatePayloadVerify.Verify))
+            AoStatePayload payload;
+            try
             {
-                LogRejectedUnverifiablePayload(message.ContractId, message.Topic);
+                payload = message.GetJsonPayload(HwJsonContext.Default.AoStatePayload);
+            }
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+            {
+                // An empty, truncated or wrong-typed document throws out of the decode, and a bare `null`
+                // one deserializes to nothing and is refused by the read itself. Letting either leave this
+                // arm would put a stack trace in the gateway's log for what is an ordinary bad frame, and
+                // the actor middleware that caught it would drop the message anyway.
+                LogRejectedUndecodablePayload(message.ContractId, message.Topic);
                 return;
             }
 
-            var payload = AoStatePayload.GetRootAsAoStatePayload(buffer);
             LogReceivedStateChange(message.ContractId, payload.Value, message.CorrelationId, message.Topic);
             ForwardToLogicBlocks(message.ContractId, new AnalogOutputChanged(payload.Value));
         }
@@ -86,6 +85,15 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
 
         private void PublishSetAoMqttMessage(ContractMessage<SetAnalogOutput> setAnalogOutputMessage)
         {
+            // JSON has no number for NaN or either infinity, so no document can carry one to the service
+            // provider, and serializing one throws out of this arm into the actor middleware. Dropping it
+            // here reports the refusal against the contract instead of as a stack trace.
+            if (!double.IsFinite(setAnalogOutputMessage.Data.Value))
+            {
+                LogRejectedNonFiniteCommand(setAnalogOutputMessage.LogicBlockContractId, setAnalogOutputMessage.Data.Value);
+                return;
+            }
+
             var mappedServiceProviderContractIds = FindMappedServiceProviderContracts(setAnalogOutputMessage.LogicBlockContractId);
             if (mappedServiceProviderContractIds.Count == 0)
             {
@@ -93,23 +101,14 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
                 return;
             }
 
-            var payload = CreateSetAoPayload(setAnalogOutputMessage.Data.Value);
+            var payload = new SetAoPayload(setAnalogOutputMessage.Data.Value);
             foreach (var serviceProviderContractId in mappedServiceProviderContractIds)
             {
                 var topic = GetOrAddAoSetTopic(serviceProviderContractId);
                 var responseTopic = GetOrAddAoResponseTopic(serviceProviderContractId);
-                var correlationId = Publish(topic, payload, nameof(SetAoPayload), MessageMimeTypes.FlatBuffer, responseTopic: responseTopic);
+                var correlationId = PublishJson(topic, payload, HwJsonContext.Default.SetAoPayload, nameof(SetAoPayload), responseTopic: responseTopic);
                 LogPublishingAoRequest(setAnalogOutputMessage.Data.Value, correlationId, topic);
             }
-        }
-
-        private static byte[] CreateSetAoPayload(double value)
-        {
-            var builder = new FlatBufferBuilder(SetAoPayloadBytes);
-            var payloadOffset = SetAoPayload.CreateSetAoPayload(builder, value);
-            SetAoPayload.FinishSetAoPayloadBuffer(builder, payloadOffset);
-
-            return builder.SizedByteArray();
         }
 
         private string GetOrAddAoSetTopic(ServiceProviderContractId serviceProviderContractId)
@@ -144,13 +143,18 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
                        Message = "Received AO state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, double value, Guid correlationId, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable AO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
-        private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected undecodable AO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        private partial void LogRejectedUndecodablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
         [LoggerMessage(Level = LogLevel.Warning,
                        Message =
                            "Dropped a AO state message labelled with another payload type; no value reached any block and this contract's input holds its last value (ServiceProviderContractId={ServiceProviderContractId}, Schema={Schema}, Topic={Topic})")]
         private partial void LogRejectedForeignSchema(ServiceProviderContractId serviceProviderContractId, string? schema, string topic);
+
+        [LoggerMessage(Level = LogLevel.Warning,
+                       Message =
+                           "Dropped a AO command whose value is not finite; JSON carries no number for it, so no command reached any service provider (LogicBlockContractId={LogicBlockContractId}, Value={Value})")]
+        private partial void LogRejectedNonFiniteCommand(LogicBlockContractId logicBlockContractId, double value);
 
         [LoggerMessage(Level = LogLevel.Debug,
                        Message = "No service provider contract mapping found for contract — cannot send set AO command (LogicBlockContractId={LogicBlockContractId})")]

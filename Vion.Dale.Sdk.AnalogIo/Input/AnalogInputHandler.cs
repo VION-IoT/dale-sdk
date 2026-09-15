@@ -1,7 +1,8 @@
 using System;
-using Google.FlatBuffers;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Vion.Contracts.FlatBuffers.Hw.Ai;
+using Vion.Contracts.Hw;
+using Vion.Contracts.Hw.Ai;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -44,28 +45,31 @@ namespace Vion.Dale.Sdk.AnalogIo.Input
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            // The buffer check below cannot separate this contract's payload from its sibling's: the layouts
-            // are identical, so the label the publisher sets is the only thing that can. Refusing it is a
-            // warning because the block's input then holds its last value, which nothing else reports.
+            // The label the publisher sets is what separates this contract's payload from its sibling's,
+            // and it is judged before the bytes so a foreign payload is refused by name rather than by
+            // whatever the decode happens to make of it. Refusing is a warning because the block's input
+            // then holds its last value, which nothing else reports.
             if (message.Schema != nameof(AiStatePayload))
             {
                 LogRejectedForeignSchema(message.ContractId, message.Schema, message.Topic);
                 return;
             }
 
-            // An unverified buffer does not fail loudly: a truncated one reads a value out of whatever
-            // survived the cut and forwards it as if a device had sent it, and an empty one throws out of
-            // the handler. The generated AiStatePayload.VerifyAiStatePayload wrapper cannot be used — it
-            // hardcodes an empty file identifier the runtime then rejects — so the verifier is driven
-            // directly, with no identifier to check.
-            var buffer = message.GetFlatBufferPayload();
-            if (!new Verifier(buffer).VerifyBuffer(null, false, AiStatePayloadVerify.Verify))
+            AiStatePayload payload;
+            try
             {
-                LogRejectedUnverifiablePayload(message.ContractId, message.Topic);
+                payload = message.GetJsonPayload(HwJsonContext.Default.AiStatePayload);
+            }
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+            {
+                // An empty, truncated or wrong-typed document throws out of the decode, and a bare `null`
+                // one deserializes to nothing and is refused by the read itself. Letting either leave this
+                // arm would put a stack trace in the gateway's log for what is an ordinary bad frame, and
+                // the actor middleware that caught it would drop the message anyway.
+                LogRejectedUndecodablePayload(message.ContractId, message.Topic);
                 return;
             }
 
-            var payload = AiStatePayload.GetRootAsAiStatePayload(buffer);
             LogReceivedStateChange(message.ContractId, payload.Value, message.CorrelationId, message.Topic);
             ForwardToLogicBlocks(message.ContractId, new AnalogInputChanged(payload.Value));
         }
@@ -74,8 +78,8 @@ namespace Vion.Dale.Sdk.AnalogIo.Input
                        Message = "Received AI state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, double value, Guid correlationId, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable AI payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
-        private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected undecodable AI payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        private partial void LogRejectedUndecodablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
         [LoggerMessage(Level = LogLevel.Warning,
                        Message =

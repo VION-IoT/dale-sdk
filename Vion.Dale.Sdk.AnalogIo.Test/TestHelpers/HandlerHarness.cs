@@ -1,11 +1,12 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
-using Google.FlatBuffers;
+using System.Text;
 using Moq;
-using Vion.Contracts.FlatBuffers.Hw.Ai;
-using Vion.Contracts.FlatBuffers.Hw.Ao;
+using Vion.Contracts.Hw.Ai;
+using Vion.Contracts.Hw.Ao;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
@@ -73,30 +74,27 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.TestHelpers
             return $"{Installation}/{ServiceProviderIdentifier}/{ServiceIdentifier}/{contractIdentifier}{actionPath}";
         }
 
+        /*
+         * The inbound payloads are written as the literal JSON a hardware-abstraction layer puts on the
+         * wire, not serialized through the context the handler decodes with. Serializing them here would
+         * make the arrange inherit whatever naming policy the handler uses, so a handler reading `Value`
+         * where the wire carries `value` would pass — which is the one thing these arrangements exist to
+         * catch.
+         */
         internal static StatePayload AnalogStatePayload(double value)
         {
-            var builder = new FlatBufferBuilder(64);
-            var hardwareBlock = builder.CreateString("hw0");
-            var endpoint = builder.CreateString("ep0");
-            AiStatePayload.FinishAiStatePayloadBuffer(builder, AiStatePayload.CreateAiStatePayload(builder, hardwareBlock, endpoint, value));
-
-            return new StatePayload(builder.SizedByteArray(), nameof(AiStatePayload));
+            return new StatePayload(Json($$"""{"value":{{Number(value)}}}"""), nameof(AiStatePayload));
         }
 
         internal static StatePayload AnalogOutputStatePayload(double value)
         {
-            var builder = new FlatBufferBuilder(64);
-            var hardwareBlock = builder.CreateString("hw0");
-            var endpoint = builder.CreateString("ep0");
-            AoStatePayload.FinishAoStatePayloadBuffer(builder, AoStatePayload.CreateAoStatePayload(builder, hardwareBlock, endpoint, value));
-
-            return new StatePayload(builder.SizedByteArray(), nameof(AoStatePayload));
+            return new StatePayload(Json($$"""{"value":{{Number(value)}}}"""), nameof(AoStatePayload));
         }
 
-        /// <summary>The first <paramref name="length" /> bytes of a payload, label intact — a message cut short in flight.</summary>
-        internal static StatePayload Truncated(StatePayload payload, int length)
+        /// <summary>A literal document under the given label, for a shape no payload helper writes.</summary>
+        internal static StatePayload Document(string json, string schema)
         {
-            return payload with { Bytes = payload.Bytes.Take(length).ToArray() };
+            return new StatePayload(Json(json), schema);
         }
 
         /// <summary>The same bytes under a different schema label — the one arrangement in which only the label is wrong.</summary>
@@ -149,6 +147,16 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.TestHelpers
             where TData : struct
         {
             return Sent.Select(sent => sent.Message).OfType<ContractMessage<TData>>().ToList();
+        }
+
+        private static byte[] Json(string document)
+        {
+            return Encoding.UTF8.GetBytes(document);
+        }
+
+        private static string Number(double value)
+        {
+            return value.ToString("R", CultureInfo.InvariantCulture);
         }
     }
 }

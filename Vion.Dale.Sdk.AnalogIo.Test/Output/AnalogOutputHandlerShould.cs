@@ -1,11 +1,12 @@
-using System.Collections.Generic;
 using System.Linq;
-using Google.FlatBuffers;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Contracts.Constants;
-using Vion.Contracts.FlatBuffers.Hw.Ai;
-using Vion.Contracts.FlatBuffers.Hw.Ao;
-using Vion.Contracts.FlatBuffers.Hw.Do;
+using Vion.Contracts.Hw;
+using Vion.Contracts.Hw.Ai;
+using Vion.Contracts.Hw.Ao;
+using Vion.Contracts.Hw.Do;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
@@ -62,7 +63,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.1")]
-        public void ForwardConfirmedValueWhenPayloadVerifies()
+        public void ForwardConfirmedValueWhenPayloadDecodes()
         {
             // Arrange
             _harness.Link(_sut);
@@ -76,18 +77,25 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-005.2")]
-        [DataRow(0, DisplayName = "no payload at all")]
-        [DataRow(1, DisplayName = "one byte")]
-        [DataRow(10, DisplayName = "ten bytes")]
-        [DataRow(28, DisplayName = "half the message")]
-        public void ForwardNothingWhenPayloadDoesNotVerify(int length)
+        [DataRow("", DisplayName = "no payload at all")]
+        [DataRow("{", DisplayName = "an opening brace alone")]
+        [DataRow("""{"value":""", DisplayName = "cut off before the value")]
+        [DataRow("null", DisplayName = "a bare null document")]
+        [DataRow("not json", DisplayName = "not JSON at all")]
+        [DataRow("""{"value":true}""", DisplayName = "a truth value where a real number belongs")]
+        [DataRow("""{"value":"4.2"}""", DisplayName = "a real number spelled as a string")]
+        [DataRow("""{"value":"NaN"}""", DisplayName = "not a number spelled as a named literal")]
+        [DataRow("""{"value":"Infinity"}""", DisplayName = "positive infinity spelled as a named literal")]
+        [DataRow("""{"value":"-Infinity"}""", DisplayName = "negative infinity spelled as a named literal")]
+        public void ForwardNothingWhenPayloadUndecodable(string document)
         {
-            // Arrange
+            // Arrange — every row carries this topic's own label, so the decode is the only thing left to
+            // refuse on.
             _harness.Link(_sut);
-            var truncated = HandlerHarness.Truncated(HandlerHarness.AnalogOutputStatePayload(4.2), length);
+            var undecodable = HandlerHarness.Document(document, nameof(AoStatePayload));
 
             // Act
-            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), truncated));
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), undecodable));
 
             // Assert
             Assert.IsEmpty(_harness.Forwarded<AnalogOutputChanged>());
@@ -168,15 +176,16 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
 
             // Assert
             var published = _harness.Published().Single();
-            Assert.AreEqual(MessageMimeTypes.FlatBuffer, published.ContentType);
+            Assert.AreEqual(MessageMimeTypes.Json, published.ContentType);
             Assert.AreEqual(nameof(SetAoPayload), published.UserProperties!.Single(property => property.Name == MqttUserProperties.Schema.Name).Value);
             Assert.IsFalse(published.Retain);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-IO-006.2")]
-        [DynamicData(nameof(CommandPayloads))]
-        public void PublishCommandPayloadEncodingValueAlone(double value, byte[] expectedPayload)
+        [DataRow(4.2, """{"value":4.2}""")]
+        [DataRow(0.0, """{"value":0}""")]
+        public void PublishCommandPayloadEncodingValueAlone(double value, string expectedDocument)
         {
             // Arrange
             _harness.Link(_sut);
@@ -184,9 +193,9 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
             // Act
             _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(HandlerHarness.BlockContract, new SetAnalogOutput(value)));
 
-            // Assert — the bytes as written, not a round-trip decode: a builder that wrote a different
-            // encoding of the same value would still decode back to it, and the far side reads bytes.
-            CollectionAssert.AreEqual(expectedPayload, _harness.Published().Single().Payload);
+            // Assert — the document as written, not a round-trip decode: a writer that named the member
+            // differently would still decode back to the same value, and the far side reads the text.
+            Assert.AreEqual(expectedDocument, Encoding.UTF8.GetString(_harness.Published().Single().Payload!));
         }
 
         [TestMethod]
@@ -324,15 +333,12 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         [DataRow(0.0, DisplayName = "zero")]
         [DataRow(4.2, DisplayName = "an ordinary reading")]
         [DataRow(-12.5, DisplayName = "a negative reading")]
-        [DataRow(double.NaN, DisplayName = "not a number")]
-        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
-        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
         [DataRow(double.MaxValue, DisplayName = "the largest value the type holds")]
         [DataRow(double.Epsilon, DisplayName = "the smallest value above zero")]
         public void ForwardConfirmedValueUnaltered(double value)
         {
-            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps a
-            // non-finite reading or rounds an extreme one, so a HAL that reports one is reported to the block.
+            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps or
+            // rounds an extreme reading, so a HAL that reports one is reported to the block.
             _harness.Link(_sut);
 
             // Act
@@ -347,9 +353,6 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         [DataRow(0.0, DisplayName = "zero")]
         [DataRow(4.2, DisplayName = "an ordinary setpoint")]
         [DataRow(-12.5, DisplayName = "a negative setpoint")]
-        [DataRow(double.NaN, DisplayName = "not a number")]
-        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
-        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
         [DataRow(double.MaxValue, DisplayName = "the largest value the type holds")]
         [DataRow(double.Epsilon, DisplayName = "the smallest value above zero")]
         public void PublishCommandValueUnaltered(double value)
@@ -361,21 +364,24 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
             _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(HandlerHarness.BlockContract, new SetAnalogOutput(value)));
 
             // Assert
-            Assert.AreEqual(value, SetAoPayload.GetRootAsSetAoPayload(new ByteBuffer(_harness.Published().Single().Payload!)).Value);
+            Assert.AreEqual(value, JsonSerializer.Deserialize(_harness.Published().Single().Payload!, HwJsonContext.Default.SetAoPayload)!.Value);
         }
 
-        /// <summary>
-        ///     The exact bytes a command carries, measured off the builder rather than described: a
-        ///     <c>SetAoPayload</c> whose value is the schema's default omits the field, which is why the two
-        ///     rows are different lengths.
-        /// </summary>
-        public static IEnumerable<object[]> CommandPayloads()
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-007.3")]
+        [DataRow(double.NaN, DisplayName = "not a number")]
+        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
+        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
+        public void PublishNothingWhenCommandValueNotFinite(double value)
         {
-            yield return
-            [
-                4.2, new byte[] { 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x0C, 0x00, 0x04, 0x00, 0x06, 0x00, 0x00, 0x00, 0xCD, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x10, 0x40 },
-            ];
-            yield return [0.0, new byte[] { 0x08, 0x00, 0x00, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00 }];
+            // Arrange
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(HandlerHarness.BlockContract, new SetAnalogOutput(value)));
+
+            // Assert
+            Assert.IsEmpty(_harness.Published());
         }
     }
 }
