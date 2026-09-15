@@ -810,8 +810,7 @@ is the review report only.
   intended behavior into the spec page; small area-local defects fixed in the same PR; GAPs as
   marked rows on the page; the rest a draft Jira item under VION-62 in the PR body's `Draft items`
   section, which the operator files or drops. A draft takes the `dale-sdk-feedback` skill's item
-  shape but cites **spec ids and page sections where that shape asks for `file:line`** — ids are
-  stable and the trace gate keeps them alive.
+  shape.
 
 ## Gates
 

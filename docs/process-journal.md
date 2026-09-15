@@ -138,3 +138,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · decision · spec-process · The in-repo finding ledger is removed: a finding not fixed, stated on a page or marked GAP becomes a draft Jira item under VION-62, and lane 3's `park` classification is `file`. Nothing emptied the ledger between triages, and its one bulk triage deleted most of it. → codified: docs/spec-process.md
 
 2026-09-15 · review · spec-process · The review found the draft item for an unfixed finding given no home outside lane 3, the review prompt asked to check drafts it is never handed, the item shape restated beside the skill that owns it, and `file` unticked in two prompts; the harness skill's walk-through rule should have caught the first two. (self)
+
+2026-09-15 · decision · spec-process · A draft item for an engineering finding takes the dale-sdk-feedback skill's item shape whole, `file:line` chain included, rather than a spec-ids exception stated beside it; the shape has one owner. → codified: docs/spec-process.md
