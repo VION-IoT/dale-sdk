@@ -36,7 +36,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
 
         [TestMethod]
         [TestProperty("spec", "AC-BIND-008.1")]
-        public void BindContractWhileDynamicAssemblyIsMidEmission()
+        public void BindContractDuringDynamicAssemblyEmission()
         {
             // Arrange — a type defined but not yet created is the state a proxy generator leaves its shared dynamic
             // assembly in while it emits: the assembly already references the contract's own, and enumerating it
