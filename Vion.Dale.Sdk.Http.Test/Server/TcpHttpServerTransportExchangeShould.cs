@@ -16,10 +16,12 @@ namespace Vion.Dale.Sdk.Http.Test.Server
     ///     end of that read, closed once the request is recorded or its connection ends. A connection that never completes a
     ///     request, and one refused before its request is read, report none.
     ///     <para>
-    ///         No test here cites a criterion: they pin the premise <c>AC-HTTP-018.2</c> rests on — that the transport's
-    ///         exchange outlives the recording of the request — which the stepped host cannot park, because nothing a block or
-    ///         a test there can reach sits between the response being written and the request being recorded. The stepped end
-    ///         of the criterion is <c>SocketExchangeSteppingShould</c> in <c>Vion.Dale.DevHost.Test</c>.
+    ///         No test here cites a criterion. <see cref="KeepExchangeOpenUntilRequestRecorded" /> pins the premise
+    ///         <c>AC-HTTP-018.2</c> rests on — that the transport's exchange outlives the recording of the request — which the
+    ///         stepped host cannot park, because nothing a block or a test there can reach sits between the response being
+    ///         written and the request being recorded; the stepped end of the criterion is <c>SocketExchangeSteppingShould</c>
+    ///         in <c>Vion.Dale.DevHost.Test</c>. The other two pin the page's rule under that criterion that an idle
+    ///         connection, and one refused before its request is read, is not counted.
     ///     </para>
     /// </summary>
     [TestClass]

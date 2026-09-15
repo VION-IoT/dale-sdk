@@ -146,14 +146,14 @@ namespace Vion.Dale.DevHost.Test.Stepping
             await host.Control.SetPropertyAsync("fetcher", "Url", $"http://127.0.0.1:{peer.Port}/value");
             await peer.RequestArrived.WaitAsync(Timeout);
 
-            // Act — the hang guard is the claim's own bound: a drain that counted the exchange would wait out the stop
-            // sequence's sixty-second backstop.
-            await host.StopAsync().WaitAsync(Timeout);
+            // Act
+            var stopping = host.StopAsync();
+
+            // Assert — the stop completing inside the bound is the claim: a drain that counted the exchange would wait out
+            // the stop sequence's sixty-second backstop.
+            await stopping.WaitAsync(Timeout);
             await host.DisposeAsync();
             peer.Release();
-
-            // Assert
-            Assert.IsTrue(peer.RequestArrived.IsCompleted);
         }
 
         private static IDevHost SteppedHost(Func<DevConfigurationBuilder, DevConfigurationBuilder> blocks, TimeSpan? quiescence = null)

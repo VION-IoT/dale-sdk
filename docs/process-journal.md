@@ -246,3 +246,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · VION-222 · The hosted HTTP server opened its stepped exchange at accept, so an idle connection from outside the host could hold a settle for the 10 s read bound; amendment 2 moved the open point to the end of the request's full read.
 
 2026-09-15 · gate · Bash tool · Two Python edit scripts passed through a quoted Bash heredoc failed with "unexpected EOF while looking for matching quote" and applied nothing; the same scripts written to a file ran. (self)
+
+2026-09-15 · review · VION-222 · The re-review found the stop test asserting a signal its Arrange had awaited, the FluentModbus ordering pinned for register writes while the server also takes coil writes, the server exchange named without its endpoint, and a transport test summary naming one premise for three tests. (self)

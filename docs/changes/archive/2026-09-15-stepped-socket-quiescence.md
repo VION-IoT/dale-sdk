@@ -367,7 +367,8 @@ when a block fails to acknowledge on a stepped host.
 - 2026-09-15: a Modbus TCP exchange is named by its operation only (`Modbus TCP
   ReadHoldingRegistersAsShort`), not by endpoint: the queue that opens it does not know the client's
   address, and carrying it there changes `IRequestQueue`, which the Modbus TCP test kit implements.
-  HTTP exchanges carry the method and URL.
+  HTTP client exchanges carry the method and URL; a hosted server's carries the method, the path and the
+  server's local endpoint.
 - 2026-09-15: the quiescence failure message now renders its budget in the invariant culture; it
   rendered in the current culture before, so a German-locale host wrote `0,4s`.
 - 2026-09-15: barrier share, before and after. Fixture: a stepped host with one `TickerBlock`

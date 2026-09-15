@@ -326,7 +326,7 @@ namespace Vion.Dale.Sdk.Http.Server
                     // must not hold a stepped settle.
                     if (request != null)
                     {
-                        exchange = _exchanges?.OpenExchange($"HTTP server {request.Method} {request.Path}");
+                        exchange = _exchanges?.OpenExchange($"HTTP server {request.Method} {request.Path} on {client.Client.LocalEndPoint}");
                     }
 
                     var response = refusal;
