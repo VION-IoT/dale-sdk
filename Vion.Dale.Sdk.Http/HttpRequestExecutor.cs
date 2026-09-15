@@ -30,6 +30,10 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         internal static readonly TimeSpan MaxRequestTimeout = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
 
+        // Null unless a development host registered one: a stepped host counts each call as an exchange until its
+        // callback has been handed to the block.
+        private readonly IExchangeActivityMonitor? _exchanges;
+
         private readonly IHttpClientFactory _httpClientFactory;
 
         private readonly ILogger<HttpRequestExecutor> _logger;
@@ -42,11 +46,16 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="httpClientFactory">Factory for creating the HTTP client.</param>
         /// <param name="logger">Logger used for logging.</param>
         /// <param name="timeProvider">The clock a per-request timeout is measured on.</param>
-        public HttpRequestExecutor(IHttpClientFactory httpClientFactory, ILogger<HttpRequestExecutor> logger, TimeProvider timeProvider)
+        /// <param name="exchanges">The development host's exchange monitor, when one is registered.</param>
+        public HttpRequestExecutor(IHttpClientFactory httpClientFactory,
+                                   ILogger<HttpRequestExecutor> logger,
+                                   TimeProvider timeProvider,
+                                   IExchangeActivityMonitor? exchanges = null)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
             _timeProvider = timeProvider;
+            _exchanges = exchanges;
         }
 
         /// <inheritdoc />
@@ -63,15 +72,17 @@ namespace Vion.Dale.Sdk.Http
         {
             RefuseUnusableRequest(dispatcher, timeout, httpMethod, url);
 
-            return SendRequestAsync(dispatcher,
-                                    url,
-                                    httpMethod,
-                                    getResponseContent,
-                                    successCallback,
-                                    errorCallback,
-                                    headers,
-                                    requestContent,
-                                    timeout);
+            return Track(httpMethod,
+                         url,
+                         () => SendRequestAsync(dispatcher,
+                                                url,
+                                                httpMethod,
+                                                getResponseContent,
+                                                successCallback,
+                                                errorCallback,
+                                                headers,
+                                                requestContent,
+                                                timeout));
         }
 
         /// <inheritdoc />
@@ -86,14 +97,16 @@ namespace Vion.Dale.Sdk.Http
         {
             RefuseUnusableRequest(dispatcher, timeout, httpMethod, url);
 
-            return SendRequestAsync(dispatcher,
-                                    url,
-                                    httpMethod,
-                                    successCallback,
-                                    errorCallback,
-                                    headers,
-                                    requestContent,
-                                    timeout);
+            return Track(httpMethod,
+                         url,
+                         () => SendRequestAsync(dispatcher,
+                                                url,
+                                                httpMethod,
+                                                successCallback,
+                                                errorCallback,
+                                                headers,
+                                                requestContent,
+                                                timeout));
         }
 
         /// <inheritdoc />
@@ -117,7 +130,31 @@ namespace Vion.Dale.Sdk.Http
 
             RefuseUnusableRequest(dispatcher, timeout, request.Method, request.RequestUri.ToString());
 
-            return SendRequestAsync(dispatcher, request, successCallback, errorCallback, timeout);
+            return Track(request.Method, request.RequestUri.ToString(), () => SendRequestAsync(dispatcher, request, successCallback, errorCallback, timeout));
+        }
+
+        /// <summary>
+        ///     Counts one call as an exchange with the development host's monitor, when there is one, from before the request
+        ///     is sent until the call's task completes. The task completes only after the callback has been handed to the
+        ///     block's dispatcher, so the exchange never closes while its result is still on its way to a mailbox.
+        /// </summary>
+        private Task Track(HttpMethod httpMethod, string url, Func<Task> send)
+        {
+            if (_exchanges == null)
+            {
+                return send();
+            }
+
+            // The send methods are async, so a failure of theirs arrives on the task rather than as a throw from here.
+            var exchange = _exchanges.OpenExchange($"HTTP {httpMethod} {url}");
+            var sending = send();
+            _ = sending.ContinueWith((_, state) => ((IDisposable)state!).Dispose(),
+                                     exchange,
+                                     CancellationToken.None,
+                                     TaskContinuationOptions.ExecuteSynchronously,
+                                     TaskScheduler.Default);
+
+            return sending;
         }
 
         private async Task SendRequestAsync<TContent>(IActorDispatcher dispatcher,
