@@ -102,9 +102,6 @@ At the start of a task, answer two questions out loud: is the change local? is a
 | the branch is ready for a pull request | `/vion-improve:codify`, then `/vion-git:pr` |
 | codify reports the journal's live window past 40 entries | `/vion-improve:retro`; a DALE analyzer is this repo's top rung of the ladder, above a CI gate |
 
-The first retro also takes `docs/retro/journal-2026-09-10-to-2026-09-11.md`, the window rotated unread when this
-repo adopted the grammar, read whole.
-
 ### Lanes in this repo
 
 The block's two lanes map onto the three of [`docs/spec-process.md`](docs/spec-process.md) § Lanes:

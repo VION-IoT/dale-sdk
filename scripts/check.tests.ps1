@@ -7,8 +7,8 @@
 # is the derivation from the workflow, what happens when the workflow and the invocation table
 # disagree, the arguments each gate receives, and the two -CiShape checks. All of that runs
 # against a fixture repository with fake gates, so no real gate's verdict is involved. It is
-# not cheap: each case spawns check.ps1, which spawns nine more pwsh processes, so the suite
-# costs ~40s - about half of what run-script-tests.ps1 takes in total.
+# not cheap: each case spawns check.ps1, which spawns nine more pwsh processes, so this suite is the
+# slowest self-test and sets how long run-script-tests.ps1 takes.
 $ErrorActionPreference = 'Stop'
 $check = Join-Path $PSScriptRoot 'check.ps1'
 

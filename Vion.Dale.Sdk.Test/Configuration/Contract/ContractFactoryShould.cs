@@ -1,17 +1,22 @@
 using System;
+using System.IO;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.Loader;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Reflection;
 using Vion.Dale.Sdk.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Test.Configuration.Contract
 {
     /// <summary>
-    ///     How a contract's implementation is found. The two contract types below are bound by nothing else in
-    ///     this project — one has no implementation at all and one has two — so each answer is reachable
-    ///     without disturbing another suite's binding.
+    ///     How a contract's implementation is found. The contract types below are bound by nothing else in
+    ///     this project — one has no implementation at all, one has two, and one is referenced by a dynamic
+    ///     assembly mid-emission — so each answer is reachable without disturbing another suite's binding.
     /// </summary>
     [TestClass]
     public class ContractFactoryShould
@@ -31,6 +36,26 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-BIND-008.1")]
+        public void BindContractDuringDynamicAssemblyEmission()
+        {
+            // Arrange — a type defined but not yet created is the state a proxy generator leaves its shared dynamic
+            // assembly in while it emits: the assembly already references the contract's own, and enumerating it
+            // fails on the unfinished type. It is left unfinished for the rest of the process, as a generator mid-way
+            // through an emission would leave it at the instant of a binding.
+            var dynamicModule = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(Guid.NewGuid().ToString()), AssemblyBuilderAccess.Run)
+                                               .DefineDynamicModule(Guid.NewGuid().ToString());
+            dynamicModule.DefineType(Guid.NewGuid().ToString(), TypeAttributes.Public).AddInterfaceImplementation(typeof(IMidEmissionContract));
+            var block = new MidEmissionContractBlock();
+
+            // Act
+            new LifecycleHarness().Configure(block, serviceProvider: BindHosts.Bare);
+
+            // Assert
+            Assert.IsInstanceOfType<MidEmissionContract>(block.Bound);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-BIND-008.2")]
         public void RefuseContractWithNoLoadedImplementation()
         {
@@ -43,6 +68,46 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
             StringAssert.Contains(exception.Message, UnimplementedContractBlock.ContractIdentifier);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-BIND-008.3")]
+        public void RefuseContractWhereConsideredAssemblyCannotBeEnumerated()
+        {
+            // Arrange — three saved assemblies, two of them loaded into one load context, where the implementing assembly
+            // resolves the declaring one by name. It implements the contract on a base type from the third, which is never
+            // loaded, so enumerating the implementing assembly fails on that base type alone. Every name is fresh, so no
+            // other binding in the process considers either loaded assembly. The contract exists only at run time, which is
+            // why the factory is driven directly rather than through a block's configuration.
+            var coreLibrary = typeof(object).Assembly;
+            var declaringBuilder = new PersistedAssemblyBuilder(new AssemblyName(Guid.NewGuid().ToString()), coreLibrary);
+            var contractTypeName = Guid.NewGuid().ToString();
+            var contractType = declaringBuilder.DefineDynamicModule(Guid.NewGuid().ToString())
+                                               .DefineType(contractTypeName, TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
+            contractType.CreateType();
+            var absentBuilder = new PersistedAssemblyBuilder(new AssemblyName(Guid.NewGuid().ToString()), coreLibrary);
+            var absentBase = absentBuilder.DefineDynamicModule(Guid.NewGuid().ToString()).DefineType(Guid.NewGuid().ToString(), TypeAttributes.Public);
+            absentBase.CreateType();
+            var unenumerableName = Guid.NewGuid().ToString();
+            var unenumerableBuilder = new PersistedAssemblyBuilder(new AssemblyName(unenumerableName), coreLibrary);
+            var implementation = unenumerableBuilder.DefineDynamicModule(Guid.NewGuid().ToString()).DefineType(Guid.NewGuid().ToString(), TypeAttributes.Public, absentBase);
+            implementation.AddInterfaceImplementation(contractType);
+            implementation.CreateType();
+            var declaringImage = new MemoryStream();
+            declaringBuilder.Save(declaringImage);
+            declaringImage.Position = 0;
+            var unenumerableImage = new MemoryStream();
+            unenumerableBuilder.Save(unenumerableImage);
+            unenumerableImage.Position = 0;
+            var loadContext = new AssemblyLoadContext(Guid.NewGuid().ToString());
+            var contract = loadContext.LoadFromStream(declaringImage).GetType(contractTypeName, true)!;
+            loadContext.LoadFromStream(unenumerableImage);
+            var factory = new ContractFactory((_, _) => { }, null!, BindHosts.Bare);
+
+            // Act / Assert
+            var exception = Assert.Throws<AssemblyTypeLoadException>(() => factory.Create(contract, Guid.NewGuid().ToString()));
+            StringAssert.Contains(exception.Message, unenumerableName);
+            StringAssert.Contains(exception.Message, contract.FullName!);
+        }
+
         /// <summary>A block binding the contract two types implement.</summary>
         private sealed class AmbiguousContractBlock : LogicBlockBase
         {
@@ -50,6 +115,21 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
             public IAmbiguousContract? Ambiguous { get; private set; }
 
             public AmbiguousContractBlock() : base(NullLogger.Instance)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        /// <summary>A block binding the contract a dynamic assembly is mid-way through emitting a type for.</summary>
+        private sealed class MidEmissionContractBlock : LogicBlockBase
+        {
+            [ServiceProviderContractBinding(Identifier = "MidEmission")]
+            public IMidEmissionContract? Bound { get; private set; }
+
+            public MidEmissionContractBlock() : base(NullLogger.Instance)
             {
             }
 
@@ -73,6 +153,26 @@ namespace Vion.Dale.Sdk.Test.Configuration.Contract
             protected override void Ready()
             {
             }
+        }
+    }
+
+    /// <summary>A contract type a dynamic assembly references while one ordinary class implements it.</summary>
+    [ServiceProviderContractType("BindMidEmission")]
+    public interface IMidEmissionContract
+    {
+    }
+
+    /// <summary>The ordinary implementation of <see cref="IMidEmissionContract" />.</summary>
+    public sealed class MidEmissionContract : LogicBlockContractBase, IMidEmissionContract
+    {
+        public override string ContractHandlerActorName { get; protected set; } = "MidEmissionHandler";
+
+        public MidEmissionContract(string identifier, IActorContext actorContext) : base(identifier, actorContext)
+        {
+        }
+
+        public override void HandleContractMessage(IContractMessage contractMessage)
+        {
         }
     }
 
