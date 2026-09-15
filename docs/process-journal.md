@@ -65,3 +65,13 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-15 · review · VION-222 · The third review found the server exchange-name assertion sharing a counting test, the HTTP client exchange name pinned by no test, and a stored-value assert under a combined Act / Assert marker. (self)
 2026-09-15 · review · VION-220 · The review found the guard's reason moved into AnalyzerHelper.UnresolvedRoleNamesInAncestry still saying the caller found no [LogicInterface], true for DALE043's caller only; comment-conventions.md's comment-is-a-claim rule should have prevented it. (self)
+
+2026-09-15 · gate · dotnet test · Two example test projects reported a catastrophic failure discovering no test, which reads as a 0.14.0 incompatibility; this host's Smart App Control had blocked the Debug build artefact, and the same projects passed in Release. (self) → codified: docs/testing-conventions.md
+
+2026-09-15 · brief · references-0-14-0 · The brief put 37 Vion.Dale.Sdk* PackageReference lines under examples/ and Vion.Examples.Energy.Test at 40 tests; its own regex counts 36 lines, 37 is the file count across examples, templates and libraries, and that project has held 50 tests since PR #231. (self)
+
+2026-09-15 · review · testing-conventions · The review found the new § 8 rule making a passing -c Release run the discriminator between a host block and a package break, though a Release artefact is equally unsigned and may be blocked in its turn; the test assembly exe's own error is the discriminator. (self) → codified: docs/testing-conventions.md
+
+2026-09-15 · review · upload-libraries.yml · The review found the merge note asserting a fourth, ungated production approval for Vion.Diagnostics with no file:line behind it and without saying the library carries no I/O package; review check D10 asks for the mechanism. (self)
+
+2026-09-15 · gate · Vion.Dale.Plugin.Test · The /check test gate went red on two of 40 plugin tests with the same Application Control block, on assemblies emitted into TEMP under a fresh name each run, so it recurs at 2, 2 then 1 failure; the § 8 rule covered build output only. (self) → codified: docs/testing-conventions.md

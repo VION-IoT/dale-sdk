@@ -8,7 +8,7 @@
 
         <!-- NuGet package metadata -->
         <PackageId>Vion.Examples.Http</PackageId>
-        <Version>0.13.0</Version>
+        <Version>0.14.0</Version>
         <Authors>Vion</Authors>
         <Company>Vion</Company>
         <Description>Interactive HTTP debug client: send one request with any method, URL, headers and body and see the status, latency, response headers and a body preview, plus a simulated HTTP server with editable routes so it runs without a device.</Description>
@@ -23,8 +23,8 @@
          local project refs (incl. the source generator + Metalama, which don't flow through a project ref) so
          you can test working-tree SDK changes against this example without editing the csproj. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.13.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.Http" Version="0.13.0"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.14.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.Http" Version="0.14.0"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>

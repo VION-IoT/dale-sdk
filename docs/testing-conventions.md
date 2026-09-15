@@ -189,6 +189,25 @@ A transient `CSC error LAMA0601: … Insufficient system resources` after many h
 leak, not a test failure: `dotnet build-server shutdown`, kill stray `dotnet` / `VBCSCompiler` /
 `MSBuild`, retry.
 
+`An Application Control policy has blocked this file. (0x800711C7)` is a Windows host refusing an
+assembly the suite just produced, never a broken reference — a package or reference break says so in
+the restore or compiler output instead. Check `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy` →
+`VerifiedAndReputablePolicyState: 1`, which is Smart App Control enforcing. It reaches the suite in two
+shapes, and only the second names itself:
+
+- **A build output.** An xunit project reports `Catastrophic failure: … Test process did not return
+  valid JSON (non-object)` and discovers no test, because the test process died loading its own
+  `.dll`. Run the test assembly's own `.exe` to get the real error — the runner swallows it. Observed
+  on `Vion.Examples.Emission.Test` and `Vion.Examples.Http.IntegrationTest`, where a clean rebuild
+  reproduced it byte-for-byte and appending one comment to a source file cleared it.
+- **An assembly the tests emit at run time**, which carries a fresh name per run and so is blocked
+  intermittently: `Vion.Dale.Plugin.Test` failed 2, then 2, then 1 of 40 across consecutive runs, each
+  on a different `%TEMP%\dale-plug-*\Shared*.dll`.
+
+So a differing configuration or a green re-run is a way to get the suite through, never proof of the
+diagnosis: the block attaches to the artefact, not to the project. Judge such a failure on Linux CI,
+and do not record it as a flake without reading the error.
+
 ## 9. Coverage — every observable behavior, not every line
 
 The discriminator is **observability**: a behavior is something a caller, collaborator, subscriber,
