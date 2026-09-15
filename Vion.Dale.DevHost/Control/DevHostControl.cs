@@ -568,8 +568,7 @@ namespace Vion.Dale.DevHost.Control
         // endpoints on their generated ids, so that list holds endpoints nothing maps and lacks renamed ones.
         private bool CarriesContractEndpoint(string serviceProviderId, string serviceId, string contractId)
         {
-            return _configuration.LogicBlocks.Any(lb => lb.ContractMappings.Any(m => m.ServiceProviderIdentifier == serviceProviderId &&
-                                                                                     m.ServiceIdentifier == serviceId &&
+            return _configuration.LogicBlocks.Any(lb => lb.ContractMappings.Any(m => m.ServiceProviderIdentifier == serviceProviderId && m.ServiceIdentifier == serviceId &&
                                                                                      m.ContractEndpointIdentifier == contractId));
         }
 
