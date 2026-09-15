@@ -33,8 +33,7 @@
   (exit 2) when the tree has uncommitted tracked changes - see the description.
 
 .PARAMETER NoBuild
-  Skip `dotnet build` (use when the solution is already built, e.g. in CI where a
-  prior step built it). cleanupcode needs up-to-date build output.
+  Skip `dotnet build`, for a solution already built. cleanupcode needs up-to-date build output.
 
 .PARAMETER Changed
   Scope cleanupcode to the .cs files this branch changed vs -Base, plus the working tree,
@@ -56,8 +55,8 @@
   Clean only the .cs this branch touched (fast). Review `git diff` and commit.
 
 .EXAMPLE
-  pwsh scripts/cleanup-code.ps1 -Verify -NoBuild
-  The CI gate: fail if the tree is not already clean.
+  pwsh scripts/cleanup-code.ps1 -Verify -Changed -Base <base sha>
+  The pull request's CI gate: fail if the .cs it changed are not already clean.
 #>
 [CmdletBinding()]
 param(

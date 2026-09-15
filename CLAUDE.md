@@ -232,7 +232,7 @@ single source of truth is **`scripts/cleanup-code.ps1`**: it restores the pinned
 (`.config/dotnet-tools.json`) and runs the exact cleanup. CI runs the same script with `-Verify`
 (fails on drift) in the `style` job of `.github/workflows/publish.yml`, beside the pack job: on a
 pull request scoped to the `.cs` it changed (`-Changed -Base <base sha>`), on a push to `main`
-over the whole solution — so local and CI can't diverge.
+that builds, over the whole solution — so local and CI can't diverge.
 
 **Before opening a PR: run `pwsh scripts/cleanup-code.ps1 -Changed` (or the `/cleanup` slash command),
 review `git diff`, and commit any changes** — this keeps the CI style gate from failing the PR.
