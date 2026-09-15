@@ -622,7 +622,7 @@ namespace Vion.Dale.DevHost.Control
         // rejected when stepping is actually requested — not at construction.
         private DeterministicStepper EnsureStepper()
         {
-            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule, _budgets.Quiescence);
+            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor, true), _schedule, _budgets.Quiescence);
         }
 
         // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -175,9 +176,14 @@ namespace Vion.Dale.DevHost.Control
             }
             catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
-                throw new TimeoutException($"Actor system did not reach quiescence within {_quiescenceTimeout.TotalSeconds:0.###}s — the exact " +
-                                           "predicate (Σ MailboxDepth == 0 AND no user handler in flight) never held. The cascade is " +
-                                           "either stuck or producing unbounded follow-up traffic.");
+                var openExchanges = _barrier.OpenExchanges;
+                var cause = openExchanges.Count == 0 ?
+                                "The cascade is either stuck or producing unbounded follow-up traffic." :
+                                $"Still open: {string.Join("; ", openExchanges)}. An exchange is waited for until its own bound ends it; raise the " +
+                                "quiescence budget if that bound is longer.";
+                throw new TimeoutException($"Actor system did not reach quiescence within {_quiescenceTimeout.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture)}s — " +
+                                           "the exact predicate (Σ MailboxDepth == 0 AND no user handler in flight AND no SDK exchange open) never " +
+                                           $"held. {cause}");
             }
         }
 

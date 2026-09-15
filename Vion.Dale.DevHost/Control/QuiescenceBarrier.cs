@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -44,35 +45,60 @@ namespace Vion.Dale.DevHost.Control
     ///         on a loaded CI runner.
     ///     </para>
     ///     <para>
-    ///         The barrier still polls on the REAL wall clock (<see cref="Task.Delay(int)" />) — that is
-    ///         orchestration, not simulation; only the <em>simulated</em> time is the fake clock the stepper
-    ///         advances. The poll merely re-evaluates an exact predicate; it does not rely on timing. A timeout
-    ///         surfaces as a thrown <see cref="TimeoutException" /> — never an infinite loop, never a silent
-    ///         "assume settled".
+    ///         A stepper's barrier also counts the exchanges SDK clients and servers carry off the actor system
+    ///         (<see cref="IExchangeActivityMonitor" />): while one is open its result is in no mailbox, so depth and the
+    ///         handler count both read zero. It reads <see cref="InFlightActivityMonitor.Busy" />, where an exchange and a
+    ///         handler share one count, so the predicate stays a single observation. The teardown drain reads handlers
+    ///         only — it must not wait on a socket.
+    ///     </para>
+    ///     <para>
+    ///         The barrier does not poll on a timer. It takes the monitor's "a count reached zero" signal, evaluates the
+    ///         predicate, and awaits the signal when it does not hold — taking the signal first is what keeps a count
+    ///         reaching zero between the evaluation and the await from passing unseen. A slow real-clock re-check stands
+    ///         behind the signal for the one case it does not cover: traffic queued on a mailbox nothing will run, which
+    ///         no count ever leaves zero for. That re-check evaluates the same exact predicate; it is not a window. A
+    ///         timeout surfaces as a thrown <see cref="OperationCanceledException" /> from the caller's token — never an
+    ///         infinite loop, never a silent "assume settled".
     ///     </para>
     /// </summary>
     internal sealed class QuiescenceBarrier
     {
-        // Real-clock spacing between predicate evaluations. Small enough to keep stepping snappy; the value is
-        // not load-bearing for correctness (the predicate is exact, not a window) — only for responsiveness.
-        private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(1);
+        // Real-clock spacing of the re-check behind the zero signal. Not load-bearing for correctness (the predicate is
+        // exact) and not on the normal path: every settle that completes does so on the signal. Only a mailbox holding
+        // traffic nothing will run waits on it, and that wait ends at the caller's budget either way.
+        private static readonly TimeSpan FallbackInterval = TimeSpan.FromMilliseconds(50);
 
-        // Optional in-flight monitor. When null (no DevHost monitor registered) the barrier degrades to the
-        // depth-only signal — but DevHost always registers one, so the exact predicate is the live path.
-        private readonly IActorActivityMonitor? _activity;
+        // Optional monitor. When null (no DevHost monitor registered) the barrier degrades to the depth-only signal,
+        // re-checked at the fallback interval — but DevHost always registers one, so the exact predicate is the live path.
+        private readonly InFlightActivityMonitor? _activity;
+
+        private readonly bool _countExchanges;
 
         private readonly RuntimeVitals _vitals;
 
-        public QuiescenceBarrier(RuntimeVitals vitals, IActorActivityMonitor? activity)
+        /// <param name="vitals">The per-actor mailbox statistics.</param>
+        /// <param name="activity">The host's handler and exchange counts.</param>
+        /// <param name="countExchanges">
+        ///     Whether an open SDK exchange keeps the system from being quiescent — the stepper's predicate; the teardown
+        ///     drain passes <c>false</c>.
+        /// </param>
+        public QuiescenceBarrier(RuntimeVitals vitals, InFlightActivityMonitor? activity, bool countExchanges)
         {
             _vitals = vitals ?? throw new ArgumentNullException(nameof(vitals));
             _activity = activity;
+            _countExchanges = countExchanges;
+        }
+
+        /// <summary>What every exchange still open was opened as; empty when exchanges are not counted.</summary>
+        public IReadOnlyList<string> OpenExchanges
+        {
+            get => _countExchanges && _activity is not null ? _activity.OpenExchanges : Array.Empty<string>();
         }
 
         /// <summary>
-        ///     Polls the exact quiescence predicate (<c>Σ MailboxDepth == 0 AND InFlight == 0</c>) until it
-        ///     holds, or throws if <paramref name="cancellationToken" /> fires first (the caller wires it to a
-        ///     generous real-clock safety timeout). A single satisfying observation returns — no window.
+        ///     Waits until the exact quiescence predicate holds, or throws if <paramref name="cancellationToken" /> fires
+        ///     first (the caller wires it to a generous real-clock safety timeout). A single satisfying observation
+        ///     returns — no window.
         /// </summary>
         public async Task WaitForQuiescenceAsync(CancellationToken cancellationToken)
         {
@@ -80,23 +106,36 @@ namespace Vion.Dale.DevHost.Control
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var zeroReached = _activity?.WhenACountReachesZero();
                 if (IsQuiescent())
                 {
                     return;
                 }
 
-                // Real-clock cadence (orchestration), not the simulated clock — see class remarks.
-                await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
+                if (zeroReached is null)
+                {
+                    await Task.Delay(FallbackInterval, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                try
+                {
+                    await zeroReached.WaitAsync(FallbackInterval, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    // The re-check behind the signal: evaluate again.
+                }
             }
         }
 
-        // EXACT predicate: every mailbox empty AND no user handler currently executing. The in-flight count is
-        // entered before a handler body runs, so a handler that has dequeued its message but not yet posted the
-        // next hop is shadowed by inFlight > 0 — the predicate cannot be true mid-cascade. Snapshot() allocates
-        // a list per call; acceptable for a real-clock poll cadence.
+        // EXACT predicate: the count first, then every mailbox. A count entered before a handler body runs, and an
+        // exchange that posts its callback before it closes, both keep the count above zero until what they started has
+        // reached a mailbox — so a zero count followed by zero depth cannot be read mid-cascade. Snapshot() allocates a
+        // list per call; acceptable once per wake.
         private bool IsQuiescent()
         {
-            if (_activity is not null && _activity.InFlight != 0)
+            if (_activity is not null && (_countExchanges ? _activity.Busy : _activity.InFlight) != 0)
             {
                 return false;
             }
