@@ -128,6 +128,55 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
+        ///     The names in <paramref name="roleNames" /> written on a declared base list anywhere in
+        ///     <paramref name="type" />'s ancestry that resolve to no ancestor — the by-name half of the
+        ///     contract-interface lookup, at the binder's reach.
+        ///     <para>
+        ///         Transitive, because <c>DeclarativeInterfaceBinder</c> binds on <c>Type.GetInterfaces()</c>:
+        ///         an endpoint inherited from a base class, or reached through an interface that extends the
+        ///         generated one, binds exactly like a directly declared one. A name that already resolved is
+        ///         skipped wherever it is written: the caller's symbol half found no <c>[LogicInterface]</c> on
+        ///         it, so it is an ordinary type sharing a role's spelling, and the binder will not bind it.
+        ///     </para>
+        /// </summary>
+        internal static IEnumerable<string> UnresolvedRoleNamesInAncestry(INamedTypeSymbol type, HashSet<string> roleNames, CancellationToken cancellationToken)
+        {
+            // Lazily, and the role-name test first: IDE live analysis runs this on every keystroke, and a
+            // base list naming a contract role at all is the rare case.
+            return AncestryDeclaringBaseTypes(type)
+                   .SelectMany(ancestor => DeclaredBaseTypeNames(ancestor, cancellationToken))
+                   .Where(roleNames.Contains)
+                   .Where(name => !ResolvesToAncestor(type, name));
+        }
+
+        // Whether <paramref name="name" /> already names an ancestor of <paramref name="type" /> that the
+        // compiler resolved. TypeKind.Error is excluded deliberately: an unresolved interface still appears in
+        // AllInterfaces when it is inherited through one that resolves, and that is precisely the name the
+        // by-name half exists to find.
+        private static bool ResolvesToAncestor(INamedTypeSymbol type, string name)
+        {
+            return AncestryDeclaringBaseTypes(type).Any(ancestor => ancestor.TypeKind != TypeKind.Error && ancestor.Name == name);
+        }
+
+        // Every type whose declared base list can carry the generated name: the type itself, the base
+        // classes it inherits from, and the interfaces it implements. AllInterfaces is already the transitive
+        // closure of the interfaces and the BaseType chain that of the base classes, so this needs no
+        // recursion of its own. An error-type entry among them contributes nothing rather than needing a
+        // guard: it has no DeclaringSyntaxReferences, so there is no base list to read off it.
+        private static IEnumerable<INamedTypeSymbol> AncestryDeclaringBaseTypes(INamedTypeSymbol type)
+        {
+            for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                yield return current;
+            }
+
+            foreach (var iface in type.AllInterfaces)
+            {
+                yield return iface;
+            }
+        }
+
+        /// <summary>
         ///     Checks whether a type (or any of its interfaces) carries [ServiceProviderContractType].
         ///     Mirrors DeclarativeContractBinder.IsContractType() which checks the type directly.
         /// </summary>

@@ -290,6 +290,115 @@ public class Station : LogicBlockBase
             await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceRelationAnalyzer>(source, DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IGenSink"));
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        [TestProperty("spec", "AC-ANLZ-021.5")]
+        public async Task WarnOnServiceLessComponentInheritingUnresolvedInterfaceFromBaseClass()
+        {
+            // Arrange / Act / Assert
+            // DeclarativeInterfaceBinder binds on Type.GetInterfaces(), which is transitive, so an endpoint
+            // picked up from a base class binds — and drops its relation half — exactly like a declared one.
+            // Reading only the component's own base list would stay silent on it.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+[ServiceRelation(RelationType = ""LinkedGenerated"", OutwardsInterface = ""IGenSink"")]
+public static class GeneratedContract { }
+
+public class SinkBase : {|#1:IGenSink|} { }
+
+public class BareSink : SinkBase { }
+
+public class Station : LogicBlockBase
+{
+    public BareSink {|#0:Sink|} { get; } = new BareSink();
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceRelationAnalyzer>(source,
+                                                                                Warning().WithLocation(0),
+                                                                                DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IGenSink"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        [TestProperty("spec", "AC-ANLZ-021.5")]
+        public async Task WarnOnServiceLessComponentImplementingInterfaceExtendingUnresolvedInterface()
+        {
+            // Arrange / Act / Assert
+            // The other half of the same transitivity: the generated name is written on the base list of an
+            // interface the component implements, not on the component's own.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+[ServiceRelation(RelationType = ""LinkedGenerated"", OutwardsInterface = ""IGenSink"")]
+public static class GeneratedContract { }
+
+public interface IStationSink : {|#1:IGenSink|} { }
+
+public class BareSink : IStationSink { }
+
+public class Station : LogicBlockBase
+{
+    public BareSink {|#0:Sink|} { get; } = new BareSink();
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceRelationAnalyzer>(source,
+                                                                                Warning().WithLocation(0),
+                                                                                DiagnosticResult.CompilerError("CS0246").WithLocation(1).WithArguments("IGenSink"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-021.6")]
+        public async Task StaySilentOnServiceLessComponentNamingResolvedInterfaceSharingContractRoleName()
+        {
+            // Arrange / Act / Assert
+            // The by-name half exists for a name that resolves to nothing. One that resolves cleanly to an
+            // unrelated interface of the same simple name carries no [LogicInterface], so the binder binds
+            // nothing there and there is no relation half to lose.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+[ServiceRelation(RelationType = ""LinkedGenerated"", OutwardsInterface = ""IGenSink"")]
+public static class GeneratedContract { }
+
+namespace Elsewhere
+{
+    public interface IGenSink { }
+}
+
+public class BareSink : Elsewhere.IGenSink { }
+
+public class Station : LogicBlockBase
+{
+    public BareSink Sink { get; } = new BareSink();
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceRelationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-021.6")]
+        public async Task StaySilentOnServiceLessComponentInheritingResolvedTypeSharingContractRoleName()
+        {
+            // Arrange / Act / Assert
+            // Same boundary one step out: the resolved same-name type is written on a base class's base list,
+            // so the guard has to hold across the whole walk, not only on the component's own declaration.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+[LogicBlockContract(BetweenInterface = ""IGenSource"", AndInterface = ""IGenSink"")]
+[ServiceRelation(RelationType = ""LinkedGenerated"", OutwardsInterface = ""IGenSink"")]
+public static class GeneratedContract { }
+
+public class IGenSink { }
+
+public class SinkBase : IGenSink { }
+
+public class BareSink : SinkBase { }
+
+public class Station : LogicBlockBase
+{
+    public BareSink Sink { get; } = new BareSink();
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceRelationAnalyzer>(source);
+        }
+
         // ── Composed behaviour ──
 
         [TestMethod]
