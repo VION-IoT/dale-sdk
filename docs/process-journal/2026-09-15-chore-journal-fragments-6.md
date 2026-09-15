@@ -56,3 +56,5 @@
 2026-09-16 · review · check.ps1 · The journal-lint comment explained the folder path by naming the pre-migration file name as the action's default - the before-after framing comment-conventions.md forbids as a claim that rots - and it tripped the brief's own sweep for that file name. (self)
 
 2026-09-16 · gate · Bash tool · The migration script was launched through the Bash tool with a backslashed Windows path; the backslashes were stripped, pwsh got a run-together path and exited 64 having done nothing. The same command from the PowerShell tool ran. (self)
+
+2026-09-16 · review · process-journal · The new fragment and README were reported as carrying 101 and 297 carriage returns, from an od -c piped into grep for a backslash-r that matched the letter r instead; a byte claim needs a byte dump, and cat -A showed LF throughout. The pasted command is what exposed it. (self)
