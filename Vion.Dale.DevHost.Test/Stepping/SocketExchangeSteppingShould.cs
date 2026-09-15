@@ -29,6 +29,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///         The transport's own ordering, that its exchange closes only after the request is recorded, is pinned where the
     ///         transport is visible, in <c>Vion.Dale.Sdk.Http.Test</c>.
     ///     </para>
+    ///     <para>
+    ///         <see cref="StopHostWithoutWaitingForOpenExchange" /> cites no criterion: it pins the premise that the host's
+    ///         teardown drain counts handlers only, so an exchange a slow peer holds open does not hold a host's stop — the
+    ///         part of "nothing changes outside a stepped host" that the teardown carries.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class SocketExchangeSteppingShould
@@ -127,6 +132,28 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Assert
             Assert.AreEqual(42, (int)host.Control.GetProperty("fetcher", "Fetched")!);
             Assert.AreEqual(1, (int)host.Control.GetProperty("server", "Recorded")!);
+        }
+
+        [TestMethod]
+        public async Task StopHostWithoutWaitingForOpenExchange()
+        {
+            // Arrange — a real-clock host whose fetch the peer never answers, so the exchange stays open for the client's
+            // thirty-second timeout, far past the stop sequence's normal milliseconds.
+            await using var peer = HeldAnswerPeer.Http("42", System.Threading.Timeout.InfiniteTimeSpan);
+            var configuration = DevConfigurationBuilder.Create().WithTopologyName("sockets").AddLogicBlock<HttpFetcherBlock>("fetcher").Build();
+            var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
+            await host.StartAsync();
+            await host.Control.SetPropertyAsync("fetcher", "Url", $"http://127.0.0.1:{peer.Port}/value");
+            await peer.RequestArrived.WaitAsync(Timeout);
+
+            // Act — the hang guard is the claim's own bound: a drain that counted the exchange would wait out the stop
+            // sequence's sixty-second backstop.
+            await host.StopAsync().WaitAsync(Timeout);
+            await host.DisposeAsync();
+            peer.Release();
+
+            // Assert
+            Assert.IsTrue(peer.RequestArrived.IsCompleted);
         }
 
         private static IDevHost SteppedHost(Func<DevConfigurationBuilder, DevConfigurationBuilder> blocks, TimeSpan? quiescence = null)
