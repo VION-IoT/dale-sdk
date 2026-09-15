@@ -77,3 +77,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · gate · Vion.Dale.Plugin.Test · The /check test gate went red on two of 40 plugin tests with the same Application Control block, on assemblies emitted into TEMP under a fresh name each run, so it recurs at 2, 2 then 1 failure; the § 8 rule covered build output only. (self) → codified: docs/testing-conventions.md
 
 2026-09-15 · brief · do-path-log-level · The amendment asked for a test pinning the raised log level, hedged on the repo testing log levels; testing-conventions.md § 15 forbids asserting on log calls in SDK tests, so the level and the once-per-configuration rate limit ship unproven and the question is open. (self)
+
+2026-09-15 · gate · AnalyzerWiringShould · Six RunDaleAnalyzersOverTestKits rows failed saying the Dale analyzers did not run over each kit, which reads as a wiring regression; the probe build's CS8034 showed the analyzer assembly itself blocked by the host's Application Control policy. (self) → codified: docs/testing-conventions.md
