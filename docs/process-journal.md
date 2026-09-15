@@ -84,4 +84,6 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-15 · review · do-path-log-level · The review found the clear's comment giving two cases it does not enable, a fixed mapping never reaching the arm and a different contract never in the set; comment-conventions' comment-is-a-claim rule should have prevented it. (self)
 
-2026-09-15 · brief · do-path-log-level · The amendment said a gateway dropping every write for want of an effective mapping logs nothing at Information; a contract the configuration maps to nothing is dropped in LogicBlockContractBase and already warned once at start-up by LogicBlockBase, so which drop the bench hit is open. (self)
+2026-09-15 · brief · do-path-log-level · The amendment read as a bench finding of a dropped write; the coordinator confirmed the DO path was working and the symptom never reproduced, the premise being a code reading, so the change makes a possible drop visible rather than explaining a seen one. (self)
+
+2026-09-15 · decision · do-path-log-level · The raised warning and its once-per-link-map limit ship pinned by no test, testing-conventions.md § 15 forbidding log assertions in SDK tests and no exception being carved, because pinning a trace's level would make it the contract io.md says it is not.
