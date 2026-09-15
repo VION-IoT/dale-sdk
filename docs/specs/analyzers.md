@@ -497,7 +497,7 @@ artifact gate sees it: inside `Vion.Dale.Sdk` the generator's simple name is own
 and its stamped version is honest, and inside the eleven siblings it is a foreign assembly, which
 that gate reports without judging. The placement criterion is the verdict those two paths lacked.
 
-The probe's own hazard is stated once here and guarded in its suite: it shells a real `dotnet build`,
+The probe's own hazard is stated once here and guarded in its suite: it shells a real MSBuild build,
 and a child build that carries no version stamp will overwrite the outputs `dotnet pack` then ships.
 Release 0.11.1 is what that costs.
 
