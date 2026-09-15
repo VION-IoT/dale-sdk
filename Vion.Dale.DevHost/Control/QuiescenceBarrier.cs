@@ -10,10 +10,11 @@ namespace Vion.Dale.DevHost.Control
 {
     /// <summary>
     ///     Awaits actor-system <em>quiescence</em>: the point at which every mailbox is drained AND no user
-    ///     handler is mid-flight, so the cascade kicked off by the previous
-    ///     <see cref="Microsoft.Extensions.Time.Testing.FakeTimeProvider.Advance" /> has fully settled.
+    ///     handler is mid-flight — and, for a stepper, no SDK exchange is open (see below) — so the cascade kicked
+    ///     off by the previous <see cref="Microsoft.Extensions.Time.Testing.FakeTimeProvider.Advance" /> has fully
+    ///     settled.
     ///     <para>
-    ///         The predicate is EXACT, not a time-window heuristic. It conjoins two independent live signals:
+    ///         The predicate is EXACT, not a time-window heuristic. At its core it conjoins two live signals:
     ///         <list type="bullet">
     ///             <item>
     ///                 <c>Σ MailboxDepth == 0</c> — read from <see cref="RuntimeVitals" /> (fed by the Proto
@@ -64,8 +65,8 @@ namespace Vion.Dale.DevHost.Control
     internal sealed class QuiescenceBarrier
     {
         // Real-clock spacing of the re-check behind the zero signal. Not load-bearing for correctness (the predicate is
-        // exact) and not on the normal path: every settle that completes does so on the signal. Only a mailbox holding
-        // traffic nothing will run waits on it, and that wait ends at the caller's budget either way.
+        // exact) and not on the normal path: a settle either holds on its first evaluation or completes on the signal.
+        // Only a mailbox holding traffic nothing will run, or a barrier built with no monitor, waits on this interval.
         private static readonly TimeSpan FallbackInterval = TimeSpan.FromMilliseconds(50);
 
         // Optional monitor. When null (no DevHost monitor registered) the barrier degrades to the depth-only signal,
