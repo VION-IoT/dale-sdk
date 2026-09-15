@@ -8,7 +8,7 @@ Git tags drive versions. There is no `<Version>` in any SDK `.csproj`.
 
 | Trigger | Published version | Destination |
 |---|---|---|
-| Push to `main` that builds | `0.0.0-ci.{run_number}` | Private Azure DevOps feed only — for internal integration testing, never depend on from shipped code |
+| Push to `main` that builds (`publish.yml`'s "Scope the run" step decides) | `0.0.0-ci.{run_number}` | Private Azure DevOps feed only — for internal integration testing, never depend on from shipped code |
 | Push tag `v0.2.0` | `0.2.0` | Private feed + nuget.org |
 | Push tag `v0.2.0-preview.1` | `0.2.0-preview.1` | Private feed + nuget.org (treated as pre-release) |
 

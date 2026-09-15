@@ -56,9 +56,9 @@ jobs:
 
       # dotnet: false when every changed file is inert to the build: Markdown at the root, under docs/
       #   (except docs/package-readme.md, which is packed) or under .claude/; .claude/settings.json;
-      #   Markdown directly under .github/, CODEOWNERS and release.yml; a scripts/*.ps1 the build
-      #   neither runs nor reads. Any other file builds. A Markdown or scripts/*.ps1 file the build or
-      #   a test reads must be listed in read_by_build. A rename counts under both of its paths.
+      #   Markdown, CODEOWNERS and release.yml directly under .github/; a scripts/*.ps1 the build
+      #   neither runs nor reads. Any other file builds. A file matching `inert` that the build or a
+      #   test reads must be listed in read_by_build. A rename counts under both of its paths.
       # style: skip (a pull request with no .cs and no style input, a push that does not build, or a
       #   tag, whose commit main already checked) | changed (a pull request's changed .cs; the cleanup
       #   profile is per-file) | full (a style-input change, a push to main that builds, a manual

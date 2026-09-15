@@ -226,3 +226,5 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 2026-09-15 · review · publish.yml · The fourth review found the snapshot comment and main's drift warning promising a heal on the next PR, which a PR that does not build never gives, and CLAUDE.md keeping its own list of style cases that missed a manual run. (self)
 
 2026-09-15 · review · publish.yml · The fifth review found the inert-change comment naming more .github/ files than its regex skips and promising no test input needs a rule, and CLAUDE.md still saying every push publishes; a sweep found the same claim in releasing.md, the CLI's CLAUDE.md and the modbus-smoke skill. (self)
+
+2026-09-15 · review · publish.yml · The sixth review found the read_by_build rule naming only Markdown and .ps1 while inert also skips settings.json, CODEOWNERS and release.yml, the .github/ list readable as root files, and three docs saying "a push that builds" with no pointer to what decides it. (self)
