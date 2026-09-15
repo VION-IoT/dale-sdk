@@ -543,6 +543,17 @@ deliberately unmarked. What the marker does is [`plugin-loading.md`](plugin-load
 assembly registers no handler of its own, and does not need to: the runtime constructs a handler
 actor by activation rather than resolution.
 
+## On a stepped development host
+
+- `AC-MODB-020.1` (State-driven): WHILE the host is stepped THE SYSTEM SHALL deliver a Modbus TCP request's completion to the block before the virtual clock next advances and before a stepped advance in progress returns.
+
+This is the scenario page's quiescence predicate (`AC-SCEN-012.5`) seen from the client: a request is
+counted from the moment it is queued until its completion has been handed to the block, or it was
+dropped. While a request is counted the stepped clock cannot move, so a queued request cannot expire on
+its queued age (`AC-MODB-003.6`); the connect and operation timeouts are real time and are what end a
+request to a peer that is absent or never answers. A hosted Modbus TCP server stores a client's write
+before it answers, so the client's counted request covers it and the server counts nothing of its own.
+
 ## The published surface
 
 - `AC-MODB-019.1` (Ubiquitous): THE SYSTEM SHALL classify every public type each of its three

@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Http.Server
 {
@@ -52,6 +53,9 @@ namespace Vion.Dale.Sdk.Http.Server
 
         private readonly HashSet<Task> _connections = new();
 
+        // Null unless a development host registered one; see ServeAsync for where a request's exchange closes.
+        private readonly IExchangeActivityMonitor? _exchanges;
+
         private readonly object _gate = new();
 
         private readonly ILogger<TcpHttpServerTransport> _logger;
@@ -68,10 +72,11 @@ namespace Vion.Dale.Sdk.Http.Server
 
         private CancellationTokenSource? _stopping;
 
-        public TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound) : this(logger,
-                                                                                                         readBound,
-                                                                                                         DefaultConnectionLimit,
-                                                                                                         listener => listener.AcceptTcpClientAsync())
+        public TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound, IExchangeActivityMonitor? exchanges = null) : this(logger,
+            readBound,
+            DefaultConnectionLimit,
+            listener => listener.AcceptTcpClientAsync(),
+            exchanges)
         {
         }
 
@@ -79,12 +84,18 @@ namespace Vion.Dale.Sdk.Http.Server
         /// <param name="readBound">The bound on each half of a client's exchange.</param>
         /// <param name="connectionLimit">How many connections are served at once.</param>
         /// <param name="accept">Accepts the next connection: the listener's own accept, except where a test makes it fail.</param>
-        internal TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger, TimeSpan readBound, int connectionLimit, Func<TcpListener, Task<TcpClient>> accept)
+        /// <param name="exchanges">The development host's exchange monitor, when one is registered.</param>
+        internal TcpHttpServerTransport(ILogger<TcpHttpServerTransport> logger,
+                                        TimeSpan readBound,
+                                        int connectionLimit,
+                                        Func<TcpListener, Task<TcpClient>> accept,
+                                        IExchangeActivityMonitor? exchanges = null)
         {
             _logger = logger;
             _readBound = readBound;
             _connectionLimit = connectionLimit;
             _accept = accept;
+            _exchanges = exchanges;
         }
 
         /// <inheritdoc />
@@ -295,6 +306,7 @@ namespace Vion.Dale.Sdk.Http.Server
         private async Task ServeAsync(TcpClient client, IHttpServerExchangeHandler handler, CancellationToken stopping)
         {
             await Task.Yield();
+            IDisposable? exchange = null;
             using (client)
             {
                 using var bound = CancellationTokenSource.CreateLinkedTokenSource(stopping);
@@ -303,29 +315,41 @@ namespace Vion.Dale.Sdk.Http.Server
                 try
                 {
                     var stream = client.GetStream();
-                    var (exchange, refusal) = await ReadRequestAsync(stream, bound.Token).ConfigureAwait(false);
-                    if (exchange == null && refusal == null)
+                    var (request, refusal) = await ReadRequestAsync(stream, bound.Token).ConfigureAwait(false);
+                    if (request == null && refusal == null)
                     {
                         return;
+                    }
+
+                    // Opened only once a request has been read in full, because recording it is what a development host waits
+                    // for: a refusal written before that records nothing, and a connection that never completes its request
+                    // must not hold a stepped settle.
+                    if (request != null)
+                    {
+                        exchange = _exchanges?.OpenExchange($"HTTP server {request.Method} {request.Path} on {client.Client.LocalEndPoint}");
                     }
 
                     var response = refusal;
                     if (response == null)
                     {
                         bound.CancelAfter(Timeout.InfiniteTimeSpan);
-                        response = handler.Answer(exchange!);
+                        response = handler.Answer(request!);
                         bound.CancelAfter(_readBound);
                     }
 
-                    var bytes = Render(response, exchange?.Method == "HEAD");
+                    var bytes = Render(response, request?.Method == "HEAD");
                     await stream.WriteAsync(bytes, 0, bytes.Length, bound.Token).ConfigureAwait(false);
 
                     // Recorded only once the whole response is written: a request whose response a hang-up, the bound or a
                     // stop cut short was never answered.
-                    if (exchange != null)
+                    if (request != null)
                     {
-                        handler.Delivered(exchange);
+                        handler.Delivered(request);
                     }
+
+                    // The request is recorded or refused; what is left is waiting for the client to close, which a stepped
+                    // host must not wait on.
+                    exchange?.Dispose();
 
                     // A refusal can leave request bytes unread, and closing a socket with unread input resets the connection,
                     // which discards the response the client has not read yet. Half-closing and draining until the client
@@ -344,6 +368,10 @@ namespace Vion.Dale.Sdk.Http.Server
                 catch (Exception exception)
                 {
                     LogConnectionFailed(exception);
+                }
+                finally
+                {
+                    exchange?.Dispose();
                 }
             }
         }

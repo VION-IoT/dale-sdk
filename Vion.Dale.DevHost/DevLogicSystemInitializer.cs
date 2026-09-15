@@ -374,7 +374,8 @@ namespace Vion.Dale.DevHost
         // internal barrier type stays off this public class's constructor, as StandIns does.
         private async Task WaitForQuiescenceAsync(TimeSpan budget)
         {
-            var barrier = new QuiescenceBarrier(_serviceProvider.GetRequiredService<RuntimeVitals>(), _serviceProvider.GetService<IActorActivityMonitor>());
+            // Handlers only: a device write a block enqueued in Stopping() is deliberately not waited for (D3 above).
+            var barrier = new QuiescenceBarrier(_serviceProvider.GetRequiredService<RuntimeVitals>(), _serviceProvider.GetService<InFlightActivityMonitor>(), false);
             using var budgetSource = new CancellationTokenSource(budget);
             await barrier.WaitForQuiescenceAsync(budgetSource.Token);
         }

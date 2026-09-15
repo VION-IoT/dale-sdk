@@ -573,8 +573,23 @@ can read every response and send any request. That is why it listens on loopback
 interface, and a block serving something a network peer must not see keeps it there or binds a trusted
 interface.
 
-A block hosting a server holds a socket the development host's stepping cannot see, so a bench over it
-runs on the wall clock — the simulator guide's statement for any socket.
+## On a stepped development host
+
+- `AC-HTTP-018.1` (State-driven): WHILE the host is stepped THE SYSTEM SHALL deliver an HTTP request's callback to the block before the virtual clock next advances and before a stepped advance in progress returns.
+- `AC-HTTP-018.2` (State-driven): WHILE the host is stepped THE SYSTEM SHALL record a request the hosted server answered for a client in the same host before the virtual clock next advances and before a stepped advance in progress returns.
+
+Both are the scenario page's quiescence predicate (`AC-SCEN-012.5`) seen from this package: a request is
+counted from the block's call until its callback is handed to the block, and a hosted server's request
+from the moment the server has read it in full until it is recorded or its connection ends. A connection
+that has not completed a request, and one refused before its request is read, is not counted, so an idle
+connection holds no settle. `AC-HTTP-018.2` is worded for a client in the same host because that
+client's own request is still counted when the server finishes reading it; a request from outside the
+host read after a settle has already returned is not waited for, and neither is one whose client in the
+host gave up on it before the server had read it in full.
+
+While a request is counted the stepped clock cannot move, so a per-request timeout (`AC-HTTP-008.1`) —
+measured on the registered clock — cannot elapse during it; the client's own timeout (`AC-HTTP-008.2`)
+is real time and is what ends a request to a peer that never answers.
 
 ## The published surface
 

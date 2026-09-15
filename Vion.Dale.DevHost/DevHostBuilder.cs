@@ -208,6 +208,11 @@ namespace Vion.Dale.DevHost
             _services.AddSingleton<InFlightActivityMonitor>();
             _services.AddSingleton<IActorActivityMonitor>(sp => sp.GetRequiredService<InFlightActivityMonitor>());
 
+            // Exchange monitor: the same instance counts what the SDK's Modbus TCP and HTTP clients and the hosted HTTP
+            // server carry off the actor system, so a stepped settle waits for a round trip to land. Registered on both
+            // clock modes; only the stepper reads it.
+            _services.AddSingleton<IExchangeActivityMonitor>(sp => sp.GetRequiredService<InFlightActivityMonitor>());
+
             // Virtual schedule: the engine-owned view of pending delayed sends. Same opt-in pattern —
             // registering IVirtualSchedule here (only in DevHost) is what lets next-event stepping ask
             // "when is the next scheduled event?" (the FakeTimeProvider doesn't expose that); the

@@ -476,6 +476,77 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             _sut.Dispose();
         }
 
+        [TestMethod]
+        public async Task KeepExchangeOpenWhileRequestRunsAndCloseItOnceRequestHasRun()
+        {
+            // Arrange — premise, cites no criterion: a development host's settle waits on these exchanges, so one that
+            // closed early would let it return before the request's completion reached the block.
+            var monitor = new CountingExchangeMonitor();
+            _sut = new RequestQueue(_requestFactoryMock.Object, _loggerMock.Object, monitor);
+            _inflightRequestCts = new CancellationTokenSource();
+            var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+
+            // Act
+            _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
+            await arrayStartedTcs.Task.WaitAsync(TestTimeout);
+            var openWhileRunning = monitor.Open;
+            await _inflightRequestCts.CancelAsync();
+
+            // Assert
+            Assert.AreEqual(1, openWhileRunning);
+            await monitor.AllClosed.WaitAsync(TestTimeout);
+        }
+
+        [TestMethod]
+        [DataRow(QueueOverflowPolicy.DropOldest, DisplayName = "DropOldest")]
+        [DataRow(QueueOverflowPolicy.DropNewest, DisplayName = "DropNewest")]
+        [DataRow(QueueOverflowPolicy.RejectNew, DisplayName = "RejectNew")]
+        public async Task CloseExchangeOfRequestOverflowDropsAndOfEveryRequestDisposalDrains(QueueOverflowPolicy overflowPolicy)
+        {
+            // Arrange — premise, cites no criterion: every way a request leaves the queue closes its exchange once, or a
+            // stepped host waits on it until its budget fails the run.
+            var monitor = new CountingExchangeMonitor();
+            _sut = new RequestQueue(_requestFactoryMock.Object, _loggerMock.Object, monitor);
+            _inflightRequestCts = new CancellationTokenSource();
+            var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
+            SetupSingleRequestResult();
+            SetupVoidResultRequest();
+            _sut.Initialize(2, overflowPolicy, _accumulator);
+            _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
+            await arrayStartedTcs.Task.WaitAsync(TestTimeout);
+
+            // Act
+            _sut.Enqueue(SingleRequestName, _dispatcherMock.Object, _singleRequestOperation, _singleSuccessCallback, null);
+            _sut.Enqueue(VoidRequestName, _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+            _sut.Enqueue($"{VoidRequestName}-2", _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+            var openAfterOverflow = monitor.Open;
+            _sut.Dispose();
+
+            // Assert — one of the three queued behind the running request was dropped by the policy.
+            Assert.AreEqual(3, openAfterOverflow);
+            await monitor.AllClosed.WaitAsync(TestTimeout);
+            Assert.AreEqual(4, monitor.Opened);
+        }
+
+        [TestMethod]
+        public void CloseExchangeOfRequestRefusedByDisposedQueue()
+        {
+            // Arrange — premise, cites no criterion: the refusal of a completed channel closes the exchange it opened.
+            var monitor = new CountingExchangeMonitor();
+            _sut = new RequestQueue(_requestFactoryMock.Object, _loggerMock.Object, monitor);
+            SetupVoidResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.RejectNew, _accumulator);
+            _sut.Dispose();
+
+            // Act
+            _sut.Enqueue(VoidRequestName, _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+
+            // Assert
+            Assert.AreEqual(1, monitor.Opened);
+            Assert.AreEqual(0, monitor.Open);
+        }
+
         /// <summary>
         ///     Waits for <paramref name="count" /> requests to reach their error callback. The bound turns a drain
         ///     that never runs into a failure rather than a hang; it is not what orders the test.
@@ -614,6 +685,60 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                                  });
 
             return requestMock.Object;
+        }
+
+        private sealed class CountingExchangeMonitor : IExchangeActivityMonitor
+        {
+            private readonly TaskCompletionSource<bool> _allClosed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private int _open;
+
+            private int _opened;
+
+            // Completed asynchronously: the last close runs on the queue's consumer, which a test continuation resumed
+            // inline there would otherwise block.
+            public Task AllClosed
+            {
+                get => _allClosed.Task;
+            }
+
+            public int Open
+            {
+                get => Volatile.Read(ref _open);
+            }
+
+            public int Opened
+            {
+                get => Volatile.Read(ref _opened);
+            }
+
+            public IDisposable OpenExchange(string description)
+            {
+                Interlocked.Increment(ref _opened);
+                Interlocked.Increment(ref _open);
+
+                return new Handle(this);
+            }
+
+            private sealed class Handle : IDisposable
+            {
+                private readonly CountingExchangeMonitor _monitor;
+
+                private int _closed;
+
+                public Handle(CountingExchangeMonitor monitor)
+                {
+                    _monitor = monitor;
+                }
+
+                public void Dispose()
+                {
+                    if (Interlocked.Exchange(ref _closed, 1) == 0 && Interlocked.Decrement(ref _monitor._open) == 0)
+                    {
+                        _monitor._allClosed.TrySetResult(true);
+                    }
+                }
+            }
         }
     }
 }
