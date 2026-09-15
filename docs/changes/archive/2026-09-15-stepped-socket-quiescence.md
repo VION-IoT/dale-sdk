@@ -1,6 +1,6 @@
 ---
 slug: stepped-socket-quiescence
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: SCEN, MODB, HTTP, CTRL
 author: jonasbertsch
