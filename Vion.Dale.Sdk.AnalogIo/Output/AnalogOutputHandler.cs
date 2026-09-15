@@ -152,7 +152,8 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         private partial void LogRejectedForeignSchema(ServiceProviderContractId serviceProviderContractId, string? schema, string topic);
 
         [LoggerMessage(Level = LogLevel.Warning,
-                       Message = "Dropped a AO command whose value is not finite; JSON carries no number for it, so no command reached any service provider (LogicBlockContractId={LogicBlockContractId}, Value={Value})")]
+                       Message =
+                           "Dropped a AO command whose value is not finite; JSON carries no number for it, so no command reached any service provider (LogicBlockContractId={LogicBlockContractId}, Value={Value})")]
         private partial void LogRejectedNonFiniteCommand(LogicBlockContractId logicBlockContractId, double value);
 
         [LoggerMessage(Level = LogLevel.Debug,

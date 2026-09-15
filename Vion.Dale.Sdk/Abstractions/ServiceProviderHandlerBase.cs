@@ -179,7 +179,10 @@ namespace Vion.Dale.Sdk.Abstractions
         /// <param name="topic">The full MQTT topic to publish to.</param>
         /// <param name="payload">The serialized payload bytes.</param>
         /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
-        /// <param name="contentType">The MQTT content type, such as <c>MessageMimeTypes.Json</c> or <c>MessageMimeTypes.FlatBuffer</c>.</param>
+        /// <param name="contentType">
+        ///     The MQTT content type, such as <c>MessageMimeTypes.Json</c> or
+        ///     <c>MessageMimeTypes.FlatBuffer</c>.
+        /// </param>
         /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
         /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
         /// <param name="retain">Whether the message should be retained by the broker.</param>
