@@ -127,6 +127,24 @@ In this order:
 The pull request body follows [`.github/pull_request_template.md`](.github/pull_request_template.md),
 which adds `## Draft items`, `## Spec ids touched` and `## Gates` to the base sections.
 
+### Parallel sessions
+
+The main checkout, `C:\_gh\dale-sdk`, stays on `main`. Every branch — a dispatched worker's or a
+session's own — lives in the sibling worktree `../dale-sdk-<key>`, cut from `origin/main`, never nested
+inside a checkout: `/vion-git:branch` creates it or reuses it. The `vion-git` hook denies a write the
+main checkout's git does not ignore, and a branch or commit made there.
+
+A new worktree gets nothing copied into it, so it lacks the main checkout's ignored local state:
+
+- `Vion.Dale.DevHost.Web/Properties/launchSettings.json`, which binds ports 54815 and 54816 — a
+  machine singleton. Running the DevHost web server from that project stays in the main checkout.
+- `.claude/settings.local.json`, the permission mode. A dispatched session's launcher carries it
+  over; a worktree opened by hand starts without it.
+
+Build, test, `/cleanup` and `/check` write only inside the checkout they run in, so they work in any
+worktree. The `modbus-smoke` skill binds `127.0.0.1:15020`: one run at a time on this machine,
+whichever checkout it runs from.
+
 ### The snapshot bot
 
 CI regenerates `docs/snapshots/*` and commits them onto the pull request head. That commit is
