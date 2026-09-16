@@ -1,0 +1,2 @@
+2026-09-16 · review · cli-spec · Page note after AC-CLI-011.10 carried the release dependency and rejected fallback; review asked for current truth only, per docs/spec-process.md, with the release order in the PR body (self)
+2026-09-16 · review · UploadCommand · New catch comment and reworded summary on IsVersionAlreadyExistsConflict said "we"; review asked for impersonal wording, per docs/comment-conventions.md (self)

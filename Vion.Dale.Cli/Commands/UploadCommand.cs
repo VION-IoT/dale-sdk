@@ -293,18 +293,48 @@ namespace Vion.Dale.Cli.Commands
         }
 
         /// <summary>
-        ///     Tells the upload endpoint's two 409s apart. Both are <c>ConflictException</c> server-side, so
-        ///     only the message distinguishes "this exact version was already uploaded" — the one
-        ///     <c>--skip-duplicate</c> is for — from "this package id belongs to another integrator", which
-        ///     is a hard failure: package ids are globally unique across the platform, so the fix is to
-        ///     rename the package, not to retry. Anything unrecognised counts as the latter; reporting a
-        ///     conflict we don't understand as a successful skip is the one outcome that hides a failed
-        ///     publish (CI uploads with <c>--skip-duplicate</c>).
+        ///     Tells the upload endpoint's 409s apart by the error envelope's <c>exceptionType</c>. Only
+        ///     <c>DuplicateLibraryVersionException</c> — this exact version was already uploaded — is what
+        ///     <c>--skip-duplicate</c> is for. <c>DuplicatePackageIdException</c> is a hard failure: package
+        ///     ids are globally unique across the platform, so the fix is to rename the package, not to
+        ///     retry. The message is never consulted, so a rewording at the endpoint cannot flip the
+        ///     decision either way. Anything unrecognised counts as a failure; reporting an unrecognised
+        ///     conflict as a successful skip is the one outcome that hides a failed publish (CI uploads
+        ///     with <c>--skip-duplicate</c>).
         /// </summary>
         internal static bool IsVersionAlreadyExistsConflict(string? body)
         {
-            var message = DaleHttpClient.DescribeError(body);
-            return message.Contains("version", StringComparison.OrdinalIgnoreCase) && message.Contains("already exists", StringComparison.OrdinalIgnoreCase);
+            const string duplicateVersionType = "DuplicateLibraryVersionException";
+
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return false;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(body!);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    return false;
+                }
+
+                // The member name is looked up case-tolerantly, as DescribeError looks up the message; the
+                // value is a server class name and a published contract, so it must match exactly.
+                foreach (var property in document.RootElement.EnumerateObject())
+                {
+                    if (string.Equals(property.Name, "exceptionType", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return property.Value.ValueKind == JsonValueKind.String && string.Equals(property.Value.GetString(), duplicateVersionType, StringComparison.Ordinal);
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // A proxy's HTML page or any other body that is not the envelope counts as an unrecognised conflict.
+            }
+
+            return false;
         }
 
         /// <summary>

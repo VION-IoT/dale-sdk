@@ -229,10 +229,13 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-011.8")]
-        public void TreatDuplicateVersionConflictAsSkippable()
+        [DataRow("""{"statusCode":"Conflict","exceptionType":"DuplicateLibraryVersionException","exceptionId":"3f2c9a4e-0000-4000-8000-000000000001","message":"A version with the same package version already exists"}""")]
+        [DataRow("""{"statusCode":"Conflict","exceptionType":"DuplicateLibraryVersionException","exceptionId":"3f2c9a4e-0000-4000-8000-000000000001","message":"Reworded by the endpoint."}""")]
+        [DataRow("""{"StatusCode":"Conflict","ExceptionType":"DuplicateLibraryVersionException","Message":"A version with the same package version already exists"}""")]
+        public void TreatDuplicateVersionConflictAsSkippable(string body)
         {
             // Arrange / Act
-            var skippable = UploadCommand.IsVersionAlreadyExistsConflict("""{"statusCode":409,"message":"Version 1.4.0 already exists for this library."}""");
+            var skippable = UploadCommand.IsVersionAlreadyExistsConflict(body);
 
             // Assert
             Assert.IsTrue(skippable);
@@ -240,8 +243,13 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-011.8")]
-        [DataRow("""{"statusCode":409,"message":"The package id belongs to another integrator."}""")]
-        [DataRow("""{"statusCode":409,"message":"Conflict."}""")]
+        [DataRow("""{"statusCode":"Conflict","exceptionType":"DuplicatePackageIdException","exceptionId":"3f2c9a4e-0000-4000-8000-000000000002","message":"Package id 'Acme.Energy' is already registered on the platform. Package ids are globally unique and compared case-insensitively."}""")]
+        [DataRow("""{"statusCode":"Conflict","exceptionType":"ConflictException","exceptionId":"3f2c9a4e-0000-4000-8000-000000000003","message":"A version with the same package version already exists"}""")]
+        [DataRow("""{"statusCode":"Conflict","exceptionType":"duplicatelibraryversionexception","message":"A version with the same package version already exists"}""")]
+        [DataRow("""{"statusCode":"Conflict","exceptionType":null,"message":"A version with the same package version already exists"}""")]
+        [DataRow("""{"statusCode":"Conflict","message":"A version with the same package version already exists"}""")]
+        [DataRow("""["DuplicateLibraryVersionException"]""")]
+        [DataRow("A version with the same package version already exists")]
         [DataRow("")]
         public void TreatAnyOtherConflictAsFailure(string body)
         {
