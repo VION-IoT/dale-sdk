@@ -510,13 +510,15 @@ what that costs and when it emits is [`emission.md`](emission.md)'s.
 - `AC-MODB-016.2` (Ubiquitous): THE SYSTEM SHALL set the link state to `Online` on a success or a
   device error, to `Faulted` on a timeout, transport error or protocol error, and SHALL leave it
   unchanged on every locally decided outcome.
-- `AC-MODB-016.3` (Ubiquitous): THE SYSTEM SHALL leave the link state unchanged by the passage of time. GAP: an absence — nothing in the accumulator reads a clock, and a test that advanced one would pin the absence of code rather than a behaviour.
+- `AC-MODB-016.3` (Ubiquitous): THE SYSTEM SHALL leave the link state unchanged by the passage of time.
 - `AC-MODB-016.4` (Ubiquitous): THE SYSTEM SHALL record every non-successful outcome as the last
   failure, and SHALL keep a lifetime counter for eight of the ten outcomes — the five that reached the
   wire, and backed off, expired and dropped.
-- `AC-MODB-016.5` (Ubiquitous): THE SYSTEM SHALL update the round-trip extremes only from transactions
-  that reached the wire, and the queued-wait fields only from requests that were queued.
-- `AC-MODB-016.6` (Ubiquitous): THE SYSTEM SHALL count for the lifetime of the client instance and never reset. GAP: an absence — the summary offers no reset, which is grep-enumerable from its surface.
+- `AC-MODB-016.5` (Ubiquitous): THE SYSTEM SHALL feed every round-trip figure only from transactions that reached the wire, and every queued-wait figure only from requests that were queued.
+- `AC-MODB-016.6` (Ubiquitous): THE SYSTEM SHALL keep the outcome counters and the two lifetime maxima for the lifetime of the client instance and never reset them. GAP: an absence — the summary offers no reset, which is grep-enumerable from its surface.
+- `AC-MODB-016.7` (Ubiquitous): THE SYSTEM SHALL report, for round trip and for queued wait separately, the mean, the maximum and the number of transactions over at least the last 15 minutes and less than the last 16 on the client's clock, or over the client's whole life where that is shorter.
+- `AC-MODB-016.8` (State-driven): WHILE no transaction feeding a metric falls within its window THE SYSTEM SHALL report that metric's windowed mean and maximum as empty and its windowed count as zero.
+- `AC-MODB-016.9` (Ubiquitous): THE SYSTEM SHALL report, for round trip and for queued wait separately, the lifetime maximum with the instant its transaction was observed, and SHALL move that instant only when a strictly larger value is recorded.
 
 `AC-MODB-016.2` is the split the whole outcome enum exists for: a full queue or a bad unit id is not
 evidence about the device, so a congested client stays distinguishable from a broken one — which is
@@ -524,7 +526,16 @@ what the first consumer reads the state for. The state's indifference to time is
 omission: only the caller knows its own poll cadence, so a freshness rule is built from the last contact or from the
 receipt's monotonic stamp. `AC-MODB-016.4` is the counter set as it is, after two sentences that
 claimed the other two were counted; `AC-MODB-016.5`'s queued-wait half is why a request refused
-before it was ever queued no longer clears the gauge a block reads to see congestion.
+before it was ever queued does not pull the queued-wait figures down with a wait that never happened.
+
+The windowed figures exist because a summary is published as one live value and nothing downstream
+keeps its history: a lifetime maximum cannot say whether a spike was one-off or recurring, and a mean
+without the traffic it rests on cannot say whether it is worth reading. The window is a fixed fifteen
+minutes, stated in the field titles, so a card says what each figure is; it moves in whole minutes,
+which is why its extent is a range rather than an instant. The two counts differ exactly when
+requests were backed off, expired, dropped or cancelled —
+the congestion case — which is why each metric carries its own. The window runs on the client's
+injected clock, so it rolls on virtual time under a test kit or a stepped host.
 
 ## The connection diagnostics, on Modbus TCP only
 

@@ -328,7 +328,22 @@ human.
 
 ## Drift checkpoints
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-09-16: `LeaveAgedTransactionOutOfMinuteRecordedLater` (`AC-MODB-016.7`) added beyond the Proof
+  plan: the mutation that stops a reused ring slot from being cleared survived every planned test.
+  Sibling sweep: every other mutation of the accumulator run in this round reddens a planned test.
+- 2026-09-16: the `modbus-smoke` skill's line names no field title at all rather than the new one. Tier 2
+  boots against the published packages, where "Round trip (max since start)" does not exist until a
+  release; the sentence is about scaled durations, which both versions show. The example README's
+  step 5 names `RecentMeanQueuedWait` / `RecentMaxQueuedWait`, which the example shows only once its
+  references are bumped past the release carrying this change.
+- 2026-09-16: `TimeProvider.System.TimestampFrequency` on Linux is not verified — no Linux runtime was
+  reachable from the session. The accumulator never divides a raw timestamp, and the accumulator suite
+  runs on a clock whose frequency is 10⁹, so a raw-timestamp window reddens six tests whatever Linux
+  reports.
+- 2026-09-16: the prose under the criteria states what a consumer observes of the window — a fixed length
+  in the titles, whole-minute steps, a count per metric, the client's clock — and leaves the slot count
+  and memory to this doc's § What a snapshot costs, because a page never moves for an implementation
+  change.
 
 ---
 
