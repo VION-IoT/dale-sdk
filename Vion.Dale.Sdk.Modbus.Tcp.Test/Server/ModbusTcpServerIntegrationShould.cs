@@ -6,6 +6,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using FluentModbus;
+using Vion.Dale.Sdk.Modbus.Tcp.Test.TestHelpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core;
@@ -34,7 +35,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         public void Initialize()
         {
             _sut = Compose();
-            _port = GetFreePort();
+            _port = LoopbackPorts.Free();
             _sut.ListenAddress = "127.0.0.1";
             _sut.Port = _port;
             _sut.HoldingRegisterCount = 10;
@@ -302,16 +303,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         private void Connect()
         {
             _client.Connect(new IPEndPoint(IPAddress.Loopback, _port), ModbusEndianness.BigEndian);
-        }
-
-        private static int GetFreePort()
-        {
-            var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
-            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-            listener.Stop();
-
-            return port;
         }
     }
 }

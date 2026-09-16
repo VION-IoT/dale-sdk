@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentModbus;
@@ -13,18 +12,19 @@ using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
+using Vion.Dale.Sdk.Modbus.Tcp.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
 {
     /// <summary>
     ///     Real-socket coverage of a peer that closes an idle connection: the whole client — the real proxy, wrapper,
     ///     request queue and diagnostics — against a Modbus TCP server on loopback whose idle reaper releases a client
-    ///     connection the way a device sold with an idle timeout does. Every fake in this repo keeps its socket open,
-    ///     so only a socket proves this.
+    ///     connection the way a device sold with an idle timeout does. The kit's fake proxy stands in below the socket
+    ///     and reports a connection the peer never closes, so no in-memory tier reaches this branch.
     ///     <para>
-    ///         Cross-tier: this tier owns the detection over a real socket and what the link reads afterwards;
-    ///         <c>ModbusTcpClientWrapperShould</c> owns the reuse decision and the order the reconnect and the send
-    ///         happen in.
+    ///         Cross-tier: this tier owns the detection over a real socket and what the link and the connection read
+    ///         afterwards; <c>ModbusTcpClientWrapperShould</c> owns the reuse decision and the order the reconnect and
+    ///         the send happen in.
     ///     </para>
     ///     <para>
     ///         The waits here are real, and what is asserted is a window's <b>expiry</b>: the gap is three times the
@@ -64,11 +64,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
         {
             _dispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Callback<Action>(action => action());
 
-            var port = FreeLoopbackPort();
+            var port = LoopbackPorts.Free();
             _peer = new ModbusTcpServer { ConnectionTimeout = PeerIdleTimeout };
 
             // The server counts nothing of its own, and the validator is the one hook every request passes through
-            // before it is answered — which is what makes "sent twice" observable from the far side of the socket.
+            // before it is answered — which is what makes a request that never arrived observable from the far side.
             _peer.RequestValidator = (_, _, _, _) =>
                                      {
                                          Interlocked.Increment(ref _requestsServedByPeer);
@@ -93,8 +93,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
         [TestCleanup]
         public void Cleanup()
         {
-            // The client owns a socket and a queue consumer, and the server a listener: a leaked listener fails the
-            // next test in this class on its own port.
+            // The client owns a socket and a queue consumer and the peer a listener; this assembly does not
+            // parallelize, so anything left running here runs beside every later test in it.
             _sut.Dispose();
             _serviceProvider.Dispose();
             _peer.Stop();
@@ -107,7 +107,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
         {
             // Arrange — the consumer's shape: a status read plus two window reads, all through the one request queue.
             await ReadPollCycleAsync();
-            var afterFirstCycle = _sut.Link;
 
             // Act — a gap the peer's reaper outlives the connection by, then the next cycle's first read.
             await Task.Delay(IdleGap);
@@ -116,8 +115,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
             // Assert
             Assert.AreEqual(ModbusOutcome.Success, receipt.Outcome);
             Assert.AreEqual(ModbusLinkState.Online, _sut.Link.State);
-            Assert.AreEqual(afterFirstCycle.TransportErrorCount, _sut.Link.TransportErrorCount);
-            Assert.AreEqual(afterFirstCycle.TimeoutCount, _sut.Link.TimeoutCount);
             Assert.AreEqual(0L, _sut.Link.TransportErrorCount);
             Assert.AreEqual(0L, _sut.Link.TimeoutCount);
         }
@@ -128,19 +125,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
         {
             // Arrange
             await ReadPollCycleAsync();
-            var requestsBefore = RequestsSeenByPeer();
+            var requestsBefore = Interlocked.Read(ref _requestsServedByPeer);
 
             // Act
             await Task.Delay(IdleGap);
             await ReadAsync(StatusAddress);
 
-            // Assert — the reconnect costs a connection, never a second request on the wire.
-            Assert.AreEqual(requestsBefore + 1, RequestsSeenByPeer());
+            // Assert — the request reaches the device exactly once. One sent into the closed connection never arrives,
+            // so a read that cost its operation reads here as a count that did not move.
+            Assert.AreEqual(requestsBefore + 1, Interlocked.Read(ref _requestsServedByPeer));
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-MODB-008.5")]
-        public async Task ReconnectOnceWhenPeerClosedIdleConnection()
+        public async Task ReconnectOnceForWholePollCycleAfterPeerClosedIdleConnection()
         {
             // Arrange
             await ReadPollCycleAsync();
@@ -148,20 +146,31 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
 
             // Act — the whole next cycle: only its first read finds the connection gone.
             await Task.Delay(IdleGap);
-            await ReadPollCycleAsync();
+            var outcomes = await ReadPollCycleAsync();
 
-            // Assert
+            /*
+             * Assert. Both halves are needed and neither alone discriminates: reconnecting only after the first read
+             * has faulted moves the count by one too, and the outcome of that first read is what tells the two apart.
+             */
+            CollectionAssert.AreEqual(new[] { ModbusOutcome.Success, ModbusOutcome.Success, ModbusOutcome.Success }, outcomes);
             Assert.AreEqual(connectAttemptsBefore + 1, _sut.Connection.ConnectAttemptCount);
             Assert.AreEqual(ModbusTcpConnectionState.Connected, _sut.Connection.State);
         }
 
-        private async Task ReadPollCycleAsync()
+        private async Task<List<ModbusOutcome>> ReadPollCycleAsync()
         {
-            await ReadAsync(StatusAddress);
-            await ReadAsync(WindowAddress);
-            await ReadAsync(WindowAddress + 1);
+            return
+            [
+                (await ReadAsync(StatusAddress)).Outcome,
+                (await ReadAsync(WindowAddress)).Outcome,
+                (await ReadAsync(WindowAddress + 1)).Outcome,
+            ];
         }
 
+        /*
+         * Completes with the receipt whichever callback the client invokes, so a failed read is something the test's
+         * own assertion reports rather than an exception thrown past it.
+         */
         private async Task<ModbusReceipt> ReadAsync(ushort startingAddress)
         {
             var completion = new TaskCompletionSource<ModbusReceipt>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -170,24 +179,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
                                             1,
                                             _dispatcherMock.Object,
                                             (_, receipt) => completion.TrySetResult(receipt),
-                                            (exception, receipt) => completion.TrySetException(new InvalidOperationException($"The read ended as {receipt.Outcome}.", exception)));
+                                            (_, receipt) => completion.TrySetResult(receipt));
 
             return await completion.Task.WaitAsync(_callbackTimeout);
-        }
-
-        private long RequestsSeenByPeer()
-        {
-            return Interlocked.Read(ref _requestsServedByPeer);
-        }
-
-        private static int FreeLoopbackPort()
-        {
-            var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
-            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-            listener.Stop();
-
-            return port;
         }
     }
 }

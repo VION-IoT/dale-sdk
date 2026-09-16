@@ -325,9 +325,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         [LoggerMessage(Level = LogLevel.Debug, Message = "Client is already connected to {IpAddress}:{Port}")]
         partial void LogAlreadyConnected(IPAddress ipAddress, int port);
 
-        /* A device that releases an idle socket is reconnected to once per poll cycle, and a connection struct edited
-         * in commissioning drops the socket per edit, so these four are the ordinary cadence rather than an event:
-         * at Information they are what an edge log is mostly made of. The transitions below stay above them. */
+        /* A device that releases an idle socket is reconnected to once per poll cycle, and every address or port
+         * change during commissioning costs a reconnect of its own, so the connect and disconnect lines below are
+         * the ordinary cadence rather than an event: at Information they would be most of what an edge log holds.
+         * The transitions further down stay above them. */
         [LoggerMessage(Level = LogLevel.Debug, Message = "Connecting to {IpAddress}:{Port}")]
         partial void LogConnecting(IPAddress ipAddress, int port);
 

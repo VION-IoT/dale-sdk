@@ -215,7 +215,7 @@ different questions: `Connection.State` is about the transport, `Link.State` abo
   SYSTEM SHALL do nothing — no reconnect, and no change to an armed backoff.
 - `AC-MODB-006.7` (Event-driven): WHEN an address or a port changes THE SYSTEM SHALL reconnect on the
   next operation and clear any armed connect backoff.
-- `AC-MODB-006.8` (Ubiquitous): THE SYSTEM SHALL log an ordinary connect or disconnect below the level it logs an outage transition at, and SHALL report disconnecting only where a connection was closed. GAP: a log level, which `../testing-conventions.md` § 15 forbids asserting on.
+- `AC-MODB-006.8` (Ubiquitous): THE SYSTEM SHALL log an ordinary connect or disconnect below the level it logs an outage transition at, and SHALL report disconnecting only where a connection was closed. GAP: a log level and a log call, which `../testing-conventions.md` § 15 forbids asserting on.
 
 `AC-MODB-006.3` closes the sentinel both roles used to accept: port 0 asks the operating system for
 an ephemeral port, which is a guaranteed failure on the client and an endpoint nobody can be pointed
@@ -226,9 +226,10 @@ and asserts the connect count does not move.
 
 The level a connect and a disconnect are logged at is what keeps the two from being the bulk of an
 edge log: both are per poll cycle against a device that releases an idle socket (`AC-MODB-008.5`),
-and per edit during commissioning (`AC-MODB-006.7`). The outage transitions — a backoff armed, ended
-or cleared, and a socket closed after a wire fault — are the lines above them, and they are what an
-operator reads a recovery off.
+and one per address or port change during commissioning (`AC-MODB-006.7`) — never per edit, which
+`AC-MODB-006.6` is what stops. The outage transitions — a backoff armed, ended or cleared, and a
+socket closed after a wire fault — are the lines above them, and they are what an operator reads a
+recovery off.
 
 ## The connect backoff
 
@@ -634,10 +635,11 @@ The link policy is provable two ways and both are used. The TestKit's fake proxy
 **proxy**, so the wrapper's real policy runs above it and a virtual clock elapses a backoff in
 milliseconds — that is the fast lane, and the TestKit's own suite drives the whole state machine
 through it. What only a real socket can settle is what the socket does: which errno a refused or
-unroutable address produces, a half-open connection, and a round trip that is
+unroutable address produces, a half-open connection, a peer that closes an idle connection, and a
+round trip that is
 not zero. Two committed scenarios cover that lane on a real client/server pair, and the
 `modbus-smoke` skill runs them; neither asserts the maximum queued age or the expired outcome,
 because the simulated server answers too fast to build a queue that ages.
 
-Three suites in this area bind real sockets. They take ephemeral ports, so they collide with each
+Four suites in this area bind real sockets. They take ephemeral ports, so they collide with each
 other nowhere, but they must not run beside the smoke skill's host, which takes fixed ones.

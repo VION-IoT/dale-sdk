@@ -18,8 +18,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         bool IsConnected { get; }
 
         /// <summary>
-        ///     Gets a value indicating whether the peer has closed the connection <see cref="IsConnected" /> still
-        ///     reports established. False while no connection is established.
+        ///     Gets a value indicating whether the peer has closed a connection that <see cref="IsConnected" /> still
+        ///     reports as established. False while no connection is established.
         /// </summary>
         bool IsClosedByPeer { get; }
 
