@@ -18,7 +18,7 @@
     { "label": "healthy — the socket is up", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "Connected" }, "timeoutSeconds": 20 },
     { "label": "healthy — the device answers", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Online" }, "timeoutSeconds": 20 },
     { "label": "healthy — polls are landing", "waitUntil": { "property": "DebugClient.Link.successCount", "above": 2 }, "timeoutSeconds": 20 },
-    { "label": "healthy — a receipt carried the wire time", "expect": { "property": "DebugClient.Link.lastRoundTrip", "notEquals": null } },
+    { "label": "healthy — a receipt carried the wire time", "expect": { "property": "DebugClient.Link.maxRoundTrip", "notEquals": null } },
 
     { "label": "no-op — exactly one connect so far", "expect": { "property": "DebugClient.Connection.connectAttemptCount", "equals": 1 } },
     { "label": "no-op — re-apply the whole connection struct unchanged", "set": "DebugClient.ConnectionSettings", "value": { "ipAddress": "127.0.0.1", "port": 15020, "unitId": 1, "connectionTimeout": "PT3S", "operationTimeout": "PT1S" } },

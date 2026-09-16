@@ -25,7 +25,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
         private readonly IModbusDataConverter _dataConverter;
 
-        private readonly ModbusLinkAccumulator _linkAccumulator = new();
+        private readonly ModbusLinkAccumulator _linkAccumulator;
 
         private readonly ILogger<ModbusRtu> _logger;
 
@@ -60,6 +60,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             _dataConverter = dataConverter;
             _validator = validator;
             _timeProvider = timeProvider;
+            _linkAccumulator = new ModbusLinkAccumulator(timeProvider);
             _logger = logger;
         }
 

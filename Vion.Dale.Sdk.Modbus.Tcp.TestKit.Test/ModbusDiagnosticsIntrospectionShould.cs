@@ -41,10 +41,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             Assert.Contains("successCount", fields);
             Assert.Contains("expiredCount", fields);
             Assert.Contains("droppedCount", fields);
-            Assert.Contains("lastRoundTrip", fields);
+            Assert.Contains("recentRoundTripCount", fields);
+            Assert.Contains("recentMeanRoundTrip", fields);
+            Assert.Contains("maxRoundTripAt", fields);
+            Assert.Contains("recentMaxQueuedWait", fields);
             Assert.Contains("maxQueuedWait", fields);
             Assert.Contains("queueDepth", fields);
-            Assert.HasCount(18, fields, "Every field of the summary must reach the wire; a dropped one is a silent gap on the dashboard.");
+            Assert.DoesNotContain("lastRoundTrip", fields);
+            Assert.DoesNotContain("minRoundTrip", fields);
+            Assert.DoesNotContain("lastQueuedWait", fields);
+            Assert.HasCount(23, fields, "Every field of the summary must reach the wire; a dropped one is a silent gap on the dashboard.");
         }
 
         [TestMethod]
@@ -89,7 +95,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             }
 
             Assert.AreEqual("Last contact", fields["lastContactAt"]!["title"]!.GetValue<string>());
-            Assert.AreEqual("Round trip (last)", fields["lastRoundTrip"]!["title"]!.GetValue<string>());
+            Assert.AreEqual("Round trip (mean, 15 min)", fields["recentMeanRoundTrip"]!["title"]!.GetValue<string>());
+            Assert.AreEqual("Round trip (max since start)", fields["maxRoundTrip"]!["title"]!.GetValue<string>());
             Assert.AreEqual("Queue depth", fields["queueDepth"]!["title"]!.GetValue<string>());
         }
 
@@ -165,7 +172,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
 
             // Assert — these come from the CLR type, not an attribute, and are what a client formats on.
             Assert.AreEqual("date-time", link["lastContactAt"]!["format"]!.GetValue<string>());
-            Assert.AreEqual("duration", link["lastRoundTrip"]!["format"]!.GetValue<string>());
+            Assert.AreEqual("duration", link["recentMaxRoundTrip"]!["format"]!.GetValue<string>());
+            Assert.AreEqual("date-time", link["maxRoundTripAt"]!["format"]!.GetValue<string>());
         }
 
         [TestMethod]

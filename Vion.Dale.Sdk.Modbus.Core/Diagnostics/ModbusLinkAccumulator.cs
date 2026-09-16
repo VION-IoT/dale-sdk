@@ -10,13 +10,26 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     /// <remarks>
     ///     Writer and reader are different threads on Modbus TCP — a request completes on the queue consumer while the
     ///     block reads the summary on its actor thread — so every field is guarded by one lock and
-    ///     <see cref="Snapshot" /> copies out under it. The lock is held for a handful of field writes and is never
-    ///     held across a callback.
+    ///     <see cref="Snapshot" /> copies out under it. The lock is held for a handful of field writes, or for one pass
+    ///     over the window's slots, and is never held across a callback.
     /// </remarks>
     [InternalApi]
     public sealed class ModbusLinkAccumulator
     {
+        // The current, partial slot plus fifteen whole ones: a read covers at least the last fifteen minutes and less
+        // than sixteen.
+        private const int WindowSlotCount = 16;
+
+        private static readonly TimeSpan WindowSlotLength = TimeSpan.FromMinutes(1);
+
+        private readonly TimeProvider _clock;
+
+        private readonly long _createdAt;
+
         private readonly object _gate = new();
+
+        // Allocated once here so that recording a transaction never allocates.
+        private readonly WindowSlot[] _slots = new WindowSlot[WindowSlotCount];
 
         private long _backedOffCount;
 
@@ -32,15 +45,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
 
         private ModbusOutcome? _lastFailureOutcome;
 
-        private TimeSpan? _lastQueuedWait;
-
-        private TimeSpan? _lastRoundTrip;
-
         private TimeSpan? _maxQueuedWait;
+
+        private DateTime? _maxQueuedWaitAt;
 
         private TimeSpan? _maxRoundTrip;
 
-        private TimeSpan? _minRoundTrip;
+        private DateTime? _maxRoundTripAt;
 
         private long _protocolErrorCount;
 
@@ -51,6 +62,14 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
         private long _timeoutCount;
 
         private long _transportErrorCount;
+
+        /// <summary>Creates an accumulator whose window runs on the owning client's clock.</summary>
+        /// <param name="clock">The owning client's clock; the window's slots are stamped and read on it.</param>
+        public ModbusLinkAccumulator(TimeProvider clock)
+        {
+            _clock = clock;
+            _createdAt = clock.GetTimestamp();
+        }
 
         /// <summary>Records one completed transaction. Called at the point the receipt is stamped.</summary>
         public void Record(ModbusReceipt receipt)
@@ -98,22 +117,33 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
                     _lastFailureOutcome = receipt.Outcome;
                 }
 
-                // Only a transaction that reached the wire has a meaningful round trip; a locally decided one
-                // carries TimeSpan.Zero and would drag MinRoundTrip to zero for the rest of the client's life.
+                // The clock is read inside the lock so that a slot is never reset to an older minute: a writer that read it
+                // outside and then stalled for a whole ring span would wipe a slot already reused for a newer minute.
+                ref var slot = ref CurrentSlot();
+
+                // Only a transaction that reached the wire has a meaningful round trip; a locally decided one carries
+                // TimeSpan.Zero and would pull the mean down with requests the device never saw.
                 if (ReachedTheWire(receipt.Outcome))
                 {
-                    _lastRoundTrip = receipt.RoundTrip;
-                    _minRoundTrip = _minRoundTrip is { } min && min <= receipt.RoundTrip ? min : receipt.RoundTrip;
-                    _maxRoundTrip = _maxRoundTrip is { } max && max >= receipt.RoundTrip ? max : receipt.RoundTrip;
+                    slot.RoundTrip.Add(receipt.RoundTrip);
+                    if (_maxRoundTrip is not { } max || receipt.RoundTrip > max)
+                    {
+                        _maxRoundTrip = receipt.RoundTrip;
+                        _maxRoundTripAt = receipt.ReceivedAt;
+                    }
                 }
 
                 // Every outcome but Invalid describes a request that was queued, so its wait is real even when it
                 // never reached the wire. An Invalid one was refused before it was queued and carries a zero wait,
-                // which would clear the gauge a block reads to see congestion.
+                // which would pull the mean down with a wait that never happened.
                 if (receipt.Outcome != ModbusOutcome.Invalid)
                 {
-                    _lastQueuedWait = receipt.QueuedWait;
-                    _maxQueuedWait = _maxQueuedWait is { } maxWait && maxWait >= receipt.QueuedWait ? maxWait : receipt.QueuedWait;
+                    slot.QueuedWait.Add(receipt.QueuedWait);
+                    if (_maxQueuedWait is not { } maxWait || receipt.QueuedWait > maxWait)
+                    {
+                        _maxQueuedWait = receipt.QueuedWait;
+                        _maxQueuedWaitAt = receipt.ReceivedAt;
+                    }
                 }
             }
         }
@@ -123,6 +153,19 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
         {
             lock (_gate)
             {
+                var currentSlotId = CurrentSlotId();
+                var roundTrip = default(LatencyTotals);
+                var queuedWait = default(LatencyTotals);
+                foreach (var slot in _slots)
+                {
+                    // A slot left behind by an idle period keeps its old id, which is what drops it out of the window.
+                    if (slot.Id > currentSlotId - WindowSlotCount)
+                    {
+                        roundTrip.Merge(slot.RoundTrip);
+                        queuedWait.Merge(slot.QueuedWait);
+                    }
+                }
+
                 return new ModbusLinkSummary(_state,
                                              _lastContactAt,
                                              _lastFailureAt,
@@ -135,11 +178,16 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
                                              _backedOffCount,
                                              _expiredCount,
                                              _droppedCount,
-                                             _lastRoundTrip,
-                                             _minRoundTrip,
+                                             roundTrip.Count,
+                                             roundTrip.Mean,
+                                             roundTrip.Max,
                                              _maxRoundTrip,
-                                             _lastQueuedWait,
+                                             _maxRoundTripAt,
+                                             queuedWait.Count,
+                                             queuedWait.Mean,
+                                             queuedWait.Max,
                                              _maxQueuedWait,
+                                             _maxQueuedWaitAt,
                                              queueDepth);
             }
         }
@@ -147,6 +195,67 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
         private static bool ReachedTheWire(ModbusOutcome outcome)
         {
             return outcome is ModbusOutcome.Success or ModbusOutcome.DeviceError or ModbusOutcome.Timeout or ModbusOutcome.TransportError or ModbusOutcome.ProtocolError;
+        }
+
+        private ref WindowSlot CurrentSlot()
+        {
+            var slotId = CurrentSlotId();
+            ref var slot = ref _slots[slotId % WindowSlotCount];
+            if (slot.Id != slotId)
+            {
+                slot = new WindowSlot { Id = slotId };
+            }
+
+            return ref slot;
+        }
+
+        // Elapsed time rather than raw timestamps: a timestamp counts in the clock's own TimestampFrequency, which is
+        // not TimeSpan ticks on every platform.
+        private long CurrentSlotId()
+        {
+            return _clock.GetElapsedTime(_createdAt).Ticks / WindowSlotLength.Ticks;
+        }
+
+        private struct WindowSlot
+        {
+            public long Id;
+
+            public LatencyTotals RoundTrip;
+
+            public LatencyTotals QueuedWait;
+        }
+
+        private struct LatencyTotals
+        {
+            public long Count;
+
+            private long _sumTicks;
+
+            private long _maxTicks;
+
+            public TimeSpan? Mean
+            {
+                get => Count == 0 ? null : TimeSpan.FromTicks(_sumTicks / Count);
+            }
+
+            public TimeSpan? Max
+            {
+                get => Count == 0 ? null : TimeSpan.FromTicks(_maxTicks);
+            }
+
+            public void Add(TimeSpan value)
+            {
+                Count++;
+                _sumTicks += value.Ticks;
+                _maxTicks = Math.Max(_maxTicks, value.Ticks);
+            }
+
+            public void Merge(LatencyTotals other)
+            {
+                Count += other.Count;
+                _sumTicks += other._sumTicks;
+                _maxTicks = Math.Max(_maxTicks, other._maxTicks);
+            }
         }
     }
 }
