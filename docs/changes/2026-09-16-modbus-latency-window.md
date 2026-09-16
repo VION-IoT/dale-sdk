@@ -24,7 +24,7 @@ VION-228. `ModbusLinkSummary` reports round trip and queued wait as last / min /
 whole life. On a card that shows only the live value, a support engineer cannot tell a one-off spike
 from a recurring one, "last" is one transaction in thousands, and the lifetime min is pinned at zero.
 This change replaces the last and min fields with a mean, a max and a transaction count over a fixed
-recent time window (proposed: 15 minutes), keeps the lifetime max and adds the instant it occurred —
+recent time window of 15 minutes, keeps the lifetime max and adds the instant it occurred —
 for both metrics, on Modbus TCP and Modbus RTU, computed in the SDK because the cloud keeps no
 per-field history.
 
@@ -34,7 +34,7 @@ per-field history.
 extremes / queued-wait fields" to every round-trip and queued-wait figure, windowed and lifetime
 (`MODIFIED`). `AC-MODB-016.6` narrows from "count … and never reset" to the counters and the lifetime
 maxima, because the windowed figures forget by design (`MODIFIED`). `AC-MODB-016.3`'s GAP reason
-("nothing in the accumulator reads a clock") becomes false: the proposal un-GAPs it with a test
+("nothing in the accumulator reads a clock") becomes false: the change un-GAPs it with a test
 (`MODIFIED`, reviewer's question 6). Three criteria are added: the windowed figures and the window's
 extent on the client's clock (`.7`), an empty window (`.8`), the lifetime max and its instant (`.9`).
 The prose after the criteria loses "the gauge a block reads to see congestion" (it was
@@ -169,7 +169,7 @@ time, which on a virtual clock would put every transaction outside the window or
   receipts are stamped by `DeviceRequest` from the `TimeProvider` the `RequestFactory` received from the
   container (`Client/Request/DeviceRequest.cs:90-93`, `Client/Request/RequestFactory.cs:14`), and the
   registration keeps a host-supplied or test-supplied clock (`ServiceCollectionExtensions.cs:39-41`).
-  Proposal: the client takes `TimeProvider` as a constructor parameter from the same container and
+  Decided: the client takes `TimeProvider` as a constructor parameter from the same container and
   builds the accumulator with it in the constructor. The client is `[InternalApi]` and container-built;
   the one direct construction is its own unit test
   (`Vion.Dale.Sdk.Modbus.Tcp.Test/Client/LogicBlock/LogicBlockModbusTcpClientShould.cs:64`).
@@ -180,7 +180,7 @@ time, which on a virtual clock would put every transaction outside the window or
   until the hand-off, a window that a link accumulator recording from its first transaction must not
   have.
 - **Modbus RTU.** `ModbusRtu` already holds the `TimeProvider` it stamps its own `Invalid` receipts
-  with (`Vion.Dale.Sdk.Modbus.Rtu/ModbusRtu.cs:34`, `:1240`). Proposal: build the accumulator in the
+  with (`Vion.Dale.Sdk.Modbus.Rtu/ModbusRtu.cs:34`, `:1240`). Decided: build the accumulator in the
   constructor with it, replacing the field initializer at `:28`.
 - **Not the receipt's stamp.** On RTU, `ReceivedTimestamp` is stamped by `ModbusRtuHandler` from the
   handler's own `TimeProvider` (`Vion.Dale.Sdk.Modbus.Rtu/ModbusRtuHandler.cs:264-265`), a different
@@ -293,7 +293,7 @@ overflow: at the reporter's 55 transactions a second, 16 minutes of 30-second ro
 
 Discriminating fixtures, per the brief's hazards:
 
-- **Accumulator, on a `FakeTimeProvider`** (`ModbusLinkAccumulatorShould`): the `Receipt` helper gains
+- **Accumulator, on a hand-written clock whose `TimestampFrequency` is 10⁹** (`ModbusLinkAccumulatorShould`): the `Receipt` helper gains
   distinct `ReceivedAt`s. Mean from unequal round trips (e.g. 10, 20, 90 ms → 40, max 90). Instant: a
   later larger spike moves it; a later smaller one and a later equal one do not. Populations, as
   `[DataRow]`s: `BackedOff`, `Expired`, `Dropped`, `Cancelled` stay out of every round-trip figure,
@@ -334,8 +334,7 @@ human.
 - 2026-09-16: the `modbus-smoke` skill's line names no field title at all rather than the new one. Tier 2
   boots against the published packages, where "Round trip (max since start)" does not exist until a
   release; the sentence is about scaled durations, which both versions show. The example README's
-  step 5 names `RecentMeanQueuedWait` / `RecentMaxQueuedWait`, which the example shows only once its
-  references are bumped past the release carrying this change.
+  step 5 names `MaxQueuedWait`, which both versions carry, by the same reasoning as `D5`.
 - 2026-09-16: `TimeProvider.System.TimestampFrequency` on Linux is not verified — no Linux runtime was
   reachable from the session. The accumulator never divides a raw timestamp, and the accumulator suite
   runs on a clock whose frequency is 10⁹, so a raw-timestamp window reddens six tests whatever Linux
@@ -356,8 +355,7 @@ human.
 - ADDED AC-MODB-016.8 -> docs/specs/modbus.md : WHILE no transaction feeding a metric falls within its window THE SYSTEM SHALL report that metric's windowed mean and maximum as empty and its windowed count as zero.
 - ADDED AC-MODB-016.9 -> docs/specs/modbus.md : THE SYSTEM SHALL report, for round trip and for queued wait separately, the lifetime maximum with the instant its transaction was observed, and SHALL move that instant only when a strictly larger value is recorded.
 
-The lengths in `.7` follow reviewer's question 1 and the count shape follows question 2; both lines are
-re-read against the answer before the first implementation commit.
+The lengths in `.7` and the per-metric counts follow reviewer's questions 1 and 2 as ratified.
 
 ---
 
