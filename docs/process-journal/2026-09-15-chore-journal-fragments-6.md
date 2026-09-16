@@ -1,26 +1,3 @@
-# Process journal
-
-Where the process creaked, one line per event. Not a work log: what shipped is in git.
-
-## Format
-
-```
-YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second ask)] [ (self)] [ → codified: <path>]
-```
-
-- `where` is one of five: `review` a correction to produced work · `gate` tooling fought or false-passed · `brief` upstream was wrong · `decision` a settled point, with its reason · `manual` a human grumble.
-- `topic` names what it is about — a component, a skill, a document slug, an issue key — or `—`.
-- `(second ask)`: the same thing was asked for twice. `(self)`: the agent found it, not a human.
-- `→ codified: <path>`: the file a rule or fix for this entry landed in.
-- An entry says what was produced, what was wrong, and what was asked instead. No reasoning, no fix, no quote. At most 400 characters.
-- A physical line that does not start with a date continues the entry above. Blank lines between entries are allowed.
-- Written by the agent in the commit that carries the fix, for every `where` but `manual`. A fixed review finding counts, and its entry names the finding and the file that should have prevented it.
-- Newest last, below the retro marker. Entries above the marker have been read by a retro.
-
-## Entries
-
-<!-- retro-2 marker -->
-
 2026-09-15 · review · spec-gates.yml · The review found two comments still promising the packed-assembly self-test on every pull request, check.tests.ps1's cost stated as half a total it now sets, the workflow's place in the scope filter given the wrong reason, and the runner allowing any repository read the filter does not list. (self)
 
 2026-09-15 · review · AnalyzerWiringShould · The batched rewrite judged every keep-out test on the whole ordinary build's output, so a probe leaking into Modbus.Rtu alone failed all ten; a mutation run showed it, and each project is now judged on the lines MSBuild attributes to it. (self)
@@ -76,14 +53,18 @@ YYYY-MM-DD · <where> · <topic or —> · <what happened, one line> [ (second a
 
 2026-09-15 · gate · Vion.Dale.Plugin.Test · The /check test gate went red on two of 40 plugin tests with the same Application Control block, on assemblies emitted into TEMP under a fresh name each run, so it recurs at 2, 2 then 1 failure; the § 8 rule covered build output only. (self) → codified: docs/testing-conventions.md
 
-2026-09-15 · brief · do-path-log-level · The amendment asked for a test pinning the raised log level, hedged on the repo testing log levels; testing-conventions.md § 15 forbids asserting on log calls in SDK tests, so the level and the once-per-configuration rate limit ship unproven and the question is open. (self)
+2026-09-16 · review · check.ps1 · The journal-lint comment explained the folder path by naming the pre-migration file name as the action's default - the before-after framing comment-conventions.md forbids as a claim that rots - and it tripped the brief's own sweep for that file name. (self)
 
-2026-09-15 · gate · AnalyzerWiringShould · Six RunDaleAnalyzersOverTestKits rows failed saying the Dale analyzers did not run over each kit, which reads as a wiring regression; the probe build's CS8034 showed the analyzer assembly itself blocked by the host's Application Control policy. (self) → codified: docs/testing-conventions.md
+2026-09-16 · gate · Bash tool · The migration script was launched through the Bash tool with a backslashed Windows path; the backslashes were stripped, pwsh got a run-together path and exited 64 having done nothing. The same command from the PowerShell tool ran. (self)
 
-2026-09-15 · review · do-path-log-level · The review found the raised warning reachable before the handler's first link map, where the runtime links block actors before contracts, so a block writing from Ready() on a correctly mapped gateway would draw it; io.md's own standard says nothing routine reaches a warning arm. (self) → codified: docs/specs/io.md
+2026-09-16 · review · process-journal · The new fragment and README were reported as carrying 101 and 297 carriage returns, from an od -c piped into grep for a backslash-r that matched the letter r instead; a byte claim needs a byte dump, and cat -A showed LF throughout. The pasted command is what exposed it. (self)
 
-2026-09-15 · review · do-path-log-level · The review found the clear's comment giving two cases it does not enable, a fixed mapping never reaching the arm and a different contract never in the set; comment-conventions' comment-is-a-claim rule should have prevented it. (self)
+2026-09-16 · review · spec-process.md · The branch review found both lint gate rows still calling their out-of-scope set the append-only logs after the scans began judging the journal's header; the sweep grepped the literal file name and these rows name the journal in words, which review-checks.md P3 is about. (self) → codified: docs/spec-process.md
 
-2026-09-15 · brief · do-path-log-level · The amendment read as a bench finding of a dropped write; the coordinator confirmed the DO path was working and the symptom never reproduced, the premise being a code reading, so the change makes a possible drop visible rather than explaining a seen one. (self)
+2026-09-16 · review · check.ps1 · The rewritten journal-lint comment said the action's default path resolves to the folder, resting the desk-equals-CI claim on a fallback it never named; review check D10 and comment-conventions.md ask a mechanism to be checkable at the site. (second ask) (self) → codified: scripts/check.ps1
 
-2026-09-15 · decision · do-path-log-level · The raised warning and its once-per-link-map limit ship pinned by no test, testing-conventions.md § 15 forbidding log assertions in SDK tests and no exception being carved, because pinning a trace's level would make it the contract io.md says it is not.
+2026-09-16 · review · spec-process.md · The replaced review-priorities line left a 66-character line mid-paragraph where the rest wraps at 94 to 96, the reflow stub the same document's own sweep item tells a reviewer to read for, and no gate sees it inside a fence. (self) → codified: docs/spec-process.md
+
+2026-09-16 · review · self-reference-lint · The new README-in-scope case held only the two journal files, so excluding the whole folder reddened it through the zero-markdown floor rather than the exclusion; review-checks.md P5 calls that a fixture that cannot reach the clause. (self) → codified: scripts/self-reference-lint.tests.ps1
+
+2026-09-16 · brief · journal-fragments · The brief froze every docs/retro/ hit as a dated record; amendment 1 found the 2026-08-12 note's Next-round block forward-pointing, so its journal link 404ed and its read-below-the-marker and move-the-marker steps had become impossible. Repointed at the folder and reworded to rotation. → codified: docs/retro/2026-08-12-review-mining-round.md

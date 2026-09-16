@@ -22,7 +22,7 @@ Cross-checked against durable sources that do not age out: `gh pr list` (70 merg
 **This window will not be re-openable, and it was already partial.** The oldest surviving session
 starts 2026-06-12 — the CLI's `.slnx` solution-discovery fix — so everything before it, including the
 whole early SDK surface, was gone before this round began. Everything from here is journalled as it happens
-([`../process-journal.md`](../process-journal.md)) or it is lost. That is the whole argument for the
+([`../process-journal/`](../process-journal/)) or it is lost. That is the whole argument for the
 journal, and it is why a second mining round is not a fallback plan.
 
 ## The taxonomy
@@ -251,13 +251,14 @@ The round found **21** entries in `~/.claude/projects/C---gh-dale-sdk/memory/`. 
 
 ## Next round
 
-Trigger: ~6 weeks, or when `review` lines pile up in [`../process-journal.md`](../process-journal.md).
-Read everything below the marker in one sitting, plus the PR history since this note, and promote each
-recurrence down the ladder — **CI gate or analyzer > `/vion-code-review` check > prose**. In this repo
+Trigger: ~6 weeks, or when `review` lines pile up in [`../process-journal/`](../process-journal/).
+Read every fragment in one sitting, plus the PR history since this note, and promote each recurrence
+down the ladder — **CI gate or analyzer > `/vion-code-review` check > prose**. In this repo
 the ladder has a rung the others lack: a recurring authoring mistake can become a **DALE diagnostic**,
 which is cheaper than any review check because it fires in the consumer's build too. Mechanical fixes
-land in the retro PR; judgment calls get a recommendation and the user decides. Move the marker, append
-a row to [`../process-metrics.md`](../process-metrics.md), and record the round as a dated note here.
+land in the retro PR; judgment calls get a recommendation and the user decides. Rotate the read
+fragments into `docs/retro/`, append a row to [`../process-metrics.md`](../process-metrics.md), and
+record the round as a dated note here.
 
 The open question this round could not answer: **which of D1–D10 actually fire.** They are mined from
 what the user said, not from what the review command catches. Retro-1 has the first real evidence of
