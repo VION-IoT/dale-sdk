@@ -18,6 +18,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         bool IsConnected { get; }
 
         /// <summary>
+        ///     Gets a value indicating whether the peer has closed a connection that <see cref="IsConnected" /> still
+        ///     reports as established. False while no connection is established.
+        /// </summary>
+        bool IsClosedByPeer { get; }
+
+        /// <summary>
         ///     Connects to the Modbus TCP server at the specified IP address and port.
         /// </summary>
         /// <param name="ipAddress">The IP address to connect to.</param>

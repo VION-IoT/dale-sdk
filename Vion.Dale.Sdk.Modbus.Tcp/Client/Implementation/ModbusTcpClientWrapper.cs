@@ -152,13 +152,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <inheritdoc />
         public Task DisconnectAsync(CancellationToken cancellationToken)
         {
-            LogDisconnecting(IpAddress!, Port);
             if (!_clientProxy.IsConnected)
             {
                 LogNotConnected(IpAddress!, Port);
                 return Task.CompletedTask;
             }
 
+            LogDisconnecting(IpAddress!, Port);
             _clientProxy.Disconnect();
             _connectionAccumulator.RecordDisconnected();
             LogDisconnected(IpAddress!, Port);
@@ -166,12 +166,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        ///     Establishes the connection an operation needs and reuses one that is still good. A connection the peer
+        ///     closed while it was idle is not reused: an operation sent into it fails reading the answer back, and
+        ///     that faults the link over a socket the device released on purpose. The probe narrows the window rather
+        ///     than closing it — a close landing between the probe and the send still costs that one operation, on the
+        ///     wire-fault path.
+        /// </summary>
         private async Task EnsureClientIsConnectedAsync(CancellationToken cancellationToken)
         {
             if (_clientProxy.IsConnected && !_reconnectRequired)
             {
-                LogAlreadyConnected(IpAddress!, Port);
-                return;
+                if (!_clientProxy.IsClosedByPeer)
+                {
+                    LogAlreadyConnected(IpAddress!, Port);
+                    return;
+                }
+
+                LogPeerClosedConnection(IpAddress!, Port);
             }
 
             ThrowIfBackingOff();
@@ -313,20 +325,27 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         [LoggerMessage(Level = LogLevel.Debug, Message = "Client is already connected to {IpAddress}:{Port}")]
         partial void LogAlreadyConnected(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Connecting to {IpAddress}:{Port}")]
+        /* A device that releases an idle socket is reconnected to once per poll cycle, and every address or port
+         * change during commissioning costs a reconnect of its own, so the connect and disconnect lines below are
+         * the ordinary cadence rather than an event: at Information they would be most of what an edge log holds.
+         * The transitions further down stay above them. */
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Connecting to {IpAddress}:{Port}")]
         partial void LogConnecting(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Connected to {IpAddress}:{Port}")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Connected to {IpAddress}:{Port}")]
         partial void LogConnected(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Disconnecting from {IpAddress}:{Port}")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Disconnecting from {IpAddress}:{Port}")]
         partial void LogDisconnecting(IPAddress ipAddress, int port);
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Client is not connected to {IpAddress}:{Port}, nothing to disconnect")]
         partial void LogNotConnected(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Disconnected from {IpAddress}:{Port}")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Disconnected from {IpAddress}:{Port}")]
         partial void LogDisconnected(IPAddress ipAddress, int port);
+
+        [LoggerMessage(Level = LogLevel.Debug, Message = "The peer closed the connection to {IpAddress}:{Port}; reconnecting before the operation is sent")]
+        partial void LogPeerClosedConnection(IPAddress ipAddress, int port);
 
         // Transitions only. A line per backed-off or reconnecting request would put tens of lines a second through
         // the edge log pipeline for the length of an outage; what a single request did is on its receipt.

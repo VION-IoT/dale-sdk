@@ -38,6 +38,33 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         }
 
         /// <inheritdoc />
+        public bool IsClosedByPeer
+        {
+            get
+            {
+                if (!IsConnected || _tcpClient?.Client is not { } socket)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    /*
+                     * Ready to read with nothing to read is the peer's queued close: an operation sent into that
+                     * connection fails reading the answer back, which faults the link over a socket the device
+                     * released on purpose. Bytes actually waiting mean the connection still carries traffic.
+                     */
+                    return socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0;
+                }
+                catch (Exception exception) when (exception is SocketException or ObjectDisposedException)
+                {
+                    // A socket that cannot be asked is not one an operation can be sent into either.
+                    return true;
+                }
+            }
+        }
+
+        /// <inheritdoc />
         public async Task ConnectAsync(IPAddress ipAddress, int port, TimeSpan connectionTimeout, CancellationToken cancellationToken)
         {
             _tcpClient = new TcpClient();

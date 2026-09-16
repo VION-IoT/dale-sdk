@@ -429,6 +429,13 @@ which is what a maximum queued age measures.
 pass for the wrong reason: it has no capacity and no overflow policy, so `modbus.md`'s overflow rules
 cannot be exercised through it.
 
+The fake proxy has the same kind of edge, and it is the one a block author is likeliest to walk into.
+It stands in below the socket, so it reports a connection the peer never closes: `modbus.md`'s
+`AC-MODB-008.5` — reconnect before sending into a connection a device released while it was idle —
+takes no branch here. A test of a device that does release an idle socket therefore goes green
+through the kit without the reconnect ever happening, and only `modbus.md`'s own real-socket tier
+settles it.
+
 ## The fake Modbus TCP server
 
 - `AC-TKIT-012.1` (Ubiquitous): THE SYSTEM SHALL offer a master-side view of a fake Modbus TCP

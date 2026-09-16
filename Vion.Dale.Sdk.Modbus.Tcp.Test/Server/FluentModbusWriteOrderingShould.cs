@@ -1,9 +1,9 @@
 using System;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentModbus;
+using Vion.Dale.Sdk.Modbus.Tcp.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
 {
@@ -42,7 +42,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             server.AddUnit(0);
             server.RegistersChanged += (_, _) => Park(() => server.GetHoldingRegisters()[1] == 42);
             server.CoilsChanged += (_, _) => Park(() => (server.GetCoils()[0] & 0b10) != 0);
-            var port = FreePort();
+            var port = LoopbackPorts.Free();
             server.Start(new IPEndPoint(IPAddress.Loopback, port));
             using var client = new ModbusTcpClient();
             client.Connect(new IPEndPoint(IPAddress.Loopback, port), ModbusEndianness.LittleEndian);
@@ -92,16 +92,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
                 default:
                     throw new ArgumentOutOfRangeException(nameof(functionCode), functionCode, "Not a write this test drives.");
             }
-        }
-
-        private static int FreePort()
-        {
-            var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
-            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-            listener.Stop();
-
-            return port;
         }
     }
 }
