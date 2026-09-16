@@ -351,6 +351,80 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             Assert.AreEqual(1, harness.Client.Link.SuccessCount, "Only the read counts.");
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-016.7")]
+        public void ForgetRoundTripSpikeOnceWindowPassesOnClientsClock()
+        {
+            // Arrange
+            var clock = new FakeTimeProvider(Anchor);
+            using var harness = CreateHarness(clock);
+            harness.Proxy.SetHoldingRegisters(1, 40000, [0, 0, 0, 0]);
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().WithTimeProvider(clock).Build();
+            ReadWithRoundTrip(harness, sut, ctx, TimeSpan.FromMilliseconds(900));
+            ReadWithRoundTrip(harness, sut, ctx, TimeSpan.FromMilliseconds(100));
+            Assert.AreEqual(TimeSpan.FromMilliseconds(900), harness.Client.Link.RecentMaxRoundTrip, "The spike is in the window before time passes.");
+
+            // Act
+            clock.Advance(TimeSpan.FromMinutes(16));
+
+            // Assert
+            var link = harness.Client.Link;
+            Assert.AreEqual(0L, link.RecentRoundTripCount);
+            Assert.IsNull(link.RecentMeanRoundTrip);
+            Assert.IsNull(link.RecentMaxRoundTrip);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-016.9")]
+        public void KeepSinceStartRoundTripSpikeOnceWindowForgetsIt()
+        {
+            // Arrange
+            var clock = new FakeTimeProvider(Anchor);
+            using var harness = CreateHarness(clock);
+            harness.Proxy.SetHoldingRegisters(1, 40000, [0, 0, 0, 0]);
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().WithTimeProvider(clock).Build();
+            ReadWithRoundTrip(harness, sut, ctx, TimeSpan.FromMilliseconds(100));
+            clock.Advance(TimeSpan.FromMinutes(2));
+            ReadWithRoundTrip(harness, sut, ctx, TimeSpan.FromMilliseconds(900));
+            var spikeObservedAt = sut.LastReadReceipt!.Value.ReceivedAt;
+
+            // Act
+            clock.Advance(TimeSpan.FromMinutes(16));
+
+            // Assert
+            var link = harness.Client.Link;
+            Assert.AreEqual(TimeSpan.FromMilliseconds(900), link.MaxRoundTrip);
+            Assert.AreEqual(spikeObservedAt, link.MaxRoundTripAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-016.3")]
+        public void KeepLinkStateOnceWindowEmpties()
+        {
+            // Arrange
+            var clock = new FakeTimeProvider(Anchor);
+            using var harness = CreateHarness(clock);
+            harness.Proxy.SetHoldingRegisters(1, 40000, [0, 0, 0, 0]);
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().WithTimeProvider(clock).Build();
+            ReadWithRoundTrip(harness, sut, ctx, TimeSpan.FromMilliseconds(100));
+
+            // Act
+            clock.Advance(TimeSpan.FromHours(1));
+
+            // Assert
+            Assert.AreEqual(ModbusLinkState.Online, harness.Client.Link.State);
+        }
+
+        private static void ReadWithRoundTrip(FakeModbusTcpHarness harness, SampleModbusTcpBlock sut, LogicBlockTestContext<SampleModbusTcpBlock> ctx, TimeSpan roundTrip)
+        {
+            harness.Proxy.ResponseDelay = roundTrip;
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+        }
+
         private static FakeModbusTcpHarness CreateHarness(FakeTimeProvider clock)
         {
             var proxy = new FakeModbusTcpClientProxy { Clock = clock };
