@@ -1,0 +1,2 @@
+2026-09-16 · brief · modbus-smoke · the brief named the skill's -LocalSource tier as the rendered view of the link summary; that flag is Tier 1 and never loads the page, so amendment 1 replaced it with a working-tree Tier 2 boot
+2026-09-16 · review · modbus-latency-window · the change doc's proof plan left clearing a reused window slot unpinned; the mutation that skips the reset survived every planned accumulator test until LeaveAgedTransactionOutOfMinuteRecordedLater was added (self)
