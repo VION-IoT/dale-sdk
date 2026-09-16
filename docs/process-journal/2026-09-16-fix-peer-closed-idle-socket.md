@@ -1,0 +1,3 @@
+2026-09-16 · brief · VION-225 · The brief named the log change's discriminating check as zero Information lines from a routine connect/disconnect cycle; testing-conventions.md § 15 forbids asserting on log calls, so the four demoted levels ship pinned by an observed run pasted under the pull request's verification rather than by a test. (second ask) (self)
+
+2026-09-16 · gate · spec-trace · spec-trace failed naming AC-MODB-006.8 an id no test references, with no hint which line armed it; the criterion carries its GAP marker and its own explanatory prose named it by number on a line without one, which spec-process.md § IDs & EARS warns about. (self)
