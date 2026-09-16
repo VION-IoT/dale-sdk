@@ -1,6 +1,6 @@
 ---
 slug: modbus-latency-window
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: MODB
 author: jonasbertsch
@@ -70,33 +70,38 @@ field, not this struct's roster.
    whole ones), so a read covers at least the last 15 minutes and at most the last 16 — or the client's
    whole life where that is shorter. The alternative worth weighing is 30-second slots in a ring of 31
    (15 to 15½ minutes, twice the memory and the merge). A tumbling window like `WindowedMax<T>` is
-   rejected: a read one second after it restarts rests on one second of traffic.
+   rejected: a read one second after it restarts rests on one second of traffic. OUTCOME: accepted as
+   recommended — the maintainer, amendment 1 to the VION-228 brief, 2026-09-16.
 2. (c) propose-and-wait — **What the transaction count counts.** Recommendation: **one count per
    metric** — `RecentRoundTripCount` over the transactions that reached the wire, `RecentQueuedWaitCount`
    over every transaction but `Invalid` — so each mean is shown with its own denominator. The single
    shared count is exact only when nothing was backed off, expired, dropped or cancelled, and that is
    the congestion case where queued wait is read. Alternative: one count of the transactions that
-   reached the wire, with the queued-wait population's size left unpublished.
+   reached the wire, with the queued-wait population's size left unpublished. OUTCOME: accepted as
+   recommended — the maintainer, amendment 1, 2026-09-16.
 3. (c) propose-and-wait — **Field names, titles and descriptions.** Recommendation: § Full design ›
    The fields, option A — a `Recent` prefix in the identifier and the length only in the title, so a
    later change of length changes a translation's source string and orphans no key
    (`docs/specs/introspection.md`, the display-string table). The two kept fields keep their
    identifiers; their titles gain "since start" so the card distinguishes them from the windowed max.
+   OUTCOME: accepted as option A — the maintainer, amendment 1, 2026-09-16.
 4. (a) ratified — the maintainer's seven constraints in the VION-228 brief: mean and max over the
    window, lifetime max with its instant, a transaction count; empty reads null; today's inclusion
    rules; one fixed window stated in titles; no percentile; new fields on `ModbusLinkSummary`, no new
    type and no new `IModbusClient` member; `LastRoundTrip`, `LastQueuedWait`, `MinRoundTrip` removed and
    the two maxima kept; O(1), allocation-free recording in the existing lock, bounded memory, the
-   snapshot cost stated, no emission-policy change and no new property. Not relitigated.
+   snapshot cost stated, no emission-policy change and no new property. Not relitigated. OUTCOME:
+   implemented as ratified.
 5. (b) decide-and-document — **`AC-MODB-016.1` keeps its text.** The snapshot already copies out under
    `Record`'s lock; it now also merges the ring — a bounded loop of 16 slots — so a transaction
    completing during a read waits at most that merge, which is the same kind of wait it has today, not a
    new one (§ Full design › What a snapshot costs). Rewording it to name a bound would state an
-   implementation detail no consumer can observe.
+   implementation detail no consumer can observe. OUTCOME: not vetoed — amendment 1, 2026-09-16.
 6. (b) decide-and-document — **`AC-MODB-016.3` loses its GAP.** Its reason was that the accumulator
    reads no clock; after `D2` it does, so "the state is indifferent to time" becomes a behaviour a test
    can break. The test advances the client's clock past the window and asserts the state unchanged, on
-   the same through-the-client fixture as the window tests.
+   the same through-the-client fixture as the window tests. OUTCOME: not vetoed — amendment 1,
+   2026-09-16; `D2`–`D6` likewise.
 
 ---
 
@@ -306,8 +311,15 @@ Discriminating fixtures, per the brief's hazards:
   so it cannot carry this.
 - **Introspection**: the field count, the removed keys absent, a new title, a duration and a date-time
   format on new fields.
-- **Rendered**: `ModbusTcpDebugClient` against the working tree (`-p:DaleLocalSource=true`,
-  `modbus-smoke` `-LocalSource` tier), reading what the Diagnostics viewer shows for `Link`.
+- **Timestamp units**: the accumulator derives a slot from `TimeProvider.GetElapsedTime`, never from raw
+  timestamps; a test clock whose `TimestampFrequency` is not `TimeSpan.TicksPerSecond` proves it.
+- **`D6`**: the allocation test warms the JIT up on one accumulator and measures the first `Record` of a
+  fresh one, so a lazily allocated ring cannot pass it.
+- **Rendered**: the `modbus-smoke` skill's `-LocalSource` flag is Tier 1 only and never loads the page.
+  The rendered view is a real-clock DevHost run of `ModbusTcpSimServer` and `ModbusTcpDebugClient`,
+  booted as Tier 2 boots it but built with `-p:DaleLocalSource=true` immediately before the boot, with
+  `DebugClient`'s Diagnostics read in the browser at four moments: rendering, the window rolling, a spike
+  ageing out, and idle (amendment 1).
 
 The reporter's live card needs a release and a logic-block-libraries upgrade: not run, routes to a
 human.
@@ -345,5 +357,5 @@ re-read against the answer before the first implementation commit.
   clock; the through-the-client test on the RTU TestKit's `Simulate*` path.
 - `T-004` (`AC-MODB-016.7`): the introspection suite, the two example scenarios (`D5`), the example
   README and the `modbus-smoke` skill.
-- `T-005`: distill the delta into `docs/specs/modbus.md` (criteria and prose), `/check`, the rendered
-  `-LocalSource` run, archive.
+- `T-005`: distill the delta into `docs/specs/modbus.md` (criteria and prose), the real-clock DevHost
+  run with the UI against the working tree, `/check`, archive.
