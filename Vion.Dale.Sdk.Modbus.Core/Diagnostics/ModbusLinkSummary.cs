@@ -100,7 +100,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
         long ExpiredCount,
         [StructField(Title = "Dropped", Description = "Not attempted: the request was evicted because the queue was full.")]
         long DroppedCount,
-        [StructField(Title = "Round trips (15 min)", Description = "Transactions that reached the wire in the last 15 minutes, which the two round-trip figures beside it rest on.")]
+        [StructField(Title = "Round trips (15 min)",
+                     Description = "Transactions that reached the wire in the last 15 minutes, which the two round-trip figures beside it rest on.")]
         long RecentRoundTripCount,
         [StructField(Title = "Round trip (mean, 15 min)", Description = "Mean dispatch-to-response time over the last 15 minutes; empty when nothing reached the wire.")]
         TimeSpan? RecentMeanRoundTrip,
