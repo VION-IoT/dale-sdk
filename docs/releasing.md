@@ -60,14 +60,16 @@ for p in vion.dale.sdk vion.dale.sdk.http vion.dale.sdk.digitalio vion.dale.sdk.
 done
 ```
 
-It is still a change like any other, so it goes on a branch and through a PR — never straight to `main`:
+It is still a change like any other, so it goes on a branch and through a PR — never straight to `main`,
+and never in the main checkout (`CLAUDE.md` § Parallel sessions):
 
-```bash
-git switch -c chore/bump-refs-X.Y.Z
-pwsh scripts/set-version.ps1 -Version X.Y.Z -Scope references
-git add -A && git commit -m "Bump example/template refs to X.Y.Z"
-git push -u origin HEAD && gh pr create --fill
-```
+1. `/vion-git:branch chore/package-refs-X-Y-Z` cuts the branch in the worktree
+   `../dale-sdk-package-refs-X-Y-Z`, the version's dots written as dashes.
+2. Open that worktree as the skill's report says — `cd` into it, or a session started there — since
+   the next steps act on the directory they run in, and the commit and PR skills refuse the main
+   checkout.
+3. There, `pwsh scripts/set-version.ps1 -Version X.Y.Z -Scope references`.
+4. `/vion-git:commit`, then `/vion-git:pr`.
 
 `set-version.ps1` covers **templates, examples and `libraries/`** — the same three the paragraph above
 obliges. Per project it updates the `Vion.Dale.*` `PackageReference`
