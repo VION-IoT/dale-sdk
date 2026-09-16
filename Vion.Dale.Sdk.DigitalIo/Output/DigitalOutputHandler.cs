@@ -27,6 +27,10 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
 
         private readonly ILogger _logger;
 
+        private readonly HashSet<LogicBlockContractId> _unmappedContractsReported = [];
+
+        private bool _linkMapReceived;
+
         /// <summary>
         ///     Initializes a new instance of the <see cref="DigitalOutputHandler" /> class.
         /// </summary>
@@ -75,6 +79,16 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
         }
 
         /// <inheritdoc />
+        protected override void OnContractActorsLinked(LinkLogicBlockContractActors message)
+        {
+            // Forgetting what was reported under the previous link map is what makes a contract that is
+            // still unmapped after a reconfiguration report again, instead of staying silent for the life
+            // of the handler actor. An operator who fixed the mapping never reaches the arm at all.
+            _unmappedContractsReported.Clear();
+            _linkMapReceived = true;
+        }
+
+        /// <inheritdoc />
         protected override void HandleContractMessage(IContractMessage message)
         {
             if (message is ContractMessage<SetDigitalOutput> m)
@@ -88,7 +102,16 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
             var mappedServiceProviderContractIds = FindMappedServiceProviderContracts(setDigitalOutputMessage.LogicBlockContractId);
             if (mappedServiceProviderContractIds.Count == 0)
             {
-                LogNoServiceProviderContractMappingFound(setDigitalOutputMessage.LogicBlockContractId);
+                // Before the first link map there is nothing to be unmapped against: the runtime links the
+                // block actors before it links the contracts, so a block that drives an output from Ready()
+                // reaches this arm on a correctly mapped gateway. That drop stays silent, as it was.
+                // After it, once per contract per link map — a block drives its output on every state
+                // change, so reporting each dropped write would bury the log under one mis-mapped block.
+                if (_linkMapReceived && _unmappedContractsReported.Add(setDigitalOutputMessage.LogicBlockContractId))
+                {
+                    LogNoServiceProviderContractMappingFound(setDigitalOutputMessage.LogicBlockContractId);
+                }
+
                 return;
             }
 
@@ -142,8 +165,9 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
                            "Dropped a DO state message labelled with another payload type; no value reached any block and this contract's input holds its last value (ServiceProviderContractId={ServiceProviderContractId}, Schema={Schema}, Topic={Topic})")]
         private partial void LogRejectedForeignSchema(ServiceProviderContractId serviceProviderContractId, string? schema, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "No service provider contract mapping found for contract — cannot send set DO command (LogicBlockContractId={LogicBlockContractId})")]
+        [LoggerMessage(Level = LogLevel.Warning,
+                       Message =
+                           "Dropped a set DO command; the linked configuration maps this logic block contract to no service provider contract, so nothing reached the hardware (LogicBlockContractId={LogicBlockContractId})")]
         private partial void LogNoServiceProviderContractMappingFound(LogicBlockContractId logicBlockContractId);
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Publishing DO request (Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
