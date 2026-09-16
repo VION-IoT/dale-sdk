@@ -255,6 +255,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         #region IModbusTcpClientProxy
 
+        // In memory there is no peer to close a connection, so the wrapper reuses whatever ConnectAsync established
+        // until a test disconnects it. A peer-closed idle socket is the real proxy's own and is proven on a socket.
+        bool IModbusTcpClientProxy.IsClosedByPeer
+        {
+            get => false;
+        }
+
         Task IModbusTcpClientProxy.ConnectAsync(IPAddress ipAddress, int port, TimeSpan connectionTimeout, CancellationToken cancellationToken)
         {
             // Record the attempt with its target IP/port regardless of outcome — tests inspecting

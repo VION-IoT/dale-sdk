@@ -269,6 +269,56 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.5")]
+        [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
+        [DataRow(TargetMethod.ReadCoilsAsync)]
+        [DataRow(TargetMethod.WriteSingleCoilAsync)]
+        [DataRow(TargetMethod.WriteMultipleCoilsAsync)]
+        [DataRow(TargetMethod.ReadInputRegistersAsFloatAsync)]
+        [DataRow(TargetMethod.ReadHoldingRegistersAsIntAsync)]
+        [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDoubleAsync)]
+        public async Task ReconnectWhenPeerClosedIdleConnection(TargetMethod targetMethod)
+        {
+            // Arrange — the flag the reuse decision reads stays set until socket I/O fails, so a device that released
+            // the socket between poll cycles is still reported connected.
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsClosedByPeer).Returns(true);
+
+            // Act
+            await InvokeMethodAsync(targetMethod);
+
+            // Assert
+            _clientProxyMock.Verify(clientProxy => clientProxy.Disconnect(), Times.Once);
+            _clientProxyMock.Verify(clientProxy => clientProxy.ConnectAsync(It.IsAny<IPAddress>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+                                    Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.4")]
+        public async Task ReconnectBeforeSendingWhenPeerClosedIdleConnection()
+        {
+            // Arrange — preventing a send is not a retry, and the order is what tells the two apart: the operation
+            // reaches the wire once, on a connection established before it.
+            var callOrder = new List<string>();
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsClosedByPeer).Returns(true);
+            _clientProxyMock.Setup(clientProxy => clientProxy.Disconnect()).Callback(() => callOrder.Add("Disconnect"));
+            _clientProxyMock.Setup(clientProxy => clientProxy.ConnectAsync(It.IsAny<IPAddress>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+                            .Callback(() => callOrder.Add("Connect"));
+            _clientProxyMock.Setup(clientProxy => clientProxy.ReadCoilsAsync(UnitIdentifier, StartingAddress, Quantity, It.IsAny<CancellationToken>()))
+                            .Callback(() => callOrder.Add("ReadCoils"));
+
+            // Act
+            await _sut.ReadCoilsAsync(UnitIdentifier, StartingAddress, Quantity, _operationTimeout, _cancellationToken);
+
+            // Assert
+            Assert.HasCount(3, callOrder);
+            Assert.AreEqual("Disconnect", callOrder[0]);
+            Assert.AreEqual("Connect", callOrder[1]);
+            Assert.AreEqual("ReadCoils", callOrder[2]);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-MODB-008.4")]
         public async Task AttemptFailedOperationExactlyOnce()
         {

@@ -166,12 +166,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        ///     Establishes the connection an operation needs and reuses one that is still good. A connection the peer
+        ///     closed while it was idle is not reused: an operation sent into it fails reading the answer back, and
+        ///     that faults the link over a socket the device released on purpose. The probe narrows the window rather
+        ///     than closing it — a close landing between the probe and the send still costs that one operation, on the
+        ///     wire-fault path.
+        /// </summary>
         private async Task EnsureClientIsConnectedAsync(CancellationToken cancellationToken)
         {
             if (_clientProxy.IsConnected && !_reconnectRequired)
             {
-                LogAlreadyConnected(IpAddress!, Port);
-                return;
+                if (!_clientProxy.IsClosedByPeer)
+                {
+                    LogAlreadyConnected(IpAddress!, Port);
+                    return;
+                }
+
+                LogPeerClosedConnection(IpAddress!, Port);
             }
 
             ThrowIfBackingOff();
@@ -327,6 +339,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
         [LoggerMessage(Level = LogLevel.Information, Message = "Disconnected from {IpAddress}:{Port}")]
         partial void LogDisconnected(IPAddress ipAddress, int port);
+
+        [LoggerMessage(Level = LogLevel.Debug, Message = "The peer closed the connection to {IpAddress}:{Port}; reconnecting before the operation is sent")]
+        partial void LogPeerClosedConnection(IPAddress ipAddress, int port);
 
         // Transitions only. A line per backed-off or reconnecting request would put tens of lines a second through
         // the edge log pipeline for the length of an outage; what a single request did is on its receipt.

@@ -255,11 +255,23 @@ queued request pays its own connection attempt against a device that is not ther
   code as a `DeviceError` and keep the socket, and a frame or protocol fault carrying no code as a
   `ProtocolError` that closes it.
 - `AC-MODB-008.4` (Ubiquitous): THE SYSTEM SHALL never retry an operation automatically.
+- `AC-MODB-008.5` (Event-driven): WHEN an operation would reuse a connection the peer has already
+  closed THE SYSTEM SHALL reconnect before sending it, and SHALL leave the link's verdict to the
+  operation's own outcome.
 
 `AC-MODB-008.1` is what reaches a peer that dropped and came back without operator action, and what
 keeps a stray response from being read as the next transaction's answer. `AC-MODB-008.4` is
 deliberate: a read is re-polled by construction, and repeating a write after a fault would write a
 pulse twice.
+
+`AC-MODB-008.5` is a device that releases an idle socket between poll cycles, which is a
+configuration a Modbus TCP device is sold with rather than a fault. Without it the release costs the
+next operation and faults the link, because the underlying connected flag turns over only once
+socket I/O has failed. It is not a retry against `AC-MODB-008.4`: the operation is sent once, on a
+connection established first. **What it cannot do is close the race** — the connection is asked
+before the operation is sent, so a close landing between the two still ends that operation on
+`AC-MODB-008.1`'s path. Nor does it reach a peer that stops answering without closing: there is
+nothing on the socket to read, and the operation times out.
 
 ## The request queue
 
