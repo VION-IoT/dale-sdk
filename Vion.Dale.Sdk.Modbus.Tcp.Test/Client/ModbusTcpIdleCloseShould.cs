@@ -51,13 +51,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
 
         private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 
-        private ILogicBlockModbusTcpClient _sut = null!;
-
         private ModbusTcpServer _peer = null!;
+
+        private long _requestsServedByPeer;
 
         private ServiceProvider _serviceProvider = null!;
 
-        private long _requestsServedByPeer;
+        private ILogicBlockModbusTcpClient _sut = null!;
 
         [TestInitialize]
         public void Initialize()
@@ -159,7 +159,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client
         {
             await ReadAsync(StatusAddress);
             await ReadAsync(WindowAddress);
-            await ReadAsync((ushort)(WindowAddress + 1));
+            await ReadAsync(WindowAddress + 1);
         }
 
         private async Task<ModbusReceipt> ReadAsync(ushort startingAddress)
