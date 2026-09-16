@@ -203,6 +203,11 @@ shapes, and only the second names itself:
 - **An assembly the tests emit at run time**, which carries a fresh name per run and so is blocked
   intermittently: `Vion.Dale.Plugin.Test` failed 2, then 2, then 1 of 40 across consecutive runs, each
   on a different `%TEMP%\dale-plug-*\Shared*.dll`.
+- **The analyzer assembly a probe build loads**, which fails as a *wiring* regression and is the most
+  misleading of the three: all six `AnalyzerWiringShould.RunDaleAnalyzersOverTestKits` rows failed
+  saying "the Dale analyzers did not run over it", which is true and is the point of the test — but
+  the cause was `CSC : warning CS8034: Unable to load Analyzer assembly … Vion.Dale.Sdk.Generators.dll`
+  carrying the same `0x800711C7`. Read the probe build's `CS8034` before believing the assertion.
 
 So a differing configuration or a green re-run is a way to get the suite through, never proof of the
 diagnosis: the block attaches to the artefact, not to the project. Judge such a failure on Linux CI,
