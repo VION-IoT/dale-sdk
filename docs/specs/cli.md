@@ -375,10 +375,7 @@ skip only when that member is the string `DuplicateLibraryVersionException`, com
 the member's name looked up regardless of case as `AC-CLI-017.4` looks up the message.
 `DuplicatePackageIdException`, a plain `ConflictException`, a missing or non-string type, and a body
 that is not the envelope all fail. The message is what the user is shown, never what decides, so a
-rewording at the endpoint changes neither outcome — and there is no fallback to the message for an
-endpoint that still answers both conflicts as `ConflictException`. A tool carrying this rule fails
-every `--skip-duplicate` re-run against such an endpoint, so a release of it waits on the platform
-API that names the two conflicts apart being deployed where its consumers upload.
+rewording at the endpoint changes neither outcome.
 
 The production gate is a GitHub Environment with a required reviewer, not a flag, a scope or a
 credential this tool knows about. The two systems share the word "environment" and are unrelated:

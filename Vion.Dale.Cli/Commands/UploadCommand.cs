@@ -298,8 +298,8 @@ namespace Vion.Dale.Cli.Commands
         ///     <c>--skip-duplicate</c> is for. <c>DuplicatePackageIdException</c> is a hard failure: package
         ///     ids are globally unique across the platform, so the fix is to rename the package, not to
         ///     retry. The message is never consulted, so a rewording at the endpoint cannot flip the
-        ///     decision either way. Anything unrecognised counts as a failure; reporting a conflict we don't
-        ///     understand as a successful skip is the one outcome that hides a failed publish (CI uploads
+        ///     decision either way. Anything unrecognised counts as a failure; reporting an unrecognised
+        ///     conflict as a successful skip is the one outcome that hides a failed publish (CI uploads
         ///     with <c>--skip-duplicate</c>).
         /// </summary>
         internal static bool IsVersionAlreadyExistsConflict(string? body)
@@ -331,7 +331,7 @@ namespace Vion.Dale.Cli.Commands
             }
             catch (JsonException)
             {
-                // A proxy's HTML page or any other non-envelope body is not a conflict we recognise.
+                // A proxy's HTML page or any other body that is not the envelope counts as an unrecognised conflict.
             }
 
             return false;
