@@ -423,6 +423,10 @@ test, and collapse a with-X/without-X pair into one row pair rather than a separ
 - `new Mock<X>()` then `.Object` — not `Mock.Of<X>()`. Mock loggers; never assert on log calls
   (log text is not a contract; a log may serve as a synchronisation signal only where no other
   terminal-state observation exists).
+- **A log level that is specified behaviour is a `GAP` criterion, not an exception to the rule
+  above.** Its page carries `GAP: a log level, which ../testing-conventions.md § 15 forbids
+  asserting on`, and its evidence is a run observed at that level and recorded under the pull
+  request's verification — never a `Verify` on a logger mock carved out for it.
 - **Exact call counts** — `Times.Once` / `Times.Never` / `Times.Exactly(N)`; `AtLeastOnce` only when
   that genuinely is the contract.
 - **Skip the `Verify` that a `Setup(...).Returns(...)` + returned-value assertion already proves** —
