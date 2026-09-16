@@ -24,7 +24,7 @@
     { "label": "the watch slot decoded pi", "waitUntil": { "property": "DebugClient.Watch1.Value", "equals": 3.14159274, "tolerance": 0.0001 }, "timeoutSeconds": 20 },
 
     { "label": "the headline pill follows the SDK's verdict", "waitUntil": { "property": "DebugClient.LinkHealth", "equals": "Online" }, "timeoutSeconds": 20 },
-    { "label": "a receipt carried the wire time", "expect": { "property": "DebugClient.Link.lastRoundTrip", "notEquals": null } },
+    { "label": "a receipt carried the wire time", "expect": { "property": "DebugClient.Link.maxRoundTrip", "notEquals": null } },
     { "label": "and the block stamped it", "waitUntil": { "property": "DebugClient.LastReadAt", "notEquals": null }, "timeoutSeconds": 20 },
     { "label": "nothing failed", "expect": { "property": "DebugClient.Link.timeoutCount", "equals": 0 } },
     { "label": "nothing faulted the transport", "expect": { "property": "DebugClient.Link.transportErrorCount", "equals": 0 } },

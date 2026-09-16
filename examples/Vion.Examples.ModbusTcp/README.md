@@ -91,7 +91,7 @@ queued age* has an ∅ toggle for "off".
    the client recover **with no operator action on it at all** — no reconnect button, no restart.
 
 5. **Too much cadence is not a fault.** Turn all three watch slots on and drop *Poll interval* and
-   *Watch interval* to `100` ms. `Link → LastQueuedWait` and `MaxQueuedWait` grow — that is time
+   *Watch interval* to `100` ms. `Link → RecentMeanQueuedWait` and `RecentMaxQueuedWait` grow — that is time
    requests spend waiting their turn locally — while `Link → State` stays `Online`. Local outcomes are
    counted but never fault the device, so a congested client stays distinguishable from a broken one.
    Now set *Max queued age* to `1` ms: requests that wait longer than that are dropped rather than
