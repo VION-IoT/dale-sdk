@@ -224,11 +224,11 @@ consumer that re-applies its whole configuration on every edit does not drop its
 unrelated one — the committed `modbus-link-policy` scenario re-applies the entire connection struct
 and asserts the connect count does not move.
 
-`AC-MODB-006.8` is what keeps a connect and a disconnect from being the bulk of an edge log: both are
-per poll cycle against a device that releases an idle socket (`AC-MODB-008.5`), and per edit during
-commissioning (`AC-MODB-006.7`). The outage transitions — a backoff armed, ended or cleared, and a
-socket closed after a wire fault — are the lines above them, and they are what an operator reads a
-recovery off.
+The level a connect and a disconnect are logged at is what keeps the two from being the bulk of an
+edge log: both are per poll cycle against a device that releases an idle socket (`AC-MODB-008.5`),
+and per edit during commissioning (`AC-MODB-006.7`). The outage transitions — a backoff armed, ended
+or cleared, and a socket closed after a wire fault — are the lines above them, and they are what an
+operator reads a recovery off.
 
 ## The connect backoff
 
