@@ -64,7 +64,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
         private long _transportErrorCount;
 
         /// <summary>Creates an accumulator whose window runs on the owning client's clock.</summary>
-        /// <param name="clock">The clock the client stamps its receipts with.</param>
+        /// <param name="clock">The owning client's clock; the window's slots are stamped and read on it.</param>
         public ModbusLinkAccumulator(TimeProvider clock)
         {
             _clock = clock;
@@ -117,8 +117,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
                     _lastFailureOutcome = receipt.Outcome;
                 }
 
-                // The clock is read inside the lock so that slot ids reach the ring in order: two writers reading it
-                // outside could land a later id first, and the earlier one would then reset a slot still in use.
+                // The clock is read inside the lock so that a slot is never reset to an older minute: a writer that read it
+                // outside and then stalled for a whole ring span would wipe a slot already reused for a newer minute.
                 ref var slot = ref CurrentSlot();
 
                 // Only a transaction that reached the wire has a meaningful round trip; a locally decided one carries
