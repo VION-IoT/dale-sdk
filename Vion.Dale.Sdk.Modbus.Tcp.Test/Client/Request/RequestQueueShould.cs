@@ -24,7 +24,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 
         private readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(5);
 
-        private readonly ModbusLinkAccumulator _accumulator = new();
+        private readonly ModbusLinkAccumulator _accumulator = new(TimeProvider.System);
 
         private readonly Func<CancellationToken, Task<int[]>> _arrayRequestOperation = _ => Task.FromResult(Array.Empty<int>());
 

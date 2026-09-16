@@ -5,7 +5,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
 {
     /// <summary>
     ///     A point-in-time summary of one Modbus client's link to its device: the current verdict, when the device was
-    ///     last heard from, and lifetime counts and latencies per outcome.
+    ///     last heard from, lifetime counts per outcome, and latencies over a recent window and since the client started.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -32,7 +32,20 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     ///         <c>LastContactAt</c>, or from the monotonic stamp on the receipt of the value you care about.
     ///     </para>
     ///     <para>
-    ///         Counts and extremes are for the lifetime of the client instance and are never reset.
+    ///         The <c>Recent</c> figures cover a window of the last 15 minutes on the client's clock — at least 15 and
+    ///         less than 16, or the client's whole life where that is shorter — and forget what falls out of it, so a
+    ///         spike that is not repeated leaves them within 16 minutes. Each carries the number of transactions it rests
+    ///         on. An empty window reads its mean and max as <c>null</c> and its count as zero.
+    ///     </para>
+    ///     <para>
+    ///         Round trip is taken only from transactions that reached the wire; queued wait from every transaction
+    ///         that was queued, which is all of them but <c>Invalid</c>. The two counts differ exactly when requests were
+    ///         backed off, expired, dropped or cancelled.
+    ///     </para>
+    ///     <para>
+    ///         The outcome counts and the two <c>since start</c> maxima are for the lifetime of the client instance and
+    ///         are never reset. A maximum's instant is when the transaction that set it was observed, and only a larger
+    ///         value moves it.
     ///     </para>
     /// </remarks>
     /// <param name="State">The verdict of the last transaction that reached the wire.</param>
@@ -50,11 +63,16 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     ///     dispatch.
     /// </param>
     /// <param name="DroppedCount">Transactions evicted because the queue was full.</param>
-    /// <param name="LastRoundTrip">The dispatch-to-response time of the last transaction that reached the wire.</param>
-    /// <param name="MinRoundTrip">The shortest dispatch-to-response time seen.</param>
-    /// <param name="MaxRoundTrip">The longest dispatch-to-response time seen.</param>
-    /// <param name="LastQueuedWait">How long the last transaction waited locally before dispatch.</param>
-    /// <param name="MaxQueuedWait">The longest local wait before dispatch seen.</param>
+    /// <param name="RecentRoundTripCount">Transactions that reached the wire in the last 15 minutes.</param>
+    /// <param name="RecentMeanRoundTrip">The mean dispatch-to-response time over the last 15 minutes.</param>
+    /// <param name="RecentMaxRoundTrip">The longest dispatch-to-response time in the last 15 minutes.</param>
+    /// <param name="MaxRoundTrip">The longest dispatch-to-response time since the client started.</param>
+    /// <param name="MaxRoundTripAt">When the transaction that set <paramref name="MaxRoundTrip" /> was observed.</param>
+    /// <param name="RecentQueuedWaitCount">Requests queued in the last 15 minutes.</param>
+    /// <param name="RecentMeanQueuedWait">The mean local wait before dispatch over the last 15 minutes.</param>
+    /// <param name="RecentMaxQueuedWait">The longest local wait before dispatch in the last 15 minutes.</param>
+    /// <param name="MaxQueuedWait">The longest local wait before dispatch since the client started.</param>
+    /// <param name="MaxQueuedWaitAt">When the transaction that set <paramref name="MaxQueuedWait" /> was observed.</param>
     /// <param name="QueueDepth">Requests waiting to be dispatched right now.</param>
     [PublicApi]
     public readonly record struct ModbusLinkSummary(
@@ -82,16 +100,26 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
         long ExpiredCount,
         [StructField(Title = "Dropped", Description = "Not attempted: the request was evicted because the queue was full.")]
         long DroppedCount,
-        [StructField(Title = "Round trip (last)", Description = "Dispatch-to-response time of the last transaction that reached the wire.")]
-        TimeSpan? LastRoundTrip,
-        [StructField(Title = "Round trip (min)", Description = "The shortest dispatch-to-response time seen.")]
-        TimeSpan? MinRoundTrip,
-        [StructField(Title = "Round trip (max)", Description = "The longest dispatch-to-response time seen.")]
+        [StructField(Title = "Round trips (15 min)", Description = "Transactions that reached the wire in the last 15 minutes, which the two round-trip figures beside it rest on.")]
+        long RecentRoundTripCount,
+        [StructField(Title = "Round trip (mean, 15 min)", Description = "Mean dispatch-to-response time over the last 15 minutes; empty when nothing reached the wire.")]
+        TimeSpan? RecentMeanRoundTrip,
+        [StructField(Title = "Round trip (max, 15 min)", Description = "Longest dispatch-to-response time in the last 15 minutes; empty when nothing reached the wire.")]
+        TimeSpan? RecentMaxRoundTrip,
+        [StructField(Title = "Round trip (max since start)", Description = "The longest dispatch-to-response time since the client started.")]
         TimeSpan? MaxRoundTrip,
-        [StructField(Title = "Queued wait (last)", Description = "How long the last transaction waited locally before dispatch.")]
-        TimeSpan? LastQueuedWait,
-        [StructField(Title = "Queued wait (max)", Description = "The longest local wait before dispatch seen.")]
+        [StructField(Title = "Round trip (max since start) at", Description = "When the longest round trip since the client started was observed (UTC).")]
+        DateTime? MaxRoundTripAt,
+        [StructField(Title = "Queued waits (15 min)", Description = "Requests queued in the last 15 minutes, which the two queued-wait figures beside it rest on.")]
+        long RecentQueuedWaitCount,
+        [StructField(Title = "Queued wait (mean, 15 min)", Description = "Mean local wait before dispatch over the last 15 minutes; empty when nothing was queued.")]
+        TimeSpan? RecentMeanQueuedWait,
+        [StructField(Title = "Queued wait (max, 15 min)", Description = "Longest local wait before dispatch in the last 15 minutes; empty when nothing was queued.")]
+        TimeSpan? RecentMaxQueuedWait,
+        [StructField(Title = "Queued wait (max since start)", Description = "The longest local wait before dispatch since the client started.")]
         TimeSpan? MaxQueuedWait,
+        [StructField(Title = "Queued wait (max since start) at", Description = "When the longest queued wait since the client started was observed (UTC).")]
+        DateTime? MaxQueuedWaitAt,
         [StructField(Title = "Queue depth", Description = "Requests waiting to be dispatched right now. TCP: requests waiting; RTU: always 0.")]
         int QueueDepth);
 }

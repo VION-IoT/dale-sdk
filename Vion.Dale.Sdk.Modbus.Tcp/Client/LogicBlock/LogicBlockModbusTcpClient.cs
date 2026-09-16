@@ -27,7 +27,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
         private readonly ModbusTcpConnectionAccumulator _connectionAccumulator = new();
 
-        private readonly ModbusLinkAccumulator _linkAccumulator = new();
+        private readonly ModbusLinkAccumulator _linkAccumulator;
 
         private readonly ILogger<LogicBlockModbusTcpClient> _logger;
 
@@ -42,9 +42,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// </summary>
         /// <param name="clientWrapper">The wrapper around the Modbus TCP client that provides data conversion and validation.</param>
         /// <param name="requestQueue">The queue that manages Modbus requests.</param>
+        /// <param name="timeProvider">The clock the link summary's recent window runs on; the one receipts are stamped with.</param>
         /// <param name="logger">The logger used for logging.</param>
-        public LogicBlockModbusTcpClient(IModbusTcpClientWrapper clientWrapper, IRequestQueue requestQueue, ILogger<LogicBlockModbusTcpClient> logger)
+        public LogicBlockModbusTcpClient(IModbusTcpClientWrapper clientWrapper, IRequestQueue requestQueue, TimeProvider timeProvider, ILogger<LogicBlockModbusTcpClient> logger)
         {
+            _linkAccumulator = new ModbusLinkAccumulator(timeProvider);
             _requestQueue = requestQueue;
             _logger = logger;
             _clientWrapper = clientWrapper;

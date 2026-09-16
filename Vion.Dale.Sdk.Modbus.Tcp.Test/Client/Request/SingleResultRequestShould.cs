@@ -16,7 +16,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
     {
         private const int SuccessOperationResult = 42;
 
-        private readonly ModbusLinkAccumulator _accumulator = new();
+        private readonly ModbusLinkAccumulator _accumulator = new(TimeProvider.System);
 
         private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 

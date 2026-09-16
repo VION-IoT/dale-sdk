@@ -53,7 +53,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private static readonly ModbusReceipt TimeoutReceipt = SuccessReceipt with { Outcome = ModbusOutcome.Timeout };
 
-        private readonly ModbusLinkAccumulator _accumulator = new();
+        private readonly ModbusLinkAccumulator _accumulator = new(TimeProvider.System);
 
         private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 

@@ -61,7 +61,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         [TestInitialize]
         public void Initialize()
         {
-            _sut = new LogicBlockModbusTcpClient(_clientWrapperMock.Object, _requestQueueMock.Object, _loggerMock.Object);
+            _sut = new LogicBlockModbusTcpClient(_clientWrapperMock.Object, _requestQueueMock.Object, TimeProvider.System, _loggerMock.Object);
 
             _requestQueueMock.Setup(queue => queue.Enqueue(It.IsAny<string>(),
                                                            It.IsAny<IActorDispatcher>(),
