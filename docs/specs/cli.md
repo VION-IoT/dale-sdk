@@ -362,18 +362,23 @@ consumer regenerating a committed copy then reads a diff of their drift and noth
   status, the package identity and version, the parser's notices, and the endpoint's own answer
   nested under a member of its own.
 - `AC-CLI-011.8` (Optional): WHERE duplicates are to be skipped THE SYSTEM SHALL treat only a
-  conflict naming an existing version as a skip, and SHALL fail on every other conflict.
+  conflict whose error type names an existing version as a skip, and SHALL fail on every other
+  conflict.
 - `AC-CLI-011.9` (Ubiquitous): THE SYSTEM SHALL relay the introspection tool's pack-time notices,
   and nothing else of the pack's output, in both output modes.
 - `AC-CLI-011.10` (Optional): WHERE a continuous-integration upload supplies no integrator THE
   SYSTEM SHALL resolve it from the credential's own memberships, which holds while each service
   account maps to exactly one integrator.
 
-`AC-CLI-011.8` rests on the endpoint's message text, because both conflicts arrive as the same
-status and the same exception type. That is a known weakness with six readers — every
-`--skip-duplicate` invocation across this repository's two upload workflows and the first consumer's
-two release workflows — and the fix belongs to the platform API, which would carry a
-distinguishable field. Until then the substring match is the contract.
+`AC-CLI-011.8` rests on the error envelope's `exceptionType`, and on nothing else: a conflict is a
+skip only when that member is the string `DuplicateLibraryVersionException`, compared exactly, with
+the member's name looked up regardless of case as `AC-CLI-017.4` looks up the message.
+`DuplicatePackageIdException`, a plain `ConflictException`, a missing or non-string type, and a body
+that is not the envelope all fail. The message is what the user is shown, never what decides, so a
+rewording at the endpoint changes neither outcome — and there is no fallback to the message for an
+endpoint that still answers both conflicts as `ConflictException`. A tool carrying this rule fails
+every `--skip-duplicate` re-run against such an endpoint, so a release of it waits on the platform
+API that names the two conflicts apart being deployed where its consumers upload.
 
 The production gate is a GitHub Environment with a required reviewer, not a flag, a scope or a
 credential this tool knows about. The two systems share the word "environment" and are unrelated:
