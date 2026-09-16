@@ -66,3 +66,5 @@
 2026-09-16 · review · spec-process.md · The replaced review-priorities line left a 66-character line mid-paragraph where the rest wraps at 94 to 96, the reflow stub the same document's own sweep item tells a reviewer to read for, and no gate sees it inside a fence. (self) → codified: docs/spec-process.md
 
 2026-09-16 · review · self-reference-lint · The new README-in-scope case held only the two journal files, so excluding the whole folder reddened it through the zero-markdown floor rather than the exclusion; review-checks.md P5 calls that a fixture that cannot reach the clause. (self) → codified: scripts/self-reference-lint.tests.ps1
+
+2026-09-16 · brief · journal-fragments · The brief froze every docs/retro/ hit as a dated record; amendment 1 found the 2026-08-12 note's Next-round block forward-pointing, so its journal link 404ed and its read-below-the-marker and move-the-marker steps had become impossible. Repointed at the folder and reworded to rotation. → codified: docs/retro/2026-08-12-review-mining-round.md
