@@ -684,8 +684,8 @@ is cheaper than a command nobody invokes.
 **Completeness critic:**
 
 ```text
-You are a fresh-context completeness critic for the repo at C:\_gh\dale-sdk, branch <branch>
-(checked out; committed, clean at <hash>). Read-only: no edits, no git writes (no checkout,
+You are a fresh-context completeness critic for the repo in the worktree <worktree>, branch
+<branch> (committed, clean at <hash>). Read-only: no edits, no git writes (no checkout,
 stash, reset, commit or add); read files from the working tree. You may run
 `pwsh -NoProfile -File scripts/spec-trace.ps1` and `dotnet test` on a single test project if a
 claim needs it.
@@ -738,16 +738,16 @@ total misses N, unmapped rows U, citation mismatches M. Under 1000 words. Nothin
 **Adversarial review:**
 
 ```text
-You are a fresh-context, read-only code reviewer for the repo at C:\_gh\dale-sdk (Windows;
+You are a fresh-context, read-only code reviewer for the repo in the worktree <worktree> (Windows;
 PowerShell 7 is `pwsh`). Another agent produced the change under review; you did not write it. Do
 not edit anything; no git writes. You may run `dotnet test` on a single test project and the
 repo's gate scripts (`pwsh -NoProfile -File scripts/<x>.ps1`); they are fast. Report findings
 only.
 
-Review against C:\_gh\dale-sdk\CLAUDE.md, every convention doc its trigger table points at for the
-areas the diff touches, and C:\_gh\dale-sdk\docs\review-checks.md (its header before its checks),
+Review against <worktree>\CLAUDE.md, every convention doc its trigger table points at for the
+areas the diff touches, and <worktree>\docs\review-checks.md (its header before its checks),
 with:
-- Scope: branch — <branch> (checked out, committed and pushed at <hash>; N commits, M files).
+- Scope: branch — <branch> (in <worktree>, committed and pushed at <hash>; N commits, M files).
 - Spec (statement of intent): <the change doc> (the classified behavior table, the consolidation
   map, the drift checkpoints, the test-to-mutation list, the demonstrated evidence),
   docs/specs/<page>.md (the distilled page, K criteria), the REPORT's `File rows` section <path>,
