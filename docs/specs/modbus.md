@@ -215,6 +215,7 @@ different questions: `Connection.State` is about the transport, `Link.State` abo
   SYSTEM SHALL do nothing — no reconnect, and no change to an armed backoff.
 - `AC-MODB-006.7` (Event-driven): WHEN an address or a port changes THE SYSTEM SHALL reconnect on the
   next operation and clear any armed connect backoff.
+- `AC-MODB-006.8` (Ubiquitous): THE SYSTEM SHALL log an ordinary connect or disconnect below the level it logs an outage transition at, and SHALL report disconnecting only where a connection was closed. GAP: a log level, which `../testing-conventions.md` § 15 forbids asserting on.
 
 `AC-MODB-006.3` closes the sentinel both roles used to accept: port 0 asks the operating system for
 an ephemeral port, which is a guaranteed failure on the client and an endpoint nobody can be pointed
@@ -222,6 +223,12 @@ at on the server, and it is what an unset configuration field binds to. `AC-MODB
 consumer that re-applies its whole configuration on every edit does not drop its socket for an
 unrelated one — the committed `modbus-link-policy` scenario re-applies the entire connection struct
 and asserts the connect count does not move.
+
+`AC-MODB-006.8` is what keeps a connect and a disconnect from being the bulk of an edge log: both are
+per poll cycle against a device that releases an idle socket (`AC-MODB-008.5`), and per edit during
+commissioning (`AC-MODB-006.7`). The outage transitions — a backoff armed, ended or cleared, and a
+socket closed after a wire fault — are the lines above them, and they are what an operator reads a
+recovery off.
 
 ## The connect backoff
 

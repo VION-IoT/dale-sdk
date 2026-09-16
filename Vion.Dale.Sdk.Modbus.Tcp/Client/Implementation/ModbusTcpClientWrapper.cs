@@ -152,13 +152,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <inheritdoc />
         public Task DisconnectAsync(CancellationToken cancellationToken)
         {
-            LogDisconnecting(IpAddress!, Port);
             if (!_clientProxy.IsConnected)
             {
                 LogNotConnected(IpAddress!, Port);
                 return Task.CompletedTask;
             }
 
+            LogDisconnecting(IpAddress!, Port);
             _clientProxy.Disconnect();
             _connectionAccumulator.RecordDisconnected();
             LogDisconnected(IpAddress!, Port);
@@ -325,19 +325,22 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         [LoggerMessage(Level = LogLevel.Debug, Message = "Client is already connected to {IpAddress}:{Port}")]
         partial void LogAlreadyConnected(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Connecting to {IpAddress}:{Port}")]
+        /* A device that releases an idle socket is reconnected to once per poll cycle, and a connection struct edited
+         * in commissioning drops the socket per edit, so these four are the ordinary cadence rather than an event:
+         * at Information they are what an edge log is mostly made of. The transitions below stay above them. */
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Connecting to {IpAddress}:{Port}")]
         partial void LogConnecting(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Connected to {IpAddress}:{Port}")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Connected to {IpAddress}:{Port}")]
         partial void LogConnected(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Disconnecting from {IpAddress}:{Port}")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Disconnecting from {IpAddress}:{Port}")]
         partial void LogDisconnecting(IPAddress ipAddress, int port);
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Client is not connected to {IpAddress}:{Port}, nothing to disconnect")]
         partial void LogNotConnected(IPAddress ipAddress, int port);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Disconnected from {IpAddress}:{Port}")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Disconnected from {IpAddress}:{Port}")]
         partial void LogDisconnected(IPAddress ipAddress, int port);
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "The peer closed the connection to {IpAddress}:{Port}; reconnecting before the operation is sent")]
