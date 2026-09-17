@@ -13,10 +13,10 @@
   127.0.0.1:15020, so the scenarios exercise real sockets, real connect failures and the real
   backoff timer - nothing is mocked.
 
-  REAL CLOCK, deliberately. The DevHost's stepped mode drives the SDK's TimeProvider, but the
-  TCP client's sockets, connect timeout and operation timeout are real time: under a virtual
-  clock a backoff never elapses and every round trip reads zero. So DALE_DEVHOST_STEPPED is
-  never set here, and the scenarios' waits are real waits.
+  REAL CLOCK, deliberately. The DevHost's stepped mode drives the SDK's TimeProvider, which the
+  connect backoff runs on, but the TCP client's connect timeout and operation timeout are real
+  time, and the virtual clock does not move while a request is open, so every round trip reads
+  zero. So DALE_DEVHOST_STEPPED is never set here, and the scenarios' waits are real waits.
 
   The host is reset before each scenario. The link-policy scenario asserts absolute connect
   counts, which only hold on a freshly booted generation.
@@ -278,7 +278,7 @@ try
     $status = Invoke-RestMethod "$baseUri/api/control/status"
     if ($status.stepped)
     {
-        throw "The DevHost booted stepped. A virtual clock never lets a connect backoff elapse - unset DALE_DEVHOST_STEPPED."
+        throw "The DevHost booted stepped. The connect and operation timeouts are real time and every round trip would read zero - unset DALE_DEVHOST_STEPPED."
     }
 
     foreach ($id in $ids)

@@ -3,7 +3,7 @@
   "version": 1,
   "id": "http-roundtrip",
   "title": "HTTP — one request each way, over a real socket",
-  "description": "The floor the failure scenario builds on: SimServer serves its default routes on 127.0.0.1:18080, DebugClient sends a GET and then a POST with headers, a query and a body, and each side shows what the other sent — the client the status, content type, body and latency it got back, the simulator the request line, body and hit count it received. Real clock — the server holds a socket the host cannot step. Every value a drive changes is read with a wait, never an expect: one block action sets several properties, each is published on its own, and a sibling of the value just waited for can still read its old value. So the run does not depend on the host returning from start or from a set with published values already readable.",
+  "description": "The floor the failure scenario builds on: SimServer serves its default routes on 127.0.0.1:18080, DebugClient sends a GET and then a POST with headers, a query and a body, and each side shows what the other sent — the client the status, content type, body and latency it got back, the simulator the request line, body and hit count it received. Real clock — a stepped host does not move its virtual clock while a request is open, so the latency would read zero. Every value a drive changes is read with a wait, never an expect: one block action sets several properties, each is published on its own, and a sibling of the value just waited for can still read its old value. So the run does not depend on the host returning from start or from a set with published values already readable.",
   "topology": "default",
   "setup": [],
   "steps": [

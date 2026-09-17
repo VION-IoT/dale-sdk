@@ -22,8 +22,9 @@ namespace Vion.Examples.ModbusTcp.IntegrationTest
     ///     </para>
     ///     <para>
     ///         <b>Real clock on purpose.</b> The host is built without <c>WithDeterministicStepping</c>: the
-    ///         TCP client's sockets and timeouts are real time, so under a virtual clock a backoff would never
-    ///         elapse and every round trip would read zero. The waits here are therefore real waits, which is
+    ///         connect and operation timeouts are real time while a stepped host runs the backoff on virtual
+    ///         time, and the virtual clock does not move while a request is open, so every round trip would
+    ///         read zero. The waits here are therefore real waits, which is
     ///         why the link-policy run takes about half a minute.
     ///     </para>
     /// </summary>

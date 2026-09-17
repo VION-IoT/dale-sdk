@@ -91,8 +91,8 @@ queued age* has an ∅ toggle for "off".
    the client recover **with no operator action on it at all** — no reconnect button, no restart.
 
 5. **Too much cadence is not a fault.** Turn all three watch slots on and drop *Poll interval* and
-   *Watch interval* to `100` ms. `Link → MaxQueuedWait` grows — that is time
-   requests spend waiting their turn locally — while `Link → State` stays `Online`. Local outcomes are
+   *Watch interval* to `100` ms. `Link → RecentMeanQueuedWait` grows — that is time
+   requests spend waiting their turn locally, averaged over the last 15 minutes — while `Link → State` stays `Online`. Local outcomes are
    counted but never fault the device, so a congested client stays distinguishable from a broken one.
    Now set *Max queued age* to `1` ms: requests that wait longer than that are dropped rather than
    sent, `Link → ExpiredCount` ticks, and the state is *still* `Online`.
@@ -103,7 +103,10 @@ queued age* has an ∅ toggle for "off".
 6. **The slow variant.** Point *Connection → Server address* at a black-hole address such as
    `10.255.255.1` — one the network drops rather than refuses. Now each attempt takes the full
    *Connection timeout* (3 s) before it fails, which is what the same policy looks like against an
-   unplugged device rather than a wrong port.
+   unplugged device rather than a wrong port. Put the address back afterwards: `Link →
+   RecentMaxRoundTrip` holds the 3 s spike for 15 minutes and then forgets it, while `MaxRoundTrip` and
+   `MaxRoundTripAt` keep it since the client started — a one-off spike and a recurring one read
+   differently.
 
 **Every `127.0.0.x` address is this machine.** To make a connection fail, use a closed port (`15021`) or
 a black-hole address (`10.255.255.1`) — not another loopback IP. `127.0.0.2` does fail here, but only
@@ -198,8 +201,9 @@ wildly wrong, with `LswToMsw` it is the kW figure the device meant.
 - `scenarios/` — two committed scenarios: `modbus-healthy` and `modbus-link-policy`, the
   replayable form of the two tours. They run in the DevHost Player, from `pwsh scripts/smoke-modbus.ps1`,
   and in CI through `Vion.Examples.ModbusTcp.IntegrationTest`, which drives the same files headlessly.
-  All three run on the **real** clock: the client's sockets and timeouts are real time, so a stepped
-  host would never let a connect backoff elapse.
+  All three run on the **real** clock: the connect and operation timeouts are real time while a
+  stepped host runs the backoff on virtual time, and a stepped host does not move its virtual clock
+  while a request is open, so every round trip would read zero.
 
 ## Where the diagnostics come from
 
