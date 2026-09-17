@@ -4,7 +4,7 @@ One line per check: `Tn — name: what to look for, the shape of the violation`.
 Two prefixes, numbered separately; a new check takes the next free number of its prefix; a number is never reused or renumbered.
 `D` is closed: its checks were mined from the lead's own review findings over one window, and nothing is added to it. `P` grows by retro.
 No quotes, dates or session ids in a check.
-A check fires when a journal line names it. Unnamed for three retro rounds: deleted. Fires constantly: becomes a gate, removed here.
+A check fires when a merged pull request body's finding cites it. Three retro records at zero citations: deleted. Fires constantly: becomes a gate, removed here.
 
 - D1 — Surface minimalism: every new attribute, option, public member, generator, wrapper or scenario-step kind traces to a consumer that exists now; a mechanism added for later, a shorthand duplicating a general path, or an explicit knob where a convention such as declaration order or a default already decides.
 - D2 — XML docs terse and reader-facing: each doc claim matches the code that implements it rather than the neighbouring docstring; an RFC number, analyzer id, customer name, customer-specific example or design history in a doc, or a `<remarks>` restating the summary — which the docs site drops anyway ([`sdk-surface-conventions.md`](sdk-surface-conventions.md) § 2).

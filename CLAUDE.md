@@ -41,12 +41,10 @@ structure. Do not invent new patterns; name the precedent you followed.
 
 **Design docs are change docs in [`docs/changes/`](docs/changes/)** per
 [`docs/spec-process.md`](docs/spec-process.md); the current-truth spec corpus is
-[`docs/specs/`](docs/specs/). `docs/rfcs/` is **gone** — the last two, on the test kits, were absorbed
-by the `TKIT` pass and the directory went with them. Git history keeps them; the corpus is where
-current truth lives, and there is nowhere left to add an RFC to.
+[`docs/specs/`](docs/specs/). There is no `docs/rfcs/`, and nothing left to add one to.
 `docs/superpowers/` is **gitignored** (`.gitignore:301`) per architecture decision 0011, so anything
-a planning skill writes there cannot be committed — `git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs
-live in `../architecture/specs/`, never here.
+a planning skill writes there cannot be committed — `git check-ignore` is the tell; redirect anything
+meant to last to `docs/changes/`. Cross-repo specs live in `../architecture/specs/`, never here.
 
 ## Working agreement
 
@@ -77,10 +75,8 @@ At the start of a task, answer two questions out loud: is the change local? is a
 ### Communication
 
 - Say what was run, not that it worked.
-- A count is pasted with the command that produced it.
-- Expand an initialism the first time it is used.
+- A claim a decision rests on names its evidence: the command, the file and line, or that it is inferred.
 - Promise no notification that cannot be subscribed to.
-- A finding cites the line, or says it is inferred.
 
 ### Never
 
@@ -99,8 +95,15 @@ Naming a skill below (`/vion-git:…`, `/vion-improve:…`) in this file is what
 |---|---|
 | starting work on a change | `/vion-git:branch` |
 | a unit of work lands — a task, an acceptance criterion, a fixed review finding | `/vion-git:commit` |
-| the branch is ready for a pull request | `/vion-improve:codify`, then `/vion-git:pr` |
-| codify reports the journal's live window past 40 entries | `/vion-improve:retro`; a DALE analyzer is this repo's top rung of the ladder, above a CI gate |
+| the branch is ready for a pull request | `/vion-git:pr` |
+| the journal's live window passes its header's `retro at:` count, or the newest record ages past `retro`'s threshold | `/vion-improve:retro`; a DALE analyzer is this repo's top rung of the ladder, above a CI gate |
+
+### Reader depth
+
+Beyond `/vion-git:pr`'s defaults:
+
+- contract: `docs/specs/**`
+- generated: `docs/snapshots/**`
 
 ### Lanes in this repo
 
@@ -118,11 +121,12 @@ weight.
 
 ### Pre-PR obligations
 
-In this order:
+In this order; an item's `On ...:` is the trigger `/vion-git:pr` matches the changed paths against:
 
-1. `/cleanup`; commit what it changes.
-2. `/check`, with `-Build` and `-Test` when the change touches C#.
-3. `/vion-improve:codify`.
+1. On `*.cs`: `/cleanup`; commit what it changes.
+2. `/check`, with `-Build` and `-Test` when the change touches C#. Untriggered: its gates scan every
+   file kind here, so a trigger would name everything. CI runs that same suite
+   (`.github/workflows/spec-gates.yml`, `journal-lint` among it) on every pull request to `main`.
 
 The pull request body follows [`.github/pull_request_template.md`](.github/pull_request_template.md),
 which adds `## Draft items`, `## Spec ids touched` and `## Gates` to the base sections.
@@ -172,7 +176,7 @@ Vion.Dale.Cli.Test/         CLI unit tests
 templates/                  Project template bundled as content inside Vion.Dale.Cli (source used by `dale new`)
 examples/                   Example LogicBlock libraries — in Vion.Dale.Sdk.sln, referencing published packages
 libraries/                  First-party LogicBlock libraries shipped from here (Vion.Diagnostics)
-docs/                       Conventions, the spec corpus (specs/) + change docs (changes/), frozen RFCs, migrations, snapshots, the review checks, the process journal and retro notes
+docs/                       Conventions, the spec corpus (specs/) + change docs (changes/), migrations, snapshots, the review checks, the process journal and retro notes
 scripts/                    Build / versioning / docs generation scripts
 ```
 
@@ -180,7 +184,7 @@ scripts/                    Build / versioning / docs generation scripts
 
 **LogicBlock**: an actor-based computation unit. Extends `LogicBlockBase`. Has service properties (observable state), measuring points (read-only metrics), timers, and communicates with other blocks via interfaces and contracts.
 
-**Service properties vs measuring points — and dual-annotation (gotcha)**: a `[ServiceProperty]` (observable state) and a `[ServiceMeasuringPoint]` (charted time series) can both be declared on the **same C# property** — common for telemetry (e.g. grid-meter power surfaced as live state *and* a chart). They are **independent**: each publishes to its own retained MQTT stream (`…/property/state` vs `…/measuring-point/state`), is throttled/deadbanded separately, and a single value change raises **both** `ServicePropertyValueChanged` and `ServiceMeasuringPointValueChanged`. Consequence for anyone touching the emission/publish pipeline: **never key per-member state by `(service, member)` name alone** — that collides the two streams and one silently suppresses the other (this caused a measuring-points-go-dark regression). `LogicBlockBase` keeps **separate per-stream collections** (`_servicePropertyThrottlers` / `_measuringPointThrottlers`); keep that separation. Separate state is only half of it: **any site that reads a member's knobs off a `PropertyInfo` must be told which stream it is serving** — reaching for whichever emission attribute is found first hands the measuring point the property's policy and silently ignores its own ([`docs/specs/emission.md`](docs/specs/emission.md)).
+**Service properties vs measuring points (gotcha)**: a `[ServiceProperty]` and a `[ServiceMeasuringPoint]` may sit on the **same C# property**, and the two streams are then independent — separate retained topics, separate knobs, both change events ([`docs/specs/emission.md`](docs/specs/emission.md)). So, in the emission pipeline: never key per-member state by `(service, member)` name alone, and never read a member's knobs off a `PropertyInfo` without being told which stream is being served. Either one collides the two streams, and the measuring point silently goes dark.
 
 **Contracts**: define hardware I/O bindings (Modbus registers, digital pins, etc.) and inter-block messaging (commands, request-response). Shared DTOs live in `Vion.Contracts` (separate repo).
 
@@ -193,32 +197,15 @@ dotnet build Vion.Dale.Sdk.sln
 dotnet test Vion.Dale.Sdk.sln
 ```
 
-Examples (`examples/*`) and the inner template projects (`templates/vion-iot-library/VionIotLibraryTemplate*`) are in `Vion.Dale.Sdk.sln` and reference the SDK via `PackageReference`. Their checked-in versions must match a published `Vion.Dale.*` package (any preview or stable release). `scripts/set-version.ps1 -Scope references` bumps them after each release. The template content is bundled into `Vion.Dale.Cli` and a pack-time MSBuild target rewrites the template's `Vion.Dale.*` `PackageReference` versions to match the CLI's own `$(Version)`, so `dale new` always produces projects that reference the same version as the CLI installed.
+Examples (`examples/*`) and the inner template projects (`templates/vion-iot-library/VionIotLibraryTemplate*`) are in `Vion.Dale.Sdk.sln` and reference the SDK by `PackageReference`: their checked-in versions must match a published `Vion.Dale.*` package, preview or stable, and [`docs/releasing.md`](docs/releasing.md) owns bumping them. The template content is bundled into `Vion.Dale.Cli`, where a pack-time target rewrites its `Vion.Dale.*` versions to the CLI's own `$(Version)`, so `dale new` always matches the installed CLI.
 
 ## Dale CLI
 
-The CLI (`dale`) is the primary developer interface for consumers of the SDK. Install as a .NET global tool:
-
-```bash
-dotnet tool install -g Vion.Dale.Cli
-```
-
-Commands: `dale build`, `dale test`, `dale dev`, `dale list`, `dale new`, `dale add logicblock|serviceproperty|measuringpoint|timer`, `dale scenario run|validate|schema|scaffold|open`, `dale pack`, `dale upload`, `dale login`, `dale logout`, `dale whoami`, `dale config show|set-environment|set-integrator`.
-
-See [Vion.Dale.Cli/CLAUDE.md](Vion.Dale.Cli/CLAUDE.md) for architecture, patterns, and how to add commands.
+The CLI (`dale`, installed with `dotnet tool install -g Vion.Dale.Cli`) is the primary developer interface for consumers of the SDK. Its commands are [`docs/snapshots/cli-help-snapshot.txt`](docs/snapshots/cli-help-snapshot.txt), which CI regenerates; architecture, patterns and how to add one are [Vion.Dale.Cli/CLAUDE.md](Vion.Dale.Cli/CLAUDE.md).
 
 ## Versioning & Releases
 
-Versions are driven by git tags. No `<Version>` in any SDK `.csproj`. See [README.md#releases](README.md#releases) for the full flow.
-
-- Push to `main` that builds → CI publishes `0.0.0-ci.{run_number}` to the private Azure DevOps feed.
-- Push tag `vX.Y.Z` → CI publishes `X.Y.Z` to the private feed **and** nuget.org.
-
-After a release, bump the template/example `PackageReference` versions so the next commit ships consistent refs:
-
-```bash
-pwsh scripts/set-version.ps1 -Version X.Y.Z -Scope references
-```
+Versions are driven by git tags; no `<Version>` in any SDK `.csproj`. A push to `main` that builds publishes `0.0.0-ci.{run_number}` to the private Azure DevOps feed; a `vX.Y.Z` tag publishes `X.Y.Z` there **and** to nuget.org. The full flow is [README.md#releases](README.md#releases); cutting a release, and bumping the example and template refs after it, is [`docs/releasing.md`](docs/releasing.md).
 
 ## CI/CD
 
@@ -237,23 +224,9 @@ Env vars: `DALE_CLIENT_ID`, `DALE_CLIENT_SECRET`, `DALE_INTEGRATOR_ID` (all user
 
 - C# with `ImplicitUsings: false` (all usings explicit).
 - `Nullable: enabled`.
-- Code cleanup: **ReSharper `cleanupcode`** with the `Custom: Full Cleanup (excl. optimize usings)` profile (JetBrains CLI) — see the cleanup note below. Do NOT use the `Built-in: Reformat Code` profile.
+- Code cleanup: **ReSharper `cleanupcode`** with the `Custom: Full Cleanup (excl. optimize usings)` profile from `Vion.Dale.Sdk.sln.DotSettings`, the one Rider applies on save. `/cleanup` (`scripts/cleanup-code.ps1`) is the single source of truth and what CI's `style` job verifies with `-Verify`; never the `Built-in: Reformat Code` profile, which fights cleanup-on-save.
 - Allman brace style throughout.
 - Targets: `netstandard2.1` for SDK runtime + I/O / protocol contracts + Http (cross-platform plugin compatibility), `netstandard2.0` for source generator, `net10.0` for TestKits / CLI / DevHost / ProtoActor / Plugin / LogicBlockParser / tests.
-
-Code style is **ReSharper cleanupcode** with the `Custom: Full Cleanup (excl. optimize usings)`
-profile in `Vion.Dale.Sdk.sln.DotSettings` — the same profile ReSharper/Rider apply on save. The
-single source of truth is **`scripts/cleanup-code.ps1`**: it restores the pinned `jb` tool
-(`.config/dotnet-tools.json`) and runs the exact cleanup. CI runs the same script with `-Verify`
-(fails on drift) in the `style` job of `.github/workflows/publish.yml`, beside the pack job, scoped
-as that workflow's "Scope the run" step decides — so local and CI can't diverge.
-
-**Before opening a PR: run `pwsh scripts/cleanup-code.ps1 -Changed` (or the `/cleanup` slash command),
-review `git diff`, and commit any changes** — this keeps the CI style gate from failing the PR.
-`-Changed` scopes the cleanup to the `.cs` your branch touched — including files you have not
-`git add`ed yet — and skips in ~0.5s when none did (the fast dev-loop path). **Agents: do this
-automatically before `gh pr create`.** Do NOT run cleanup with `--profile="Built-in: Reformat Code"` —
-it differs from the DotSettings profile and fights cleanup-on-save.
 
 **Formatter escape hatch:** for the rare span where `cleanupcode` formats inconsistently
 across OSes (local vs the Linux CI runner) or where you intentionally hand-format (e.g. an
@@ -278,11 +251,16 @@ with the `dale-sdk-feedback` skill ([`.claude/skills/dale-sdk-feedback/`](.claud
 it verifies against this repo before drafting, keeps items short, and never decides the fix. Picking,
 briefing and closing items is `/triage` + `/fix` in the architecture repo. When a release resolves an
 item, `/fix`'s closing comment is what the maintainer relays to the consumer — they don't read Jira.
-(Until 2026-08 the intake channel was a field log in `logic-block-libraries`, entries `DF-nn` — retired;
-its history is in that repo's git, and the numbers survive as `Origin` lines on the migrated items.)
+An item migrated from the retired `logic-block-libraries` field log carries its `DF-nn` as an `Origin` line.
 
 ## How this file stays true
 
 One owner per rule: where a convention doc owns the subject, the rule lives there and this file links
-to it. The journal, codify and retro loop is the `vion-improve` plugin's (§ Skills in this repo), and
-the checks a review runs are [`docs/review-checks.md`](docs/review-checks.md).
+to it. The journal and retro loop is the `vion-improve` plugin's (§ Skills in this repo), and the
+checks a review runs are [`docs/review-checks.md`](docs/review-checks.md).
+
+Harness budgets, in bytes of the committed file: this file 10 kB, a `.claude/commands/*.md` 12 kB,
+any other `.claude/**/*.md` 6 kB; `docs/review-checks.md` 15 checks. A file over its budget is touched
+only by a diff that leaves it smaller than `origin/main`'s copy; a file at or under may not go over —
+so a retro that adds a check prunes one in the same round, or raises the number here and says why. No
+gate reads these numbers — enforced by hand. Over today: this file and all three skills.
