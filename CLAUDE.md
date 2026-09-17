@@ -102,8 +102,8 @@ Naming a skill below (`/vion-git:…`, `/vion-improve:…`) in this file is what
 
 Beyond `/vion-git:pr`'s defaults:
 
-- contract: docs/specs/**
-- generated: docs/snapshots/**
+- contract: `docs/specs/**`
+- generated: `docs/snapshots/**`
 
 ### Lanes in this repo
 
@@ -259,7 +259,8 @@ One owner per rule: where a convention doc owns the subject, the rule lives ther
 to it. The journal and retro loop is the `vion-improve` plugin's (§ Skills in this repo), and the
 checks a review runs are [`docs/review-checks.md`](docs/review-checks.md).
 
-Harness budgets, in bytes of the committed file: this file 10 kB, a `.claude/commands/*.md` 12 kB, a
-`.claude/skills/*/SKILL.md` 6 kB; `docs/review-checks.md` 15 checks. A file over its budget is touched
-only by a diff that leaves it smaller than `origin/main`'s copy; a file under may not go over. No gate
-reads these numbers - enforced by hand. Over today: this file and all three skills.
+Harness budgets, in bytes of the committed file: this file 10 kB, a `.claude/commands/*.md` 12 kB,
+any other `.claude/**/*.md` 6 kB; `docs/review-checks.md` 15 checks. A file over its budget is touched
+only by a diff that leaves it smaller than `origin/main`'s copy; a file at or under may not go over —
+so a retro that adds a check prunes one in the same round, or raises the number here and says why. No
+gate reads these numbers — enforced by hand. Over today: this file and all three skills.
