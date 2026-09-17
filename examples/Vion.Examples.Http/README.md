@@ -151,8 +151,9 @@ and the *Last request* properties catch up on it too.
   client's answers on a virtual clock, so latency and timeouts are exact; `FakeHttpServerHarness` hosts the
   real server on an in-memory transport.
 - `Vion.Examples.Http.IntegrationTest` and `scenarios/` — the two scenarios above, run headlessly with the
-  client and the server talking over a real loopback socket. They run on the **real** clock: the server
-  holds a socket the host cannot step.
+  client and the server talking over a real loopback socket. They run on the **real** clock: a stepped host
+  does not move its virtual clock while a request is open, so every latency would read zero, and a
+  refused or unanswered request ends on the client's real-time bounds either way.
 
 ## Limitations
 

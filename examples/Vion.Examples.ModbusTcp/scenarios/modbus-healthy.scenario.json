@@ -3,7 +3,7 @@
   "version": 1,
   "id": "modbus-healthy",
   "title": "Modbus TCP — healthy poll baseline",
-  "description": "The floor the link-policy scenario builds on: with SimServer listening on 127.0.0.1:15020 and DebugClient pointed at it, the poll loop reads, the watch slot decodes, and the SDK's link summary says Online with no failures of any kind. Real clock — the sockets and timeouts are real time, so a stepped host would never let a round trip elapse.",
+  "description": "The floor the link-policy scenario builds on: with SimServer listening on 127.0.0.1:15020 and DebugClient pointed at it, the poll loop reads, the watch slot decodes, and the SDK's link summary says Online with no failures of any kind. Real clock — a stepped host does not move its virtual clock while a request is open, so every round trip would read zero.",
   "topology": "default",
   "setup": [
     { "set": "DebugClient.ReadFunction", "value": "InputRegisters" },
@@ -25,6 +25,8 @@
 
     { "label": "the headline pill follows the SDK's verdict", "waitUntil": { "property": "DebugClient.LinkHealth", "equals": "Online" }, "timeoutSeconds": 20 },
     { "label": "a receipt carried the wire time", "expect": { "property": "DebugClient.Link.maxRoundTrip", "notEquals": null } },
+    { "label": "the 15-minute window counted the polls", "expect": { "property": "DebugClient.Link.recentRoundTripCount", "above": 3 } },
+    { "label": "and averaged their wire time", "expect": { "property": "DebugClient.Link.recentMeanRoundTrip", "notEquals": null } },
     { "label": "and the block stamped it", "waitUntil": { "property": "DebugClient.LastReadAt", "notEquals": null }, "timeoutSeconds": 20 },
     { "label": "nothing failed", "expect": { "property": "DebugClient.Link.timeoutCount", "equals": 0 } },
     { "label": "nothing faulted the transport", "expect": { "property": "DebugClient.Link.transportErrorCount", "equals": 0 } },

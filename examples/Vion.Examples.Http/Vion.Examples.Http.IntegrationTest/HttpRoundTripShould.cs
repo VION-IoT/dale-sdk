@@ -20,8 +20,8 @@ namespace Vion.Examples.Http.IntegrationTest
     ///         that the two blocks understand each other on the wire.
     ///     </para>
     ///     <para>
-    ///         <b>Real clock on purpose.</b> The host is built without <c>WithDeterministicStepping</c>: the server holds a
-    ///         socket the host cannot step, and the client's latency would read zero on a clock nothing advances. The waits
+    ///         <b>Real clock on purpose.</b> The host is built without <c>WithDeterministicStepping</c>: a stepped host does
+    ///         not move its virtual clock while a request is open, so the client's latency would read zero. The waits
     ///         here are therefore real waits.
     ///     </para>
     /// </summary>
