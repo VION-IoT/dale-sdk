@@ -1,0 +1,1 @@
+2026-09-17 · brief · process-efficiency · The brief offered ten as the `docs/review-checks.md` budget "with the retro's pruning to come" and in the same item said this slice deletes no check: naming ten would put the file over its budget on the very diff that names the budget. Named fifteen, what the file holds.
