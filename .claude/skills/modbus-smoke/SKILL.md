@@ -25,10 +25,10 @@ moves those examples onto a new SDK version.
 
 ## The one gotcha: real clock
 
-The DevHost's stepped mode drives the SDK's `TimeProvider`, but the TCP client's **sockets, connect
-timeout and operation timeout are real time**. Under a virtual clock a connect backoff never elapses
-and every `RoundTrip` reads zero, so a stepped run proves nothing about the link policy and hangs on
-the waits. Never set `DALE_DEVHOST_STEPPED` for this. The script refuses to run against a stepped
+The DevHost's stepped mode drives the SDK's `TimeProvider`, which the connect backoff runs on, but the
+TCP client's **connect timeout and operation timeout are real time**, and the virtual clock does not
+move while a request is open, so every `RoundTrip` reads zero. A stepped run measures the link policy
+on two clocks at once and proves nothing about it. Never set `DALE_DEVHOST_STEPPED` for this. The script refuses to run against a stepped
 host, and the scenarios' waits are real waits.
 
 ## Tier 1 — headless, the whole policy (~1 minute)
