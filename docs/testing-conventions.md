@@ -146,7 +146,7 @@ answer off them. Look for that before concluding a type has no seam.
 
 The same rule in its other costume: **no test-only accessors** — never add a member to the SUT
 whose sole purpose is letting tests inspect internal state. It widens the published surface for
-non-production reasons (§ D1 territory) and couples tests to the current representation. If neither
+non-production reasons (CHK-01 territory) and couples tests to the current representation. If neither
 the introspection result, an event, a return value, nor a collaborator can observe the behavior,
 stop and surface the design issue rather than carving a hole in the SUT. A **seam** a test
 overrides — an injected transport, a redirectable store root, a console a renderer writes through —
