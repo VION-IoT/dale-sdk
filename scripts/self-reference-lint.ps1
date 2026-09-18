@@ -16,7 +16,7 @@
 
   Whole-cell is the rule because the obvious alternative - a length bound separating a token
   from a paragraph - cannot be pinned. A bound of 60 survived being doubled to 130 with every
-  self-test still green, which makes the number an assertion rather than a rule (P5).
+  self-test still green, which makes the number an assertion rather than a rule (CHK-15).
 
   What that gives up, stated rather than discovered later: a cell that carries the phrase inside
   a sentence is NOT caught. `landed in this PR`, `see this PR`, `this PR (#TBD)` and `PR: this PR`
