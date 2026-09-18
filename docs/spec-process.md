@@ -564,7 +564,7 @@ checks read it first:
 
 Then: commands run plus results · the `test → mutation` list · the GAP list · premise tests left
 uncited, with reasons · a draft item per `file` row · friction one-liners in
-[`process-journal/README.md`](process-journal/README.md)'s format.
+`/vion-improve:journal`'s format.
 
 **Gates, all of them, results verbatim** — every line a paste, including the ones whose numbers did
 not move; a number carried from an earlier run is stale by default and a composed one is the same
@@ -787,7 +787,7 @@ Review priorities beyond the checks in docs/review-checks.md:
    (`scripts/spec-lint.ps1 -Diff main`); GAP markers only where the reason holds.
 5. Wire and consumer surfaces: <the area's files, schemas, HTTP or CLI surfaces> changed exactly
    as classified; docs/snapshots/publicapi-manifest.json unchanged or changed only as intended;
-   the process-journal lines follow the format `docs/process-journal/README.md` states, sit in
+   the process-journal lines follow the format `/vion-improve:journal` states, sit in
    this branch's fragment, and record rather than prescribe; every `file` row carries a draft
    item with its reason, and a fixed row carries none.
 
