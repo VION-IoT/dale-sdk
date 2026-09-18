@@ -33,8 +33,6 @@ the work they govern — **read the linked doc before doing the matching work, a
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
 | reviewing a change | `/vion-git:review` — it reads [`docs/review-checks.md`](docs/review-checks.md), this repo's named checks |
-| writing a process-journal line | `/vion-improve:journal` — the line goes in this branch's fragment under [`docs/process-journal/`](docs/process-journal/), whose `README.md` states the grammar and the rule for finding it |
-| writing or editing a harness file — `CLAUDE.md`, a convention doc, a command, a skill, settings, the journal header | `/vion-improve:harness` |
 
 **Before writing new code, read similar existing files** in the same area and replicate their
 structure. Do not invent new patterns; name the precedent you followed.
@@ -53,29 +51,28 @@ meant to last to `docs/changes/`. Cross-repo specs live in `../architecture/spec
 At the start of a task, answer two questions out loud: is the change local? is a design point open?
 
 - **Fix-sized** — local, nothing open: branch, commit, review, pull request. No document. A change
-  that turns out not to be local stops and says so, and becomes feature-sized.
+  that turns out not to be local stops and says so: it is feature-sized.
 - **Feature-sized** — a change doc first, in `docs/changes/`. Ratified before code when a question
   in it is open. Archived in the pull request that lands it.
 
 ### STOPs
 
-- A STOP is named up front — by the brief, by an open question in the change doc, or by the lane
-  answer — and there is no other. With none named, the human review is on the pull request.
+- A STOP is named up front — by the brief, an open question in the change doc, or the lane answer —
+  and no other. With none named, human review is on the pull request.
 - A STOP is a `partial` REPORT with a question in it.
 - A decision nobody named is surfaced, not taken. A hedge in a brief is a STOP when it fails.
-- Scope does not widen on its own: a design or naming question is answered with options and changes
-  nothing until the human chooses; work nobody asked for is proposed, not produced.
+- Scope does not widen on its own: a design or naming question gets options and changes nothing
+  until the human chooses; work nobody asked for is proposed, not produced.
 - A question from the human is a question, not an instruction.
 - Anything committed after a `done` REPORT needs a new REPORT.
-- A request that breaks a convention of this repo is pushed back on before complying, naming the
-  convention.
-- Verification only a human can do is not a STOP: it is written as "not run, routes to a human" under
-  the pull request's Verification.
+- A request that breaks a convention of this repo is pushed back on before complying, by name.
+- Verification only a human can do is not a STOP: write it as "not run, routes to a human" under the
+  pull request's Verification.
 
 ### Communication
 
 - Say what was run, not that it worked.
-- A claim a decision rests on names its evidence: the command, the file and line, or that it is inferred.
+- A claim a decision rests on names its evidence: a command, a file and line, or that it is inferred.
 - Promise no notification that cannot be subscribed to.
 
 ### Never
@@ -89,21 +86,14 @@ At the start of a task, answer two questions out loud: is the change local? is a
 
 ## Skills in this repo
 
-Naming a skill below (`/vion-git:…`, `/vion-improve:…`) in this file is what opts this repo in.
-
 | moment | skill |
 |---|---|
 | starting work on a change | `/vion-git:branch` |
-| a unit of work lands — a task, an acceptance criterion, a fixed review finding | `/vion-git:commit` |
+| a unit of work lands — a task, a criterion, a fixed review finding | `/vion-git:commit` |
+| a correction to produced work, tooling that fought or false-passed, upstream that was wrong, a settled point, a grumble | `/vion-improve:journal` |
+| editing a file written for the agent — `CLAUDE.md`, a command, a skill, a convention doc, settings | `/vion-improve:harness` |
 | the branch is ready for a pull request | `/vion-git:pr` |
-| the journal's live window passes its header's `retro at:` count, or the newest record ages past `retro`'s threshold | `/vion-improve:retro`; a DALE analyzer is this repo's top rung of the ladder, above a CI gate |
-
-### Reader depth
-
-Beyond `/vion-git:pr`'s defaults:
-
-- contract: `docs/specs/**`
-- generated: `docs/snapshots/**`
+| a retro is due, by the count and age `retro` states | `/vion-improve:retro` |
 
 ### Lanes in this repo
 
@@ -121,15 +111,18 @@ weight.
 
 ### Pre-PR obligations
 
-In this order; an item's `On ...:` is the trigger `/vion-git:pr` matches the changed paths against:
-
 1. On `*.cs`: `/cleanup`; commit what it changes.
-2. `/check`, with `-Build` and `-Test` when the change touches C#. Untriggered: its gates scan every
-   file kind here, so a trigger would name everything. CI runs that same suite
-   (`.github/workflows/spec-gates.yml`, `journal-lint` among it) on every pull request to `main`.
+2. `/check`, with `-Build` and `-Test` when the change touches C#.
 
 The pull request body follows [`.github/pull_request_template.md`](.github/pull_request_template.md),
 which adds `## Draft items`, `## Spec ids touched` and `## Gates` to the base sections.
+
+### Reader depth
+
+Beyond `/vion-git:pr`'s defaults:
+
+- contract: `docs/specs/**`
+- generated: `docs/snapshots/**`
 
 ### Parallel sessions
 
@@ -255,12 +248,6 @@ An item migrated from the retired `logic-block-libraries` field log carries its 
 
 ## How this file stays true
 
-One owner per rule: where a convention doc owns the subject, the rule lives there and this file links
-to it. The journal and retro loop is the `vion-improve` plugin's (§ Skills in this repo), and the
-checks a review runs are [`docs/review-checks.md`](docs/review-checks.md).
-
 Harness budgets, in bytes of the committed file: this file 10 kB, a `.claude/commands/*.md` 12 kB,
-any other `.claude/**/*.md` 6 kB; `docs/review-checks.md` 15 checks. A file over its budget is touched
-only by a diff that leaves it smaller than `origin/main`'s copy; a file at or under may not go over —
-so a retro that adds a check prunes one in the same round, or raises the number here and says why. No
-gate reads these numbers — enforced by hand. Over today: this file and all three skills.
+any other `.claude/**/*.md` 6 kB; `docs/review-checks.md` 15 checks. No gate reads these numbers —
+enforced by hand.
