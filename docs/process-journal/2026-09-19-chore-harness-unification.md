@@ -1,0 +1,1 @@
+2026-09-19 · brief · harness-unification · The brief listed every reader of the journal README's grammar but missed docs/spec-process.md:567 and :790, which point at it for the journal's format; the reduction left both false. (self)

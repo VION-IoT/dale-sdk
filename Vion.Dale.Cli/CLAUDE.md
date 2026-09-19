@@ -96,9 +96,9 @@ var response = await DaleHttpClient.GetAsync(url, ctx.AccessToken);
 
 **JSON mode is one stream.** `-o json` suppresses every human line; results and failures both go to standard output as JSON (`{"error": …}` for a failure), and a child process's output is relayed to standard error so the document is parseable. In table mode a failure goes to standard error instead. See `docs/specs/cli.md`.
 
-**Auth resolution chain:** `--client-id`/`--client-secret` flags (CI) → `DALE_CLIENT_ID`/`DALE_CLIENT_SECRET` env vars → stored credentials from `dale login`. Integrator: `--integrator-id` flag → `DALE_INTEGRATOR_ID` env var → stored config → auto-resolve via `/me` (auto-selects if one membership).
+**Auth resolution chain:** `--client-id`/`--client-secret` flags (CI) → `DALE_CLIENT_ID`/`DALE_CLIENT_SECRET` env vars → stored credentials from `dale login`. Integrator: `--integrator-id` flag → `DALE_INTEGRATOR_ID` env var → stored config → auto-resolve via `/me` (auto-selects if one membership). The three `DALE_` env vars are user-facing: keep the prefix.
 
-**Environment configuration.** `dale config set-environment production|test|<custom>` sets the Cloud API and Keycloak URLs. Custom environments need both URLs on the same command: `dale config set-environment <name> --auth-url <url> --api-url <url>`. Keycloak client is `dale-cli` (public, PKCE).
+**Environment configuration.** `dale config set-environment production|test|<custom>` sets the Cloud API and Keycloak URLs. Custom environments need both URLs on the same command: `dale config set-environment <name> --auth-url <url> --api-url <url>`. Keycloak client is `dale-cli` (public, PKCE). That client id is an external identity — do not rename it.
 
 ## Known Limitations
 
