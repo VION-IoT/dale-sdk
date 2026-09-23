@@ -16,6 +16,11 @@ namespace Vion.Dale.Sdk.Http.Server
         bool IsListening { get; }
 
         /// <summary>
+        ///     Gets how many connections the transport is serving now, not counting one it refused at its connection limit.
+        /// </summary>
+        int ActiveConnections { get; }
+
+        /// <summary>
         ///     Starts accepting requests on the address and port, answering each through <paramref name="handler" />. A bind
         ///     failure propagates to the caller.
         /// </summary>
@@ -43,6 +48,22 @@ namespace Vion.Dale.Sdk.Http.Server
         ///     full. A transport calls it at most once per exchange, and never for a response it could not write.
         /// </summary>
         void Delivered(HttpServerExchange exchange);
+
+        /// <summary>
+        ///     Reports that the transport refused a request itself, with <paramref name="status" />, without asking
+        ///     <see cref="Answer" />.
+        /// </summary>
+        void Refused(HttpStatusCode status);
+
+        /// <summary>
+        ///     Reports that the transport refused a connection with 503 because its connection limit was reached.
+        /// </summary>
+        void Overloaded();
+
+        /// <summary>
+        ///     Reports that the transport closed a connection with neither a response written in full nor a refusal.
+        /// </summary>
+        void Abandoned();
     }
 
     /// <summary>
@@ -62,6 +83,15 @@ namespace Vion.Dale.Sdk.Http.Server
 
         /// <summary>When the server answered the request, on its clock; set by <see cref="IHttpServerExchangeHandler.Answer" />.</summary>
         public DateTimeOffset ReceivedAt { get; set; }
+
+        /// <summary>The status the server answered with; set by <see cref="IHttpServerExchangeHandler.Answer" />.</summary>
+        public HttpStatusCode StatusCode { get; set; }
+
+        /// <summary>
+        ///     Whether the answer was a response the block published, rather than a 404 or 405 the server sent for want of
+        ///     one; set by <see cref="IHttpServerExchangeHandler.Answer" />.
+        /// </summary>
+        public bool Published { get; set; }
 
         public HttpServerExchange(string method, string path, string query, IReadOnlyDictionary<string, string> headers, byte[] body)
         {

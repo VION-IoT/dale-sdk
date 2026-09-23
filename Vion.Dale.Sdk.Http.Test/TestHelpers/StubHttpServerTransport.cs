@@ -31,6 +31,9 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
             get => _handler != null;
         }
 
+        /// <summary>What the transport reports as the connections it is serving; set by a test.</summary>
+        public int ActiveConnections { get; set; }
+
         public void Start(IPAddress listenAddress, int port, IHttpServerExchangeHandler handler)
         {
             if (ThrowOnStart != null)
@@ -65,6 +68,18 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
             handler.Delivered(exchange);
 
             return response;
+        }
+
+        /// <summary>Reports a refusal to the server, the way the socket transport does for a request it refuses itself.</summary>
+        public void Refuse(HttpStatusCode status)
+        {
+            (_handler ?? throw new InvalidOperationException("The server has not started this transport.")).Refused(status);
+        }
+
+        /// <summary>Reports a connection refused at the connection limit to the server.</summary>
+        public void Overload()
+        {
+            (_handler ?? throw new InvalidOperationException("The server has not started this transport.")).Overloaded();
         }
     }
 }

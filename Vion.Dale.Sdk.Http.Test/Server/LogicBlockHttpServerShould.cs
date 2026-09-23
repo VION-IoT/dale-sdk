@@ -497,12 +497,12 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-HTTP-016.10")]
+        [TestProperty("spec", "AC-HTTP-021.6")]
         public void ReportMostRecentArrivalAndNoneBeforeFirst()
         {
             // Arrange
             _sut.IsEnabled = true;
-            var beforeAny = _sut.LastRequestAt;
+            var beforeAny = _sut.Summary.LastRequestAt;
             _transport.Send("GET", "/a");
             _clock.Advance(TimeSpan.FromSeconds(5));
 
@@ -511,7 +511,115 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
             // Assert
             Assert.IsNull(beforeAny);
-            Assert.AreEqual(Anchor.AddSeconds(5), _sut.LastRequestAt);
+            Assert.AreEqual(Anchor.AddSeconds(5).UtcDateTime, _sut.Summary.LastRequestAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.1")]
+        public void KeepSummaryAcrossDisableAndEnable()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+            _transport.Send("GET", "/a");
+            _transport.Refuse(HttpStatusCode.BadRequest);
+
+            // Act
+            _sut.IsEnabled = false;
+            _sut.IsEnabled = true;
+
+            // Assert — read outside any Sync callback
+            var summary = _sut.Summary;
+            Assert.AreEqual(1L, summary.UnmatchedCount);
+            Assert.AreEqual(1L, summary.RefusedCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.2")]
+        public void CountPublishedAnswerApartFromUnmatched()
+        {
+            // Arrange — one of the published routes answers 404 itself, which is a published answer and not an unmatched one
+            _sut.IsEnabled = true;
+            _sut.Sync(snapshot =>
+                      {
+                          snapshot.SetResponse(HttpMethod.Get, "/a", HttpServerResponse.Json("{}"));
+                          snapshot.SetResponse(HttpMethod.Get, "/gone", new HttpServerResponse(HttpStatusCode.NotFound));
+                      });
+
+            // Act
+            _transport.Send("GET", "/a");
+            _transport.Send("GET", "/gone");
+            _transport.Send("GET", "/missing");
+            _transport.Send("POST", "/a");
+
+            // Assert
+            var summary = _sut.Summary;
+            Assert.AreEqual(2L, summary.AnsweredCount);
+            Assert.AreEqual(2L, summary.UnmatchedCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.3")]
+        public void RecordLastRefusalOfEitherKind()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+            _transport.Refuse(HttpStatusCode.RequestEntityTooLarge);
+            _clock.Advance(TimeSpan.FromSeconds(5));
+
+            // Act
+            _transport.Overload();
+
+            // Assert
+            var summary = _sut.Summary;
+            Assert.AreEqual(1L, summary.RefusedCount);
+            Assert.AreEqual(1L, summary.OverloadedCount);
+            Assert.AreEqual(503, summary.LastRefusalStatus);
+            Assert.AreEqual(Anchor.AddSeconds(5).UtcDateTime, summary.LastRefusalAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.5")]
+        [DataRow(LogicBlockHttpServer.ReceivedRequestCapacity + 2, 0, 2L, DisplayName = "more requests than kept")]
+        [DataRow(1, LogicBlockHttpServer.ReceivedRequestBodyBudget + 1, 1L, DisplayName = "body alone over budget")]
+        public void CountDroppedRequestsOverLifetime(int requestCount, int bodyBytes, long expectedDropped)
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+            for (var index = 0; index < requestCount; index++)
+            {
+                _transport.Send("POST", "/r", body: new byte[bodyBytes]);
+            }
+
+            // Act — taking the requests clears the snapshot's own count, and not the lifetime one
+            var droppedAfterTake = _sut.Sync(snapshot =>
+                                             {
+                                                 snapshot.TakeReceivedRequests();
+
+                                                 return snapshot.DroppedRequestCount;
+                                             });
+
+            // Assert
+            Assert.AreEqual(0, droppedAfterTake);
+            Assert.AreEqual(expectedDropped, _sut.Summary.DroppedCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.8")]
+        public void RecordStatusEachRequestWasAnsweredWith()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Post, "/a", new HttpServerResponse(HttpStatusCode.Created)));
+            _transport.Send("POST", "/a");
+            _transport.Send("GET", "/missing");
+            _transport.Send("GET", "/a");
+
+            // Act
+            var taken = _sut.Sync(snapshot => snapshot.TakeReceivedRequests());
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { HttpStatusCode.Created, HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed },
+                                      taken.Select(request => request.StatusCode).ToArray());
         }
 
         [TestMethod]

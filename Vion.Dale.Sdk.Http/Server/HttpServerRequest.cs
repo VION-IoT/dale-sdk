@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Http.Server
@@ -41,12 +42,19 @@ namespace Vion.Dale.Sdk.Http.Server
         /// </summary>
         public DateTimeOffset ReceivedAt { get; }
 
+        /// <summary>
+        ///     Gets the status the server answered the request with: the published response's, or the 404 or 405 it sent
+        ///     when nothing was published for the request.
+        /// </summary>
+        public HttpStatusCode StatusCode { get; }
+
         internal HttpServerRequest(string method,
                                    string path,
                                    string query,
                                    IReadOnlyDictionary<string, string> headers,
                                    byte[] body,
-                                   DateTimeOffset receivedAt)
+                                   DateTimeOffset receivedAt,
+                                   HttpStatusCode statusCode)
         {
             Method = method;
             Path = path;
@@ -54,6 +62,7 @@ namespace Vion.Dale.Sdk.Http.Server
             Headers = headers;
             Body = body;
             ReceivedAt = receivedAt;
+            StatusCode = statusCode;
         }
     }
 }

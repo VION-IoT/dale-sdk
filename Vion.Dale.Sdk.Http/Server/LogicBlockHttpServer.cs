@@ -42,27 +42,48 @@ namespace Vion.Dale.Sdk.Http.Server
 
         private readonly Dictionary<string, Dictionary<string, HttpServerResponse>> _routes = new(StringComparer.Ordinal);
 
+        /// <summary>
+        ///     Guards the summary's fields apart from <see cref="_gate" />, so a transport thread reporting a refusal never waits
+        ///     for a <c>Sync</c> callback, and reading the summary never does either. Taken after <see cref="_gate" /> where both
+        ///     are held, never before it.
+        /// </summary>
+        private readonly object _summaryGate = new();
+
         private readonly TimeProvider _timeProvider;
 
         private readonly IHttpServerTransport _transport;
 
+        private long _abandonedCount;
+
+        private long _answeredCount;
+
         private bool _disposed;
+
+        private long _droppedCount;
 
         private int _droppedRequestCount;
 
         private bool _isEnabled;
 
-        // UTC ticks of the most recent arrival; 0 = none. A long read with Volatile semantics because the writers are
-        // transport threads and the reader is the block's actor, and a multi-word struct copy could tear.
-        private long _lastRequestAtUtcTicks;
+        private DateTime? _lastRefusalAt;
+
+        private int? _lastRefusalStatus;
+
+        private DateTime? _lastRequestAt;
+
+        private long _overloadedCount;
 
         private IPAddress _parsedListenAddress = IPAddress.Loopback;
 
         private long _receivedBodyBytes;
 
+        private long _refusedCount;
+
         // A depth, not a flag: the gate is re-entrant, so a nested Sync returning would clear a flag while the outer
         // callback still holds the gate — and the guard exists for exactly that callback.
         private int _syncCallbackDepth;
+
+        private long _unmatchedCount;
 
         public LogicBlockHttpServer(IHttpServerTransport transport, TimeProvider timeProvider, ILogger<LogicBlockHttpServer> logger)
         {
@@ -81,13 +102,24 @@ namespace Vion.Dale.Sdk.Http.Server
             lock (_gate)
             {
                 exchange.ReceivedAt = _timeProvider.GetUtcNow();
+                HttpServerResponse response;
                 if (!_routes.TryGetValue(exchange.Path, out var byMethod))
                 {
-                    return HttpServerResponse.NotFound();
+                    response = HttpServerResponse.NotFound();
+                }
+                else if (byMethod.TryGetValue(exchange.Method, out var published))
+                {
+                    response = published;
+                    exchange.Published = true;
+                }
+                else
+                {
+                    response = HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
                 }
 
-                return byMethod.TryGetValue(exchange.Method, out var response) ? response :
-                           HttpServerResponse.MethodNotAllowed(byMethod.Keys.OrderBy(method => method, StringComparer.Ordinal));
+                exchange.StatusCode = response.StatusCode;
+
+                return response;
             }
         }
 
@@ -99,32 +131,75 @@ namespace Vion.Dale.Sdk.Http.Server
         {
             lock (_gate)
             {
-                // Concurrent connections finish in any order, so the most recent arrival is not always the last one recorded.
-                if (exchange.ReceivedAt.UtcTicks > Volatile.Read(ref _lastRequestAtUtcTicks))
-                {
-                    Volatile.Write(ref _lastRequestAtUtcTicks, exchange.ReceivedAt.UtcTicks);
-                }
-
+                var dropped = 0;
                 if (exchange.Body.Length > ReceivedRequestBodyBudget)
                 {
-                    _droppedRequestCount++;
-
-                    return;
+                    dropped++;
                 }
-
-                while (_received.Count == ReceivedRequestCapacity || _receivedBodyBytes + exchange.Body.Length > ReceivedRequestBodyBudget)
+                else
                 {
-                    _receivedBodyBytes -= _received.Dequeue().Body.Length;
-                    _droppedRequestCount++;
+                    while (_received.Count == ReceivedRequestCapacity || _receivedBodyBytes + exchange.Body.Length > ReceivedRequestBodyBudget)
+                    {
+                        _receivedBodyBytes -= _received.Dequeue().Body.Length;
+                        dropped++;
+                    }
+
+                    _received.Enqueue(new HttpServerRequest(exchange.Method,
+                                                            exchange.Path,
+                                                            exchange.Query,
+                                                            exchange.Headers,
+                                                            exchange.Body,
+                                                            exchange.ReceivedAt,
+                                                            exchange.StatusCode));
+                    _receivedBodyBytes += exchange.Body.Length;
                 }
 
-                _received.Enqueue(new HttpServerRequest(exchange.Method,
-                                                        exchange.Path,
-                                                        exchange.Query,
-                                                        exchange.Headers,
-                                                        exchange.Body,
-                                                        exchange.ReceivedAt));
-                _receivedBodyBytes += exchange.Body.Length;
+                _droppedRequestCount += dropped;
+                lock (_summaryGate)
+                {
+                    _droppedCount += dropped;
+                    if (exchange.Published)
+                    {
+                        _answeredCount++;
+                    }
+                    else
+                    {
+                        _unmatchedCount++;
+                    }
+
+                    // Concurrent connections finish in any order, so the most recent arrival is not always the last one recorded.
+                    var arrivedAt = exchange.ReceivedAt.UtcDateTime;
+                    if (_lastRequestAt is not { } latest || arrivedAt > latest)
+                    {
+                        _lastRequestAt = arrivedAt;
+                    }
+                }
+            }
+        }
+
+        void IHttpServerExchangeHandler.Refused(HttpStatusCode status)
+        {
+            lock (_summaryGate)
+            {
+                _refusedCount++;
+                RecordRefusal(status);
+            }
+        }
+
+        void IHttpServerExchangeHandler.Overloaded()
+        {
+            lock (_summaryGate)
+            {
+                _overloadedCount++;
+                RecordRefusal(HttpStatusCode.ServiceUnavailable);
+            }
+        }
+
+        void IHttpServerExchangeHandler.Abandoned()
+        {
+            lock (_summaryGate)
+            {
+                _abandonedCount++;
             }
         }
 
@@ -204,13 +279,25 @@ namespace Vion.Dale.Sdk.Http.Server
         }
 
         /// <inheritdoc />
-        public DateTimeOffset? LastRequestAt
+        public HttpServerSummary Summary
         {
             get
             {
-                var utcTicks = Volatile.Read(ref _lastRequestAtUtcTicks);
-
-                return utcTicks == 0 ? null : new DateTimeOffset(utcTicks, TimeSpan.Zero);
+                // Read apart from the lock: the transport counts its connections under a lock of its own.
+                var activeConnections = _transport.ActiveConnections;
+                lock (_summaryGate)
+                {
+                    return new HttpServerSummary(_lastRequestAt,
+                                                 _answeredCount,
+                                                 _unmatchedCount,
+                                                 _refusedCount,
+                                                 _overloadedCount,
+                                                 _abandonedCount,
+                                                 _droppedCount,
+                                                 _lastRefusalAt,
+                                                 _lastRefusalStatus,
+                                                 activeConnections);
+                }
             }
         }
 
@@ -260,6 +347,13 @@ namespace Vion.Dale.Sdk.Http.Server
             _isEnabled = false;
             _disposed = true;
             _transport.Dispose();
+        }
+
+        // Called holding the summary's gate.
+        private void RecordRefusal(HttpStatusCode status)
+        {
+            _lastRefusalAt = _timeProvider.GetUtcNow().UtcDateTime;
+            _lastRefusalStatus = (int)status;
         }
 
         private void EnsureDisabled(string propertyName)

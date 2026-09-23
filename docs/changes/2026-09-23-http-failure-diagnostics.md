@@ -480,6 +480,22 @@ Every test project targets `net10.0`, where the base `HttpRequestException.Statu
   the lifetime maximum moved by an equal value.
 - `CountRequestInFlightUntilOutcomeRecorded` ← nothing counted as issued.
 - `KeepSummaryOfItsOwnRequestsOnly` ← one accumulator shared by every executor.
+- `KeepSummaryAcrossDisableAndEnable` ← the counts reset when the server is enabled.
+- `CountPublishedAnswerApartFromUnmatched` ← unmatched judged by a 404 or 405 status rather than by nothing being
+  published.
+- `AbandonRequestAwaitingItsAnswerOnStopAndRecordNothing` (its `AC-HTTP-021.2` assertion) ← answers counted when the
+  server looks them up rather than once written in full.
+- `CountRequestServerRefusedItself` ← the transport not reporting its refusal (all three rows red).
+- `CountConnectionRefusedAtLimitApartFromServedOnes` ← the transport not reporting an overload; and, with
+  `RecordLastRefusalOfEitherKind`, an overload counted as a refusal.
+- `CountConnectionClientLeftBeforeRequestComplete` ← no connection ever reported abandoned (all three rows red).
+- `LeaveAnsweredOrRefusedConnectionUncountedAsAbandoned` ← every connection reported abandoned (both rows red).
+- `CountDroppedRequestsOverLifetime` ← the lifetime count reset by a take (both rows red); and, separately, a body
+  alone over the budget left uncounted (its row red).
+- `ReportConnectionWhileServingIt`, `CountConnectionRefusedAtLimitApartFromServedOnes` ← the transport reporting no
+  connections.
+- `RecordStatusEachRequestWasAnsweredWith` ← every recorded request carrying 200.
+- `ReportMostRecentArrivalAndNoneBeforeFirst` ← the earliest arrival kept instead of the latest.
 
 ## Relay notes for the PR body
 

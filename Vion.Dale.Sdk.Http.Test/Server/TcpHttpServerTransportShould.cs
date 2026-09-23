@@ -344,6 +344,7 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-015.9")]
         [TestProperty("spec", "AC-HTTP-016.8")]
+        [TestProperty("spec", "AC-HTTP-021.2")]
         public async Task AbandonRequestAwaitingItsAnswerOnStopAndRecordNothing()
         {
             // Arrange — a server of its own with a short bound, composed so the test holds its transport: disabling the server
@@ -385,7 +386,8 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             Assert.IsTrue(closedByStop, "The stop never closed the waiting connection.");
             Assert.AreEqual(string.Empty, received);
             Assert.IsEmpty(server.Sync(snapshot => snapshot.TakeReceivedRequests()));
-            Assert.IsNull(server.LastRequestAt);
+            Assert.IsNull(server.Summary.LastRequestAt);
+            Assert.AreEqual(0L, server.Summary.AnsweredCount);
         }
 
         [TestMethod]
@@ -506,6 +508,119 @@ namespace Vion.Dale.Sdk.Http.Test.Server
 
             // Assert
             Assert.AreEqual("HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", response);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.3")]
+        [DataRow("GET a HTTP/1.1\r\n\r\n", 400, DisplayName = "malformed")]
+        [DataRow("POST /a HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n", 411, DisplayName = "chunked")]
+        [DataRow("POST /a HTTP/1.1\r\nContent-Length: 2000000\r\n\r\n", 413, DisplayName = "body over cap")]
+        public async Task CountRequestServerRefusedItself(string request, int expectedStatus)
+        {
+            // Arrange — the refusal is reported before its answer is written, so the answer arriving is the synchronisation
+            // point
+
+            // Act
+            await ExchangeAsync(request);
+
+            // Assert
+            var summary = _sut.Summary;
+            Assert.AreEqual(1L, summary.RefusedCount);
+            Assert.AreEqual(expectedStatus, summary.LastRefusalStatus);
+            Assert.IsNotNull(summary.LastRefusalAt);
+            Assert.AreEqual(0L, summary.AnsweredCount + summary.UnmatchedCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.3")]
+        [TestProperty("spec", "AC-HTTP-021.7")]
+        public async Task CountConnectionRefusedAtLimitApartFromServedOnes()
+        {
+            // Arrange — two silent clients fill a limit of two; connections are accepted in the order they arrive, so both
+            // are being served when the third is accepted and refused
+            var port = FreePort();
+            using var server = Compose(TimeSpan.FromSeconds(60), 2);
+            server.ListenAddress = "127.0.0.1";
+            server.Port = port;
+            server.IsEnabled = true;
+            using var first = new TcpClient();
+            using var second = new TcpClient();
+            using var third = new TcpClient();
+            await first.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+            await second.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+
+            // Act
+            await third.ConnectAsync(IPAddress.Loopback, port).WaitAsync(Timeout);
+            await ReadUntilClosedAsync(third.GetStream()).WaitAsync(Timeout);
+
+            // Assert
+            var summary = server.Summary;
+            Assert.AreEqual(1L, summary.OverloadedCount);
+            Assert.AreEqual(0L, summary.RefusedCount);
+            Assert.AreEqual(503, summary.LastRefusalStatus);
+            Assert.AreEqual(2, summary.ActiveConnections);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.4")]
+        [DataRow("", DisplayName = "before sending anything")]
+        [DataRow("POST /a HTTP/1.1\r\nHost: a", DisplayName = "halfway through its headers")]
+        [DataRow("POST /a HTTP/1.1\r\nContent-Length: 10\r\n\r\nabc", DisplayName = "halfway through its body")]
+        public async Task CountConnectionClientLeftBeforeRequestComplete(string partialRequest)
+        {
+            // Arrange — the server reports the connection before it closes its side, so its closing is the synchronisation
+            // point
+            using var leaving = new TcpClient();
+            await leaving.ConnectAsync(IPAddress.Loopback, _port).WaitAsync(Timeout);
+            var stream = leaving.GetStream();
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(partialRequest));
+
+            // Act
+            leaving.Client.Shutdown(SocketShutdown.Send);
+            await ReadUntilClosedAsync(stream).WaitAsync(Timeout);
+
+            // Assert
+            var summary = _sut.Summary;
+            Assert.AreEqual(1L, summary.AbandonedCount);
+            Assert.AreEqual(0L, summary.RefusedCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.4")]
+        [DataRow("GET /a HTTP/1.1\r\n\r\n", DisplayName = "answered")]
+        [DataRow("GET a HTTP/1.1\r\n\r\n", DisplayName = "refused")]
+        public async Task LeaveAnsweredOrRefusedConnectionUncountedAsAbandoned(string request)
+        {
+            // Arrange — the connection has finished unwinding once the server no longer counts it as served
+            await ExchangeAsync(request);
+
+            // Act
+            var unwound = SpinWait.SpinUntil(() => _sut.Summary.ActiveConnections == 0, Timeout);
+
+            // Assert
+            Assert.IsTrue(unwound, "The server never finished with the connection.");
+            Assert.AreEqual(0L, _sut.Summary.AbandonedCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-021.7")]
+        public async Task ReportConnectionWhileServingIt()
+        {
+            // Arrange
+            using var client = new TcpClient();
+            await client.ConnectAsync(IPAddress.Loopback, _port).WaitAsync(Timeout);
+            var stream = client.GetStream();
+            await stream.WriteAsync(Encoding.ASCII.GetBytes("GET /a HTTP/1.1\r\n"));
+            var served = SpinWait.SpinUntil(() => _sut.Summary.ActiveConnections == 1, Timeout);
+
+            // Act
+            client.Client.Shutdown(SocketShutdown.Send);
+            await ReadUntilClosedAsync(stream).WaitAsync(Timeout);
+            var released = SpinWait.SpinUntil(() => _sut.Summary.ActiveConnections == 0, Timeout);
+
+            // Assert
+            Assert.IsTrue(served, "The connection was never counted while the server served it.");
+            Assert.IsTrue(released, "The connection was still counted after the server closed it.");
         }
 
         [TestMethod]
