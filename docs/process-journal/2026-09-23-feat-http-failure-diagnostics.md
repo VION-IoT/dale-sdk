@@ -1,0 +1,1 @@
+2026-09-23 · brief · http-failure-diagnostics · modbus.md cited emission.md for what publishing a diagnostics struct costs; emission.md said nothing about structs, so the brief's emission constraint had no page to point at. The change added the paragraph. (self)
