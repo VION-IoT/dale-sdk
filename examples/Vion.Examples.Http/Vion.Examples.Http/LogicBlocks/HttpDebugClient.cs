@@ -166,17 +166,17 @@ namespace Vion.Examples.Http.LogicBlocks
             _logger = logger;
         }
 
-        protected override void Ready()
-        {
-            ClientSummary = _httpClient.Summary;
-        }
-
         /// <summary>
         ///     Republishes the client's summary. Five seconds is well inside the summary's 30-second interval, so a faster
         ///     tick would change nothing that is published.
         /// </summary>
         [Timer(5)]
         public void OnTick()
+        {
+            ClientSummary = _httpClient.Summary;
+        }
+
+        protected override void Ready()
         {
             ClientSummary = _httpClient.Summary;
         }
@@ -429,9 +429,8 @@ namespace Vion.Examples.Http.LogicBlocks
             LatencyMs = receipt.RoundTrip.TotalMilliseconds;
             StatusCode = (int?)receipt.StatusCode;
             Outcome = ToRequestOutcome(receipt.Outcome);
-            LastError = Outcome == RequestOutcome.HttpError
-                            ? $"The server answered {StatusCode}. Only a 2xx response reaches this block with its headers and body."
-                            : DescribeFailure(exception);
+            LastError = Outcome == RequestOutcome.HttpError ? $"The server answered {StatusCode}. Only a 2xx response reaches this block with its headers and body." :
+                            DescribeFailure(exception);
 
             _logger.LogDebug(exception, "HTTP debug client request failed");
         }
