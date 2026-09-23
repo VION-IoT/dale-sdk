@@ -104,7 +104,9 @@ namespace Vion.Dale.Sdk.Http
                         break;
                 }
 
-                if (receipt.Outcome != HttpOutcome.Success)
+                // Receipts are stamped before this lock is taken, so two requests ending at once can be recorded out of the
+                // order they ended in; the instants keep the later one, and the last failure's outcome and status move with it.
+                if (receipt.Outcome != HttpOutcome.Success && (_lastFailureAt is not { } lastFailure || receipt.ReceivedAt >= lastFailure))
                 {
                     _lastFailureAt = receipt.ReceivedAt;
                     _lastFailureOutcome = receipt.Outcome;
@@ -112,7 +114,7 @@ namespace Vion.Dale.Sdk.Http
                 }
 
                 // A status is on the receipt exactly when a response arrived, including a 2xx whose body then broke.
-                if (receipt.StatusCode != null)
+                if (receipt.StatusCode != null && (_lastResponseAt is not { } lastResponse || receipt.ReceivedAt >= lastResponse))
                 {
                     _lastResponseAt = receipt.ReceivedAt;
                 }

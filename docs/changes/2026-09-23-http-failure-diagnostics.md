@@ -399,6 +399,14 @@ Every test project targets `net10.0`, where the base `HttpRequestException.Statu
 - 2026-09-23: The first draft of the doc said the 4xx/5xx split "is what every HTTP tool surveyed
   shows". Its own survey table records status per request. This is corrected in § Full design › 2 and
   Reviewer's question 2, per amendment 1.
+- 2026-09-23: The review round (`/vion-git:review branch` at `326280b4`) returned four notes and no blocker; all four
+  were fixed. The one with behaviour: receipts are stamped before the accumulator's lock, so two requests ending at
+  once could be recorded out of order and move `LastResponseAt` or `LastFailureAt` backwards. Both instants now keep
+  the later receipt, the last failure's outcome and status moving with its instant, which is `AC-HTTP-020.3`'s "last"
+  read as the latest; the server summary's `LastRequestAt` already kept the latest. The other three were text the
+  change had made false: `http.md`'s § Test discipline sentence on which counts precede the close (a connection the
+  read bound or a stop ends is closed first), the executor's log line saying an undelivered outcome reached nobody, and
+  `HttpOutcome`'s remarks on `TransportError` omitting the 2xx a broken body keeps.
 - 2026-09-23: T-000, re-derived with `grep -rnE "\.<Member>\s*<" --include=*.cs` over `logic-block-libraries`,
   `examples/`, `libraries/` and `templates/`: `GetJson` 3, `PostJson` 0, `PutJson` 0, `DeleteJson` 0, `Delete(` 0, and
   one `SendRequest` on the HTTP client (`HttpDebugClient.cs:205`). The one reader of the server's `LastRequestAt` is
@@ -496,6 +504,8 @@ Every test project targets `net10.0`, where the base `HttpRequestException.Statu
   connections.
 - `RecordStatusEachRequestWasAnsweredWith` ← every recorded request carrying 200.
 - `ReportMostRecentArrivalAndNoneBeforeFirst` ← the earliest arrival kept instead of the latest.
+- `KeepLatestInstantsWhateverOrderReceiptsRecorded` ← the last failure overwritten by an earlier receipt recorded
+  later; and, separately, the last response the same way.
 
 ## Relay notes for the PR body
 

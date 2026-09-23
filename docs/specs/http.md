@@ -806,8 +806,10 @@ criteria are proven over real loopback sockets against the real server, so "reco
 the server's own log. The read bound's tests give their server a short bound of its own and make the
 bound's expiry the observable — including as the synchronisation point, where a silent client closed by
 the bound is the proof that the bound has elapsed for a request waiting beside it. The server reports
-a connection's answer, refusal or abandonment before it closes its side, so the client seeing the close
-is the synchronisation point for those counts; the connection count falls only after that, and its rows
+a connection's answer or refusal before it closes its side, and a connection the client left before
+completing its request before closing it in turn, so for those the client seeing the close is the
+synchronisation point; a connection the read bound or a stop ends is closed first and reported as it
+unwinds; the connection count falls only after that, and its rows
 wait for it under a bound only a hung server reaches. Two rows reach the
 socket transport through a seam of its own: the connection limit, which a test sets low, and the accept
 call, which a test makes fail, since nothing a client does can make a listener's accept throw.

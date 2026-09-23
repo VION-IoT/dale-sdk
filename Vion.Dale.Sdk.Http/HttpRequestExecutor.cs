@@ -534,7 +534,7 @@ namespace Vion.Dale.Sdk.Http
         // schedule from instead - is the inner exception here far more often than a disposal is.
         [LoggerMessage(Level = LogLevel.Error,
                        Message =
-                           "Could not hand the callback for the {HttpMethod} request to {Url} to the block - it may not have received its first message yet, or may already have stopped. The request's outcome reached nobody")]
+                           "Could not hand the callback for the {HttpMethod} request to {Url} to the block - it may not have received its first message yet, or may already have stopped. No callback ran; the request's outcome is in the client's summary only")]
         private partial void LogCallbackFailed(Exception exception, HttpMethod httpMethod, string url);
 
         /// <summary>

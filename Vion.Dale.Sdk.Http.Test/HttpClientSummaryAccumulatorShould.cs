@@ -31,6 +31,25 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.3")]
+        public void KeepLatestInstantsWhateverOrderReceiptsRecorded()
+        {
+            // Arrange — a later failure recorded before an earlier one, as two requests ending at once on two threads can be
+            var laterAt = ObservedAt.AddSeconds(1);
+            _sut.Record(new HttpReceipt(laterAt, 0, TimeSpan.Zero, HttpOutcome.ServerError, HttpStatusCode.ServiceUnavailable));
+
+            // Act
+            _sut.Record(new HttpReceipt(ObservedAt, 0, TimeSpan.Zero, HttpOutcome.ClientError, HttpStatusCode.NotFound));
+
+            // Assert
+            var summary = _sut.Snapshot();
+            Assert.AreEqual(laterAt, summary.LastFailureAt);
+            Assert.AreEqual(HttpOutcome.ServerError, summary.LastFailureOutcome);
+            Assert.AreEqual(503, summary.LastFailureStatusCode);
+            Assert.AreEqual(laterAt, summary.LastResponseAt);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-020.5")]
         public void AverageRoundTripsInWindow()
         {

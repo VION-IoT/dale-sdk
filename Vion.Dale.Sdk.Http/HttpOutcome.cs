@@ -9,7 +9,8 @@ namespace Vion.Dale.Sdk.Http
     ///     <para>
     ///         The first four values mean a server answered: <see cref="ClientError" /> and <see cref="ServerError" />
     ///         carry the status it answered with on <see cref="HttpReceipt.StatusCode" />. <see cref="Timeout" /> and
-    ///         <see cref="TransportError" /> mean no usable answer arrived, and <see cref="Invalid" /> that the request was
+    ///         <see cref="TransportError" /> mean no usable answer arrived — a <see cref="TransportError" /> keeps the 2xx
+    ///         status when the body broke after the headers — and <see cref="Invalid" /> that the request was
     ///         never handed to the transport at all.
     ///     </para>
     ///     <para>
