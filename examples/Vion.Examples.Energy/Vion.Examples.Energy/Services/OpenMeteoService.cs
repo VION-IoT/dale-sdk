@@ -80,7 +80,7 @@ namespace Vion.Examples.Energy.Services
             var url = BuildApiUrl(latitude, longitude, variables);
             _logicBlockHttpClient.GetJson<OpenMeteoResponse>(context,
                                                              url,
-                                                             response =>
+                                                             (response, _) =>
                                                              {
                                                                  if (response?.Hourly == null)
                                                                  {
@@ -103,7 +103,7 @@ namespace Vion.Examples.Energy.Services
                                                                                              expiration);
                                                                  callback(data);
                                                              },
-                                                             ex =>
+                                                             (ex, _) =>
                                                              {
                                                                  _logger.LogError(ex, "Failed to fetch weather data for location ({Lat}, {Lon})", latitude, longitude);
                                                                  errorCallback?.Invoke(ex);

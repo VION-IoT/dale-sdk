@@ -35,7 +35,7 @@ namespace Vion.Examples.Energy.Services
             var url = $"https://nominatim.openstreetmap.org/search?format=json&q={encodedCityName}";
             _logicBlockHttpClient.GetJson<NominatimResponse[]>(context,
                                                                url,
-                                                               response =>
+                                                               (response, _) =>
                                                                {
                                                                    if (response == null || response.Length == 0)
                                                                    {
@@ -67,7 +67,7 @@ namespace Vion.Examples.Energy.Services
 
                                                                    callback((latitude, longitude));
                                                                },
-                                                               error =>
+                                                               (error, _) =>
                                                                {
                                                                    _logger.LogError(error, "Failed to fetch geolocation data for '{CityName}'", cityName);
                                                                    errorCallback?.Invoke(error);

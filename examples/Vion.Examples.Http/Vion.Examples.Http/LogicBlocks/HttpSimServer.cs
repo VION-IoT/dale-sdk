@@ -123,10 +123,6 @@ namespace Vion.Examples.Http.LogicBlocks
         [Presentation(Group = PropertyGroup.Status, StatusIndicator = false, Importance = Importance.Primary)]
         public bool IsListening { get; private set; }
 
-        [ServiceProperty(Title = "Requests", Description = "Requests the server has answered, over every route and none, dropped requests included.")]
-        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
-        public int RequestCount { get; private set; }
-
         [ServiceProperty(Title = "Last request")]
         [Presentation(Group = PropertyGroup.Status, Format = Formats.Relative)]
         public DateTime? LastRequestAt { get; private set; }
@@ -149,17 +145,17 @@ namespace Vion.Examples.Http.LogicBlocks
         [Presentation(Group = PropertyGroup.Diagnostics, Order = 30, UiHint = UiHints.Multiline)]
         public string LastRequestBody { get; private set; } = string.Empty;
 
-        [ServiceProperty(Title = "Unmatched requests", Description = "Requests no enabled route answered, so the server sent 404 or 405.")]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 40)]
-        public int UnmatchedRequestCount { get; private set; }
-
-        [ServiceProperty(Title = "Dropped requests",
-                         Description = "Requests answered but never shown, because more arrived between two ticks than the server keeps. Their answers were sent.")]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 50)]
-        public int DroppedRequestCount { get; private set; }
+        // Every request moves a counter, so each assignment differs from the last and dedup holds none back: the 30 s
+        // interval is what caps the publish rate, however busy the server is.
+        [ServiceProperty(Title = "Requests",
+                         MinInterval = "30s",
+                         Description =
+                             "What the server answered and refused, counted by the SDK: answered from a route, unmatched (404 or 405), dropped before a tick showed them. Refreshed at most every 30 seconds.")]
+        [Presentation(DisplayName = "Requests", Group = PropertyGroup.Diagnostics, Order = 40)]
+        public HttpServerSummary ServerSummary { get; private set; }
 
         [ServiceProperty(Title = "Last error")]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 60)]
+        [Presentation(Group = PropertyGroup.Diagnostics, Order = 50)]
         public string LastError { get; private set; } = string.Empty;
 
         // ── Route slots ───────────────────────────────────────────────────────────
@@ -260,7 +256,10 @@ namespace Vion.Examples.Http.LogicBlocks
         private void RefreshServerStatus()
         {
             IsListening = _server.IsListening;
-            LastRequestAt = _server.LastRequestAt?.UtcDateTime;
+
+            var summary = _server.Summary;
+            ServerSummary = summary;
+            LastRequestAt = summary.LastRequestAt;
         }
 
         private void Exchange()
@@ -268,7 +267,6 @@ namespace Vion.Examples.Http.LogicBlocks
             var slots = IncludedSlots().ToList();
             var published = new List<(RouteSlot Slot, string Method, string Path)>();
             IReadOnlyList<HttpServerRequest> requests = Array.Empty<HttpServerRequest>();
-            var dropped = 0;
 
             _server.Sync(snapshot =>
                          {
@@ -281,12 +279,10 @@ namespace Vion.Examples.Http.LogicBlocks
                                  }
                              }
 
-                             // Read before taking: taking resets the count.
-                             dropped = snapshot.DroppedRequestCount;
                              requests = snapshot.TakeReceivedRequests();
                          });
 
-            Record(requests, dropped, published);
+            Record(requests, published);
         }
 
         /// <summary>
@@ -330,32 +326,23 @@ namespace Vion.Examples.Http.LogicBlocks
         }
 
         /// <summary>
-        ///     Folds the requests taken this tick into the counters and tables. A request is credited to the route that
-        ///     answers its method and path in the table just published — the same ordinal match the server makes — so a route
-        ///     edited between answering a request and this tick is credited under its new shape.
+        ///     Folds the requests taken this tick into the per-route tallies and the tables. The server's own summary counts
+        ///     answered and unmatched requests; only which route answered is the block's to work out.
         /// </summary>
-        private void Record(IReadOnlyList<HttpServerRequest> requests, int dropped, IReadOnlyList<(RouteSlot Slot, string Method, string Path)> published)
+        private void Record(IReadOnlyList<HttpServerRequest> requests, IReadOnlyList<(RouteSlot Slot, string Method, string Path)> published)
         {
-            // A dropped request was still answered, so it counts as a request; it is only missing from the tables.
-            DroppedRequestCount += dropped;
-            RequestCount += dropped;
             if (requests.Count == 0)
             {
                 return;
             }
 
-            RequestCount += requests.Count;
             foreach (var request in requests)
             {
-                var route = published.FirstOrDefault(candidate => candidate.Method == request.Method && candidate.Path == request.Path);
-                if (route.Slot != null)
+                var route = AnsweringRoute(request, published);
+                if (route != null)
                 {
-                    route.Slot.HitCount++;
-                    route.Slot.LastHitAt = request.ReceivedAt.UtcDateTime;
-                }
-                else
-                {
-                    UnmatchedRequestCount++;
+                    route.HitCount++;
+                    route.LastHitAt = request.ReceivedAt.UtcDateTime;
                 }
             }
 
@@ -366,6 +353,26 @@ namespace Vion.Examples.Http.LogicBlocks
             LastRequestLine = $"{latest.Method} {Target(latest)}";
             LastRequestHeaders = latest.Headers.Select(header => new HeaderRow(header.Key, header.Value)).ToImmutableArray();
             LastRequestBody = Decode(latest.Body, MaxBodyPreviewBytes);
+        }
+
+        /// <summary>
+        ///     The slot that answered a request, found by its method and path in the table just published — the server's own
+        ///     ordinal match. The status the request was answered with corrects the case where that match credits a slot that
+        ///     was not serving yet: a request answered 404 or 405, whose slot now publishes another status, was answered
+        ///     before the slot was published at this tick. A slot edited away from publishing 404 itself loses the hits it
+        ///     answered with it — the log cannot tell the two apart. A slot publishing 404 answers like an unmatched request,
+        ///     and is still credited.
+        /// </summary>
+        private static RouteSlot? AnsweringRoute(HttpServerRequest request, IReadOnlyList<(RouteSlot Slot, string Method, string Path)> published)
+        {
+            var route = published.FirstOrDefault(candidate => candidate.Method == request.Method && candidate.Path == request.Path).Slot;
+            var answeredUnmatched = request.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed;
+            if (route == null || (answeredUnmatched && (int)request.StatusCode != route.StatusCode))
+            {
+                return null;
+            }
+
+            return route;
         }
 
         private IEnumerable<RouteSlot> IncludedSlots()
