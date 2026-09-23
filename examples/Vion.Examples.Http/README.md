@@ -106,7 +106,8 @@ observed it, so a busy block's own mailbox wait is not in it.
 Each block publishes the SDK's own tally of its requests, under *Requests* in its Diagnostics group:
 
 - `DebugClient` — every request the client made, counted by how it ended (success, client error, server
-  error, timeout, transport error, invalid), the last failure with its status, and the round trips over
+  error, content error, timeout, transport error, invalid — content errors stay at zero here, since
+  `SendRequest` deserializes nothing), the last failure with its status, and the round trips over
   the last 15 minutes.
 - `SimServer` — what the server answered from a route, answered 404 or 405 because nothing was published
   (*Unmatched*), refused, abandoned and dropped, and its open connections. *Last request* in the Status
