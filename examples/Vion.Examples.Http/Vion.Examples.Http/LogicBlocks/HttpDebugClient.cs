@@ -150,6 +150,15 @@ namespace Vion.Examples.Http.LogicBlocks
         [Presentation(Group = PropertyGroup.Diagnostics, Order = 30)]
         public string LastError { get; private set; } = string.Empty;
 
+        // Every request moves a counter, so each assignment differs from the last and dedup holds none back: the 30 s
+        // interval is what caps the publish rate. The tick assigns it, so the 15-minute round-trip window also rolls on an
+        // idle client.
+        [ServiceProperty(Title = "Requests",
+                         MinInterval = "30s",
+                         Description = "Every request this client has made, counted by how it ended, with its round trips. Refreshed at most every 30 seconds.")]
+        [Presentation(DisplayName = "Requests", Group = PropertyGroup.Diagnostics, Order = 40)]
+        public HttpClientSummary ClientSummary { get; private set; }
+
         public HttpDebugClient(ILogicBlockHttpClient httpClient, TimeProvider timeProvider, ILogger logger) : base(logger)
         {
             _httpClient = httpClient;
@@ -159,6 +168,17 @@ namespace Vion.Examples.Http.LogicBlocks
 
         protected override void Ready()
         {
+            ClientSummary = _httpClient.Summary;
+        }
+
+        /// <summary>
+        ///     Republishes the client's summary. Five seconds is well inside the summary's 30-second interval, so a faster
+        ///     tick would change nothing that is published.
+        /// </summary>
+        [Timer(5)]
+        public void OnTick()
+        {
+            ClientSummary = _httpClient.Summary;
         }
 
         // ── Sending ───────────────────────────────────────────────────────────────

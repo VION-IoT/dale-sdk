@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Examples.Http.LogicBlocks;
 using Xunit;
 
@@ -112,6 +113,25 @@ namespace Vion.Examples.Http.Test
 
             // Assert
             Assert.Equal(250, Sut.LatencyMs);
+        }
+
+        [Fact]
+        public void PublishClientSummaryOnTick()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+            _fixture.Harness.Respond(HttpStatusCode.NotFound);
+            ctx.FlushPendingActions();
+            var beforeTick = Sut.ClientSummary;
+
+            // Act
+            Sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal(0, beforeTick.ClientErrorCount);
+            Assert.Equal(1, Sut.ClientSummary.ClientErrorCount);
+            Assert.Equal(404, Sut.ClientSummary.LastFailureStatusCode);
         }
 
         [Fact]
