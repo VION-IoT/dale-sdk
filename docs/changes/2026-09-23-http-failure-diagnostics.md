@@ -501,4 +501,18 @@ Every test project targets `net10.0`, where the base `HttpRequestException.Statu
 
 > Filled as each consumer-visible change lands.
 
-- _(none yet)_
+- **Breaking — every `ILogicBlockHttpClient` callback gains an `HttpReceipt`** (`Action<T, HttpReceipt>`,
+  `Action<HttpReceipt>`, `Action<HttpResponseMessage, HttpReceipt>`, `Action<Exception, HttpReceipt>`), with no
+  overloads. Migration: add `, _` to each lambda. `receipt.StatusCode` is set only when a response arrived, and
+  `receipt.Outcome` names how the request ended (`Success`, `ClientError`, `ServerError`, `ContentError`,
+  `Timeout`, `TransportError`, `Invalid`): a 404 is told from a refused connection without reflection. Exception
+  classes and messages are unchanged.
+- **New — `ILogicBlockHttpClient.Summary`** (`HttpClientSummary`): per-client counts per outcome, the last response
+  and last failure, and round trips over 15 minutes and since start. Publish it as one `[ServiceProperty]` with a
+  `MinInterval` in seconds (`"30s"`), assigned from the block's tick.
+- **Breaking — `ILogicBlockHttpServer.LastRequestAt` is removed**; read `Summary.LastRequestAt` (UTC `DateTime?`).
+- **New — `ILogicBlockHttpServer.Summary`** (`HttpServerSummary`): answered, unmatched, refused, overloaded,
+  abandoned and lifetime-dropped counts, the last refusal, and the connections being served.
+- **New — `HttpServerRequest.StatusCode`**: the status the server answered each recorded request with.
+- `IHttpRequestExecutor` (plumbing) follows the client's callback shapes and gains `Summary`; a hand-rolled fake of
+  it recompiles.

@@ -13,7 +13,9 @@ server through a factory. Area code `HTTP`. Process: [`../spec-process.md`](../s
 The package is a **thin adapter over `IHttpClientFactory`**, and almost everything below follows from
 that. It composes no handler of its own, retries nothing, models no link, and wraps no exception
 except one. What it does own is the hop: every callback runs on the calling block's own actor, so a
-block needs no locking of its own state and no thread of its own. **It is a published package**, so
+block needs no locking of its own state and no thread of its own. And it owns the facts of each
+request, which exist nowhere else: a receipt handed to every callback, and a summary of every request a
+client made. **It is a published package**, so
 every default, exception class and ownership rule below is a contract with readers outside this
 repository.
 
@@ -22,9 +24,9 @@ publishes responses and reads back what was asked, and the server answers on its
 ever calling the block.
 
 The spine is the order an author meets it: registration and its defaults, the eight members as one
-family, `SendRequest` on its own, the actor hop, the error model, the refusals, the two timeout
-bounds, deserialization, lifetime and disposal, serialization, headers, the hosted server, the
-surface, and the test discipline.
+family, `SendRequest` on its own, the actor hop, the error model, the receipt, the refusals, the two
+timeout bounds, deserialization, lifetime and disposal, serialization, headers, the client's summary,
+the hosted server and its summary, the surface, and the test discipline.
 
 Cited rather than restated: [`block-lifecycle.md`](block-lifecycle.md) for the dispatcher every
 callback arrives through — `AC-LIFE-006.1` (an action runs on the block's own actor),
@@ -37,7 +39,8 @@ package's own declarations (`AC-ANLZ-012.1`, `AC-ANLZ-012.2`); [`testkit.md`](te
 surface-and-arming shape this package now follows (`AC-TKIT-013.1`, `AC-TKIT-013.2`) and for the HTTP
 test kit that drives both halves (`AC-TKIT-014.*`, `AC-TKIT-015.*`); [`modbus.md`](modbus.md) for the
 hosted Modbus server, whose binding rule the hosted HTTP server departs from (`AC-MODB-011.2`) and whose
-factory ownership rule it shares (`AC-MODB-018.3`);
+factory ownership rule it shares (`AC-MODB-018.3`), and for the link summary whose window both HTTP
+summaries share (`AC-MODB-016.7`); [`emission.md`](emission.md) for what publishing a summary costs;
 [`../simulator-authoring.md`](../simulator-authoring.md) for what a socket means to a bench.
 
 Not this area: the `dale` CLI's own hand-rolled HTTP client, which is [`cli.md`](cli.md)'s and does
@@ -150,8 +153,7 @@ would take the response away from the callback that was given one.
 
 - `AC-HTTP-005.1` (Ubiquitous): THE SYSTEM SHALL run every callback on the calling block's own actor
   rather than on the thread the exchange completed on.
-- `AC-HTTP-005.2` (Event-driven): WHEN the block has not yet received its first message THE SYSTEM
-  SHALL run neither callback and SHALL leave the outcome of the request visible only in the log.
+- `AC-HTTP-005.2` (Event-driven): WHEN the block has not yet received its first message THE SYSTEM SHALL run neither callback and SHALL leave the outcome of the request visible only in the log and in the client's summary.
 - `AC-HTTP-005.3` (Ubiquitous): THE SYSTEM SHALL deliver callbacks in the order their exchanges
   complete, imposing no ordering of its own, and SHALL accept a request issued from within a callback.
 - `AC-HTTP-005.4` (Event-driven): WHEN a callback throws THE SYSTEM SHALL not fail the request and
@@ -236,8 +238,49 @@ own and arrives through the error callback like any other. A scheme the package 
 special-cased either: it goes to the handler, which decides.
 
 `AC-HTTP-006.2` is the documented half of "errors are always logged": with no error callback the
-failure reaches the log and nothing else. It is not silence — but it is not the block's business
-either, which is why a block that cares passes a callback.
+failure reaches the log and the client's summary and nothing else. It is not silence — but it is not
+the block's business either, which is why a block that cares passes a callback.
+
+The class does not tell a server's answer from a failure to reach one. A refused connection and a 404
+both arrive as an `HttpRequestException`, and the status that tells them apart is a property the
+`netstandard2.1` target a block compiles against does not declare. That is the receipt's job, below,
+and not the exception's: the exception stays exactly what this table says.
+
+## The receipt
+
+- `AC-HTTP-019.1` (Ubiquitous): THE SYSTEM SHALL hand every success callback and every error callback of the eight request members a receipt of that request alongside its value, response or exception.
+- `AC-HTTP-019.2` (Ubiquitous): THE SYSTEM SHALL report on the receipt a success for a 2xx response whose content was read, a client error for any other response below 500, a server error for a response of 500 or above, a content error for a 2xx response whose body is absent, malformed or deserializes to null, a timeout where either bound cancelled the exchange, an invalid request where the client or the request could not be built or the client refused the request before any handler saw it, and a transport error for any other failure.
+- `AC-HTTP-019.3` (Ubiquitous): THE SYSTEM SHALL carry on the receipt the status of the response it judged whenever one arrived, and no status when none did, even where the exception a handler threw carries one.
+- `AC-HTTP-019.4` (Ubiquitous): THE SYSTEM SHALL stamp the receipt, on the registered clock, with the instant the outcome was observed on the wall clock and on the monotonic timestamp scale, and with the time from handing the request to the client until that instant.
+
+The receipt is how a block tells a server's answer from a failure to reach it. `StatusCode` is set
+exactly when a response arrived, so a block asking whether a server said 404 asks
+`receipt.StatusCode == HttpStatusCode.NotFound` — no class test, no reflection, no match on the
+message. Ignoring the receipt is a discard, `(value, _) => …`; there is no overload without it.
+
+`AC-HTTP-019.2`'s outcomes follow what the exchange reached, not the exception's class. A status of
+500 or above is a server error and every other status outside 2xx a client error, a 3xx the platform
+did not follow included: it says the request as sent did not get what it asked for, not that the
+server is failing. A timeout is one of the two bounds below elapsing; a `TimeoutException` a handler
+throws itself is a transport error. An invalid request is one the client refused before starting the
+exchange — a URL no base address makes absolute, a disposed client, a request message it has sent
+before — or one whose client could not be built, as when `configureClient` throws (`AC-HTTP-001.4`).
+The client raises its own refusals before it hands the request to any handler, and that, not the
+class, is what tells them from a handler throwing the same classes; the package composes no handler to
+find out (`AC-HTTP-002.1`).
+
+`AC-HTTP-019.3` is why the status is taken from the response the package judged and never from the
+exception: a handler can construct an `HttpRequestException` carrying a status for a response that
+never arrived, and a status on a receipt means a server said it. A 2xx whose body then broke keeps its
+status beside its transport error.
+
+`AC-HTTP-019.4`'s instant is taken before the callback is handed to the block, so it is the age of
+the value it accompanies however long the block's mailbox holds the callback: `ReceivedAt` is what a
+block publishes, `ReceivedTimestamp` what it ages a value against, because a wall clock can step when
+a gateway's time is corrected. The round trip runs until the package observed the outcome — for the
+four members that carry a response type, through reading and deserializing the body; for
+`SendRequest`, to the headers, because the body is the callback's (`AC-HTTP-004.2`). A request the
+client refused was never sent, and its round trip is zero.
 
 ## The two timeout bounds
 
@@ -359,6 +402,46 @@ succeeds anyway. A header a request-header collection refuses — a *content* he
 mentions it. `SendRequest` is the way to set a content header, since there it belongs to content the
 caller owns.
 
+## The client's summary
+
+- `AC-HTTP-020.1` (Ubiquitous): THE SYSTEM SHALL accumulate every request a client instance issues into that instance's own summary, readable at any time, before the request's callback is handed to the block and whether or not the request has a callback.
+- `AC-HTTP-020.2` (Ubiquitous): THE SYSTEM SHALL count every request under its receipt's outcome, keeping one lifetime counter per outcome.
+- `AC-HTTP-020.3` (Ubiquitous): THE SYSTEM SHALL record every outcome but a success as the last failure, with its instant and the status of its response where one arrived, and SHALL record the instant of the last response of any status.
+- `AC-HTTP-020.4` (Ubiquitous): THE SYSTEM SHALL feed every round-trip figure only from successes, client errors, server errors and content errors.
+- `AC-HTTP-020.5` (Ubiquitous): THE SYSTEM SHALL report the mean, the maximum and the number of round trips over at least the last 15 minutes and less than the last 16 on the registered clock, or over the client's whole life where that is shorter, reporting the mean and maximum as empty and the count as zero while none falls within it.
+- `AC-HTTP-020.6` (Ubiquitous): THE SYSTEM SHALL report the lifetime maximum round trip with the instant its outcome was observed, and SHALL move that instant only when a strictly larger value is recorded.
+- `AC-HTTP-020.7` (Ubiquitous): THE SYSTEM SHALL report how many issued requests have not yet had their outcome recorded.
+
+Decision `0118`, for HTTP: the package keeps the tally of a client's requests, so no block hand-keeps
+counters. `Summary` is one flat readonly record struct a block publishes as a single
+`[ServiceProperty]`.
+
+`AC-HTTP-020.1` scopes it to the client instance. The client is transient (`AC-HTTP-001.1`), so a
+block that calls two services and wants their figures apart injects two clients. The summary is
+recorded before the callback is handed over, so it does not lag by however many callbacks wait in the
+block's mailbox, and a request whose callback reaches nobody (`AC-HTTP-005.2`) or that has none
+(`AC-HTTP-006.2`) still counts. A call refused at the caller (the refusals below) never became a
+request and does not.
+
+There is no up/down verdict (decision `0200`): one client may call many servers, and only the block
+knows how often it calls. `LastResponseAt` and the last failure are what a block builds one from, on
+its own cadence — which is also why nothing here decays with time.
+
+`AC-HTTP-020.4` keeps the round trip a measure of how fast a server answers: a timeout's duration is
+its bound and a refused connection's is close to zero, and either would pull the mean away from that.
+The window is the Modbus link summary's (`AC-MODB-016.7`) for that summary's reason — it is published
+as one live value and nothing downstream keeps its history — and it runs on the registered clock, so
+it rolls on virtual time under the HTTP test kit and a stepped host (`AC-HTTP-008.3`).
+
+**What publishing a summary costs.** Every completed request moves a counter, so each value the block
+assigns differs from the last: the dedup floor never holds one back, and a struct has no deadband
+([`emission.md`](emission.md)). The summary is published as often as the block assigns it, up to once
+per `MinInterval` — at the default 250 ms, four times a second for a block that assigns it in every
+callback of a busy client, 14,400 publishes an hour. Declare `MinInterval` in seconds (`"30s"` suits a
+diagnostics card), assign the summary from the block's own tick rather than from each callback, and do
+not set `Immediate`; the latest value is still published within one interval. A signal whose every
+edge matters is the receipt's, not the summary's.
+
 ## The hosted server: configuration and lifecycle
 
 A logic block can *be* an HTTP server. It is configured by properties and gated by `IsEnabled`, exactly
@@ -470,8 +553,6 @@ block's constructor instead is that block's scope's, as every transient is.
   keeps or carry more body bytes than its budget THE SYSTEM SHALL drop the oldest until both hold, SHALL
   drop a request whose body alone is over the budget, and SHALL report how many it dropped since the
   block last took them.
-- `AC-HTTP-016.10` (Ubiquitous): THE SYSTEM SHALL report the latest arrival instant among the requests it
-  has recorded, and none before it has recorded one.
 - `AC-HTTP-016.11` (Unwanted): IF a response is set or removed with no method, a path that is empty,
   does not start with `/` or carries a query, or no response, or a response is built with a status
   outside 200 to 599, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument.
@@ -573,6 +654,40 @@ can read every response and send any request. That is why it listens on loopback
 interface, and a block serving something a network peer must not see keeps it there or binds a trusted
 interface.
 
+## The hosted server: its summary
+
+- `AC-HTTP-021.1` (Ubiquitous): THE SYSTEM SHALL accumulate what the hosted server answers and refuses into a summary readable at any time without a Sync callback, kept for the lifetime of the server instance across disabling and enabling.
+- `AC-HTTP-021.2` (Ubiquitous): THE SYSTEM SHALL count, once each response has been written in full, the requests answered from a published response apart from those answered 404 or 405 because nothing was published for them.
+- `AC-HTTP-021.3` (Ubiquitous): THE SYSTEM SHALL count separately the requests it refused itself and the connections it refused at the connection limit, and SHALL record the instant and the status of the last refusal of either kind.
+- `AC-HTTP-021.4` (Ubiquitous): THE SYSTEM SHALL count every connection it closes with neither a response written in full nor a refusal.
+- `AC-HTTP-021.5` (Ubiquitous): THE SYSTEM SHALL count every recorded request dropped from the log over the server's lifetime, independently of the count it reports since the block last took them.
+- `AC-HTTP-021.6` (Ubiquitous): THE SYSTEM SHALL report the latest arrival instant among the requests it has recorded, and none before it has recorded one.
+- `AC-HTTP-021.7` (Ubiquitous): THE SYSTEM SHALL report how many connections it is serving when the summary is read, not counting a connection refused at the connection limit.
+- `AC-HTTP-021.8` (Ubiquitous): THE SYSTEM SHALL record with every request it hands to the block the status it answered that request with.
+
+The server's half of decision `0118`. Like the rest of the server, the summary is fed from the
+server's own threads and never calls the block; a block reads it whenever it likes, outside `Sync`, and
+publishes it at the cost the client's summary states, with the same `MinInterval`.
+
+`AC-HTTP-021.2` counts on delivery, the moment `AC-HTTP-016.8` records, so the answered counts and the
+log agree, and a request a stop cut short is abandoned rather than answered (`AC-HTTP-015.9`).
+Unmatched means nothing was published: a route the block published with a 404 of its own is an
+answer.
+
+`AC-HTTP-021.3`'s two kinds are two causes. A refused request is a client sending what the server will
+not read (`AC-HTTP-017.2` to `AC-HTTP-017.4`); an overload is more clients than the connection limit
+(`AC-HTTP-017.10`). `AC-HTTP-021.4` counts the rest — a client gone before its request was complete,
+the read bound, a stop — so every connection the server has finished with is in exactly one of the
+answered, unmatched, refused, overloaded and abandoned counts.
+
+`AC-HTTP-021.5` is `AC-HTTP-016.9`'s count over the server's life: the snapshot's own count runs since
+the block last took the requests and is what a block reads to know it missed some; the summary's is
+what a card shows. `AC-HTTP-021.8` is the per-request fact the summary cannot give per route: with it a
+block tallies its routes from what the server answered, rather than by matching its own table again.
+
+Over the HTTP test kit's in-memory transport every request is answered and delivered, so the refused,
+overloaded and abandoned counts stay at zero there, and so does the connection count.
+
 ## On a stepped development host
 
 - `AC-HTTP-018.1` (State-driven): WHILE the host is stepped THE SYSTEM SHALL deliver an HTTP request's callback to the block before the virtual clock next advances and before a stepped advance in progress returns.
@@ -604,8 +719,8 @@ is real time and is what ends a request to a peer that never answers.
   SHALL add logging, JSON, HTTP-factory and clock dependencies to any plugin that takes it.
 
 The published set is what a block author is meant to name: the client interface, the registration
-extension, the one exception worth catching by name, and the hosted server's factory, server,
-snapshot, response and request. The concrete client and the two seams it
+extension, the one exception worth catching by name, the receipt with its outcome, the two summaries,
+and the hosted server's factory, server, snapshot, response and request. The concrete client and the two seams it
 composes itself through are plumbing — public only because the container's activator needs a public
 constructor, which is the classification rule's own case.
 
@@ -637,8 +752,10 @@ learn it than reading it here.
 - **No retries, no backoff, no circuit breaker.** A failure is one callback; a block that wants
   another attempt schedules it. `Vion.Examples.Energy`'s `OpenMeteoService` answers with a cache with a fifteen-minute life
   rather than a retry.
-- **No link or connection diagnostics.** There is no HTTP analogue of the Modbus link and socket
-  summaries: the transport is the platform's pooled handler and nothing surfaces its state.
+- **No link verdict and no connection diagnostics on the client.** The client's summary counts
+  outcomes and times round trips but calls no server up or down: one client may call many, and the
+  block owns the cadence a verdict needs (decision `0200`). The client's connections are the
+  platform's pooled handler's, and nothing surfaces their state.
 - **No TLS and no authentication on the hosted server.** It speaks plain HTTP/1.1 and serves anyone
   who can reach the port — loopback only, until a block names an interface — which its published type's
   own documentation says where an author meets it.
@@ -663,6 +780,14 @@ claim is a handler that never answers and honours cancellation — never a delay
 shorter bound ([`../testing-conventions.md`](../testing-conventions.md) § 16), and never a handler
 that ignores the token, which reads the opposite of a real one on a zero bound.
 
+The receipt's rows read a status only through the receipt. Every test here targets a runtime where
+`HttpRequestException.StatusCode` compiles, so a test reading the exception's own property would pass
+with no receipt at all. The transport row throws a plain `HttpRequestException` from the handler — the
+class a refused connection arrives as — beside a 404, and a third row throws one carrying a 404 from
+the handler, which only a status taken from the judged response reports as none. The invalid rows
+throw the client's own refusal classes from a handler too, so only where an exception was raised can
+tell them apart.
+
 Three limits of that seam are contract rather than accident, because the stub replaces the very
 handler the platform composes:
 
@@ -680,7 +805,10 @@ drove it and carries a request straight to the server's answer and delivers its 
 criteria are proven over real loopback sockets against the real server, so "record nothing" is read from
 the server's own log. The read bound's tests give their server a short bound of its own and make the
 bound's expiry the observable — including as the synchronisation point, where a silent client closed by
-the bound is the proof that the bound has elapsed for a request waiting beside it. Two rows reach the
+the bound is the proof that the bound has elapsed for a request waiting beside it. The server reports
+a connection's answer, refusal or abandonment before it closes its side, so the client seeing the close
+is the synchronisation point for those counts; the connection count falls only after that, and its rows
+wait for it under a bound only a hung server reaches. Two rows reach the
 socket transport through a seam of its own: the connection limit, which a test sets low, and the accept
 call, which a test makes fail, since nothing a client does can make a listener's accept throw.
 
