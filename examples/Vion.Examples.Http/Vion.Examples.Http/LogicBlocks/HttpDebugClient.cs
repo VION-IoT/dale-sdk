@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -115,7 +114,7 @@ namespace Vion.Examples.Http.LogicBlocks
         [ServiceProperty(Title = "Latency",
                          Unit = "ms",
                          Description =
-                             "From sending to the response headers — or to the failure — measured on the block's clock when the answer reached the block, so a busy block adds its own wait.")]
+                             "From sending to the response headers — or to the failure — as the SDK measured it, so a busy block's own wait is not in it. Zero for a request the client refused before sending.")]
         [Presentation(Group = ResponseGroup, Order = 30, Decimals = 1, Importance = Importance.Secondary)]
         public double? LatencyMs { get; private set; }
 
@@ -198,11 +197,14 @@ namespace Vion.Examples.Http.LogicBlocks
             _inFlight = true;
 
             var timeout = Timeout;
-            var sentAt = _timeProvider.GetTimestamp();
 
             try
             {
-                _httpClient.SendRequest(this, request, response => OnResponse(request, response, sentAt, timeout), exception => OnFailure(request, exception, sentAt), timeout);
+                _httpClient.SendRequest(this,
+                                        request,
+                                        (response, receipt) => OnResponse(request, response, receipt, timeout),
+                                        (exception, receipt) => OnFailure(request, exception, receipt),
+                                        timeout);
             }
             catch (ArgumentException ex)
             {
@@ -308,11 +310,11 @@ namespace Vion.Examples.Http.LogicBlocks
         ///     and handed back once the preview is full or the body ends; the response is this block's to dispose, and the
         ///     body read disposes it.
         /// </summary>
-        private void OnResponse(HttpRequestMessage request, HttpResponseMessage response, long sentAt, TimeSpan timeout)
+        private void OnResponse(HttpRequestMessage request, HttpResponseMessage response, HttpReceipt receipt, TimeSpan timeout)
         {
-            LatencyMs = _timeProvider.GetElapsedTime(sentAt).TotalMilliseconds;
+            LatencyMs = receipt.RoundTrip.TotalMilliseconds;
             LastError = string.Empty;
-            StatusCode = (int)response.StatusCode;
+            StatusCode = (int?)receipt.StatusCode;
             ReasonPhrase = response.ReasonPhrase ?? string.Empty;
             ResponseContentType = response.Content?.Headers.ContentType?.ToString() ?? string.Empty;
             ResponseHeaders = response.Headers
@@ -396,40 +398,39 @@ namespace Vion.Examples.Http.LogicBlocks
             }
         }
 
-        private void OnFailure(HttpRequestMessage request, Exception exception, long sentAt)
+        /// <summary>
+        ///     Takes the verdict from the receipt, not the exception: a refused connection and a 404 arrive as the same
+        ///     exception class, and the receipt carries a status only when a server answered.
+        /// </summary>
+        private void OnFailure(HttpRequestMessage request, Exception exception, HttpReceipt receipt)
         {
             request.Dispose();
             _inFlight = false;
-            LatencyMs = _timeProvider.GetElapsedTime(sentAt).TotalMilliseconds;
-
-            var status = AnsweredStatus(exception);
-            if (status != null)
-            {
-                StatusCode = (int)status.Value;
-                Outcome = RequestOutcome.HttpError;
-                LastError = $"The server answered {(int)status.Value}. Only a 2xx response reaches this block with its headers and body.";
-            }
-            else
-            {
-                Outcome = exception is TimeoutException ? RequestOutcome.TimedOut : RequestOutcome.Failed;
-                LastError = DescribeFailure(exception);
-            }
+            LatencyMs = receipt.RoundTrip.TotalMilliseconds;
+            StatusCode = (int?)receipt.StatusCode;
+            Outcome = ToRequestOutcome(receipt.Outcome);
+            LastError = Outcome == RequestOutcome.HttpError
+                            ? $"The server answered {StatusCode}. Only a 2xx response reaches this block with its headers and body."
+                            : DescribeFailure(exception);
 
             _logger.LogDebug(exception, "HTTP debug client request failed");
         }
 
         /// <summary>
-        ///     The status of a response the SDK refused for being outside 2xx, or <c>null</c> when no response arrived.
+        ///     Folds the SDK's outcome into the debug client's verdict. A client error and a server error are both
+        ///     <see cref="RequestOutcome.HttpError" />, since the status beside it says which; a content error cannot reach
+        ///     <c>SendRequest</c>, which deserializes nothing, and would read as a failure.
         /// </summary>
-        /// <remarks>
-        ///     Both cases arrive as <see cref="HttpRequestException" />: the platform wraps a refused connection in one too.
-        ///     What tells them apart is the exception's <c>StatusCode</c>, set only for a response. This block targets
-        ///     <c>netstandard2.1</c>, which does not declare that property, while every runtime it loads into sets it — so it
-        ///     is read by name.
-        /// </remarks>
-        private static HttpStatusCode? AnsweredStatus(Exception exception)
+        private static RequestOutcome ToRequestOutcome(HttpOutcome outcome)
         {
-            return exception is HttpRequestException ? exception.GetType().GetProperty("StatusCode")?.GetValue(exception) as HttpStatusCode? : null;
+            return outcome switch
+            {
+                HttpOutcome.Success => RequestOutcome.Succeeded,
+                HttpOutcome.ClientError or HttpOutcome.ServerError => RequestOutcome.HttpError,
+                HttpOutcome.Timeout => RequestOutcome.TimedOut,
+                HttpOutcome.Invalid => RequestOutcome.Invalid,
+                _ => RequestOutcome.Failed,
+            };
         }
 
         /// <summary>

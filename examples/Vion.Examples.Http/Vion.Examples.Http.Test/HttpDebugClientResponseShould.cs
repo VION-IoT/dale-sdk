@@ -82,6 +82,23 @@ namespace Vion.Examples.Http.Test
         }
 
         [Fact]
+        public void LeaveBlockWaitOutOfLatency()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+            _fixture.Clock.Advance(TimeSpan.FromMilliseconds(250));
+            _fixture.Harness.Respond("{}");
+
+            // Act
+            _fixture.Clock.Advance(TimeSpan.FromMilliseconds(100));
+            ctx.FlushPendingActions();
+
+            // Assert
+            Assert.Equal(250, Sut.LatencyMs);
+        }
+
+        [Fact]
         public void MeasureLatencyOnBlockClock()
         {
             // Arrange
@@ -95,6 +112,24 @@ namespace Vion.Examples.Http.Test
 
             // Assert
             Assert.Equal(250, Sut.LatencyMs);
+        }
+
+        [Fact]
+        public void ReportNoStatusWhenNoResponseArrived()
+        {
+            // Arrange
+            var ctx = _fixture.Build();
+            Sut.SendOnce = true;
+            var statusWithoutResponse = new HttpRequestException("No response arrived.", null, HttpStatusCode.NotFound);
+
+            // Act
+            _fixture.Harness.Fail(statusWithoutResponse);
+            ctx.FlushPendingActions();
+
+            // Assert
+            Assert.Equal(RequestOutcome.Failed, Sut.Outcome);
+            Assert.Null(Sut.StatusCode);
+            Assert.Equal("No response arrived.", Sut.LastError);
         }
 
         [Fact]
