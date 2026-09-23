@@ -102,9 +102,9 @@ namespace Vion.Examples.Http.Test
             _sut.FireTimer(block => block.OnTick());
 
             // Assert
-            Assert.Equal(300, _sut.RequestCount);
-            Assert.Equal(300 - _sut.DroppedRequestCount, _sut.Route1.HitCount);
-            Assert.True(_sut.DroppedRequestCount > 0);
+            Assert.Equal(300, _sut.ServerSummary.AnsweredCount);
+            Assert.True(_sut.ServerSummary.DroppedCount > 0);
+            Assert.Equal(300 - _sut.ServerSummary.DroppedCount, _sut.Route1.HitCount);
         }
 
         [Fact]
@@ -123,8 +123,8 @@ namespace Vion.Examples.Http.Test
             Assert.Equal(2, _sut.Route1.HitCount);
             Assert.Equal(_clock.GetUtcNow().UtcDateTime, _sut.Route1.LastHitAt);
             Assert.Equal(0, _sut.Route2.HitCount);
-            Assert.Equal(2, _sut.RequestCount);
-            Assert.Equal(0, _sut.UnmatchedRequestCount);
+            Assert.Equal(2, _sut.ServerSummary.AnsweredCount);
+            Assert.Equal(0, _sut.ServerSummary.UnmatchedCount);
         }
 
         [Fact]
@@ -139,9 +139,44 @@ namespace Vion.Examples.Http.Test
             _sut.FireTimer(block => block.OnTick());
 
             // Assert
-            Assert.Equal(2, _sut.UnmatchedRequestCount);
+            Assert.Equal(2, _sut.ServerSummary.UnmatchedCount);
+            Assert.Equal(0, _sut.ServerSummary.AnsweredCount);
             Assert.Equal(0, _sut.Route1.HitCount);
-            Assert.Equal(2, _sut.RequestCount);
+        }
+
+        [Fact]
+        public void CreditNoRouteForRequestAnsweredBeforeRouteServed()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _sut.Route1.Enabled = false;
+            _sut.FireTimer(block => block.OnTick());
+            _harness.Client.Send(HttpMethod.Get, "/api/status");
+            _sut.Route1.Enabled = true;
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal(0, _sut.Route1.HitCount);
+            Assert.Null(_sut.Route1.LastHitAt);
+        }
+
+        [Fact]
+        public void CreditRouteThatAnswers404()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _sut.Route1.StatusCode = 404;
+            _sut.FireTimer(block => block.OnTick());
+            _harness.Client.Send(HttpMethod.Get, "/api/status");
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal(1, _sut.Route1.HitCount);
+            Assert.Equal(1, _sut.ServerSummary.AnsweredCount);
         }
 
         [Fact]
@@ -178,6 +213,24 @@ namespace Vion.Examples.Http.Test
             // Assert
             Assert.True(_sut.IsListening);
             Assert.Empty(_sut.LastError);
+        }
+
+        [Fact]
+        public void PublishLastRequestArrival()
+        {
+            // Arrange
+            _sut.CreateTestContext().Build();
+            _clock.Advance(TimeSpan.FromSeconds(7));
+            var arrival = _clock.GetUtcNow().UtcDateTime;
+            _harness.Client.Send(HttpMethod.Get, "/api/status");
+            _clock.Advance(TimeSpan.FromSeconds(2));
+
+            // Act
+            _sut.FireTimer(block => block.OnTick());
+
+            // Assert
+            Assert.Equal(arrival, _sut.LastRequestAt);
+            Assert.Equal(arrival, _sut.ServerSummary.LastRequestAt);
         }
 
         [Fact]
