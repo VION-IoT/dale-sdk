@@ -49,6 +49,7 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
             Assert.AreEqual(DescriptionUrl, url);
             var failure = Assert.IsInstanceOfType<HttpRequestException>(outcome);
             Assert.AreEqual("Response status code does not indicate success: 404 (Not Found).", failure.Message);
+            Assert.AreEqual(HttpStatusCode.NotFound, sut.Receipts.Single().StatusCode);
         }
 
         [TestMethod]

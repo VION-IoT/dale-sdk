@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -45,7 +46,7 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         /// <param name="httpClientFactory">Factory for creating the HTTP client.</param>
         /// <param name="logger">Logger used for logging.</param>
-        /// <param name="timeProvider">The clock a per-request timeout is measured on.</param>
+        /// <param name="timeProvider">The clock a per-request timeout is measured on, and every receipt is stamped from.</param>
         /// <param name="exchanges">The development host's exchange monitor, when one is registered.</param>
         public HttpRequestExecutor(IHttpClientFactory httpClientFactory, ILogger<HttpRequestExecutor> logger, TimeProvider timeProvider, IExchangeActivityMonitor? exchanges = null)
         {
@@ -60,8 +61,8 @@ namespace Vion.Dale.Sdk.Http
                                                   string url,
                                                   HttpMethod httpMethod,
                                                   Func<HttpResponseMessage, Task<TContent>> getResponseContent,
-                                                  Action<TContent> successCallback,
-                                                  Action<Exception>? errorCallback = null,
+                                                  Action<TContent, HttpReceipt> successCallback,
+                                                  Action<Exception, HttpReceipt>? errorCallback = null,
                                                   Dictionary<string, string>? headers = null,
                                                   HttpContent? requestContent = null,
                                                   TimeSpan? timeout = null)
@@ -86,8 +87,8 @@ namespace Vion.Dale.Sdk.Http
         public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
                                         string url,
                                         HttpMethod httpMethod,
-                                        Action? successCallback = null,
-                                        Action<Exception>? errorCallback = null,
+                                        Action<HttpReceipt>? successCallback = null,
+                                        Action<Exception, HttpReceipt>? errorCallback = null,
                                         Dictionary<string, string>? headers = null,
                                         HttpContent? requestContent = null,
                                         TimeSpan? timeout = null)
@@ -109,8 +110,8 @@ namespace Vion.Dale.Sdk.Http
         /// <inheritdoc />
         public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
                                         HttpRequestMessage request,
-                                        Action<HttpResponseMessage>? successCallback = null,
-                                        Action<Exception>? errorCallback = null,
+                                        Action<HttpResponseMessage, HttpReceipt>? successCallback = null,
+                                        Action<Exception, HttpReceipt>? errorCallback = null,
                                         TimeSpan? timeout = null)
         {
             if (request == null)
@@ -158,14 +159,15 @@ namespace Vion.Dale.Sdk.Http
                                                       string url,
                                                       HttpMethod httpMethod,
                                                       Func<HttpResponseMessage, Task<TContent>> getResponseContent,
-                                                      Action<TContent> successCallback,
-                                                      Action<Exception>? errorCallback,
+                                                      Action<TContent, HttpReceipt> successCallback,
+                                                      Action<Exception, HttpReceipt>? errorCallback,
                                                       Dictionary<string, string>? headers,
                                                       HttpContent? requestContent,
                                                       TimeSpan? timeout)
             where TContent : notnull
         {
             LogRequestStarting(httpMethod, url);
+            var trace = new RequestTrace();
             HttpRequestMessage? request = null;
             HttpResponseMessage? response = null;
             using var cts = CreateTimeoutSource(timeout);
@@ -173,17 +175,19 @@ namespace Vion.Dale.Sdk.Http
             try
             {
                 request = CreateRequest(httpMethod, url, requestContent, headers);
-                response = await SendAsync(request, cts).ConfigureAwait(false);
+                response = await SendAsync(request, cts, trace).ConfigureAwait(false);
                 var responseContent = await getResponseContent(response).ConfigureAwait(false);
                 LogRequestSucceeded(httpMethod, url, response.StatusCode);
+                var receipt = Stamp(trace, HttpOutcome.Success);
                 if (successCallback != null)
                 {
-                    TryInvokeCallback(dispatcher, () => successCallback(responseContent), httpMethod, url);
+                    TryInvokeCallback(dispatcher, () => successCallback(responseContent, receipt), httpMethod, url);
                 }
             }
             catch (Exception exception)
             {
                 HandleException(exception,
+                                trace,
                                 dispatcher,
                                 errorCallback,
                                 httpMethod,
@@ -201,13 +205,14 @@ namespace Vion.Dale.Sdk.Http
         private async Task SendRequestAsync(IActorDispatcher dispatcher,
                                             string url,
                                             HttpMethod httpMethod,
-                                            Action? successCallback,
-                                            Action<Exception>? errorCallback,
+                                            Action<HttpReceipt>? successCallback,
+                                            Action<Exception, HttpReceipt>? errorCallback,
                                             Dictionary<string, string>? headers,
                                             HttpContent? requestContent,
                                             TimeSpan? timeout)
         {
             LogRequestStarting(httpMethod, url);
+            var trace = new RequestTrace();
             HttpRequestMessage? request = null;
             HttpResponseMessage? response = null;
             using var cts = CreateTimeoutSource(timeout);
@@ -215,16 +220,18 @@ namespace Vion.Dale.Sdk.Http
             try
             {
                 request = CreateRequest(httpMethod, url, requestContent, headers);
-                response = await SendAsync(request, cts).ConfigureAwait(false);
+                response = await SendAsync(request, cts, trace).ConfigureAwait(false);
                 LogRequestSucceeded(httpMethod, url, response.StatusCode);
+                var receipt = Stamp(trace, HttpOutcome.Success);
                 if (successCallback != null)
                 {
-                    TryInvokeCallback(dispatcher, successCallback, httpMethod, url);
+                    TryInvokeCallback(dispatcher, () => successCallback(receipt), httpMethod, url);
                 }
             }
             catch (Exception exception)
             {
                 HandleException(exception,
+                                trace,
                                 dispatcher,
                                 errorCallback,
                                 httpMethod,
@@ -241,21 +248,23 @@ namespace Vion.Dale.Sdk.Http
 
         private async Task SendRequestAsync(IActorDispatcher dispatcher,
                                             HttpRequestMessage request,
-                                            Action<HttpResponseMessage>? successCallback,
-                                            Action<Exception>? errorCallback,
+                                            Action<HttpResponseMessage, HttpReceipt>? successCallback,
+                                            Action<Exception, HttpReceipt>? errorCallback,
                                             TimeSpan? timeout)
         {
             using var cts = CreateTimeoutSource(timeout);
             var url = request.RequestUri.ToString();
             LogRequestStarting(request.Method, url);
+            var trace = new RequestTrace();
 
             try
             {
-                var response = await SendAsync(request, cts).ConfigureAwait(false);
+                var response = await SendAsync(request, cts, trace).ConfigureAwait(false);
                 LogRequestSucceeded(request.Method, url, response.StatusCode);
+                var receipt = Stamp(trace, HttpOutcome.Success);
                 if (successCallback != null)
                 {
-                    TryInvokeCallback(dispatcher, () => successCallback(response), request.Method, url);
+                    TryInvokeCallback(dispatcher, () => successCallback(response, receipt), request.Method, url);
                 }
                 else
                 {
@@ -268,6 +277,7 @@ namespace Vion.Dale.Sdk.Http
             catch (Exception exception)
             {
                 HandleException(exception,
+                                trace,
                                 dispatcher,
                                 errorCallback,
                                 request.Method,
@@ -339,14 +349,23 @@ namespace Vion.Dale.Sdk.Http
             return request;
         }
 
-        private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationTokenSource cts)
+        private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationTokenSource cts, RequestTrace trace)
         {
             var httpClient = _httpClientFactory.CreateClient(HttpClientName);
+
+            // Taken apart from the await on purpose. The client raises its own refusals — a URL no base address makes
+            // absolute, a disposed client, a message it has sent before — from this call, before it returns a task, and
+            // everything its handlers raise arrives on the task. Where the exception comes from is therefore what tells a
+            // request that never left from a transport failure, whatever its class: a handler may throw either class the
+            // client refuses with.
+            trace.SentAt = _timeProvider.GetTimestamp();
+            var sending = httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            trace.Sent = true;
             HttpResponseMessage response;
 
             try
             {
-                response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+                response = await sending.ConfigureAwait(false);
             }
             catch (OperationCanceledException exception) when (!cts.IsCancellationRequested && exception.InnerException is TimeoutException)
             {
@@ -363,8 +382,15 @@ namespace Vion.Dale.Sdk.Http
                  * The relabel is here rather than beside the per-request one in HandleException so that the
                  * bound can be named from the client that imposed it, which is a local of this method; the
                  * failure path holds only the factory, and would have to build a second client to read it. */
+                trace.TimedOut = true;
+
                 throw TimedOut(httpClient.Timeout);
             }
+
+            // Recorded from the response rather than read back off the exception below, which on this package's target
+            // does not declare the status, and which a handler can also construct carrying one for a response that never
+            // arrived.
+            trace.Status = response.StatusCode;
 
             try
             {
@@ -377,6 +403,7 @@ namespace Vion.Dale.Sdk.Http
                 // Disposing here reaches all three overloads at once, which is why neither the two `finally`
                 // blocks nor the third overload (whose response the callback owns) needs to change.
                 response.Dispose();
+                trace.StatusRefused = true;
 
                 throw;
             }
@@ -385,8 +412,9 @@ namespace Vion.Dale.Sdk.Http
         }
 
         private void HandleException(Exception exception,
+                                     RequestTrace trace,
                                      IActorDispatcher dispatcher,
-                                     Action<Exception>? callback,
+                                     Action<Exception, HttpReceipt>? callback,
                                      HttpMethod httpMethod,
                                      string url,
                                      CancellationTokenSource cts,
@@ -399,13 +427,48 @@ namespace Vion.Dale.Sdk.Http
             if (exception is OperationCanceledException && cts.IsCancellationRequested && timeout != null)
             {
                 exception = TimedOut(timeout.Value);
+                trace.TimedOut = true;
             }
 
+            var receipt = Stamp(trace, Classify(exception, trace));
             LogRequestFailed(exception, httpMethod, url);
             if (callback != null)
             {
-                TryInvokeCallback(dispatcher, () => callback(exception), httpMethod, url);
+                var failure = exception;
+                TryInvokeCallback(dispatcher, () => callback(failure, receipt), httpMethod, url);
             }
+        }
+
+        /// <summary>
+        ///     Names the outcome from what the exchange reached, and reads the exception's class only where the exchange alone
+        ///     cannot say: a body that would not deserialize and a stream that broke both follow a 2xx.
+        /// </summary>
+        private static HttpOutcome Classify(Exception exception, RequestTrace trace)
+        {
+            if (!trace.Sent)
+            {
+                return HttpOutcome.Invalid;
+            }
+
+            if (trace.TimedOut)
+            {
+                return HttpOutcome.Timeout;
+            }
+
+            if (trace.StatusRefused)
+            {
+                return (int)trace.Status!.Value >= 500 ? HttpOutcome.ServerError : HttpOutcome.ClientError;
+            }
+
+            return trace.Status != null && exception is JsonException or ContentNullAfterDeserializationException ? HttpOutcome.ContentError : HttpOutcome.TransportError;
+        }
+
+        private HttpReceipt Stamp(RequestTrace trace, HttpOutcome outcome)
+        {
+            var receivedTimestamp = _timeProvider.GetTimestamp();
+            var roundTrip = trace.Sent ? _timeProvider.GetElapsedTime(trace.SentAt, receivedTimestamp) : TimeSpan.Zero;
+
+            return new HttpReceipt(_timeProvider.GetUtcNow().UtcDateTime, receivedTimestamp, roundTrip, outcome, trace.Status);
         }
 
         /// <summary>
@@ -455,5 +518,27 @@ namespace Vion.Dale.Sdk.Http
                        Message =
                            "Could not hand the callback for the {HttpMethod} request to {Url} to the block - it may not have received its first message yet, or may already have stopped. The request's outcome reached nobody")]
         private partial void LogCallbackFailed(Exception exception, HttpMethod httpMethod, string url);
+
+        /// <summary>
+        ///     What one request reached, written by the thread running it and read once, by the same flow, when its receipt is
+        ///     stamped.
+        /// </summary>
+        private sealed class RequestTrace
+        {
+            /// <summary>Whether the client took the request and handed it to its handlers.</summary>
+            public bool Sent;
+
+            /// <summary>When the request was handed to the client, on the registered clock's timestamp scale.</summary>
+            public long SentAt;
+
+            /// <summary>The status of the response the client returned, whether or not it was a success.</summary>
+            public HttpStatusCode? Status;
+
+            /// <summary>Whether that status was outside 2xx and failed the request.</summary>
+            public bool StatusRefused;
+
+            /// <summary>Whether one of the two bounds, rather than anything else, ended the exchange.</summary>
+            public bool TimedOut;
+        }
     }
 }

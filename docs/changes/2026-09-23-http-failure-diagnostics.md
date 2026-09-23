@@ -1,6 +1,6 @@
 ---
 slug: http-failure-diagnostics
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: HTTP
 author: jonasbertsch
@@ -361,8 +361,8 @@ Migration is compiler-guided, and a site that ignores the receipt behaves the sa
 The server's `LastRequestAt` becomes `Summary.LastRequestAt`, a `DateTime?` in UTC where it was a
 `DateTimeOffset?`. Per consumer:
 
-- **`logic-block-libraries`**: its one `GetJson` (where `IsNotFound` becomes one comparison), and its
-  Moq setups.
+- **`logic-block-libraries`**: its one `GetJson` (where `IsNotFound` becomes one comparison); its
+  `Mock.Of<ILogicBlockHttpClient>()` recompiles unchanged (T-000).
 - **Examples** (post-release bump):
   - `HttpDebugClient`: take the status, round trip and outcome from the receipt, and publish
     `Summary` at `"30s"`.
@@ -399,6 +399,13 @@ Every test project targets `net10.0`, where the base `HttpRequestException.Statu
 - 2026-09-23: The first draft of the doc said the 4xx/5xx split "is what every HTTP tool surveyed
   shows". Its own survey table records status per request. This is corrected in § Full design › 2 and
   Reviewer's question 2, per amendment 1.
+- 2026-09-23: T-000, re-derived with `grep -rnE "\.<Member>\s*<" --include=*.cs` over `logic-block-libraries`,
+  `examples/`, `libraries/` and `templates/`: `GetJson` 3, `PostJson` 0, `PutJson` 0, `DeleteJson` 0, `Delete(` 0, and
+  one `SendRequest` on the HTTP client (`HttpDebugClient.cs:205`). The one reader of the server's `LastRequestAt` is
+  `HttpSimServer.cs:263`. The consumer's Moq use is `Mock.Of<ILogicBlockHttpClient>()` with no setup
+  (`EmuMCenterSourceGateShould.cs:243`), so it recompiles unchanged; the doc's "Moq setups" migration step does
+  not apply to it. In-repo, `Vion.Dale.DevHost.Test`'s stepping fixture (`SocketExchangeFixtureBlocks.cs:93`) calls
+  `GetJson` too and migrates in T-001. Both HTTP test projects target `net10.0` (their csproj `TargetFramework`).
 
 ---
 
