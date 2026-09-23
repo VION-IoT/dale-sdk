@@ -26,7 +26,10 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="url">The URL to send the HTTP request to.</param>
         /// <param name="httpMethod">The HTTP method to use.</param>
         /// <param name="getResponseContent">Function to extract and deserialize content from the HTTP response.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response content and the request's receipt on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response content and the request's receipt on
+        ///     success.
+        /// </param>
         /// <param name="errorCallback">Callback invoked with the exception and the request's receipt if the request fails.</param>
         /// <param name="headers">HTTP headers to include in the request.</param>
         /// <param name="requestContent">The HTTP content to send in the request body.</param>
@@ -95,7 +98,10 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         /// <param name="dispatcher">The dispatcher that will invoke the callbacks.</param>
         /// <param name="request">The <see cref="HttpRequestMessage" /> to send.</param>
-        /// <param name="successCallback">Callback invoked with the <see cref="HttpResponseMessage" /> and the request's receipt on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the <see cref="HttpResponseMessage" /> and the request's receipt on
+        ///     success.
+        /// </param>
         /// <param name="errorCallback">Callback invoked with the exception and the request's receipt if the request fails.</param>
         /// <param name="timeout">
         ///     A bound on this request alone, applied <i>in addition to</i> the <see cref="HttpClient" />'s own

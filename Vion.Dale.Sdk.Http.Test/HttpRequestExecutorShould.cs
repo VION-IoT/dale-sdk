@@ -419,8 +419,7 @@ namespace Vion.Dale.Sdk.Http.Test
         {
             // Arrange — the handler never answers and honours the token, so the bound is the only thing that ends the
             // exchange; a handler that throws a TimeoutException of its own is a transport error instead
-            var sut = Executor(StubHttpMessageHandler.NeverCompleting(),
-                               clientTimeoutMilliseconds == null ? null : TimeSpan.FromMilliseconds(clientTimeoutMilliseconds.Value));
+            var sut = Executor(StubHttpMessageHandler.NeverCompleting(), clientTimeoutMilliseconds == null ? null : TimeSpan.FromMilliseconds(clientTimeoutMilliseconds.Value));
             HttpReceipt? received = null;
 
             // Act
@@ -549,11 +548,7 @@ namespace Vion.Dale.Sdk.Http.Test
             var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.NotFound));
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher,
-                                          Url,
-                                          HttpMethod.Get,
-                                          withCallbacks ? _ => { } : null,
-                                          withCallbacks ? (_, _) => { } : null);
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, withCallbacks ? _ => { } : null, withCallbacks ? (_, _) => { } : null);
 
             // Assert
             Assert.AreEqual(1, sut.Summary.ClientErrorCount);
@@ -596,7 +591,12 @@ namespace Vion.Dale.Sdk.Http.Test
             HttpReceipt? received = null;
 
             // Act
-            await sut.ExecuteRequestAsync(_dispatcher, url, HttpMethod.Get, ReadBody, (_, _) => { }, (_, receipt) => received = receipt);
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          (_, _) => { },
+                                          (_, receipt) => received = receipt);
             _dispatcher.Drain();
 
             // Assert
@@ -613,7 +613,7 @@ namespace Vion.Dale.Sdk.Http.Test
             // Arrange — a failure, then a success on the same client
             var failing = true;
             var handler = StubHttpMessageHandler.Responding((_, _) => Task.FromResult(StubHttpMessageHandler.Respond(failing ? HttpStatusCode.BadGateway : HttpStatusCode.OK,
-                                                                                                                  TestObject.PascalCaseJson)));
+                                                                                                                     TestObject.PascalCaseJson)));
             var sut = Executor(handler);
             await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, ReadBody, (_, _) => { });
             var afterFailure = sut.Summary;
@@ -1423,10 +1423,10 @@ namespace Vion.Dale.Sdk.Http.Test
                                                                             onReceipt?.Invoke(receipt);
                                                                         };
             Action<Exception, HttpReceipt>? failed = onError == null ? null : (exception, receipt) =>
-                                                                                  {
-                                                                                      onError(exception);
-                                                                                      onReceipt?.Invoke(receipt);
-                                                                                  };
+                                                                              {
+                                                                                  onError(exception);
+                                                                                  onReceipt?.Invoke(receipt);
+                                                                              };
             switch (overload)
             {
                 case Overload.ResponseContent:

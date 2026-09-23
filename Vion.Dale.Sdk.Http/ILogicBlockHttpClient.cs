@@ -29,7 +29,10 @@ namespace Vion.Dale.Sdk.Http
         ///     block).
         /// </param>
         /// <param name="url">The URL to send the GET request to.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response and the request's <see cref="HttpReceipt" /> on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
         ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
@@ -79,7 +82,10 @@ namespace Vion.Dale.Sdk.Http
         /// </param>
         /// <param name="url">The URL to send the POST request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response and the request's <see cref="HttpReceipt" /> on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
         ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
@@ -194,7 +200,10 @@ namespace Vion.Dale.Sdk.Http
         /// </param>
         /// <param name="url">The URL to send the PUT request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response and the request's <see cref="HttpReceipt" /> on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
         ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
@@ -304,7 +313,10 @@ namespace Vion.Dale.Sdk.Http
         ///     block).
         /// </param>
         /// <param name="url">The URL to send the DELETE request to.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response and the request's <see cref="HttpReceipt" /> on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
         ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells

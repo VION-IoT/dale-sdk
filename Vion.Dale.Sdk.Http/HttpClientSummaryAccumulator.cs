@@ -8,7 +8,8 @@ namespace Vion.Dale.Sdk.Http
     /// </summary>
     /// <remarks>
     ///     Requests end on pool threads while the block reads the summary on its actor, so every field is guarded by one lock
-    ///     and <see cref="Snapshot" /> copies out under it. The lock is held for a handful of field writes, or for one pass over
+    ///     and <see cref="Snapshot" /> copies out under it. The lock is held for a handful of field writes, or for one pass
+    ///     over
     ///     the window's slots, and is never held across a callback. The window is the Modbus link summary's.
     /// </remarks>
     internal sealed class HttpClientSummaryAccumulator

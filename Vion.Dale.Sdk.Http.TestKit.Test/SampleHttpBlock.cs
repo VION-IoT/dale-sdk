@@ -29,7 +29,11 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
         /// <summary>Issues a GET for a device description.</summary>
         public void FetchDescription(string url, TimeSpan? timeout = null)
         {
-            _client.GetJson<DeviceDescription>(this, url, (description, receipt) => Settle(url, description, receipt), (exception, receipt) => Settle(url, exception, receipt), timeout: timeout);
+            _client.GetJson<DeviceDescription>(this,
+                                               url,
+                                               (description, receipt) => Settle(url, description, receipt),
+                                               (exception, receipt) => Settle(url, exception, receipt),
+                                               timeout: timeout);
         }
 
         /// <summary>Posts a status report whose response carries no body.</summary>
