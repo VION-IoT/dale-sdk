@@ -32,10 +32,16 @@ namespace Vion.Dale.Sdk.Http
         }
 
         /// <inheritdoc />
+        public HttpClientSummary Summary
+        {
+            get => _httpRequestExecutor.Summary;
+        }
+
+        /// <inheritdoc />
         public void GetJson<TResponse>(IActorDispatcher dispatcher,
                                        string url,
-                                       Action<TResponse> successCallback,
-                                       Action<Exception>? errorCallback = null,
+                                       Action<TResponse, HttpReceipt> successCallback,
+                                       Action<Exception, HttpReceipt>? errorCallback = null,
                                        Dictionary<string, string>? headers = null,
                                        TimeSpan? timeout = null)
             where TResponse : notnull
@@ -57,8 +63,8 @@ namespace Vion.Dale.Sdk.Http
         public void PostJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                                   string url,
                                                   TRequest body,
-                                                  Action<TResponse> successCallback,
-                                                  Action<Exception>? errorCallback = null,
+                                                  Action<TResponse, HttpReceipt> successCallback,
+                                                  Action<Exception, HttpReceipt>? errorCallback = null,
                                                   Dictionary<string, string>? headers = null,
                                                   TimeSpan? timeout = null)
             where TRequest : notnull
@@ -82,8 +88,8 @@ namespace Vion.Dale.Sdk.Http
         public void PostJson<TRequest>(IActorDispatcher dispatcher,
                                        string url,
                                        TRequest body,
-                                       Action? successCallback = null,
-                                       Action<Exception>? errorCallback = null,
+                                       Action<HttpReceipt>? successCallback = null,
+                                       Action<Exception, HttpReceipt>? errorCallback = null,
                                        Dictionary<string, string>? headers = null,
                                        TimeSpan? timeout = null)
             where TRequest : notnull
@@ -105,8 +111,8 @@ namespace Vion.Dale.Sdk.Http
         public void PutJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                                  string url,
                                                  TRequest body,
-                                                 Action<TResponse> successCallback,
-                                                 Action<Exception>? errorCallback = null,
+                                                 Action<TResponse, HttpReceipt> successCallback,
+                                                 Action<Exception, HttpReceipt>? errorCallback = null,
                                                  Dictionary<string, string>? headers = null,
                                                  TimeSpan? timeout = null)
             where TRequest : notnull
@@ -130,8 +136,8 @@ namespace Vion.Dale.Sdk.Http
         public void PutJson<TRequest>(IActorDispatcher dispatcher,
                                       string url,
                                       TRequest body,
-                                      Action? successCallback = null,
-                                      Action<Exception>? errorCallback = null,
+                                      Action<HttpReceipt>? successCallback = null,
+                                      Action<Exception, HttpReceipt>? errorCallback = null,
                                       Dictionary<string, string>? headers = null,
                                       TimeSpan? timeout = null)
             where TRequest : notnull
@@ -152,8 +158,8 @@ namespace Vion.Dale.Sdk.Http
         /// <inheritdoc />
         public void DeleteJson<TResponse>(IActorDispatcher dispatcher,
                                           string url,
-                                          Action<TResponse> successCallback,
-                                          Action<Exception>? errorCallback = null,
+                                          Action<TResponse, HttpReceipt> successCallback,
+                                          Action<Exception, HttpReceipt>? errorCallback = null,
                                           Dictionary<string, string>? headers = null,
                                           TimeSpan? timeout = null)
             where TResponse : notnull
@@ -174,8 +180,8 @@ namespace Vion.Dale.Sdk.Http
         /// <inheritdoc />
         public void Delete(IActorDispatcher dispatcher,
                            string url,
-                           Action? successCallback = null,
-                           Action<Exception>? errorCallback = null,
+                           Action<HttpReceipt>? successCallback = null,
+                           Action<Exception, HttpReceipt>? errorCallback = null,
                            Dictionary<string, string>? headers = null,
                            TimeSpan? timeout = null)
         {
@@ -194,8 +200,8 @@ namespace Vion.Dale.Sdk.Http
         /// <inheritdoc />
         public void SendRequest(IActorDispatcher dispatcher,
                                 HttpRequestMessage request,
-                                Action<HttpResponseMessage>? successCallback = null,
-                                Action<Exception>? errorCallback = null,
+                                Action<HttpResponseMessage, HttpReceipt>? successCallback = null,
+                                Action<Exception, HttpReceipt>? errorCallback = null,
                                 TimeSpan? timeout = null)
         {
             var task = _httpRequestExecutor.ExecuteRequestAsync(dispatcher, request, successCallback, errorCallback, timeout);

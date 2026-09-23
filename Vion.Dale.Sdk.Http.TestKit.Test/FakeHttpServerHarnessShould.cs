@@ -88,7 +88,7 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
             harness.Client.Send(HttpMethod.Get, "/status");
 
             // Assert
-            Assert.AreEqual(clock.GetUtcNow(), harness.Server.LastRequestAt);
+            Assert.AreEqual(clock.GetUtcNow().UtcDateTime, harness.Server.Summary.LastRequestAt);
             Assert.AreEqual(clock.GetUtcNow(), harness.Server.Sync(snapshot => snapshot.TakeReceivedRequests().Single().ReceivedAt));
         }
 

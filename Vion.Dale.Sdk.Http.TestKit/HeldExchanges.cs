@@ -312,12 +312,17 @@ namespace Vion.Dale.Sdk.Http.TestKit
             _exchanges = exchanges;
         }
 
+        public HttpClientSummary Summary
+        {
+            get => _inner.Summary;
+        }
+
         public Task ExecuteRequestAsync<TContent>(IActorDispatcher dispatcher,
                                                   string url,
                                                   HttpMethod httpMethod,
                                                   Func<HttpResponseMessage, Task<TContent>> getResponseContent,
-                                                  Action<TContent> successCallback,
-                                                  Action<Exception>? errorCallback = null,
+                                                  Action<TContent, HttpReceipt> successCallback,
+                                                  Action<Exception, HttpReceipt>? errorCallback = null,
                                                   Dictionary<string, string>? headers = null,
                                                   HttpContent? requestContent = null,
                                                   TimeSpan? timeout = null)
@@ -338,8 +343,8 @@ namespace Vion.Dale.Sdk.Http.TestKit
         public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
                                         string url,
                                         HttpMethod httpMethod,
-                                        Action? successCallback = null,
-                                        Action<Exception>? errorCallback = null,
+                                        Action<HttpReceipt>? successCallback = null,
+                                        Action<Exception, HttpReceipt>? errorCallback = null,
                                         Dictionary<string, string>? headers = null,
                                         HttpContent? requestContent = null,
                                         TimeSpan? timeout = null)
@@ -357,8 +362,8 @@ namespace Vion.Dale.Sdk.Http.TestKit
 
         public Task ExecuteRequestAsync(IActorDispatcher dispatcher,
                                         HttpRequestMessage request,
-                                        Action<HttpResponseMessage>? successCallback = null,
-                                        Action<Exception>? errorCallback = null,
+                                        Action<HttpResponseMessage, HttpReceipt>? successCallback = null,
+                                        Action<Exception, HttpReceipt>? errorCallback = null,
                                         TimeSpan? timeout = null)
         {
             return _exchanges.Track(timeout, () => _inner.ExecuteRequestAsync(dispatcher, request, successCallback, errorCallback, timeout));

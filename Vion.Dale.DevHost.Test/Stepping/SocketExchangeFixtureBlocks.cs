@@ -90,7 +90,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
                 _url = value;
                 if (value.Length > 0)
                 {
-                    _client.GetJson<int>(this, value, fetched => Fetched = fetched);
+                    _client.GetJson<int>(this, value, (fetched, _) => Fetched = fetched);
                 }
             }
         }

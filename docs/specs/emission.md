@@ -160,6 +160,15 @@ which `DALE039` states back to the author.
 `AC-EMIT-005.7` is what keeps a release honest: a suppressed value is still the member's newest, so a
 held value that survived it would move the consumer away from where the member actually is.
 
+**A value that changes on every transaction.** A diagnostics summary a client keeps — the Modbus link
+summary, the HTTP client and server summaries — moves at least one counter with every transaction, so
+each value a block assigns differs from the last: the dedup floor never holds one back, and a struct
+has no deadband. Its publish rate is the lower of how often the block assigns it and once per
+`MinInterval`, and at the 250 ms default a block assigning it in every callback of a busy client
+publishes four times a second. Such a member declares its `MinInterval` in seconds and is assigned
+from the block's own tick; the trailing release still publishes its latest value within one interval,
+so the longer interval loses only intermediate snapshots nothing keeps.
+
 ## Deadbands
 
 - `AC-EMIT-008.1` (Ubiquitous): THE SYSTEM SHALL provide a built-in deadband for `double`, `float`,

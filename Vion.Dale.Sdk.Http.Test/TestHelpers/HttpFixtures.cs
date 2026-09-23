@@ -66,6 +66,25 @@ namespace Vion.Dale.Sdk.Http.Test.TestHelpers
         }
     }
 
+    /// <summary>
+    ///     A body whose stream breaks when it is read, the way a connection reset after the headers surfaces: the status has
+    ///     already been judged a success, and what fails is the transport under the body.
+    /// </summary>
+    internal sealed class BrokenHttpContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+        {
+            throw new IOException("the connection was reset while the body was read");
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = -1;
+
+            return false;
+        }
+    }
+
     /// <summary>Hands out one client, so a test can dispose the very client the package will use.</summary>
     internal sealed class SingleHttpClientFactory : IHttpClientFactory
     {

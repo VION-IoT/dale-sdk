@@ -197,6 +197,12 @@ namespace Vion.Dale.Sdk.Http.TestKit
             get => Handler != null;
         }
 
+        // A request is carried to the server and answered inside one call, so no connection is ever open between calls.
+        public int ActiveConnections
+        {
+            get => 0;
+        }
+
         public void Start(IPAddress listenAddress, int port, IHttpServerExchangeHandler handler)
         {
             Handler = handler;

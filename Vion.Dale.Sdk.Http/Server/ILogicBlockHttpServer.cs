@@ -59,9 +59,10 @@ namespace Vion.Dale.Sdk.Http.Server
         bool IsListening { get; }
 
         /// <summary>
-        ///     Gets when the most recent request arrived, or <c>null</c> when none has.
+        ///     Gets a snapshot of what the server has answered and refused, readable without a <c>Sync</c> callback; see
+        ///     <see cref="HttpServerSummary" /> for what publishing it costs.
         /// </summary>
-        DateTimeOffset? LastRequestAt { get; }
+        HttpServerSummary Summary { get; }
 
         /// <summary>
         ///     Executes <paramref name="access" /> with exclusive access to the published responses and the answered requests.

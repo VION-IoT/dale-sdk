@@ -256,6 +256,18 @@ namespace Vion.Dale.Sdk.Http.Test.Server
                 }
             }
 
+            public void Refused(HttpStatusCode status)
+            {
+            }
+
+            public void Overloaded()
+            {
+            }
+
+            public void Abandoned()
+            {
+            }
+
             public void Release()
             {
                 _released.Set();

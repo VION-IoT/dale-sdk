@@ -56,7 +56,7 @@ namespace Vion.Dale.Sdk.Http.Test
 
         private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 
-        private readonly Action<Exception> _errorCallback = _ => { };
+        private readonly Action<Exception, HttpReceipt> _errorCallback = (_, _) => { };
 
         private readonly Dictionary<string, string> _headers = new() { { "Authorization", "Bearer token" } };
 
@@ -93,15 +93,15 @@ namespace Vion.Dale.Sdk.Http.Test
             _requestExecutorMock.Setup(executor => executor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
                                                                                 It.IsAny<string>(),
                                                                                 It.IsAny<HttpMethod>(),
-                                                                                It.IsAny<Action>(),
-                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<Action<HttpReceipt>>(),
+                                                                                It.IsAny<Action<Exception, HttpReceipt>>(),
                                                                                 It.IsAny<Dictionary<string, string>>(),
                                                                                 It.IsAny<HttpContent>(),
                                                                                 It.IsAny<TimeSpan?>()))
                                 .Returns(pending.Task);
 
             // Act
-            _sut.Delete(_dispatcherMock.Object, Url, () => { }, _errorCallback);
+            _sut.Delete(_dispatcherMock.Object, Url, _ => { }, _errorCallback);
 
             // Assert — reaching this line at all is the behaviour; the exchange is still outstanding
             Assert.IsFalse(pending.Task.IsCompleted);
@@ -257,7 +257,7 @@ namespace Vion.Dale.Sdk.Http.Test
             // Arrange — the caller owns method, URI, headers and content on the message it hands over
             var request = new HttpRequestMessage(HttpMethod.Patch, Url);
             request.Headers.Add("X-Caller", "yes");
-            Action<HttpResponseMessage> successCallback = _ => { };
+            Action<HttpResponseMessage, HttpReceipt> successCallback = (_, _) => { };
 
             // Act
             _sut.SendRequest(_dispatcherMock.Object, request, successCallback, _errorCallback, _timeout);
@@ -280,7 +280,7 @@ namespace Vion.Dale.Sdk.Http.Test
             var request = hasRequest ? new HttpRequestMessage { Method = HttpMethod.Get, RequestUri = null } : null;
 
             // Act / Assert
-            var refusal = Assert.Throws<ArgumentException>(() => sut.SendRequest(_dispatcherMock.Object, request!, _ => { }, _errorCallback));
+            var refusal = Assert.Throws<ArgumentException>(() => sut.SendRequest(_dispatcherMock.Object, request!, (_, _) => { }, _errorCallback));
             Assert.AreEqual("request", refusal.ParamName);
             Assert.Contains("SendRequest", refusal.Message);
             Assert.IsEmpty(handler.Requests);
@@ -336,6 +336,27 @@ namespace Vion.Dale.Sdk.Http.Test
             _dispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Never);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.1")]
+        public async Task KeepSummaryOfItsOwnRequestsOnly()
+        {
+            // Arrange — two clients from one container, the way a block injecting two of them gets them; the summary is
+            // recorded before the callback is handed over, so the hand-over is the signal the request has been counted
+            var provider = HttpSdk.Compose(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+            var sut1 = provider.GetRequiredService<ILogicBlockHttpClient>();
+            var sut2 = provider.GetRequiredService<ILogicBlockHttpClient>();
+            var handedOver = new TaskCompletionSource<bool>();
+            _dispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Callback(() => handedOver.TrySetResult(true));
+
+            // Act
+            sut1.GetJson<TestObject>(_dispatcherMock.Object, Url, (_, _) => { });
+            await handedOver.Task.WaitAsync(SettlementTimeout);
+
+            // Assert
+            Assert.AreEqual(1L, sut1.Summary.SuccessCount);
+            Assert.AreEqual(0L, sut2.Summary.SuccessCount);
+        }
+
         /// <summary>
         ///     Records the one executor call a member makes, whichever of the three overloads it reached, so
         ///     the families above vary in the member they call and in nothing else.
@@ -346,8 +367,8 @@ namespace Vion.Dale.Sdk.Http.Test
                                                                                 It.IsAny<string>(),
                                                                                 It.IsAny<HttpMethod>(),
                                                                                 It.IsAny<Func<HttpResponseMessage, Task<TestObject>>>(),
-                                                                                It.IsAny<Action<TestObject>>(),
-                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<Action<TestObject, HttpReceipt>>(),
+                                                                                It.IsAny<Action<Exception, HttpReceipt>>(),
                                                                                 It.IsAny<Dictionary<string, string>>(),
                                                                                 It.IsAny<HttpContent>(),
                                                                                 It.IsAny<TimeSpan?>()))
@@ -358,7 +379,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                                                                                  HttpMethod = (HttpMethod)invocation.Arguments[2],
                                                                                                  Deserializer =
                                                                                                      (Func<HttpResponseMessage, Task<TestObject>>)invocation.Arguments[3],
-                                                                                                 ErrorCallback = (Action<Exception>?)invocation.Arguments[5],
+                                                                                                 ErrorCallback = (Action<Exception, HttpReceipt>?)invocation.Arguments[5],
                                                                                                  Headers = (Dictionary<string, string>?)invocation.Arguments[6],
                                                                                                  RequestContent = (HttpContent?)invocation.Arguments[7],
                                                                                                  Timeout = (TimeSpan?)invocation.Arguments[8],
@@ -367,8 +388,8 @@ namespace Vion.Dale.Sdk.Http.Test
             _requestExecutorMock.Setup(executor => executor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
                                                                                 It.IsAny<string>(),
                                                                                 It.IsAny<HttpMethod>(),
-                                                                                It.IsAny<Action>(),
-                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<Action<HttpReceipt>>(),
+                                                                                It.IsAny<Action<Exception, HttpReceipt>>(),
                                                                                 It.IsAny<Dictionary<string, string>>(),
                                                                                 It.IsAny<HttpContent>(),
                                                                                 It.IsAny<TimeSpan?>()))
@@ -377,7 +398,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                                                                                  Dispatcher = (IActorDispatcher)invocation.Arguments[0],
                                                                                                  Url = (string)invocation.Arguments[1],
                                                                                                  HttpMethod = (HttpMethod)invocation.Arguments[2],
-                                                                                                 ErrorCallback = (Action<Exception>?)invocation.Arguments[4],
+                                                                                                 ErrorCallback = (Action<Exception, HttpReceipt>?)invocation.Arguments[4],
                                                                                                  Headers = (Dictionary<string, string>?)invocation.Arguments[5],
                                                                                                  RequestContent = (HttpContent?)invocation.Arguments[6],
                                                                                                  Timeout = (TimeSpan?)invocation.Arguments[7],
@@ -385,13 +406,13 @@ namespace Vion.Dale.Sdk.Http.Test
                                 .Returns(Task.CompletedTask);
             _requestExecutorMock.Setup(executor => executor.ExecuteRequestAsync(It.IsAny<IActorDispatcher>(),
                                                                                 It.IsAny<HttpRequestMessage>(),
-                                                                                It.IsAny<Action<HttpResponseMessage>>(),
-                                                                                It.IsAny<Action<Exception>>(),
+                                                                                It.IsAny<Action<HttpResponseMessage, HttpReceipt>>(),
+                                                                                It.IsAny<Action<Exception, HttpReceipt>>(),
                                                                                 It.IsAny<TimeSpan?>()))
                                 .Callback(new InvocationAction(invocation => _executorCall = new ExecutorCall
                                                                                              {
                                                                                                  Dispatcher = (IActorDispatcher)invocation.Arguments[0],
-                                                                                                 ErrorCallback = (Action<Exception>?)invocation.Arguments[3],
+                                                                                                 ErrorCallback = (Action<Exception, HttpReceipt>?)invocation.Arguments[3],
                                                                                                  Timeout = (TimeSpan?)invocation.Arguments[4],
                                                                                              }))
                                 .Returns(Task.CompletedTask);
@@ -409,7 +430,7 @@ namespace Vion.Dale.Sdk.Http.Test
                 case Member.GetJson:
                     client.GetJson<TestObject>(_dispatcherMock.Object,
                                                Url,
-                                               _ => { },
+                                               (_, _) => { },
                                                _errorCallback,
                                                _headers,
                                                _timeout);
@@ -418,7 +439,7 @@ namespace Vion.Dale.Sdk.Http.Test
                     client.PostJson<TestObject, TestObject>(_dispatcherMock.Object,
                                                             Url,
                                                             _requestBody,
-                                                            _ => { },
+                                                            (_, _) => { },
                                                             _errorCallback,
                                                             _headers,
                                                             _timeout);
@@ -427,7 +448,7 @@ namespace Vion.Dale.Sdk.Http.Test
                     client.PostJson(_dispatcherMock.Object,
                                     Url,
                                     _requestBody,
-                                    () => { },
+                                    _ => { },
                                     _errorCallback,
                                     _headers,
                                     _timeout);
@@ -436,7 +457,7 @@ namespace Vion.Dale.Sdk.Http.Test
                     client.PutJson<TestObject, TestObject>(_dispatcherMock.Object,
                                                            Url,
                                                            _requestBody,
-                                                           _ => { },
+                                                           (_, _) => { },
                                                            _errorCallback,
                                                            _headers,
                                                            _timeout);
@@ -445,7 +466,7 @@ namespace Vion.Dale.Sdk.Http.Test
                     client.PutJson(_dispatcherMock.Object,
                                    Url,
                                    _requestBody,
-                                   () => { },
+                                   _ => { },
                                    _errorCallback,
                                    _headers,
                                    _timeout);
@@ -453,7 +474,7 @@ namespace Vion.Dale.Sdk.Http.Test
                 case Member.DeleteJson:
                     client.DeleteJson<TestObject>(_dispatcherMock.Object,
                                                   Url,
-                                                  _ => { },
+                                                  (_, _) => { },
                                                   _errorCallback,
                                                   _headers,
                                                   _timeout);
@@ -461,13 +482,13 @@ namespace Vion.Dale.Sdk.Http.Test
                 case Member.Delete:
                     client.Delete(_dispatcherMock.Object,
                                   Url,
-                                  () => { },
+                                  _ => { },
                                   _errorCallback,
                                   _headers,
                                   _timeout);
                     break;
                 case Member.SendRequest:
-                    client.SendRequest(_dispatcherMock.Object, new HttpRequestMessage(HttpMethod.Patch, Url), _ => { }, _errorCallback, _timeout);
+                    client.SendRequest(_dispatcherMock.Object, new HttpRequestMessage(HttpMethod.Patch, Url), (_, _) => { }, _errorCallback, _timeout);
                     break;
                 default: throw new ArgumentOutOfRangeException(nameof(member), member, null);
             }
@@ -480,7 +501,7 @@ namespace Vion.Dale.Sdk.Http.Test
 
             public IActorDispatcher? Dispatcher { get; init; }
 
-            public Action<Exception>? ErrorCallback { get; init; }
+            public Action<Exception, HttpReceipt>? ErrorCallback { get; init; }
 
             public Dictionary<string, string>? Headers { get; init; }
 

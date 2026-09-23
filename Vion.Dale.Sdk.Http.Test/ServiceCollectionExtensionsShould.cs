@@ -58,7 +58,7 @@ namespace Vion.Dale.Sdk.Http.Test
             var dispatcher = new RecordingDispatcher();
 
             // Act
-            await executor.ExecuteRequestAsync(dispatcher, Url, HttpMethod.Get, () => { });
+            await executor.ExecuteRequestAsync(dispatcher, Url, HttpMethod.Get, _ => { });
 
             // Assert — the stub was registered against the package's own client name and nothing else, so
             // a request arriving at all is the executor having resolved that one name
@@ -132,7 +132,7 @@ namespace Vion.Dale.Sdk.Http.Test
             var serviceProvider = services.BuildServiceProvider();
 
             // Act
-            await serviceProvider.GetRequiredService<IHttpRequestExecutor>().ExecuteRequestAsync(new RecordingDispatcher(), Url, HttpMethod.Get, () => { });
+            await serviceProvider.GetRequiredService<IHttpRequestExecutor>().ExecuteRequestAsync(new RecordingDispatcher(), Url, HttpMethod.Get, _ => { });
 
             // Assert — the header off the wire, the timeout off the client the factory hands out
             Assert.IsNotNull(handler.LastRequest);
@@ -162,7 +162,7 @@ namespace Vion.Dale.Sdk.Http.Test
             var executor = services.BuildServiceProvider().GetRequiredService<IHttpRequestExecutor>();
 
             // Act
-            await executor.ExecuteRequestAsync(new RecordingDispatcher(), Url, HttpMethod.Get, () => { });
+            await executor.ExecuteRequestAsync(new RecordingDispatcher(), Url, HttpMethod.Get, _ => { });
 
             // Assert
             Assert.IsNotNull(handler.LastRequest);
@@ -181,7 +181,7 @@ namespace Vion.Dale.Sdk.Http.Test
             Exception? received = null;
 
             // Act
-            await executor.ExecuteRequestAsync(dispatcher, Url, HttpMethod.Get, () => { }, exception => received = exception);
+            await executor.ExecuteRequestAsync(dispatcher, Url, HttpMethod.Get, _ => { }, (exception, _) => received = exception);
             dispatcher.Drain();
 
             // Assert

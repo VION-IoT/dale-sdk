@@ -111,6 +111,18 @@ namespace Vion.Dale.Sdk.Http.Server
         }
 
         /// <inheritdoc />
+        public int ActiveConnections
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _connections.Count;
+                }
+            }
+        }
+
+        /// <inheritdoc />
         public void Start(IPAddress listenAddress, int port, IHttpServerExchangeHandler handler)
         {
             if (_disposed)
@@ -253,6 +265,7 @@ namespace Vion.Dale.Sdk.Http.Server
                 {
                     if (_connections.Count >= _connectionLimit)
                     {
+                        handler.Overloaded();
                         _ = RefuseAsync(client);
                         continue;
                     }
@@ -307,6 +320,11 @@ namespace Vion.Dale.Sdk.Http.Server
         {
             await Task.Yield();
             IDisposable? exchange = null;
+
+            // Whether the server has had its say on this connection: a response written in full, or a refusal. A connection
+            // that ends without either — a client gone before its request was complete, the read bound, a stop, a response
+            // cut short — is reported abandoned once it has unwound.
+            var settled = false;
             using (client)
             {
                 using var bound = CancellationTokenSource.CreateLinkedTokenSource(stopping);
@@ -329,6 +347,12 @@ namespace Vion.Dale.Sdk.Http.Server
                         exchange = _exchanges?.OpenExchange($"HTTP server {request.Method} {request.Path} on {client.Client.LocalEndPoint}");
                     }
 
+                    if (refusal != null)
+                    {
+                        handler.Refused(refusal.StatusCode);
+                        settled = true;
+                    }
+
                     var response = refusal;
                     if (response == null)
                     {
@@ -345,6 +369,7 @@ namespace Vion.Dale.Sdk.Http.Server
                     if (request != null)
                     {
                         handler.Delivered(request);
+                        settled = true;
                     }
 
                     // The request is recorded or refused; what is left is waiting for the client to close, which a stepped
@@ -372,6 +397,10 @@ namespace Vion.Dale.Sdk.Http.Server
                 finally
                 {
                     exchange?.Dispose();
+                    if (!settled)
+                    {
+                        handler.Abandoned();
+                    }
                 }
             }
         }

@@ -13,6 +13,13 @@ namespace Vion.Dale.Sdk.Http
     public interface ILogicBlockHttpClient
     {
         /// <summary>
+        ///     Gets a snapshot of every request this client has issued: when a server last answered, the last failure, counts
+        ///     per outcome and round trips. Each client instance keeps its own; see <see cref="HttpClientSummary" /> for what
+        ///     publishing it costs.
+        /// </summary>
+        HttpClientSummary Summary { get; }
+
+        /// <summary>
         ///     Performs a non-blocking HTTP GET request and passes the deserialized JSON response to the callback.
         /// </summary>
         /// <typeparam name="TResponse">The type to deserialize the JSON response into.</typeparam>
@@ -22,9 +29,14 @@ namespace Vion.Dale.Sdk.Http
         ///     block).
         /// </param>
         /// <param name="url">The URL to send the GET request to.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -51,8 +63,8 @@ namespace Vion.Dale.Sdk.Http
         /// </exception>
         void GetJson<TResponse>(IActorDispatcher dispatcher,
                                 string url,
-                                Action<TResponse> successCallback,
-                                Action<Exception>? errorCallback = null,
+                                Action<TResponse, HttpReceipt> successCallback,
+                                Action<Exception, HttpReceipt>? errorCallback = null,
                                 Dictionary<string, string>? headers = null,
                                 TimeSpan? timeout = null)
             where TResponse : notnull;
@@ -70,9 +82,14 @@ namespace Vion.Dale.Sdk.Http
         /// </param>
         /// <param name="url">The URL to send the POST request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -106,8 +123,8 @@ namespace Vion.Dale.Sdk.Http
         void PostJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                            string url,
                                            TRequest body,
-                                           Action<TResponse> successCallback,
-                                           Action<Exception>? errorCallback = null,
+                                           Action<TResponse, HttpReceipt> successCallback,
+                                           Action<Exception, HttpReceipt>? errorCallback = null,
                                            Dictionary<string, string>? headers = null,
                                            TimeSpan? timeout = null)
             where TRequest : notnull
@@ -125,9 +142,11 @@ namespace Vion.Dale.Sdk.Http
         /// </param>
         /// <param name="url">The URL to send the POST request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
-        /// <param name="successCallback">Callback invoked when the request succeeds.</param>
+        /// <param name="successCallback">Callback invoked with the request's <see cref="HttpReceipt" /> when the request succeeds.</param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -161,8 +180,8 @@ namespace Vion.Dale.Sdk.Http
         void PostJson<TRequest>(IActorDispatcher dispatcher,
                                 string url,
                                 TRequest body,
-                                Action? successCallback = null,
-                                Action<Exception>? errorCallback = null,
+                                Action<HttpReceipt>? successCallback = null,
+                                Action<Exception, HttpReceipt>? errorCallback = null,
                                 Dictionary<string, string>? headers = null,
                                 TimeSpan? timeout = null)
             where TRequest : notnull;
@@ -181,9 +200,14 @@ namespace Vion.Dale.Sdk.Http
         /// </param>
         /// <param name="url">The URL to send the PUT request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -216,8 +240,8 @@ namespace Vion.Dale.Sdk.Http
         void PutJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                           string url,
                                           TRequest body,
-                                          Action<TResponse> successCallback,
-                                          Action<Exception>? errorCallback = null,
+                                          Action<TResponse, HttpReceipt> successCallback,
+                                          Action<Exception, HttpReceipt>? errorCallback = null,
                                           Dictionary<string, string>? headers = null,
                                           TimeSpan? timeout = null)
             where TRequest : notnull
@@ -235,9 +259,11 @@ namespace Vion.Dale.Sdk.Http
         /// </param>
         /// <param name="url">The URL to send the PUT request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
-        /// <param name="successCallback">Callback invoked when the request succeeds.</param>
+        /// <param name="successCallback">Callback invoked with the request's <see cref="HttpReceipt" /> when the request succeeds.</param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -271,8 +297,8 @@ namespace Vion.Dale.Sdk.Http
         void PutJson<TRequest>(IActorDispatcher dispatcher,
                                string url,
                                TRequest body,
-                               Action? successCallback = null,
-                               Action<Exception>? errorCallback = null,
+                               Action<HttpReceipt>? successCallback = null,
+                               Action<Exception, HttpReceipt>? errorCallback = null,
                                Dictionary<string, string>? headers = null,
                                TimeSpan? timeout = null)
             where TRequest : notnull;
@@ -287,9 +313,14 @@ namespace Vion.Dale.Sdk.Http
         ///     block).
         /// </param>
         /// <param name="url">The URL to send the DELETE request to.</param>
-        /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
+        /// <param name="successCallback">
+        ///     Callback invoked with the deserialized response and the request's
+        ///     <see cref="HttpReceipt" /> on success.
+        /// </param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -316,8 +347,8 @@ namespace Vion.Dale.Sdk.Http
         /// </exception>
         void DeleteJson<TResponse>(IActorDispatcher dispatcher,
                                    string url,
-                                   Action<TResponse> successCallback,
-                                   Action<Exception>? errorCallback = null,
+                                   Action<TResponse, HttpReceipt> successCallback,
+                                   Action<Exception, HttpReceipt>? errorCallback = null,
                                    Dictionary<string, string>? headers = null,
                                    TimeSpan? timeout = null)
             where TResponse : notnull;
@@ -331,9 +362,11 @@ namespace Vion.Dale.Sdk.Http
         ///     block).
         /// </param>
         /// <param name="url">The URL to send the DELETE request to.</param>
-        /// <param name="successCallback">Callback invoked when the request succeeds.</param>
+        /// <param name="successCallback">Callback invoked with the request's <see cref="HttpReceipt" /> when the request succeeds.</param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -360,8 +393,8 @@ namespace Vion.Dale.Sdk.Http
         /// </exception>
         void Delete(IActorDispatcher dispatcher,
                     string url,
-                    Action? successCallback = null,
-                    Action<Exception>? errorCallback = null,
+                    Action<HttpReceipt>? successCallback = null,
+                    Action<Exception, HttpReceipt>? errorCallback = null,
                     Dictionary<string, string>? headers = null,
                     TimeSpan? timeout = null);
 
@@ -379,13 +412,16 @@ namespace Vion.Dale.Sdk.Http
         ///     of this member applies, and no content type is set for you.
         /// </param>
         /// <param name="successCallback">
-        ///     Callback invoked with the <see cref="HttpResponseMessage" /> on success. The response is
+        ///     Callback invoked with the <see cref="HttpResponseMessage" /> and the request's <see cref="HttpReceipt" /> on
+        ///     success. The response is
         ///     <b>yours to read and to dispose</b>: unlike the members that carry a response type, this one
         ///     disposes nothing, and the callback may be reached while the body is still arriving, because
         ///     the response is handed over as soon as its headers are in.
         /// </param>
         /// <param name="errorCallback">
-        ///     Callback invoked with the exception if the request fails.
+        ///     Callback invoked with the exception and the request's <see cref="HttpReceipt" /> if the request fails.
+        ///     The receipt's <see cref="HttpReceipt.StatusCode" /> is set only when a response arrived, which is what tells
+        ///     a non-success status from a transport failure.
         ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
         ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when either the
         ///     <c>timeout</c> above or the <see cref="HttpClient" />'s own elapsed,
@@ -415,8 +451,8 @@ namespace Vion.Dale.Sdk.Http
         /// </exception>
         void SendRequest(IActorDispatcher dispatcher,
                          HttpRequestMessage request,
-                         Action<HttpResponseMessage>? successCallback = null,
-                         Action<Exception>? errorCallback = null,
+                         Action<HttpResponseMessage, HttpReceipt>? successCallback = null,
+                         Action<Exception, HttpReceipt>? errorCallback = null,
                          TimeSpan? timeout = null);
     }
 }
