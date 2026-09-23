@@ -114,7 +114,7 @@ namespace Vion.Examples.Http.LogicBlocks
         [ServiceProperty(Title = "Latency",
                          Unit = "ms",
                          Description =
-                             "From sending to the response headers — or to the failure — as the SDK measured it, so a busy block's own wait is not in it. Zero for a request the client refused before sending.")]
+                             "From sending to the response headers — or to the failure — as the SDK measured it, so a busy block's own wait is not in it. Empty for a request this block refused before sending.")]
         [Presentation(Group = ResponseGroup, Order = 30, Decimals = 1, Importance = Importance.Secondary)]
         public double? LatencyMs { get; private set; }
 
