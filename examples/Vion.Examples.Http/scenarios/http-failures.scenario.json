@@ -3,7 +3,7 @@
   "version": 1,
   "id": "http-failures",
   "title": "HTTP — every way a request can go wrong, told apart",
-  "description": "Drives the debug client through each outcome it distinguishes, against a real simulator on 127.0.0.1:18080: a route edited to 503 answers as an HTTP error with its status; a route edited to a status the server refuses stops being served while the simulator stays up, so the client meets a 404; a URL that is not absolute is refused before anything is sent; a port nothing listens on fails with no status; a simulator switched off fails the same way; and switching it back on brings the next request through with no action on the client. Real clock — a stepped host does not move its virtual clock while a request is open, so every latency would read zero, and the refused requests end on the client's real-time bounds either way. Every value a drive changes is read with a wait on a value only that drive can produce, so no step reads a verdict left over from the one before, or a sibling property not yet published.",
+  "description": "Drives the debug client through each outcome it distinguishes, against a real simulator on 127.0.0.1:18080: a route edited to 503 answers as an HTTP error with its status; a route edited to a status the server refuses stops being served while the simulator stays up, so the client meets a 404; a URL that is not absolute is refused before anything is sent; a port nothing listens on fails with no status; a simulator switched off fails the same way; and switching it back on brings the next request through with no action on the client. Real clock — a stepped host does not move its virtual clock while a request is open, so every latency would read zero, and the refused requests end on the client's real-time bounds either way. Every value a drive changes is read with a wait on a value only that drive can produce, so no step reads a verdict left over from the one before, or a sibling property not yet published. The two summaries publish at most every 30 seconds, so a wait on one of their counts allows 45: the interval, the tick that assigns it, and margin.",
   "topology": "default",
   "setup": [],
   "steps": [
@@ -21,7 +21,7 @@
     { "label": "invalid route — and the simulator stays up", "expect": { "property": "SimServer.IsListening", "equals": true } },
     { "label": "invalid route — send", "set": "DebugClient.SendOnce", "value": true },
     { "label": "invalid route — nothing answers the path any more", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 404 }, "timeoutSeconds": 20 },
-    { "label": "invalid route — the simulator counts it unmatched", "waitUntil": { "property": "SimServer.UnmatchedRequestCount", "equals": 1 }, "timeoutSeconds": 20 },
+    { "label": "invalid route — the simulator's summary counts it unmatched", "waitUntil": { "property": "SimServer.ServerSummary.unmatchedCount", "equals": 1 }, "timeoutSeconds": 45 },
 
     { "label": "invalid url — not absolute", "set": "DebugClient.Url", "value": "/api/status" },
     { "label": "invalid url — send", "set": "DebugClient.SendOnce", "value": true },
@@ -47,9 +47,14 @@
     { "label": "recovery — it listens again", "waitUntil": { "property": "SimServer.IsListening", "equals": true }, "timeoutSeconds": 20 },
     { "label": "recovery — send, with nothing changed on the client", "set": "DebugClient.SendOnce", "value": true },
     { "label": "recovery — the request comes through", "waitUntil": { "property": "DebugClient.Outcome", "equals": "Succeeded" }, "timeoutSeconds": 20 },
-    { "label": "recovery — with the restored route's status", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 200 }, "timeoutSeconds": 20 }
+    { "label": "recovery — with the restored route's status", "waitUntil": { "property": "DebugClient.StatusCode", "equals": 200 }, "timeoutSeconds": 20 },
+
+    { "label": "summary — the client counted both unanswered requests as transport errors", "waitUntil": { "property": "DebugClient.ClientSummary.transportErrorCount", "equals": 2 }, "timeoutSeconds": 45 },
+    { "label": "summary — the 503 as a server error", "expect": { "property": "DebugClient.ClientSummary.serverErrorCount", "equals": 1 } },
+    { "label": "summary — the 404 as a client error", "expect": { "property": "DebugClient.ClientSummary.clientErrorCount", "equals": 1 } },
+    { "label": "summary — the refused URL never became a request", "expect": { "property": "DebugClient.ClientSummary.invalidCount", "equals": 0 } }
   ],
-  "watch": ["DebugClient.Outcome", "DebugClient.StatusCode", "DebugClient.LastError", "SimServer.IsListening", "SimServer.Route1.Status", "SimServer.UnmatchedRequestCount"],
+  "watch": ["DebugClient.Outcome", "DebugClient.StatusCode", "DebugClient.LastError", "SimServer.IsListening", "SimServer.Route1.Status", "SimServer.ServerSummary.unmatchedCount", "DebugClient.ClientSummary.transportErrorCount"],
   "judge": [
     { "text": "An HTTP error and a failure read differently in the Status pill: the first means the server was reached and answered outside 2xx, the second that no answer arrived at all." },
     { "text": "A timeout is deliberately not driven: the simulator answers every request it accepts, so nothing on this bench holds a request open. The unit tests drive it on a virtual clock." }

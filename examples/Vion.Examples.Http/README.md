@@ -65,7 +65,7 @@ second before sending.
 
 4. **Type something the server refuses.** Set `Route1 → Status code` to `99`. `Route1 → Status` explains
    why the route is not served, `SimServer` keeps running, and the client's GET now meets a `404`.
-   `SimServer`'s *Unmatched requests* counts it.
+   `SimServer`'s *Requests* summary counts it under *Unmatched* — within 30 seconds, see below.
 
 5. **Point at nothing.** Set *URL* to `http://127.0.0.1:18081/api/status`, where nothing listens. *Outcome*
    reads `Failed`, *Status code* is empty, and *Last error* carries the platform's reason, including the
@@ -95,9 +95,28 @@ hands a response over, and reports anything outside 2xx to the error callback wi
 disposed. The block therefore cannot show the headers or the body a server sends with an error — the
 problem-details JSON, the HTML error page. For those, use `curl` on the gateway.
 
-**Latency** runs from sending to the response headers, or to the failure, measured on the block's own clock
-when the answer reaches the block. A busy block adds its own mailbox wait to it; on an idle debug block
-that is negligible.
+**Status code and latency come from the SDK's receipt**, which every callback carries beside the response
+or the exception. The receipt holds a status only when a server answered, so a `404` and a refused
+connection — both an `HttpRequestException` — read apart without looking inside the exception. *Latency*
+is the receipt's round trip: from sending to the response headers, or to the failure, as the SDK
+observed it, so a busy block's own mailbox wait is not in it.
+
+## The two request summaries
+
+Each block publishes the SDK's own tally of its requests, under *Requests* in its Diagnostics group:
+
+- `DebugClient` — every request the client made, counted by how it ended (success, client error, server
+  error, timeout, transport error, invalid), the last failure with its status, and the round trips over
+  the last 15 minutes.
+- `SimServer` — what the server answered from a route, answered 404 or 405 because nothing was published
+  (*Unmatched*), refused, abandoned and dropped, and its open connections. *Last request* in the Status
+  group is the summary's own arrival time.
+
+**A summary is refreshed at most every 30 seconds.** Every request moves one of its counters, so a summary
+assigned on every request would be published on every request. Each is declared with `MinInterval =
+"30s"` and assigned from its block's tick — once a second on `SimServer`, every five seconds on
+`DebugClient` — so the latest value is still published within one interval. A value that must show at
+once, like *Outcome* or *Status code*, is a property of its own.
 
 ## Debugging a real device
 
@@ -143,9 +162,12 @@ and the *Last request* properties catch up on it too.
 - `LogicBlocks/HttpDebugClient.cs` — the client. One request at a time through
   `ILogicBlockHttpClient.SendRequest`, which leaves the request, the method, the headers and the body
   entirely to the caller. The response arrives as soon as its headers do, so the body preview is read off
-  the block's actor and handed back when it is complete.
+  the block's actor and handed back when it is complete. The verdict, the status and the latency are read
+  off the `HttpReceipt`.
 - `LogicBlocks/HttpSimServer.cs` — the simulated server, created from `ILogicBlockHttpServerFactory` and
-  disposed by the block in `Stopping`, since a factory-created server outlives the block's scope.
+  disposed by the block in `Stopping`, since a factory-created server outlives the block's scope. It
+  credits each request to a route by matching its method and path, and uses the status the server
+  recorded for it to leave out a 404 or 405 answered before a route was published.
 - `LogicBlocks/RouteSlot.cs` — one editable route; how many exist is decided at configuration time.
 - `Vion.Examples.Http.Test` — unit tests on `Vion.Dale.Sdk.Http.TestKit`: `FakeHttpHarness` scripts the
   client's answers on a virtual clock, so latency and timeouts are exact; `FakeHttpServerHarness` hosts the
@@ -157,6 +179,6 @@ and the *Last request* properties catch up on it too.
 
 ## Limitations
 
-One-shot requests only: no polling, no repeated watches, no failure counters. A non-2xx response's headers
+One-shot requests only: no polling and no repeated watches. A non-2xx response's headers
 and body are not shown (see above). The simulator serves static routes — a response cannot depend on the
 request — and sets no response headers beyond the content type.
