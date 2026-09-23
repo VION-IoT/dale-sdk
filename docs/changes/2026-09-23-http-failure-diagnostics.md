@@ -452,6 +452,35 @@ Every test project targets `net10.0`, where the base `HttpRequestException.Statu
 
 ---
 
+## Test to mutation
+
+> Each mutation was applied alone to a copy-restored source file, the named project rebuilt, and the filtered tests
+> run; the line names the tests that went red. Runner and mutation files are in the session scratchpad.
+
+- `HandReceiptToCallbackThatRuns` ← the content overload's success callback handed `default` instead of the receipt.
+- `CarryStatusOfJudgedResponseOnly` ← the judged status never recorded (four rows red); and, separately, the status
+  read back off the exception by reflection (the handler-status row red).
+- `ReportOutcomeOfFailedRequest` ← `Invalid` decided by class (the two handler rows red); the request marked sent
+  before the client's call (`RelativeUrl`, `DisposedClient` red, with `ReportInvalidWhenRequestMessageSentBefore`); a
+  `TimeoutException` of any origin read as `Timeout` (the handler-timeout row red); the server/client split moved to
+  600 (the 502 row red); a `JsonException` read as a transport error (two content rows red).
+- `ReportTimeoutWhenBoundCancelsExchange` ← the minted-timeout flag ignored (both rows red).
+- `ReportSuccessOfAnsweredRequest` ← the no-response overload's success stamped `ClientError`.
+- `StampReceiptWhenOutcomeObserved` ← the receipt stamped inside the callback, on the actor; and, separately, the send
+  instant taken after the response (all four rows red).
+- `RecordRequestBeforeCallbackRuns`, `KeepOutcomeInSummaryWhenCallbackCannotBeHandedOver` ← a failure recorded inside
+  its error callback (both rows, and the failure row, red; the success row stays green by construction).
+- `CountRequestUnderItsOutcome` ← a client error counted as a server error.
+- `LeaveLastFailureUnchangedBySuccess` ← a success recorded as the last failure.
+- `RecordLastFailureWithItsStatus` ← the last failure's status never recorded (404 row red).
+- `RecordLastResponseOfAnyStatus` ← the last response keyed on the round-trip outcomes instead of a status on the
+  receipt (the broken-body row red).
+- `FeedRoundTripOnlyFromRequestsServerAnswered` ← timeouts fed into the round trip (the client-bound row red).
+- `HttpClientSummaryAccumulatorShould` ← a seventeen-slot window (five rows red); an empty window's mean read as zero;
+  the lifetime maximum moved by an equal value.
+- `CountRequestInFlightUntilOutcomeRecorded` ← nothing counted as issued.
+- `KeepSummaryOfItsOwnRequestsOnly` ← one accumulator shared by every executor.
+
 ## Relay notes for the PR body
 
 > Filled as each consumer-visible change lands.

@@ -32,6 +32,12 @@ namespace Vion.Dale.Sdk.Http
         }
 
         /// <inheritdoc />
+        public HttpClientSummary Summary
+        {
+            get => _httpRequestExecutor.Summary;
+        }
+
+        /// <inheritdoc />
         public void GetJson<TResponse>(IActorDispatcher dispatcher,
                                        string url,
                                        Action<TResponse, HttpReceipt> successCallback,

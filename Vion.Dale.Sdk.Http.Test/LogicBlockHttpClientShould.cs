@@ -336,6 +336,27 @@ namespace Vion.Dale.Sdk.Http.Test
             _dispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Never);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.1")]
+        public async Task KeepSummaryOfItsOwnRequestsOnly()
+        {
+            // Arrange — two clients from one container, the way a block injecting two of them gets them; the summary is
+            // recorded before the callback is handed over, so the hand-over is the signal the request has been counted
+            var provider = HttpSdk.Compose(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+            var sut1 = provider.GetRequiredService<ILogicBlockHttpClient>();
+            var sut2 = provider.GetRequiredService<ILogicBlockHttpClient>();
+            var handedOver = new TaskCompletionSource<bool>();
+            _dispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Callback(() => handedOver.TrySetResult(true));
+
+            // Act
+            sut1.GetJson<TestObject>(_dispatcherMock.Object, Url, (_, _) => { });
+            await handedOver.Task.WaitAsync(SettlementTimeout);
+
+            // Assert
+            Assert.AreEqual(1L, sut1.Summary.SuccessCount);
+            Assert.AreEqual(0L, sut2.Summary.SuccessCount);
+        }
+
         /// <summary>
         ///     Records the one executor call a member makes, whichever of the three overloads it reached, so
         ///     the families above vary in the member they call and in nothing else.

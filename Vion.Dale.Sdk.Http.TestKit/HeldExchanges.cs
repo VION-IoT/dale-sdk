@@ -312,6 +312,11 @@ namespace Vion.Dale.Sdk.Http.TestKit
             _exchanges = exchanges;
         }
 
+        public HttpClientSummary Summary
+        {
+            get => _inner.Summary;
+        }
+
         public Task ExecuteRequestAsync<TContent>(IActorDispatcher dispatcher,
                                                   string url,
                                                   HttpMethod httpMethod,

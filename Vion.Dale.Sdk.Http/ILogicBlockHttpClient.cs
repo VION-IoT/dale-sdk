@@ -13,6 +13,13 @@ namespace Vion.Dale.Sdk.Http
     public interface ILogicBlockHttpClient
     {
         /// <summary>
+        ///     Gets a snapshot of every request this client has issued: when a server last answered, the last failure, counts
+        ///     per outcome and round trips. Each client instance keeps its own; see <see cref="HttpClientSummary" /> for what
+        ///     publishing it costs.
+        /// </summary>
+        HttpClientSummary Summary { get; }
+
+        /// <summary>
         ///     Performs a non-blocking HTTP GET request and passes the deserialized JSON response to the callback.
         /// </summary>
         /// <typeparam name="TResponse">The type to deserialize the JSON response into.</typeparam>

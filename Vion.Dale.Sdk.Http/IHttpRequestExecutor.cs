@@ -14,6 +14,11 @@ namespace Vion.Dale.Sdk.Http
     public interface IHttpRequestExecutor
     {
         /// <summary>
+        ///     Gets a consistent snapshot of every request this executor has issued.
+        /// </summary>
+        HttpClientSummary Summary { get; }
+
+        /// <summary>
         ///     Executes an HTTP request and passes the deserialized response content to the callback.
         /// </summary>
         /// <typeparam name="TContent">The type of the response content.</typeparam>

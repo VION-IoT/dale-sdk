@@ -39,6 +39,8 @@ namespace Vion.Dale.Sdk.Http
 
         private readonly ILogger<HttpRequestExecutor> _logger;
 
+        private readonly HttpClientSummaryAccumulator _summary;
+
         private readonly TimeProvider _timeProvider;
 
         /// <summary>
@@ -54,6 +56,13 @@ namespace Vion.Dale.Sdk.Http
             _logger = logger;
             _timeProvider = timeProvider;
             _exchanges = exchanges;
+            _summary = new HttpClientSummaryAccumulator(timeProvider);
+        }
+
+        /// <inheritdoc />
+        public HttpClientSummary Summary
+        {
+            get => _summary.Snapshot();
         }
 
         /// <inheritdoc />
@@ -168,6 +177,7 @@ namespace Vion.Dale.Sdk.Http
         {
             LogRequestStarting(httpMethod, url);
             var trace = new RequestTrace();
+            _summary.Issue();
             HttpRequestMessage? request = null;
             HttpResponseMessage? response = null;
             using var cts = CreateTimeoutSource(timeout);
@@ -178,7 +188,7 @@ namespace Vion.Dale.Sdk.Http
                 response = await SendAsync(request, cts, trace).ConfigureAwait(false);
                 var responseContent = await getResponseContent(response).ConfigureAwait(false);
                 LogRequestSucceeded(httpMethod, url, response.StatusCode);
-                var receipt = Stamp(trace, HttpOutcome.Success);
+                var receipt = Complete(trace, HttpOutcome.Success);
                 if (successCallback != null)
                 {
                     TryInvokeCallback(dispatcher, () => successCallback(responseContent, receipt), httpMethod, url);
@@ -213,6 +223,7 @@ namespace Vion.Dale.Sdk.Http
         {
             LogRequestStarting(httpMethod, url);
             var trace = new RequestTrace();
+            _summary.Issue();
             HttpRequestMessage? request = null;
             HttpResponseMessage? response = null;
             using var cts = CreateTimeoutSource(timeout);
@@ -222,7 +233,7 @@ namespace Vion.Dale.Sdk.Http
                 request = CreateRequest(httpMethod, url, requestContent, headers);
                 response = await SendAsync(request, cts, trace).ConfigureAwait(false);
                 LogRequestSucceeded(httpMethod, url, response.StatusCode);
-                var receipt = Stamp(trace, HttpOutcome.Success);
+                var receipt = Complete(trace, HttpOutcome.Success);
                 if (successCallback != null)
                 {
                     TryInvokeCallback(dispatcher, () => successCallback(receipt), httpMethod, url);
@@ -256,12 +267,13 @@ namespace Vion.Dale.Sdk.Http
             var url = request.RequestUri.ToString();
             LogRequestStarting(request.Method, url);
             var trace = new RequestTrace();
+            _summary.Issue();
 
             try
             {
                 var response = await SendAsync(request, cts, trace).ConfigureAwait(false);
                 LogRequestSucceeded(request.Method, url, response.StatusCode);
-                var receipt = Stamp(trace, HttpOutcome.Success);
+                var receipt = Complete(trace, HttpOutcome.Success);
                 if (successCallback != null)
                 {
                     TryInvokeCallback(dispatcher, () => successCallback(response, receipt), request.Method, url);
@@ -430,7 +442,7 @@ namespace Vion.Dale.Sdk.Http
                 trace.TimedOut = true;
             }
 
-            var receipt = Stamp(trace, Classify(exception, trace));
+            var receipt = Complete(trace, Classify(exception, trace));
             LogRequestFailed(exception, httpMethod, url);
             if (callback != null)
             {
@@ -463,12 +475,18 @@ namespace Vion.Dale.Sdk.Http
             return trace.Status != null && exception is JsonException or ContentNullAfterDeserializationException ? HttpOutcome.ContentError : HttpOutcome.TransportError;
         }
 
-        private HttpReceipt Stamp(RequestTrace trace, HttpOutcome outcome)
+        /// <summary>
+        ///     Stamps the request's receipt and records it in the summary, before any callback is handed over: recorded inside
+        ///     the callback, the summary would lag by however many callbacks wait in the block's mailbox.
+        /// </summary>
+        private HttpReceipt Complete(RequestTrace trace, HttpOutcome outcome)
         {
             var receivedTimestamp = _timeProvider.GetTimestamp();
             var roundTrip = trace.Sent ? _timeProvider.GetElapsedTime(trace.SentAt, receivedTimestamp) : TimeSpan.Zero;
+            var receipt = new HttpReceipt(_timeProvider.GetUtcNow().UtcDateTime, receivedTimestamp, roundTrip, outcome, trace.Status);
+            _summary.Record(receipt);
 
-            return new HttpReceipt(_timeProvider.GetUtcNow().UtcDateTime, receivedTimestamp, roundTrip, outcome, trace.Status);
+            return receipt;
         }
 
         /// <summary>

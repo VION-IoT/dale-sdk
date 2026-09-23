@@ -77,7 +77,7 @@ namespace Vion.Dale.Sdk.Http.Test
                                    .ToList();
 
             // Assert
-            Assert.AreEqual("ContentNullAfterDeserializationException,HttpOutcome,HttpReceipt,HttpServerRequest,HttpServerResponse,IHttpServerSnapshot,ILogicBlockHttpClient,ILogicBlockHttpServer,ILogicBlockHttpServerFactory,ServiceCollectionExtensions",
+            Assert.AreEqual("ContentNullAfterDeserializationException,HttpClientSummary,HttpOutcome,HttpReceipt,HttpServerRequest,HttpServerResponse,IHttpServerSnapshot,ILogicBlockHttpClient,ILogicBlockHttpServer,ILogicBlockHttpServerFactory,ServiceCollectionExtensions",
                             string.Join(",", published));
         }
 

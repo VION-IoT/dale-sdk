@@ -90,6 +90,11 @@ namespace Vion.Dale.Sdk.Http.Test
             HandlerObjectDisposed,
 
             ClientConfigurationFailure,
+
+            ClientBoundElapsed,
+
+            // The one row that does not fail, for the families that range over every outcome.
+            Answered,
         }
 
         /// <summary>The three executor overloads, as the rows of the families above.</summary>
@@ -513,6 +518,184 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.AreEqual(DateTimeKind.Utc, received.Value.ReceivedAt.Kind);
             Assert.AreEqual(observedTimestamp, received.Value.ReceivedTimestamp);
             Assert.AreEqual(TimeSpan.FromSeconds(3), received.Value.RoundTrip);
+        }
+
+        // ---- the summary -------------------------------------------------
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-005.2")]
+        [DataRow(HttpStatusCode.OK, DisplayName = "success path")]
+        [DataRow(HttpStatusCode.BadGateway, DisplayName = "failure path")]
+        public async Task KeepOutcomeInSummaryWhenCallbackCannotBeHandedOver(HttpStatusCode statusCode)
+        {
+            // Arrange — the dispatcher refuses the self-send exactly as LogicBlockBase does before a block has an actor, so
+            // neither callback runs and the summary is the one place outside the log the outcome still reaches
+            var sut = Executor(StubHttpMessageHandler.Answering(statusCode, TestObject.PascalCaseJson));
+
+            // Act
+            await sut.ExecuteRequestAsync(new UnstartedBlockDispatcher(), Url, HttpMethod.Get, _ => { }, (_, _) => { });
+
+            // Assert
+            Assert.AreEqual(1, sut.Summary.SuccessCount + sut.Summary.ServerErrorCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.1")]
+        [DataRow(true, DisplayName = "with callbacks")]
+        [DataRow(false, DisplayName = "without callbacks")]
+        public async Task RecordRequestBeforeCallbackRuns(bool withCallbacks)
+        {
+            // Arrange — the callbacks are queued and not run, so a summary updated inside them would still read empty
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.NotFound));
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          Url,
+                                          HttpMethod.Get,
+                                          withCallbacks ? _ => { } : null,
+                                          withCallbacks ? (_, _) => { } : null);
+
+            // Assert
+            Assert.AreEqual(1, sut.Summary.ClientErrorCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.2")]
+        [DataRow(Failure.Answered, HttpOutcome.Success)]
+        [DataRow(Failure.ClientErrorStatus, HttpOutcome.ClientError)]
+        [DataRow(Failure.NonSuccessStatus, HttpOutcome.ServerError)]
+        [DataRow(Failure.MalformedBody, HttpOutcome.ContentError)]
+        [DataRow(Failure.ClientBoundElapsed, HttpOutcome.Timeout)]
+        [DataRow(Failure.TransportRequestFailure, HttpOutcome.TransportError)]
+        [DataRow(Failure.RelativeUrl, HttpOutcome.Invalid)]
+        public async Task CountRequestUnderItsOutcome(Failure failure, HttpOutcome expectedOutcome)
+        {
+            // Arrange — two requests, so a counter that moved for the wrong outcome, or twice for one, shows in the total
+            var (sut, url) = ArrangeFailure(failure);
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, url, HttpMethod.Get, ReadBody, (_, _) => { });
+            await sut.ExecuteRequestAsync(_dispatcher, url, HttpMethod.Get, ReadBody, (_, _) => { });
+
+            // Assert
+            var summary = sut.Summary;
+            Assert.AreEqual(2, CountOf(summary, expectedOutcome));
+            Assert.AreEqual(2,
+                            summary.SuccessCount + summary.ClientErrorCount + summary.ServerErrorCount + summary.ContentErrorCount + summary.TimeoutCount +
+                            summary.TransportErrorCount + summary.InvalidCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.3")]
+        [DataRow(Failure.ClientErrorStatus, HttpOutcome.ClientError, 404)]
+        [DataRow(Failure.TransportRequestFailure, HttpOutcome.TransportError, null)]
+        public async Task RecordLastFailureWithItsStatus(Failure failure, HttpOutcome expectedOutcome, int? expectedStatus)
+        {
+            // Arrange
+            var (sut, url) = ArrangeFailure(failure);
+            HttpReceipt? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, url, HttpMethod.Get, ReadBody, (_, _) => { }, (_, receipt) => received = receipt);
+            _dispatcher.Drain();
+
+            // Assert
+            var summary = sut.Summary;
+            Assert.AreEqual(expectedOutcome, summary.LastFailureOutcome);
+            Assert.AreEqual(expectedStatus, summary.LastFailureStatusCode);
+            Assert.AreEqual(received?.ReceivedAt, summary.LastFailureAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.3")]
+        public async Task LeaveLastFailureUnchangedBySuccess()
+        {
+            // Arrange — a failure, then a success on the same client
+            var failing = true;
+            var handler = StubHttpMessageHandler.Responding((_, _) => Task.FromResult(StubHttpMessageHandler.Respond(failing ? HttpStatusCode.BadGateway : HttpStatusCode.OK,
+                                                                                                                  TestObject.PascalCaseJson)));
+            var sut = Executor(handler);
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, ReadBody, (_, _) => { });
+            var afterFailure = sut.Summary;
+            failing = false;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, ReadBody, (_, _) => { });
+
+            // Assert
+            Assert.AreEqual(HttpOutcome.ServerError, sut.Summary.LastFailureOutcome);
+            Assert.AreEqual(afterFailure.LastFailureAt, sut.Summary.LastFailureAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.3")]
+        [DataRow(Failure.Answered, true)]
+        [DataRow(Failure.ClientErrorStatus, true)]
+        [DataRow(Failure.NonSuccessStatus, true)]
+        [DataRow(Failure.BrokenBody, true)]
+        [DataRow(Failure.TransportRequestFailure, false)]
+        [DataRow(Failure.RelativeUrl, false)]
+        public async Task RecordLastResponseOfAnyStatus(Failure failure, bool responseArrived)
+        {
+            // Arrange
+            var (sut, url) = ArrangeFailure(failure);
+            HttpReceipt? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          (_, receipt) => received = receipt,
+                                          (_, receipt) => received = receipt);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(responseArrived ? received?.ReceivedAt : null, sut.Summary.LastResponseAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.4")]
+        [DataRow(Failure.Answered, 1)]
+        [DataRow(Failure.ClientErrorStatus, 1)]
+        [DataRow(Failure.NonSuccessStatus, 1)]
+        [DataRow(Failure.MalformedBody, 1)]
+        [DataRow(Failure.ClientBoundElapsed, 0)]
+        [DataRow(Failure.TransportRequestFailure, 0)]
+        [DataRow(Failure.BrokenBody, 0)]
+        [DataRow(Failure.RelativeUrl, 0)]
+        public async Task FeedRoundTripOnlyFromRequestsServerAnswered(Failure failure, int expectedRoundTrips)
+        {
+            // Arrange
+            var (sut, url) = ArrangeFailure(failure);
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher, url, HttpMethod.Get, ReadBody, (_, _) => { });
+
+            // Assert
+            var summary = sut.Summary;
+            Assert.AreEqual(expectedRoundTrips, summary.RecentRoundTripCount);
+            Assert.AreEqual(expectedRoundTrips == 1, summary.MaxRoundTrip.HasValue);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-020.7")]
+        public async Task CountRequestInFlightUntilOutcomeRecorded()
+        {
+            // Arrange — the handler answers only when released, so the request is outstanding in between
+            var released = new TaskCompletionSource<HttpResponseMessage>();
+            var sut = Executor(StubHttpMessageHandler.Responding((_, _) => released.Task));
+            var request = sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, _ => { });
+            var whileOutstanding = sut.Summary.InFlightCount;
+
+            // Act
+            released.SetResult(StubHttpMessageHandler.Respond(HttpStatusCode.OK, null));
+            await request;
+
+            // Assert — ended before its callback has run: the callback is still queued
+            Assert.AreEqual(1, whileOutstanding);
+            Assert.AreEqual(0, sut.Summary.InFlightCount);
+            Assert.AreEqual(1, _dispatcher.QueuedCount);
         }
 
         // ---- refusals at the caller ---------------------------------------
@@ -1217,6 +1400,10 @@ namespace Vion.Dale.Sdk.Http.Test
                                                    _ => throw new InvalidOperationException("configureClient failed"));
 
                     return ((HttpRequestExecutor)provider.GetRequiredService<IHttpRequestExecutor>(), Url);
+                case Failure.ClientBoundElapsed:
+                    return (Executor(StubHttpMessageHandler.NeverCompleting(), TimeSpan.FromMilliseconds(50)), Url);
+                case Failure.Answered:
+                    return (Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson)), Url);
                 default: throw new ArgumentOutOfRangeException(nameof(failure), failure, null);
             }
         }
@@ -1265,6 +1452,21 @@ namespace Vion.Dale.Sdk.Http.Test
                                                    timeout);
                 default: throw new ArgumentOutOfRangeException(nameof(overload), overload, null);
             }
+        }
+
+        private static long CountOf(HttpClientSummary summary, HttpOutcome outcome)
+        {
+            return outcome switch
+            {
+                HttpOutcome.Success => summary.SuccessCount,
+                HttpOutcome.ClientError => summary.ClientErrorCount,
+                HttpOutcome.ServerError => summary.ServerErrorCount,
+                HttpOutcome.ContentError => summary.ContentErrorCount,
+                HttpOutcome.Timeout => summary.TimeoutCount,
+                HttpOutcome.TransportError => summary.TransportErrorCount,
+                HttpOutcome.Invalid => summary.InvalidCount,
+                _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
+            };
         }
 
         /// <summary>
