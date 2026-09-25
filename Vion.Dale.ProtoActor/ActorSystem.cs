@@ -163,13 +163,15 @@ namespace Vion.Dale.ProtoActor
                                                                                                                         .LogWarning("Timeout waiting for {RemainingCount} acknowledgements after {ElapsedMs}ms",
                                                                                                                             remainingCount,
                                                                                                                             elapsed.TotalMilliseconds);
-                                                                                                                    var unanswered = pidToActorMap.Where(entry => !answered.Contains(entry.Key))
-                                                                                                                                                  .Select(entry => entry.Value)
-                                                                                                                                                  .ToList();
-                                                                                                                    tcs.TrySetException(new
-                                                                                                                        AcknowledgementTimeoutException<
-                                                                                                                            TAcknowledgementMessage>(new Dictionary<IActorReference, TAcknowledgementMessage>(responses),
-                                                                                                                            unanswered));
+                                                                                                                    var unanswered = pidToActorMap
+                                                                                                                        .Where(entry => !answered.Contains(entry.Key))
+                                                                                                                        .Select(entry => entry.Value)
+                                                                                                                        .ToList();
+                                                                                                                    tcs.TrySetException(new AcknowledgementTimeoutException<
+                                                                                                                        TAcknowledgementMessage>(new Dictionary<
+                                                                                                                            IActorReference,
+                                                                                                                            TAcknowledgementMessage>(responses),
+                                                                                                                        unanswered));
                                                                                                                     ctx.Stop(ctx.Self);
                                                                                                                 }
 
