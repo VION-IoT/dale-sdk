@@ -24,18 +24,20 @@ The MQTT and lifecycle actor messages a host runtime and the SDK exchange are pu
 (`AC-BIND-016.1`, `.3`), but no page states what a host does with them: `contracts.md` says so below
 `AC-BIND-016.3`. This change adds the `HOST` page, minted from the private runtime's consumer sweeps
 (dale's SDD program, task `T-014`, its D10). A rule only a host can prove carries a `GAP` tail naming
-the runtime's criterion. Lane 2, two-phase: this doc stops at STOP 1 for (a) to (e) below.
+the runtime's criterion. Lane 2, two-phase: STOP 1's answer is amendment 1
+(`C:\_gh\dale\.claude\briefs\amend-sdd-host-host-1.md`), recorded under each question below. It adds
+one public type: a timed-out acknowledgement wait now hands back what answered.
 
 ### Spec implications
 
-- **New page** `docs/specs/host-vocabulary.md`, area `HOST`, `trace: enforced`: five umbrellas, nine
-  leaves (§ Spec delta). Four are proven here; five are the host's alone and carry a `GAP` tail.
+- **New page** `docs/specs/host-vocabulary.md`, area `HOST`, `trace: enforced`: five umbrellas, eight
+  leaves (§ Spec delta). Four are proven here; four are the host's alone and carry a `GAP` tail.
 - **`contracts.md`**: the prose below `AC-BIND-016.3` stops saying the vocabulary is specified nowhere
   and points at `HOST`. No criterion changes.
-- **`block-lifecycle.md`**: the remote-interface prose (`:66-68`) points at `HOST`. If (d)'s wait
-  change is accepted, `AC-LIFE-016.3` is `MODIFIED` to hand back what answered.
-- **`docs/spec-process.md`** § The corpus: one roster row. If (c)'s option 1 is accepted, § IDs & EARS
-  gains one sentence on a qualified id.
+- **`block-lifecycle.md`**: the remote-interface prose (`:66-68`) points at `HOST`, and
+  `AC-LIFE-016.3` is `MODIFIED` to hand back what answered.
+- **`docs/spec-process.md`** § The corpus: one roster row. § IDs & EARS gains one sentence on a
+  qualified id.
 - **Doc comments** on four vocabulary members, fixes with no criterion (e).
 
 ### Decisions
@@ -92,7 +94,7 @@ and a recommendation.
    - **Recommendation: option 1.** It is true today, costs nothing, and matches the three tier-A areas
      whose anchor is their types. Option 2 is a surface change nobody needs for this page; if the
      ratchet should reach the vocabulary, that is decision 0145's classification, not `T-014`'s.
-   - OUTCOME: (pending STOP 1)
+   - OUTCOME: accepted, option 1 — the declarations are the anchor; no `[PublicApi]` change (operator, amendment 1, answer 1).
 
 2. **(b) A private repository's ids on a public page.** dale-sdk is source-available; its pages call
    the host "the private runtime" (`contracts.md` below `AC-BIND-016.3`; `block-lifecycle.md:66-68`).
@@ -111,7 +113,7 @@ and a recommendation.
      which of its criteria proves a rule tells an external reader where the proof is without exposing
      it. It keeps D10's shape exactly, so the page needs no rewrite when dale-sdk re-points at the
      plugin's scripts.
-   - OUTCOME: (pending STOP 1)
+   - OUTCOME: accepted, option 1 — `GAP: proven by the private runtime, dale/AC-…` (operator, amendment 1, answer 2).
 
 3. **(c) The tooling.** Probed against this repository's scripts at `117cc963`, with a scratch corpus
    (`-RepoRoot` a temporary repository holding one traced page and one citing test):
@@ -143,7 +145,7 @@ and a recommendation.
      this repository also uses (P5).
    - **Recommendation: option 1.** Every probe that failed is a real page this change would write
      (P1 is `AC-HOST-003.2`'s tail as D10 drafts it). The fix is the plugin's own rule, one line.
-   - OUTCOME: (pending STOP 1)
+   - OUTCOME: accepted, option 1 — the bare-id rule ported into `spec-trace.ps1`, self-tests for P1, P3 and P5 and for an id after `.` or `-`, the totals before and after the port pasted in § Drift checkpoints; no `owns:`, `cites:` or corpus file (operator, amendment 1, answer 3).
 
 4. **(d) Each routed Ledger row** (dale's program § Ledger, re-derived below in § Full design, *The
    routed rows*). For each: today's behaviour on the page, or an SDK change.
@@ -160,7 +162,7 @@ and a recommendation.
      nothing, so a start timeout cannot name the silent block and a snapshot timeout loses every
      block's snapshot.** Today: `AC-LIFE-016.3` fails the wait "naming how many had not", as a plain
      `TimeoutException` (`Vion.Dale.ProtoActor/ActorSystem.cs:167`, `:365`), and drops the answers it
-     had collected (`:125`, `responses`). *Option A*: state today's, and both rows stay the runtime's
+     had collected (`:126`, `responses`). *Option A*: state today's, and both rows stay the runtime's
      problem. *Option B*: the wait's timeout throws a `TimeoutException` subclass carrying the answers
      received and the actors that did not answer; `AC-LIFE-016.3` is `MODIFIED`. Both hosts catch
      `TimeoutException` today (`Vion.Dale.DevHost/DevLogicSystemInitializer.cs:203`, `:208`, `:352`,
@@ -199,7 +201,7 @@ and a recommendation.
      count on its own retry message. A breaking change to a positional record that the runtime's next
      SDK bump has to absorb in the same PR. **Recommendation: A.** The member has a consumer now; only
      its owner is unusual, and the page and its doc comment say whose it is.
-   - OUTCOME: (pending STOP 1)
+   - OUTCOME: accepted — the wait: option B, landed in this task (`MODIFIED AC-LIFE-016.3`); row 17, the QoS 1 row and row 100: option A each, their design questions back to the private runtime's `T-013`; `AttemptNumber`: option A (operator, amendment 1, answer 4).
 
 5. **(e) The two documentation disagreements**, both fixes with no criterion (§ IDs & EARS):
    - `PublishMqttMessageRequest`'s summary says it ensures "the message is published"
@@ -217,7 +219,7 @@ and a recommendation.
      doc comment says it where a caller reads it. `HOST` needs no criterion of its own for it: no host
      rule depends on more than `AC-LIFE-014.6` states.
    - **Recommendation: fix all four doc comments in this change.**
-   - OUTCOME: (pending STOP 1)
+   - OUTCOME: accepted — all four doc comments fixed (operator, amendment 1, answer 5).
 
 ---
 
@@ -252,10 +254,10 @@ the runtime.
 | receive is one-way (`T-008` QoS 1 row) | nothing answers a received message | `AC-HOST-002.1`, proven here | `Abstractions/ServiceProviderHandlerBase.cs:116-118` |
 | `PublishMqttMessage` | published without an answer, retried by the host on its own count | `AC-HOST-003.1`, `GAP` | runtime `service-streams.md` `AC-PROP-001.1` to `001.3`; `MqttClient.cs:757-758` |
 | `PublishMqttMessageRequest` | published once, answered; success is not the broker's receipt below QoS 1 | `AC-HOST-003.2`, `GAP` | runtime `AC-PROP-001.4` |
-| `RegisterMessageToSendOnConnect` | sent on every connection, a non-recurring one once | `AC-HOST-003.3`, `GAP` | runtime `AC-REG-004.3`; `Mqtt/ActorMessages.cs:55-59` |
+| `RegisterMessageToSendOnConnect` | sent on every connection, a non-recurring one once | prose citing `dale/AC-REG-004.3`, no criterion (amendment 1; § Drift checkpoints) | runtime `AC-REG-004.3`; `Mqtt/ActorMessages.cs:55-59` |
 | lifecycle drive (`T-009` row 73) | configuration and link, link maps, restore, start, each start and restore acknowledged | `AC-HOST-004.1`, proven here by the development host | `Vion.Dale.DevHost/DevLogicSystemInitializer.cs`; runtime `logic-configuration.md` `AC-CFG-003.1`, `003.4` named in prose (D6) |
 | failed configuration invisible (`T-005` row 17) | a host sees a handler failure only through an observer | prose, citing `AC-LIFE-014.1`, `014.2` | `block-lifecycle.md:160-163`, `:381-384` |
-| wait hands back nothing on timeout (`T-005` rows 20, 25; `T-007` row 41) | per (d) | `MODIFIED AC-LIFE-016.3` if (d) B; else prose | `Vion.Dale.ProtoActor/ActorSystem.cs:125`, `:167`, `:365` |
+| wait hands back nothing on timeout (`T-005` rows 20, 25; `T-007` row 41) | per (d) | `MODIFIED AC-LIFE-016.3` ((d) B, accepted) | `Vion.Dale.ProtoActor/ActorSystem.cs:126`, `:167`, `:365` |
 | installation topics unread (`T-009` row 100) | a contract link is installation-local | prose, citing `AC-BIND-012.1`, `.2` | `Utils/ServiceProviderContractId.cs:10`; `ServiceProviderHandlerBase.cs:39`, `:107` |
 | `RegistrationSecret` | read trimmed; missing, empty or whitespace generates and persists one | `AC-HOST-005.1`, proven here (no test today) | `Mqtt/RegistrationSecret.cs:29-48` |
 | installation topic write-once | — | cited, `AC-BIND-012.5` | |
@@ -307,6 +309,15 @@ criterion the same way, which (c) option 1 is what makes safe.
   not a disagreeing one. Handled with (e).
 - 2026-09-25: found beside (e): `RegisterMqttHandlerResponse`'s remarks name the response where they
   mean the request (`Vion.Dale.Sdk/Mqtt/ActorMessages.cs:23-24`).
+- 2026-09-25: `AC-HOST-003.3` (`RegisterMessageToSendOnConnect` sent on connect) is dropped from the
+  delta, by the coordinator (amendment 1, *do not mint `AC-HOST-003.3`*): the private runtime's program
+  leaves open whether the message stays in the vocabulary, and minting it here would decide that. The
+  page states it in prose citing `dale/AC-REG-004.3`. It was never published and was its umbrella's
+  highest leaf, so it opens no hole and needs no `REMOVED` line.
+- 2026-09-25: two evidence corrections from amendment 1's reader: the wait's collected answers are at
+  `Vion.Dale.ProtoActor/ActorSystem.cs:126`, not `:125`; and question 4's list of the development host's
+  `catch (TimeoutException)` sites missed `Vion.Dale.DevHost/DevLogicSystemInitializer.cs:235`, which the
+  subclass leaves catching as before.
 
 ---
 
@@ -323,8 +334,8 @@ criterion the same way, which (c) option 1 is what makes safe.
 > refuses until every line is applied. The `ID` must be an exact token greppable in the target
 > after distill (backticks stripped) — a real `AC-`/`SYS-` id, never an ad-hoc label.
 
-Draft, pending STOP 1. The tails are written as (b) and (c) recommend; `AC-LIFE-016.3` is conditional
-on (d).
+As STOP 1 answered it (amendment 1): the tails as (b) and (c) option 1 write them, and
+`AC-LIFE-016.3` for (d) B.
 
 - ADDED AC-HOST-001.1 -> docs/specs/host-vocabulary.md : WHEN a handler registers through the SDK THE SYSTEM SHALL send its registration to the actor `MqttConstants.MqttClientName` names before it answers `RegisterMqttHandlerRequest`, so a host that waits for every answer holds every registration before it next writes to its client.
 - ADDED AC-HOST-001.2 -> docs/specs/host-vocabulary.md : WHEN a host starts THE SYSTEM SHALL create one actor per `IMqttHandlerActor` type it finds, send each `RegisterMqttHandlerRequest`, and initialize its MQTT client only once every one has answered. GAP: proven by the private runtime, dale/AC-LOAD-006.4, dale/AC-BOOT-005.1
@@ -332,7 +343,6 @@ on (d).
 - ADDED AC-HOST-002.1 -> docs/specs/host-vocabulary.md : THE SYSTEM SHALL hand an `MqttMessageReceived` to a service-provider handler's subclass without answering it, so the vocabulary offers a host no point after its hand-off to the handler at which to acknowledge the message.
 - ADDED AC-HOST-003.1 -> docs/specs/host-vocabulary.md : WHEN a handler sends `PublishMqttMessage` THE SYSTEM SHALL publish it without an answer and retry a failed attempt on the host's own count, which a sender leaves at its default. GAP: proven by the private runtime, dale/AC-PROP-001.1, dale/AC-PROP-001.2, dale/AC-PROP-001.3
 - ADDED AC-HOST-003.2 -> docs/specs/host-vocabulary.md : WHEN a handler sends `PublishMqttMessageRequest` THE SYSTEM SHALL publish it once without a retry and answer `PublishMqttMessageResponse` with success once the message reached the connection, which below QoS 1 is not the broker's receipt, and otherwise with failure and the reason. GAP: proven by the private runtime, dale/AC-PROP-001.4
-- ADDED AC-HOST-003.3 -> docs/specs/host-vocabulary.md : WHEN a host's connection is established THE SYSTEM SHALL publish every message registered through `RegisterMessageToSendOnConnect`, one registered as not recurring on the first connection only. GAP: proven by the private runtime, dale/AC-REG-004.3
 - ADDED AC-HOST-004.1 -> docs/specs/host-vocabulary.md : WHEN a host brings a configuration up THE SYSTEM SHALL send each logic block its configuration and its runtime-actor link, then its link maps, then its restore, then its start, and SHALL wait on the restore's and the start's acknowledgements.
 - ADDED AC-HOST-005.1 -> docs/specs/host-vocabulary.md : THE SYSTEM SHALL read a registration secret from its file, trimmed, and where the file is missing, empty or whitespace SHALL generate a new one, write it there creating its directory, and return it, so every later read of that file returns the same secret.
 - MODIFIED AC-LIFE-016.3 -> docs/specs/block-lifecycle.md : WHEN a wait's timeout elapses before every actor has answered THE SYSTEM SHALL fail it naming how many had not, and SHALL hand the caller every answer it received and every actor that did not answer.
@@ -347,10 +357,10 @@ on (d).
 After STOP 1, adjusted to its answer:
 
 - `T-001` (`AC-HOST-*`, tooling): `spec-trace.ps1` reads a qualified id as a citation, with its
-  self-test, and `spec-process.md` § IDs & EARS says so — if (c) option 1.
+  self-tests, and `spec-process.md` § IDs & EARS says so.
 - `T-002` (`AC-HOST-001.1`, `002.1`, `005.1`): the three tests proven here, each with its mutation.
 - `T-003` (`AC-HOST-004.1`): the development host's test cites the leaf.
-- `T-004` (`AC-LIFE-016.3`): the wait's timeout hands back what answered, red first — if (d) B.
+- `T-004` (`AC-LIFE-016.3`): the wait's timeout hands back what answered, red first.
 - `T-005` (no id): the four doc comments of (e).
 - `T-006` (`AC-HOST-*`): the page, the roster row, and the pointers in `contracts.md` and
   `block-lifecycle.md`; distill; archive.
