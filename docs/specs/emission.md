@@ -10,10 +10,12 @@ document reports about all of it. Area code `EMIT`. Process:
 [`../spec-process.md`](../spec-process.md).
 
 A member's **emission policy** is the three knobs it declares on `[ServiceProperty]` or
-`[ServiceMeasuringPoint]` — `MinInterval` (the minimum spacing between two published values,
-`"250ms"` by default), `MinChange` (an optional deadband, absent by default) and `Immediate` (off by
-default). The policy governs the **outbound** direction only: how a block republishes its own state.
-A write *into* a writable member is always forwarded.
+`[ServiceMeasuringPoint]` — `MinInterval` (the minimum spacing between two published values),
+`MinChange` (an optional deadband) and `Immediate`. A knob no attribute assigns takes its
+**default**: for `MinInterval`, the value type's `[DefaultMinInterval]` where it declares one and
+`"250ms"` otherwise — the **SDK default**; no deadband; `Immediate` off. The policy governs the
+**outbound** direction only: how a block republishes its own state. A write *into* a writable member
+is always forwarded.
 
 A single C# property may declare **both** attributes. It then publishes to two streams — its own
 retained topic each — and this page treats them as two members throughout.
@@ -45,24 +47,47 @@ package: any clock a test can wind forward is recognised by the method it offers
 
 ## Which knobs govern a member
 
+Each knob of each stream is resolved on its own, from the first place that assigned it: the stream's
+attribute on the implementing property, then the stream's attribute on the `[ServiceInterface]`
+property the member is bound through, then the knob's default.
+
 - `AC-EMIT-002.1` (Ubiquitous): THE SYSTEM SHALL gate a member's service-property stream and its
-  measuring-point stream independently, each from the knobs declared on its own attribute.
-- `AC-EMIT-002.2` (Optional): WHERE a member's attribute for one stream declares no emission knobs
-  THE SYSTEM SHALL apply the knob defaults to that stream, and SHALL NOT apply knobs declared on the
-  member's attribute for the other stream.
-- `AC-EMIT-002.3` (Event-driven): WHEN the implementing property declares a stream's emission
-  attribute THE SYSTEM SHALL read that stream's knobs from it, and otherwise SHALL read them from the
-  `[ServiceInterface]` property the member is bound through.
+  measuring-point stream independently, resolving each stream's knobs only from that stream's own
+  attributes.
+- `AC-EMIT-002.2` (Optional): WHERE no attribute a stream reads assigns a knob THE SYSTEM SHALL take
+  that knob's default for the stream, and SHALL NOT take the knob from an attribute of the member's
+  other stream.
+- `AC-EMIT-002.3` (Event-driven): WHEN the implementing property's attribute for a stream assigns a
+  knob THE SYSTEM SHALL take that knob from it, and otherwise SHALL take the knob from the stream's
+  attribute on the `[ServiceInterface]` property the member is bound through, where that attribute
+  assigns it.
 - `AC-EMIT-002.4` (Event-driven): WHEN neither the implementation nor the interface declares a stream's emission attribute THE SYSTEM SHALL publish that stream's changes ungated. GAP: no in-repo binding omits one.
 - `AC-EMIT-002.5` (Ubiquitous): THE SYSTEM SHALL search for a member's custom change threshold in the
-  assembly that declares the property that stream's knobs were read from.
+  assembly that declares the property whose attribute assigned that stream's `MinChange`.
+- `AC-EMIT-002.6` (Optional): WHERE no attribute a stream reads assigns `MinInterval` and the member's
+  value type, or its underlying type where the member is nullable, declares `[DefaultMinInterval]`
+  THE SYSTEM SHALL take the type's interval as that stream's `MinInterval`.
+- `AC-EMIT-002.7` (Ubiquitous): THE SYSTEM SHALL treat a knob as assigned whenever an attribute
+  assigns it, whatever the value, so neither an interface's knob nor a type's default replaces it.
+- `AC-EMIT-002.8` (Ubiquitous): THE SYSTEM SHALL declare a `[DefaultMinInterval]` of 30 s on each
+  diagnostics summary it ships: `ModbusLinkSummary`, `ModbusTcpConnectionSummary`,
+  `HttpClientSummary` and `HttpServerSummary`.
 
 `AC-EMIT-002.2` is why a dual-annotated member needs its measuring point's interval written out when
 that stream should be slower than the default: the property's interval beside it does not carry over.
 
 `AC-EMIT-002.3` lets a family of blocks sharing a `[ServiceInterface]` declare its policy once, the
-same way it already declares its schema once — and `AC-EMIT-002.5` follows it, so a deadband declared
-on an interface resolves its threshold from the interface's own library rather than from the block's.
+same way it already declares its schema once, and lets a block redeclare the member's attribute for
+its title or description without giving up a knob it does not assign. `AC-EMIT-002.5` follows the
+deadband, so a `MinChange` declared on an interface resolves its threshold from the interface's own
+library rather than from the block's.
+
+`AC-EMIT-002.7` is how an implementation cancels what its interface declares: `MinChange = ""`
+assigns no deadband, and `MinInterval = "250ms"` assigns the SDK's interval over the type's.
+
+These rules fill a knob; the rest of this page decides what the filled knobs do. A controllable clock
+still publishes ungated (`AC-EMIT-001.2`), and `Immediate` still makes the interval inert
+(`AC-EMIT-005.6`), whatever interval a type declares.
 
 ## A policy that cannot work fails at start
 
@@ -75,8 +100,8 @@ happens when that gate was suppressed or bypassed.
   type, the searched assembly and the remedy.
 - `AC-EMIT-003.2` (Ubiquitous): THE SYSTEM SHALL fail that initialization whether or not the emission
   policy is active for the block.
-- `AC-EMIT-003.3` (Event-driven): WHEN a member's `MinInterval` is not a valid duration THE SYSTEM
-  SHALL fail block initialization.
+- `AC-EMIT-003.3` (Event-driven): WHEN the `MinInterval` a stream resolves to is not a valid duration
+  THE SYSTEM SHALL fail block initialization.
 - `AC-EMIT-003.4` (Event-driven): WHEN a member's `MinChange` cannot be read by the deadband resolved
   for its value type THE SYSTEM SHALL fail block initialization.
 - `AC-EMIT-003.5` (Ubiquitous): THE SYSTEM SHALL name the member and the service in each of these
@@ -160,14 +185,16 @@ which `DALE039` states back to the author.
 `AC-EMIT-005.7` is what keeps a release honest: a suppressed value is still the member's newest, so a
 held value that survived it would move the consumer away from where the member actually is.
 
-**A value that changes on every transaction.** A diagnostics summary a client keeps — the Modbus link
-summary, the HTTP client and server summaries — moves at least one counter with every transaction, so
-each value a block assigns differs from the last: the dedup floor never holds one back, and a struct
-has no deadband. Its publish rate is the lower of how often the block assigns it and once per
-`MinInterval`, and at the 250 ms default a block assigning it in every callback of a busy client
-publishes four times a second. Such a member declares its `MinInterval` in seconds and is assigned
-from the block's own tick; the trailing release still publishes its latest value within one interval,
-so the longer interval loses only intermediate snapshots nothing keeps.
+**A value that changes on every transaction.** A diagnostics summary a client keeps moves at least
+one counter with every transaction, so each value a block assigns differs from the last: the dedup
+floor never holds one back, and a struct has no deadband. Its publish rate is the lower of how often
+the block assigns it and once per `MinInterval` — at 250 ms, four times a second for a block
+assigning it in every callback of a busy client. So the SDK's summaries declare a 30 s default
+(`AC-EMIT-002.8`), and a member publishing one whole with no interval of its own publishes it at most
+twice a minute; the trailing release still publishes its latest value within one interval, so the
+longer interval loses only intermediate snapshots nothing keeps. A field whose every change matters —
+a link's verdict — is published as its own member beside the summary, where the dedup floor lets
+exactly its changes through.
 
 ## Deadbands
 
@@ -286,12 +313,14 @@ Six diagnostics validate a declared policy at compile time. The analyzer registr
 - `AC-EMIT-012.2` (Event-driven): WHEN a member sets `MinChange` in a format its built-in deadband
   cannot read THE SYSTEM SHALL report `DALE035` as an error naming the expected format, and SHALL
   report nothing where the member's deadband is a custom one.
-- `AC-EMIT-012.3` (Event-driven): WHEN a member sets `MinInterval` to a value the duration grammar
-  cannot read THE SYSTEM SHALL report `DALE036` as an error.
-- `AC-EMIT-012.4` (Event-driven): WHEN a member sets `MinInterval` to a positive duration below one
-  millisecond THE SYSTEM SHALL report `DALE037` as a warning.
+- `AC-EMIT-012.3` (Event-driven): WHEN a member sets `MinInterval`, or a value type declares
+  `[DefaultMinInterval]`, to a value the duration grammar cannot read THE SYSTEM SHALL report
+  `DALE036` as an error.
+- `AC-EMIT-012.4` (Event-driven): WHEN a member sets `MinInterval`, or a value type declares
+  `[DefaultMinInterval]`, to a positive duration below one millisecond THE SYSTEM SHALL report
+  `DALE037` as a warning.
 - `AC-EMIT-012.5` (Event-driven): WHEN a member sets `Immediate` together with a `MinChange` or with a
-  `MinInterval` other than the default THE SYSTEM SHALL report `DALE038` as a warning naming the
+  `MinInterval` other than the SDK default THE SYSTEM SHALL report `DALE038` as a warning naming the
   ignored knobs.
 - `AC-EMIT-012.6` (Event-driven): WHEN a member sets `MinChange` while its `MinInterval` is the
   disabling sentinel THE SYSTEM SHALL report `DALE039` as information, and SHALL report nothing where
@@ -310,7 +339,9 @@ does, so a knob is never called ignored on the strength of how it was spelled.
 
 `AC-EMIT-012.7` is the rule the six share, and it is per **attribute**: a member declaring both
 carries two policies, and each is validated on its own. Its second half keeps the diagnostics quiet
-about an omitted `MinInterval`, which is indistinguishable from the default written out.
+about an omitted `MinInterval`, which takes a default that is either the SDK's or checked where the
+type declares it (`AC-EMIT-012.3`, `AC-EMIT-012.4`). Each attribute is judged on its own: a knob one
+attribute assigns and another inherits is not compared across the two.
 
 ## What introspection reports
 
@@ -320,16 +351,17 @@ which is what a dashboard renders as the member's throttle badge.
 - `AC-EMIT-013.1` (Ubiquitous): THE SYSTEM SHALL report a member's effective emission policy for a
   stream in the introspection document as that stream's `runtime.throttle` carrying `minInterval`,
   `minChange` and `immediate`.
-- `AC-EMIT-013.2` (Optional): WHERE part of a stream's emission policy is the default THE SYSTEM
-  SHALL omit that part from the report — the whole `runtime.throttle` entry where the policy is
-  default throughout, `minChange` where the member declares no deadband, and `immediate` where it is
-  false — comparing the declared `MinInterval` as a duration rather than as a spelling.
+- `AC-EMIT-013.2` (Optional): WHERE part of a stream's resolved emission policy is the SDK default THE
+  SYSTEM SHALL omit that part from the report — the whole `runtime.throttle` entry where the policy is
+  the SDK default throughout, `minChange` where the stream has no deadband, and `immediate` where it
+  is false — comparing the resolved `MinInterval` as a duration rather than as a spelling.
 - `AC-EMIT-013.3` (Optional): WHERE a stream's emission policy is reported THE SYSTEM SHALL carry its
   effective `minInterval` even when that is the default.
-- `AC-EMIT-013.4` (Ubiquitous): THE SYSTEM SHALL report each stream's policy from the same attribute
-  the gate reads it from, so a member declaring both attributes reports two independent policies.
-- `AC-EMIT-013.5` (Ubiquitous): THE SYSTEM SHALL treat an empty `MinChange` as unset, in the reported
-  policy as in the gate.
+- `AC-EMIT-013.4` (Ubiquitous): THE SYSTEM SHALL report each stream's policy resolved knob by knob
+  from the same attributes and the same value-type default the gate resolves it from, so a member
+  declaring both attributes reports two independent policies.
+- `AC-EMIT-013.5` (Ubiquitous): THE SYSTEM SHALL treat an empty `MinChange` as no deadband, in the
+  reported policy as in the gate.
 
 Every member carries a policy, so a badge on all of them would say nothing — hence `AC-EMIT-013.2`.
 `AC-EMIT-013.3` is its complement: once a policy *is* reported, its interval is carried whole, so a

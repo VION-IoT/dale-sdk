@@ -64,6 +64,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
         double Reading { get; }
     }
 
+    // A struct that declares its own default interval, the way the SDK's diagnostics summaries do.
+    [DefaultMinInterval("30s")]
+    public readonly record struct PumpStatistics(long Starts);
+
     public class ThrottleInheritedLb : LogicBlockBase, IThrottleViaInterface
     {
         public ThrottleInheritedLb() : base(new Mock<ILogger>().Object)
@@ -88,7 +92,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
         {
         }
 
-        // Impl declares its own (non-default) policy — it must win over the interface's.
+        // Impl assigns its own interval, which wins over the interface's; it assigns no deadband, so the
+        // interface's still applies.
         [ServiceProperty(MinInterval = "2s")]
         public double Reading { get; private set; }
 
@@ -107,9 +112,29 @@ namespace Vion.Dale.Sdk.Test.Introspection
         {
         }
 
-        // Impl declares a bare (default-policy) [ServiceProperty]: it owns the policy (default), so no
-        // chip is surfaced — exactly as the gate uses the impl's default, not the interface's knobs.
+        // Impl declares a knob-free [ServiceProperty], the way a block redeclares a member for its title:
+        // it assigns nothing, so every knob falls through to the interface's.
         [ServiceProperty]
+        public double Reading { get; private set; }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
+    public class ThrottleImplCancelLb : LogicBlockBase, IThrottleViaInterface
+    {
+        public ThrottleImplCancelLb() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        // Impl assigns the SDK's own values: an assigned knob is final whatever its value, so this cancels
+        // both of the interface's.
+        [ServiceProperty(MinInterval = "250ms", MinChange = "")]
         public double Reading { get; private set; }
 
         protected override void Ready()
@@ -319,10 +344,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.4")]
         [DynamicData(nameof(SplitSourcePolicies))]
-        public void ReportPolicyGateApplies(Type implementation, string? expectedInterval)
+        public void ReportPolicyGateApplies(Type implementation, string? expectedInterval, string? expectedMinChange)
         {
-            // Arrange — the interface declares 1s / 0.1; what the implementation declares beside it is
-            // what decides, exactly as it does for the gate.
+            // Arrange — the interface assigns 1s / 0.1; what the implementation assigns beside it decides
+            // knob by knob, exactly as it does for the gate.
             var schemaSource = typeof(IThrottleViaInterface).GetProperty(nameof(IThrottleViaInterface.Reading))!;
             var presentationSource = implementation.GetProperty("Reading")!;
 
@@ -331,6 +356,42 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             // Assert
             Assert.AreEqual(expectedInterval, metadata?.MinInterval);
+            Assert.AreEqual(expectedMinChange, metadata?.MinChange);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.4")]
+        [DataRow(nameof(ThrottledLb.Statistics), false, DisplayName = "service property")]
+        [DataRow(nameof(ThrottledLb.MaybeStatistics), false, DisplayName = "nullable service property")]
+        [DataRow(nameof(ThrottledLb.StatisticsPoint), true, DisplayName = "measuring point")]
+        public void ReportValueTypeDefaultInterval(string member, bool measuringPoint)
+        {
+            // Arrange — the member assigns no knob; its value type declares 30s.
+            var property = typeof(ThrottledLb).GetProperty(member)!;
+
+            // Act
+            var pm = PropertyMetadataBuilder.Build(property,
+                                                   new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                   ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                   measuringPoint ? ServiceElementStream.MeasuringPoint : ServiceElementStream.Property);
+
+            // Assert
+            Assert.IsNotNull(pm.Runtime.Throttle);
+            Assert.AreEqual("30s", pm.Runtime.Throttle!.MinInterval);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.2")]
+        public void OmitSdkDefaultIntervalAssignedOverValueTypeDefault()
+        {
+            // Arrange — the member assigns 250ms, so its value type's 30s does not apply.
+            var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.StatisticsAtSdkDefault))!;
+
+            // Act
+            var metadata = ReportedPolicyOf(property, property);
+
+            // Assert
+            Assert.IsNull(metadata);
         }
 
         [TestMethod]
@@ -408,14 +469,16 @@ namespace Vion.Dale.Sdk.Test.Introspection
             return new[]
                    {
                        // No attribute on the implementation, so the interface's knobs are reported.
-                       new object?[] { typeof(ThrottleInheritedLb), "1s" },
+                       new object?[] { typeof(ThrottleInheritedLb), "1s", "0.1" },
 
-                       // The implementation declares its own, which wins.
-                       new object?[] { typeof(ThrottleImplOverrideLb), "2s" },
+                       // The implementation assigns an interval only: it wins that knob, the interface keeps the other.
+                       new object?[] { typeof(ThrottleImplOverrideLb), "2s", "0.1" },
 
-                       // The implementation declares a bare one: it owns the policy, and the default policy
-                       // is not reported — the interface's knobs must not leak past it.
-                       new object?[] { typeof(ThrottleImplBareLb), null },
+                       // The implementation's attribute assigns nothing, so both knobs are the interface's.
+                       new object?[] { typeof(ThrottleImplBareLb), "1s", "0.1" },
+
+                       // The implementation assigns the SDK's own values, cancelling both: nothing to report.
+                       new object?[] { typeof(ThrottleImplCancelLb), null, null },
                    };
         }
 
@@ -472,6 +535,18 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             [ServiceProperty(MinInterval = "1s", MinChange = "")]
             public double EmptyDeadbandOnAThrottledMember { get; private set; }
+
+            [ServiceProperty]
+            public PumpStatistics Statistics { get; private set; }
+
+            [ServiceProperty]
+            public PumpStatistics? MaybeStatistics { get; private set; }
+
+            [ServiceMeasuringPoint]
+            public PumpStatistics StatisticsPoint { get; private set; }
+
+            [ServiceProperty(MinInterval = "250ms")]
+            public PumpStatistics StatisticsAtSdkDefault { get; private set; }
 
             public ThrottledLb() : base(new Mock<ILogger>().Object)
             {
@@ -566,6 +641,25 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
+    // A member whose value type declares its own interval, and which assigns no knob of its own.
+    public class TypeDefaultThrottleLb : LogicBlockBase
+    {
+        [ServiceProperty]
+        public PumpStatistics Statistics { get; private set; }
+
+        public TypeDefaultThrottleLb() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
     [TestClass]
     public class LogicBlockIntrospectionOrderingShould
     {
@@ -646,6 +740,22 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.IsNull(propertyThrottle["minChange"]);
             Assert.AreEqual("500ms", measuringPointThrottle!["minInterval"]!.GetValue<string>());
             Assert.AreEqual("1", measuringPointThrottle["minChange"]!.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.4")]
+        public void EmitThrottleNodeForValueTypeDefaultInterval()
+        {
+            // Arrange — the member assigns no knob; its value type declares 30s.
+
+            // Act
+            var service = LogicBlockIntrospection.IntrospectLogicBlock(new TypeDefaultThrottleLb(), _serviceProvider).Services.Single();
+
+            // Assert — end to end, on the JSON a dashboard reads.
+            var throttle = service.Properties.Single(p => p.Identifier == nameof(TypeDefaultThrottleLb.Statistics)).Runtime!["throttle"]!;
+            Assert.AreEqual("30s", throttle["minInterval"]!.GetValue<string>());
+            Assert.IsNull(throttle["minChange"]);
+            Assert.IsNull(throttle["immediate"]);
         }
 
         [TestMethod]

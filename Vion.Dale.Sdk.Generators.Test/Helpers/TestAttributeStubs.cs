@@ -110,6 +110,17 @@ namespace Vion.Dale.Sdk.Core
     {
     }
 
+    [AttributeUsage(AttributeTargets.Struct)]
+    public sealed class DefaultMinIntervalAttribute : Attribute
+    {
+        public string MinInterval { get; }
+
+        public DefaultMinIntervalAttribute(string minInterval)
+        {
+            MinInterval = minInterval;
+        }
+    }
+
     [AttributeUsage(AttributeTargets.Property)]
     public class ServiceMeasuringPointAttribute : Attribute
     {

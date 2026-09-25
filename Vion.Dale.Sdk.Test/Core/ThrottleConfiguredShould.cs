@@ -18,6 +18,12 @@ namespace Vion.Dale.Sdk.Test.Core
         [ServiceMeasuringPoint]
         private double BareMeasuringPoint { get; set; }
 
+        [ServiceProperty(MinInterval = "250ms", MinChange = null, Immediate = false)]
+        private double DefaultsAssignedProperty { get; set; }
+
+        [ServiceMeasuringPoint(MinInterval = "250ms", MinChange = null, Immediate = false)]
+        private double DefaultsAssignedMeasuringPoint { get; set; }
+
         [TestMethod]
         [DataRow(typeof(ServicePropertyAttribute), nameof(ConfiguredProperty), DisplayName = "service property")]
         [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(ConfiguredMeasuringPoint), DisplayName = "measuring point")]
@@ -44,6 +50,32 @@ namespace Vion.Dale.Sdk.Test.Core
             Assert.AreEqual("250ms", knobs.MinInterval);
             Assert.IsNull(knobs.MinChange);
             Assert.IsFalse(knobs.Immediate);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.7")]
+        [DataRow(typeof(ServicePropertyAttribute), nameof(DefaultsAssignedProperty), DisplayName = "service property")]
+        [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(DefaultsAssignedMeasuringPoint), DisplayName = "measuring point")]
+        public void RecordKnobsAssignedTheirDefaultValues(Type attributeType, string propertyName)
+        {
+            // Arrange / Act
+            var knobs = (IEmissionAttribute)KnobsOf(attributeType, propertyName);
+
+            // Assert — each knob is assigned the value it reads when omitted, and still counts as assigned.
+            Assert.AreEqual(EmissionKnob.MinInterval | EmissionKnob.MinChange | EmissionKnob.Immediate, knobs.Assigned);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.7")]
+        [DataRow(typeof(ServicePropertyAttribute), nameof(BareProperty), DisplayName = "service property")]
+        [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(BareMeasuringPoint), DisplayName = "measuring point")]
+        public void RecordNothingForKnobsOmitted(Type attributeType, string propertyName)
+        {
+            // Arrange / Act
+            var knobs = (IEmissionAttribute)KnobsOf(attributeType, propertyName);
+
+            // Assert
+            Assert.AreEqual(EmissionKnob.None, knobs.Assigned);
         }
 
         private static IThrottleConfigured KnobsOf(Type attributeType, string propertyName)

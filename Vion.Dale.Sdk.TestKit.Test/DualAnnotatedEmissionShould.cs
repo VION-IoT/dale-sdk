@@ -50,6 +50,51 @@ namespace Vion.Dale.Sdk.TestKit.Test
             context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Never());
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.2")]
+        public void KeepInterfacePropertyIntervalOffMeasuringPoint()
+        {
+            // Arrange — the interface assigns 5s to the property stream only; the implementation is bare.
+            var block = LogicBlockTestHelper.Create<InterfaceDualBlock>();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            // Act
+            context.AdvanceTime(TimeSpan.FromMilliseconds(250));
+            block.SetLevel(1.0);
+            context.AdvanceTime(TimeSpan.FromMilliseconds(250));
+            block.SetLevel(2.0);
+
+            // Assert — the measuring point runs at the SDK's 250 ms, not the property's 5 s.
+            context.VerifyServiceMeasuringPointEmitted(lb => lb.Level, times: Times.Exactly(2));
+        }
+
+        // Both streams declared on the interface, only one of them with a knob.
+        [ServiceInterface]
+        public interface IDualLevelService
+        {
+            [ServiceProperty(MinInterval = "5s")]
+            [ServiceMeasuringPoint]
+            double Level { get; }
+        }
+
+        private sealed class InterfaceDualBlock : LogicBlockBase, IDualLevelService
+        {
+            public InterfaceDualBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            public double Level { get; private set; }
+
+            public void SetLevel(double value)
+            {
+                Level = value;
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
         // One sensed value, two streams, two different intervals: the measuring point moves four times
         // faster than the property.
         private sealed class TwoIntervalBlock : LogicBlockBase

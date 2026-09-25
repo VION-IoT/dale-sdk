@@ -10,7 +10,8 @@ namespace Vion.Dale.Sdk.Core
     {
         /// <summary>
         ///     Minimum spacing between two emitted values, as a duration string
-        ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>, <c>"0"</c>). Defaults to <c>"250ms"</c>.
+        ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>, <c>"0"</c>). An attribute reads <c>"250ms"</c>
+        ///     where it assigns none; <see cref="Emission.EmissionKnobs" /> decides what such a member is gated at.
         ///     <c>"0"</c> / <c>"0ms"</c> disables throttling for the member.
         /// </summary>
         string MinInterval { get; }
@@ -18,13 +19,13 @@ namespace Vion.Dale.Sdk.Core
         /// <summary>
         ///     Optional minimum change a candidate value must clear (relative to the last emitted value)
         ///     before it is allowed through, resolved against a registered change-threshold for the
-        ///     member's value type. <c>null</c> means no change gate.
+        ///     member's value type. <c>null</c> or empty means no change gate.
         /// </summary>
         string? MinChange { get; }
 
         /// <summary>
         ///     When <c>true</c>, every observed change is emitted immediately, bypassing the interval and
-        ///     change gates. Defaults to <c>false</c>.
+        ///     change gates. An attribute reads <c>false</c> where it assigns none.
         /// </summary>
         bool Immediate { get; }
     }

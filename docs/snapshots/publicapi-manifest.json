@@ -33,6 +33,7 @@
     "Vion.Dale.Sdk.Configuration.Contract.LogicBlockContractBase",
     "Vion.Dale.Sdk.Core.CommandAttribute",
     "Vion.Dale.Sdk.Core.ContractDirection",
+    "Vion.Dale.Sdk.Core.DefaultMinIntervalAttribute",
     "Vion.Dale.Sdk.Core.EnumLabelAttribute",
     "Vion.Dale.Sdk.Core.Formats",
     "Vion.Dale.Sdk.Core.IConfigureServices",

@@ -16,9 +16,6 @@ namespace Vion.Dale.Sdk.Introspection
     /// </summary>
     internal static class PropertyMetadataBuilder
     {
-        // The attribute default both emission attributes declare for MinInterval.
-        private const string DefaultMinInterval = "250ms";
-
         /// <summary>
         ///     Builds a typed <see cref="PropertyMetadata" /> document for the given property.
         ///     The <paramref name="typeRef" /> is supplied by the caller (built from the property's CLR type
@@ -367,77 +364,59 @@ namespace Vion.Dale.Sdk.Introspection
             var persistentAttr = property.GetCustomAttribute<PersistentAttribute>();
             var persistent = persistentAttr is not null && !persistentAttr.Exclude;
 
-            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(property, stream) };
+            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(property, null, stream) };
             return runtime.IsEmpty ? RuntimeMetadata.None : runtime;
         }
 
         // Runtime metadata for an interface-bound property. Persistence stays an impl concern (it is
-        // declared on the logic-block property), but the emission throttle is surfaced from whichever
-        // property the runtime gate actually reads it from: the impl wins when it declares its own
-        // [ServiceProperty]/[ServiceMeasuringPoint], otherwise the knobs are inherited from the
-        // [ServiceInterface]. This mirrors LogicBlockBase.ResolveThrottleConfigured exactly,
-        // so the UI throttle chip matches the policy the gate enforces — including the §8.12 DRY pattern
-        // where the impl carries only presentation and the knobs live on the interface.
+        // declared on the logic-block property), but the emission throttle is resolved knob by knob from
+        // both properties, exactly as the runtime gate resolves it, so the UI throttle chip matches the policy
+        // the gate enforces — including a family of blocks whose interface carries the knobs and whose
+        // implementations carry only presentation.
         private static RuntimeMetadata ExtractRuntimeSplit(PropertyInfo presentationSource, PropertyInfo schemaSource, ServiceElementStream stream)
         {
             var persistentAttr = presentationSource.GetCustomAttribute<PersistentAttribute>();
             var persistent = persistentAttr is not null && !persistentAttr.Exclude;
 
-            var throttleSource = HasEmissionAttribute(presentationSource, stream) ? presentationSource : schemaSource;
-            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(throttleSource, stream) };
+            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(presentationSource, schemaSource, stream) };
             return runtime.IsEmpty ? RuntimeMetadata.None : runtime;
         }
 
-        private static bool HasEmissionAttribute(PropertyInfo property, ServiceElementStream stream)
+        // The resolved emission policy (throttle / deadband / immediate). Surfaced only when it deviates from
+        // the SDK default (MinInterval 250ms, no deadband, not immediate) to keep introspection lean; when
+        // surfaced the *resolved* MinInterval is carried, so a consumer needs no knowledge of the default.
+        private static ThrottleMetadata? ExtractThrottle(PropertyInfo implementation, PropertyInfo? serviceInterface, ServiceElementStream stream)
         {
-            return EmissionAttribute(property, stream) is not null;
-        }
-
-        // The attribute carrying the knobs for the stream being described. Never the sibling's: a member
-        // declaring both attributes declares two independent policies, and reporting the property's on the
-        // measuring point would show a badge that the gate does not enforce.
-        private static IThrottleConfigured? EmissionAttribute(PropertyInfo property, ServiceElementStream stream)
-        {
-            return stream == ServiceElementStream.Property ? property.GetCustomAttribute<ServicePropertyAttribute>() :
-                       property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
-        }
-
-        // The effective emission policy (throttle / deadband / immediate), read from the
-        // [ServiceProperty] / [ServiceMeasuringPoint] knobs. Surfaced only when it deviates from the
-        // default (MinInterval 250ms, no deadband, not immediate) to keep introspection lean; when
-        // surfaced the *effective* MinInterval is carried, so a consumer needs no knowledge of the default.
-        private static ThrottleMetadata? ExtractThrottle(PropertyInfo property, ServiceElementStream stream)
-        {
-            var cfg = EmissionAttribute(property, stream);
-            if (cfg is null)
+            var knobs = EmissionKnobs.Resolve(implementation, serviceInterface, stream, implementation.PropertyType);
+            if (knobs is null)
             {
                 return null;
             }
 
-            // An empty MinChange is unset, the way ThrottlePolicy.FromConfigured reads it — otherwise a
+            // An empty MinChange is no deadband, the way ThrottlePolicy.FromConfigured reads it — otherwise a
             // member would be reported as carrying a deadband the gate does not apply.
-            var minChange = string.IsNullOrEmpty(cfg.MinChange) ? null : cfg.MinChange;
+            var minChange = string.IsNullOrEmpty(knobs.MinChange) ? null : knobs.MinChange;
 
-            if (IsDefaultInterval(cfg.MinInterval) && minChange is null && !cfg.Immediate)
+            if (IsDefaultInterval(knobs.MinInterval) && minChange is null && !knobs.Immediate)
             {
                 return null;
             }
 
             return new ThrottleMetadata
                    {
-                       MinInterval = cfg.MinInterval,
+                       MinInterval = knobs.MinInterval,
                        MinChange = minChange,
-                       Immediate = cfg.Immediate,
+                       Immediate = knobs.Immediate,
                    };
         }
 
-        // Compares the declared interval as a DURATION, not as a spelling: "250" and "250ms" configure the
+        // Compares the resolved interval as a DURATION, not as a spelling: "250" and "250ms" configure the
         // same gate, so reporting one as a deviation and the other as the default would badge two identical
         // declarations differently. A token the grammar rejects counts as a deviation, so the offending
         // value reaches the consumer instead of being hidden behind the default.
         private static bool IsDefaultInterval(string minInterval)
         {
-            return DurationParser.TryParse(minInterval, out var declared) && DurationParser.TryParse(DefaultMinInterval, out var standard) && declared == standard;
+            return DurationParser.TryParse(minInterval, out var declared) && DurationParser.TryParse(EmissionKnobs.DefaultMinInterval, out var standard) && declared == standard;
         }
     }
 }

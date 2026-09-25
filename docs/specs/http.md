@@ -40,7 +40,8 @@ surface-and-arming shape this package now follows (`AC-TKIT-013.1`, `AC-TKIT-013
 test kit that drives both halves (`AC-TKIT-014.*`, `AC-TKIT-015.*`); [`modbus.md`](modbus.md) for the
 hosted Modbus server, whose binding rule the hosted HTTP server departs from (`AC-MODB-011.2`) and whose
 factory ownership rule it shares (`AC-MODB-018.3`), and for the link summary whose window both HTTP
-summaries share (`AC-MODB-016.7`); [`emission.md`](emission.md) for what publishing a summary costs;
+summaries share (`AC-MODB-016.7`); [`emission.md`](emission.md) for what publishing a summary costs and the 30 s default both
+summaries declare (`AC-EMIT-002.8`);
 [`../simulator-authoring.md`](../simulator-authoring.md) for what a socket means to a bench.
 
 Not this area: the `dale` CLI's own hand-rolled HTTP client, which is [`cli.md`](cli.md)'s and does
@@ -436,11 +437,11 @@ it rolls on virtual time under the HTTP test kit and a stepped host (`AC-HTTP-00
 **What publishing a summary costs.** Every completed request moves a counter, so each value the block
 assigns differs from the last: the dedup floor never holds one back, and a struct has no deadband
 ([`emission.md`](emission.md)). The summary is published as often as the block assigns it, up to once
-per `MinInterval` — at the default 250 ms, four times a second for a block that assigns it in every
-callback of a busy client, 14,400 publishes an hour. Declare `MinInterval` in seconds (`"30s"` suits a
-diagnostics card), assign the summary from the block's own tick rather than from each callback, and do
-not set `Immediate`; the latest value is still published within one interval. A signal whose every
-edge matters is the receipt's, not the summary's.
+per `MinInterval` — at 250 ms, four times a second for a block that assigns it in every callback of a
+busy client, 14,400 publishes an hour. So the summary declares a 30 s default (`AC-EMIT-002.8`): a
+member that assigns no interval of its own publishes it at most 120 times an hour, and the latest value
+is still published within one interval. Do not set `Immediate`. A signal whose every edge matters is
+the receipt's, not the summary's.
 
 ## The hosted server: configuration and lifecycle
 
@@ -667,7 +668,7 @@ interface.
 
 The server's half of decision `0118`. Like the rest of the server, the summary is fed from the
 server's own threads and never calls the block; a block reads it whenever it likes, outside `Sync`, and
-publishes it at the cost the client's summary states, with the same `MinInterval`.
+publishes it at the cost the client's summary states, with the same 30 s default.
 
 `AC-HTTP-021.2` counts on delivery, the moment `AC-HTTP-016.8` records, so the answered counts and the
 log agree, and a request a stop cut short is abandoned rather than answered (`AC-HTTP-015.9`).

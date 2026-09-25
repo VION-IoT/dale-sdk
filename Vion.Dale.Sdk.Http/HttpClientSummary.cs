@@ -11,9 +11,9 @@ namespace Vion.Dale.Sdk.Http
     ///     <para>
     ///         Read it whenever you want it — every read returns a consistent snapshot. Every field is a
     ///         service-property-legal type, so the whole summary can be published as one <c>[ServiceProperty]</c>. It
-    ///         changes with every request, so the publish rate is set by the member's <c>MinInterval</c>: declare one in
-    ///         seconds, such as <c>"30s"</c>, and assign the summary from the block's own tick rather than from every
-    ///         callback.
+    ///         changes with every request, so a member publishing it whole sends a new value once per interval for as
+    ///         long as the client is in use: once every 30 s by default, or at the <c>MinInterval</c> the member assigns.
+    ///         Where a signal's every edge matters, take it from the request's receipt instead.
     ///     </para>
     ///     <para>
     ///         Each client instance keeps its own summary. A block that calls two services and wants them apart injects
@@ -52,6 +52,7 @@ namespace Vion.Dale.Sdk.Http
     /// <param name="MaxRoundTripAt">When the request that set <paramref name="MaxRoundTrip" /> ended.</param>
     /// <param name="InFlightCount">Requests issued and not yet ended.</param>
     [PublicApi]
+    [DefaultMinInterval("30s")]
     public readonly record struct HttpClientSummary(
         [StructField(Title = "Last response", Description = "When a server last answered, with any status (UTC).")]
         DateTime? LastResponseAt,

@@ -11,8 +11,8 @@ namespace Vion.Dale.Sdk.Http.Server
     ///     <para>
     ///         Read it whenever you want it, without a <c>Sync</c> callback — every read returns a consistent snapshot. Every
     ///         field is a service-property-legal type, so the whole summary can be published as one <c>[ServiceProperty]</c>.
-    ///         It changes with every request, so the publish rate is set by the member's <c>MinInterval</c>: declare one in
-    ///         seconds, such as <c>"30s"</c>, and assign the summary from the block's own tick.
+    ///         It changes with every request, so a member publishing it whole sends a new value once per interval for as
+    ///         long as requests arrive: once every 30 s by default, or at the <c>MinInterval</c> the member assigns.
     ///     </para>
     ///     <para>
     ///         A request is counted as answered once its response has been written in full — the moment it is also
@@ -36,6 +36,7 @@ namespace Vion.Dale.Sdk.Http.Server
     /// <param name="LastRefusalStatus">The status it refused with.</param>
     /// <param name="ActiveConnections">Connections the server is serving now.</param>
     [PublicApi]
+    [DefaultMinInterval("30s")]
     public readonly record struct HttpServerSummary(
         [StructField(Title = "Last request", Description = "The latest arrival among the requests the server has recorded (UTC).")]
         DateTime? LastRequestAt,
