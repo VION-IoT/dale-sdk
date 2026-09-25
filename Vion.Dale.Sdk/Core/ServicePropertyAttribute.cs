@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Emission;
 
 namespace Vion.Dale.Sdk.Core
 {
@@ -22,8 +23,16 @@ namespace Vion.Dale.Sdk.Core
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
-    public class ServicePropertyAttribute : Attribute, IThrottleConfigured
+    public class ServicePropertyAttribute : Attribute, IEmissionAttribute
     {
+        private readonly bool _immediate;
+
+        private readonly string? _minChange;
+
+        private readonly string _minInterval = EmissionKnobs.DefaultMinInterval;
+
+        private readonly EmissionKnob _assigned;
+
         /// <summary>Display label for the property. Translatable (see the remarks on this attribute).</summary>
         public string? Title { get; init; }
 
@@ -94,10 +103,21 @@ namespace Vion.Dale.Sdk.Core
         ///     Minimum spacing between two emitted values for this property, as a duration string
         ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>) — a number with an optional
         ///     <c>us</c>/<c>ms</c>/<c>s</c>/<c>m</c>/<c>h</c> suffix; a bare number is milliseconds. Drives
-        ///     the emission gate. <c>"0"</c> / <c>"0ms"</c> disables interval throttling. Defaults
-        ///     to <c>"250ms"</c>. Validated by analyzers DALE036 (format) / DALE037 (1&#160;ms floor).
+        ///     the emission gate. <c>"0"</c> / <c>"0ms"</c> disables interval throttling. Reads
+        ///     <c>"250ms"</c> when not assigned; the member then takes the interface's interval, else its value
+        ///     type's <see cref="DefaultMinIntervalAttribute" />, else 250 ms. Validated by analyzers DALE036
+        ///     (format) / DALE037 (1&#160;ms floor).
         /// </summary>
-        public string MinInterval { get; init; } = "250ms";
+        public string MinInterval
+        {
+            get => _minInterval;
+
+            init
+            {
+                _minInterval = value;
+                _assigned |= EmissionKnob.MinInterval;
+            }
+        }
 
         /// <summary>
         ///     Optional deadband: the minimum change a new value must clear (relative to the last emitted
@@ -116,12 +136,32 @@ namespace Vion.Dale.Sdk.Core
         ///     <c>IChangeThreshold&lt;ImmutableArray&lt;T&gt;&gt;</c> when rows should also be considered unchanged
         ///     within a per-field tolerance.
         /// </remarks>
-        public string? MinChange { get; init; }
+        public string? MinChange
+        {
+            get => _minChange;
+
+            init
+            {
+                _minChange = value;
+                _assigned |= EmissionKnob.MinChange;
+            }
+        }
 
         /// <summary>
         ///     When <c>true</c>, every observed change of this property is emitted immediately, bypassing
         ///     the interval and change gates. Defaults to <c>false</c>.
         /// </summary>
-        public bool Immediate { get; init; }
+        public bool Immediate
+        {
+            get => _immediate;
+
+            init
+            {
+                _immediate = value;
+                _assigned |= EmissionKnob.Immediate;
+            }
+        }
+
+        EmissionKnob IEmissionAttribute.Assigned => _assigned;
     }
 }

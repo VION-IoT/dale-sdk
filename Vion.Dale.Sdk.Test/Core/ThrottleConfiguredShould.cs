@@ -46,11 +46,43 @@ namespace Vion.Dale.Sdk.Test.Core
             Assert.IsFalse(knobs.Immediate);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.7")]
+        [DataRow(typeof(ServicePropertyAttribute), nameof(DefaultsAssignedProperty), DisplayName = "service property")]
+        [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(DefaultsAssignedMeasuringPoint), DisplayName = "measuring point")]
+        public void RecordKnobsAssignedTheirDefaultValues(Type attributeType, string propertyName)
+        {
+            // Arrange / Act
+            var knobs = (IEmissionAttribute)KnobsOf(attributeType, propertyName);
+
+            // Assert — each knob is assigned the value it reads when omitted, and still counts as assigned.
+            Assert.AreEqual(EmissionKnob.MinInterval | EmissionKnob.MinChange | EmissionKnob.Immediate, knobs.Assigned);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.7")]
+        [DataRow(typeof(ServicePropertyAttribute), nameof(BareProperty), DisplayName = "service property")]
+        [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(BareMeasuringPoint), DisplayName = "measuring point")]
+        public void RecordNothingForKnobsOmitted(Type attributeType, string propertyName)
+        {
+            // Arrange / Act
+            var knobs = (IEmissionAttribute)KnobsOf(attributeType, propertyName);
+
+            // Assert
+            Assert.AreEqual(EmissionKnob.None, knobs.Assigned);
+        }
+
         private static IThrottleConfigured KnobsOf(Type attributeType, string propertyName)
         {
             var property = typeof(ThrottleConfiguredShould).GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (IThrottleConfigured)property.GetCustomAttribute(attributeType)!;
         }
+
+        [ServiceProperty(MinInterval = "250ms", MinChange = null, Immediate = false)]
+        private double DefaultsAssignedProperty { get; set; }
+
+        [ServiceMeasuringPoint(MinInterval = "250ms", MinChange = null, Immediate = false)]
+        private double DefaultsAssignedMeasuringPoint { get; set; }
 
         // Deliberately illegal: DALE038 warns that Immediate makes the other two knobs inert, which is the
         // point — these probes assert that every knob an author writes is surfaced, including the ignored

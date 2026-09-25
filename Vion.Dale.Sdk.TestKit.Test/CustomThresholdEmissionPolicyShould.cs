@@ -59,6 +59,22 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
     }
 
+    public class TitledCustomThresholdLogicBlock : LogicBlockBase, ICustomThresholdService
+    {
+        public TitledCustomThresholdLogicBlock(ILogger logger) : base(logger)
+        {
+        }
+
+        // Redeclared with an interval of its own and no deadband: the custom-typed MinChange is still the
+        // interface's, and so is the assembly searched for its threshold.
+        [ServiceProperty(MinInterval = "1s")]
+        public Pressure Reading { get; set; }
+
+        protected override void Ready()
+        {
+        }
+    }
+
     public class UnresolvableMinChangeLogicBlock : LogicBlockBase
     {
         // bool has no magnitude, so no IChangeThreshold<bool> can exist. DALE034 normally errors at
@@ -141,6 +157,25 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Assert
             context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Once());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.5")]
+        public void ApplyInterfaceDeadbandBesideImplementationInterval()
+        {
+            // Arrange — the implementation's attribute assigns the interval, the interface's the deadband.
+            var block = LogicBlockTestHelper.Create<TitledCustomThresholdLogicBlock>();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            context.AdvanceTime(TimeSpan.FromSeconds(1));
+
+            // Act — a move of 1, which the deadband of 2 does not clear, a whole interval later.
+            block.Reading = new Pressure(10.0);
+            context.AdvanceTime(TimeSpan.FromSeconds(1));
+            block.Reading = new Pressure(11.0);
+            context.AdvanceTime(TimeSpan.FromSeconds(1));
+
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Reading, value => Assert.AreEqual(new Pressure(10.0), value), Times.Once());
         }
 
         [TestMethod]

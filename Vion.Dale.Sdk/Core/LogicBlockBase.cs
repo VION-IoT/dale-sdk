@@ -895,9 +895,9 @@ namespace Vion.Dale.Sdk.Core
         ///     measuring point from its declarative emission attributes, into the matching stream collection
         ///     (<see cref="_servicePropertyThrottlers" /> / <see cref="_measuringPointThrottlers" />) keyed by
         ///     (ServiceIdentifier, member name). A dual-annotated member thus gets one gate per stream, so the
-        ///     two streams don't cross-suppress. The attribute (an <see cref="IThrottleConfigured" />) is read
-        ///     off the binding's root source <see cref="System.Reflection.PropertyInfo" />; the value type
-        ///     comes from <see cref="ServiceBinding.TargetPropertyType" />.
+        ///     two streams don't cross-suppress. The knobs are resolved one by one by
+        ///     <see cref="EmissionKnobs.Resolve" /> from the implementing property and the interface property;
+        ///     the value type comes from <see cref="ServiceBinding.TargetPropertyType" />.
         /// </summary>
         private void BuildThrottlers()
         {
@@ -915,17 +915,17 @@ namespace Vion.Dale.Sdk.Core
                 {
                     foreach (var (memberIdentifier, binding) in perInterface)
                     {
-                        var configured = ResolveThrottleConfigured(binding, stream, out var configuredSource);
+                        var configured = EmissionKnobs.Resolve(binding.RootSourcePropertyInfo, binding.SchemaSourcePropertyInfo, stream, binding.TargetPropertyType);
                         if (configured == null)
                         {
                             continue;
                         }
 
                         // The custom-threshold search probes the assembly that DECLARES the property the
-                        // knobs were read from — the same compilation DALE034 validated against. For a knob
-                        // inherited from a shared [ServiceInterface], that is the interface library's
+                        // MinChange was read from — the same compilation DALE034 validated against. For a
+                        // deadband inherited from a shared [ServiceInterface], that is the interface library's
                         // assembly (where a shared custom IChangeThreshold<T> lives), not the block's assembly.
-                        var declaringAssembly = configuredSource?.DeclaringType?.Assembly ?? binding.Source?.GetType().Assembly;
+                        var declaringAssembly = configured.MinChangeSource?.DeclaringType?.Assembly ?? binding.Source?.GetType().Assembly;
 
                         ThrottlePolicy policy;
                         try
@@ -959,41 +959,6 @@ namespace Vion.Dale.Sdk.Core
                     }
                 }
             }
-        }
-
-        private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding, ServiceElementStream stream, out PropertyInfo? source)
-        {
-            // The emission knobs follow the schema-from-interface precedent (PropertyMetadataBuilder.
-            // BuildSplit). The impl property wins if it declares the stream's own attribute; otherwise the
-            // knobs are inherited from the [ServiceInterface] property the schema is declared on. This lets a
-            // family of blocks sharing a [ServiceInterface] declare emission policy once (DRY), the same way
-            // it declares the schema once. For a non-interface (extra) property the schema source is the impl
-            // property itself, so this collapses to "read from the impl property".
-            // `source` is the property the knobs were actually read from — used to probe the right assembly
-            // for a custom IChangeThreshold<T>.
-            var implConfigured = ConfiguredFrom(binding.RootSourcePropertyInfo, stream);
-            if (implConfigured != null)
-            {
-                source = binding.RootSourcePropertyInfo;
-                return implConfigured;
-            }
-
-            source = binding.SchemaSourcePropertyInfo;
-            return ConfiguredFrom(binding.SchemaSourcePropertyInfo, stream);
-        }
-
-        private static IThrottleConfigured? ConfiguredFrom(PropertyInfo? property, ServiceElementStream stream)
-        {
-            if (property == null)
-            {
-                return null;
-            }
-
-            // Read the attribute belonging to the stream being built, never the sibling's. A dual-annotated
-            // member declares two independent policies; falling back to the other attribute would hand the
-            // measuring point the property's interval and silently ignore its own.
-            var attributeType = stream == ServiceElementStream.Property ? typeof(ServicePropertyAttribute) : typeof(ServiceMeasuringPointAttribute);
-            return (IThrottleConfigured?)property.GetCustomAttribute(attributeType, true);
         }
 
         /// <summary>

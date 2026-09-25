@@ -10,7 +10,8 @@ namespace Vion.Dale.Sdk.Core
     {
         /// <summary>
         ///     Minimum spacing between two emitted values, as a duration string
-        ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>, <c>"0"</c>). Defaults to <c>"250ms"</c>.
+        ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>, <c>"0"</c>). An attribute reads <c>"250ms"</c>
+        ///     where it assigns none; <see cref="Emission.EmissionKnobs" /> decides what such a member is gated at.
         ///     <c>"0"</c> / <c>"0ms"</c> disables throttling for the member.
         /// </summary>
         string MinInterval { get; }
