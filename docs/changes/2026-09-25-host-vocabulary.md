@@ -416,3 +416,10 @@ working tree from a copy and restored from it.
   acknowledgements that arrived and the actors that did not answer. It is a `TimeoutException` with
   today's message, so an existing `catch (TimeoutException)` still catches it; a test asserting the
   exact type `TimeoutException` does not (`AC-LIFE-016.3`, `MODIFIED`).
+- **A new spec page, `docs/specs/host-vocabulary.md` (`HOST`)**, states what a host does with the MQTT
+  and lifecycle actor messages: eight criteria, four proven in this repository and four carrying a
+  `GAP` tail that names the private runtime's criterion (`dale/AC-…`).
+- **Doc comments now say what the publish answer means**: `PublishMqttMessageRequest`'s success is the
+  message reaching the host's connection, the broker's receipt only at QoS 1 or above;
+  `PublishMqttMessage.AttemptNumber` is the host's retry count, which a sender leaves at its default;
+  `IActorContext.RespondToSender` answers the sender of the message being handled.

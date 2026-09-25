@@ -30,6 +30,7 @@ instances (those live in git, the archived change docs, and the process journal)
 | Wire contracts | scenario & topology files + stepping semantics (scenario schema, committed scenarios) | `SCEN` | A |
 | Wire contracts | DevHost control API ([`specs/devhost-control.md`](specs/devhost-control.md)) | `CTRL` | A |
 | Wire contracts | plugin loading ABI (`[DaleSharedAssembly]`, ALC rules) | `PLUG` | A |
+| Wire contracts | the host vocabulary — the MQTT and lifecycle actor messages a host runtime and the SDK exchange ([`specs/host-vocabulary.md`](specs/host-vocabulary.md); anchor: the message-type declarations) | `HOST` | A |
 | Wire contracts | CLI surface (help snapshot) | `CLI` | B |
 | Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
 | Runtime semantics | Modbus family — Core binding model, TCP client + server, RTU, link policy (link verdicts, socket lifetime; anchors: modbus-smoke, the Link/Connection structs, committed scenarios) | `MODB` | A |

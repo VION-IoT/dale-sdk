@@ -64,8 +64,8 @@ the messages it ignores when one is sent to it. `AC-LIFE-001.3` is the same rule
 directions are one rule.
 
 Two message types the SDK publishes are handled nowhere in this repository — the remote-interface link
-and the remote installation topics. They are the private runtime's remote-interface proxy handler's;
-this page carries them, and specifies them nowhere.
+and the remote installation topics. They are the private runtime's remote-interface proxy handler's,
+and what a host does with them is [`host-vocabulary.md`](host-vocabulary.md)'s.
 
 ## Configuring a block
 
@@ -412,7 +412,8 @@ the registration is a discovery entry rather than a lifetime, and the block is n
   caller passed.
 - `AC-LIFE-016.2` (Event-driven): WHEN a wait is given no actors THE SYSTEM SHALL complete at once.
 - `AC-LIFE-016.3` (Event-driven): WHEN a wait's timeout elapses before every actor has answered THE
-  SYSTEM SHALL fail it naming how many had not.
+  SYSTEM SHALL fail it naming how many had not, and SHALL hand the caller every answer it received and
+  every actor that did not answer.
 - `AC-LIFE-016.4` (Event-driven): WHEN a wait is given a negative timeout THE SYSTEM SHALL refuse it
   naming the parameter, before any message is sent or any actor is watched, and SHALL treat a timeout
   of nothing as an expiry that has already happened.
@@ -430,6 +431,11 @@ schedule, which is what makes them virtual on a stepped host — `AC-SCEN-012.*`
 semantics and this page adds nothing to it. A zero termination wait arms nothing: it expires before
 it can handle a termination notification, because an actor that finished stopping first would
 otherwise have its notification handled ahead of the expiry and complete the wait.
+
+`AC-LIFE-016.3`'s failure is a `TimeoutException` of its own type, carrying the answers against the
+references the caller passed and the references that stayed silent, so a host can name the block that
+did not answer and keep what the others answered. A caller that only needs to know the wait failed
+catches `TimeoutException`. The termination wait collects no answers and fails naming the count alone.
 
 `AC-LIFE-016.4`, `AC-LIFE-016.5` and `AC-LIFE-016.8` are guards over the three ways a wait used to lie.
 A negative timeout armed no clock at all and the caller's wait never returned — a hang, where a host's
