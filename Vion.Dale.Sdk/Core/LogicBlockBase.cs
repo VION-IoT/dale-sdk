@@ -939,8 +939,7 @@ namespace Vion.Dale.Sdk.Core
                             // have to go and edit, the way the unresolvable-deadband failure below does. An
                             // interval no attribute assigned came from the value type, which is where the edit is.
                             var origin = configured.MinIntervalDefaultedBy != null && !DurationParser.TryParse(configured.MinInterval, out _) ?
-                                             $" Its MinInterval is the [DefaultMinInterval] its value type '{configured.MinIntervalDefaultedBy.Name}' declares." :
-                                             "";
+                                             $" Its MinInterval is the [DefaultMinInterval] its value type '{configured.MinIntervalDefaultedBy.Name}' declares." : "";
                             throw new
                                 FormatException($"Service member '{memberIdentifier}' on service '{serviceIdentifier}' declares an emission knob the gate cannot use.{origin} {ex.Message}",
                                                 ex);

@@ -19,7 +19,10 @@ namespace Vion.Dale.Sdk.Emission
         /// <summary>The property whose attribute assigned <see cref="MinChange" />; <c>null</c> when none did.</summary>
         public PropertyInfo? MinChangeSource { get; }
 
-        /// <summary>The value type whose <see cref="DefaultMinIntervalAttribute" /> supplied <see cref="MinInterval" />; <c>null</c> otherwise.</summary>
+        /// <summary>
+        ///     The value type whose <see cref="DefaultMinIntervalAttribute" /> supplied <see cref="MinInterval" />;
+        ///     <c>null</c> otherwise.
+        /// </summary>
         public Type? MinIntervalDefaultedBy { get; }
 
         private EmissionKnobs(string minInterval, string? minChange, bool immediate, PropertyInfo? minChangeSource, Type? minIntervalDefaultedBy)
