@@ -70,8 +70,8 @@ vocabulary is open in the private runtime's program, so it carries no criterion 
 ## Driving the logic blocks
 
 - `AC-HOST-004.1` (Event-driven): WHEN a host brings a configuration up THE SYSTEM SHALL deliver each
-  logic block its configuration, its runtime-actor link and its linked-interface map before its
-  restore, and its restore before its start.
+  logic block its configuration, its runtime-actor link and, where it has links, its linked-interface
+  map before its restore, and its restore before its start.
 
 The order is what a block's hooks are written against: its links are complete and its persisted
 values restored by the start hook (`AC-LIFE-012.2`), and the block holds a map that arrives before its

@@ -255,7 +255,7 @@ the runtime.
 | `PublishMqttMessage` | published without an answer, retried by the host on its own count | `AC-HOST-003.1`, `GAP` | runtime `service-streams.md` `AC-PROP-001.1` to `001.3`; `MqttClient.cs:757-758` |
 | `PublishMqttMessageRequest` | published once, answered; success is not the broker's receipt below QoS 1 | `AC-HOST-003.2`, `GAP` | runtime `AC-PROP-001.4` |
 | `RegisterMessageToSendOnConnect` | sent on every connection, a non-recurring one once | prose citing `dale/AC-REG-004.3`, no criterion (amendment 1; § Drift checkpoints) | runtime `AC-REG-004.3`; `Mqtt/ActorMessages.cs:55-59` |
-| lifecycle drive (`T-009` row 73) | configuration and link, link maps, restore, start, each start and restore acknowledged | `AC-HOST-004.1`, proven here by the development host | `Vion.Dale.DevHost/DevLogicSystemInitializer.cs`; runtime `logic-configuration.md` `AC-CFG-003.1`, `003.4` named in prose (D6) |
+| lifecycle drive (`T-009` row 73) | configuration, runtime-actor link and, where it has links, the linked-interface map before the restore; the restore before the start | `AC-HOST-004.1`, proven here by the development host | `Vion.Dale.DevHost/DevLogicSystemInitializer.cs`; runtime `logic-configuration.md` `AC-CFG-003.1`, `003.4` named in prose (D6) |
 | failed configuration invisible (`T-005` row 17) | a host sees a handler failure only through an observer | prose, citing `AC-LIFE-014.1`, `014.2` | `block-lifecycle.md:160-163`, `:381-384` |
 | wait hands back nothing on timeout (`T-005` rows 20, 25; `T-007` row 41) | per (d) | `MODIFIED AC-LIFE-016.3` ((d) B, accepted) | `Vion.Dale.ProtoActor/ActorSystem.cs:126`, `:167`, `:365` |
 | installation topics unread (`T-009` row 100) | a contract link is installation-local | prose, citing `AC-BIND-012.1`, `.2` | `Utils/ServiceProviderContractId.cs:10`; `ServiceProviderHandlerBase.cs:39`, `:107` |
@@ -332,6 +332,17 @@ criterion the same way, which (c) option 1 is what makes safe.
   the host waits between them, and a start whose acknowledgement never comes is already
   `AC-CTRL-002.4`'s failure. The draft's "link maps" is also narrowed to the one a block receives, its
   linked-interface map; the contract link map goes to the handlers, which `AC-BIND-010.5` states.
+- 2026-09-25: after the archive, from the branch review's blocker 1 and note 2. The bring-up test
+  compared only positions, so a message that never arrived (position -1) passed; each position is now
+  asserted present first, and "never sent" mutations of the runtime-actor link and the map redden their
+  tests (§ Test to mutation). `AC-HOST-004.1` said every block receives a linked-interface map, and the
+  development host sends one only to a block with interface mappings
+  (`Vion.Dale.DevHost/DevLogicSystemInitializer.cs:666-670`), so the criterion now reads "where it has
+  links" on the page and on its delta line, in one commit, and the fixture gains an unlinked block.
+  The archive gate was re-run on a slug-renamed copy under `docs/changes/`, not committed. Sibling
+  sweep: in the rewritten file the restore and the start are only ever the later of two positions, the
+  earlier of which is asserted present, so a missing one fails its comparison; `TeardownStopSequenceShould`,
+  which the review did not name, already asserts each position present before comparing it.
 
 ---
 
@@ -357,7 +368,7 @@ As STOP 1 answered it (amendment 1): the tails as (b) and (c) option 1 write the
 - ADDED AC-HOST-002.1 -> docs/specs/host-vocabulary.md : THE SYSTEM SHALL hand an `MqttMessageReceived` to a service-provider handler's subclass without answering it, so the vocabulary offers a host no point after its hand-off to the handler at which to acknowledge the message.
 - ADDED AC-HOST-003.1 -> docs/specs/host-vocabulary.md : WHEN a handler sends `PublishMqttMessage` THE SYSTEM SHALL publish it without an answer and retry a failed attempt on the host's own count, which a sender leaves at its default. GAP: proven by the private runtime, dale/AC-PROP-001.1, dale/AC-PROP-001.2, dale/AC-PROP-001.3
 - ADDED AC-HOST-003.2 -> docs/specs/host-vocabulary.md : WHEN a handler sends `PublishMqttMessageRequest` THE SYSTEM SHALL publish it once without a retry and answer `PublishMqttMessageResponse` with success once the message reached the connection, which below QoS 1 is not the broker's receipt, and otherwise with failure and the reason. GAP: proven by the private runtime, dale/AC-PROP-001.4
-- ADDED AC-HOST-004.1 -> docs/specs/host-vocabulary.md : WHEN a host brings a configuration up THE SYSTEM SHALL deliver each logic block its configuration, its runtime-actor link and its linked-interface map before its restore, and its restore before its start.
+- ADDED AC-HOST-004.1 -> docs/specs/host-vocabulary.md : WHEN a host brings a configuration up THE SYSTEM SHALL deliver each logic block its configuration, its runtime-actor link and, where it has links, its linked-interface map before its restore, and its restore before its start.
 - ADDED AC-HOST-005.1 -> docs/specs/host-vocabulary.md : THE SYSTEM SHALL read a registration secret from its file, trimmed, and where the file is missing, empty or whitespace SHALL generate a new one, write it there creating its directory, and return it, so every later read of that file returns the same secret.
 - MODIFIED AC-LIFE-016.3 -> docs/specs/block-lifecycle.md : WHEN a wait's timeout elapses before every actor has answered THE SYSTEM SHALL fail it naming how many had not, and SHALL hand the caller every answer it received and every actor that did not answer.
 
@@ -404,10 +415,14 @@ working tree from a copy and restored from it.
 - `RegistrationSecretShould.ReturnGeneratedSecretOnLaterRead` (`AC-HOST-005.1`): the generated secret
   not written → red, alone (re-run after the file-content assertions were dropped from the two
   generating tests, which reddened only together with it).
-- `BringUpSequenceShould.DeliverConfigurationAndLinksBeforeRestoreAndRestoreBeforeStart`
-  (`AC-HOST-004.1`, both clock modes): the restore sent after the start → both rows red, with
-  `TeardownStopSequenceShould.RunRestoreBeforeStartHook`'s two (`AC-CTRL-002.8`, the same order read
-  from the start hook). The linked-interface map sent after the restore → both rows red, alone.
+- `BringUpSequenceShould.DeliverConfigurationAndRuntimeLinkBeforeRestoreAndRestoreBeforeStart`
+  (`AC-HOST-004.1`, both clock modes, over two linked blocks and one unlinked): the restore sent after
+  the start → both rows red, with `TeardownStopSequenceShould.RunRestoreBeforeStartHook`'s two
+  (`AC-CTRL-002.8`, the same order read from the start hook). The runtime-actor link never sent → both
+  rows red, alone.
+- `BringUpSequenceShould.DeliverLinkedInterfaceMapBeforeRestore` (`AC-HOST-004.1`, both clock modes,
+  the two linked blocks): the linked-interface map sent after the restore → both rows red, alone. The
+  map never sent → both rows red, alone.
 
 ## Relay notes for the PR body
 
