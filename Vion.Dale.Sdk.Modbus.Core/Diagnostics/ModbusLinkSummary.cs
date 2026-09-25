@@ -15,6 +15,12 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     ///         reads without a projection.
     ///     </para>
     ///     <para>
+    ///         It changes with every transaction, so a member publishing it whole sends a new value once per interval
+    ///         for as long as the client is in use: once every 30 s by default, or at the <c>MinInterval</c> the member
+    ///         assigns. When every change of the verdict matters, publish <c>State</c> — or a status derived from it —
+    ///         as its own member beside the summary, so the summary itself can stay slow.
+    ///     </para>
+    ///     <para>
     ///         <c>State</c> moves only on outcomes that reached the wire: <c>Success</c> and <c>DeviceError</c> set
     ///         <c>Online</c>; <c>Timeout</c>, <c>TransportError</c> and <c>ProtocolError</c> set <c>Faulted</c>. Locally
     ///         decided outcomes — <c>Expired</c>, <c>Dropped</c>, <c>BackedOff</c>, <c>Invalid</c>, <c>Cancelled</c> —
@@ -75,6 +81,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     /// <param name="MaxQueuedWaitAt">When the transaction that set <paramref name="MaxQueuedWait" /> was observed.</param>
     /// <param name="QueueDepth">Requests waiting to be dispatched right now.</param>
     [PublicApi]
+    [DefaultMinInterval("30s")]
     public readonly record struct ModbusLinkSummary(
         [StructField(Title = "Link state", Description = "Verdict of the last transaction that reached the wire; locally decided outcomes leave it unchanged.")]
         ModbusLinkState State,

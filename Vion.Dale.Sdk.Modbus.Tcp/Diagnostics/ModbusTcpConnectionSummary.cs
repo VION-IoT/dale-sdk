@@ -15,6 +15,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Diagnostics
     ///         published as one <c>[ServiceProperty]</c>.
     ///     </para>
     ///     <para>
+    ///         Published whole, it sends a new value once per interval while its counts move: once every 30 s by
+    ///         default, or at the <c>MinInterval</c> the member assigns. When every change of the socket's state
+    ///         matters, publish <c>State</c> — or a status derived from it — as its own member beside the summary, so
+    ///         the summary itself can stay slow.
+    ///     </para>
+    ///     <para>
     ///         The connection is established lazily, inside the first operation that needs it, so
     ///         <c>LastConnectDuration</c> is also part of that operation's <c>RoundTrip</c> — subtract it when you want
     ///         the device's own response time.
@@ -42,6 +48,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Diagnostics
     /// <param name="CurrentBackoff">How long the client is waiting before its next connection attempt.</param>
     /// <param name="NextAttemptAt">When the client will attempt to connect again.</param>
     [PublicApi]
+    [DefaultMinInterval("30s")]
     public readonly record struct ModbusTcpConnectionSummary(
         [StructField(Title = "Connection state", Description = "Whether a socket is open, closed, or waiting out a backoff.")]
         ModbusTcpConnectionState State,
