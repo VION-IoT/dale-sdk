@@ -641,6 +641,25 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
+    // A member whose value type declares its own interval, and which assigns no knob of its own.
+    public class TypeDefaultThrottleLb : LogicBlockBase
+    {
+        [ServiceProperty]
+        public PumpStatistics Statistics { get; private set; }
+
+        public TypeDefaultThrottleLb() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
     [TestClass]
     public class LogicBlockIntrospectionOrderingShould
     {
@@ -721,6 +740,22 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.IsNull(propertyThrottle["minChange"]);
             Assert.AreEqual("500ms", measuringPointThrottle!["minInterval"]!.GetValue<string>());
             Assert.AreEqual("1", measuringPointThrottle["minChange"]!.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.4")]
+        public void EmitThrottleNodeForValueTypeDefaultInterval()
+        {
+            // Arrange — the member assigns no knob; its value type declares 30s.
+
+            // Act
+            var service = LogicBlockIntrospection.IntrospectLogicBlock(new TypeDefaultThrottleLb(), _serviceProvider).Services.Single();
+
+            // Assert — end to end, on the JSON a dashboard reads.
+            var throttle = service.Properties.Single(p => p.Identifier == nameof(TypeDefaultThrottleLb.Statistics)).Runtime!["throttle"]!;
+            Assert.AreEqual("30s", throttle["minInterval"]!.GetValue<string>());
+            Assert.IsNull(throttle["minChange"]);
+            Assert.IsNull(throttle["immediate"]);
         }
 
         [TestMethod]
