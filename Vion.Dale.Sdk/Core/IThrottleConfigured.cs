@@ -19,13 +19,13 @@ namespace Vion.Dale.Sdk.Core
         /// <summary>
         ///     Optional minimum change a candidate value must clear (relative to the last emitted value)
         ///     before it is allowed through, resolved against a registered change-threshold for the
-        ///     member's value type. <c>null</c> means no change gate.
+        ///     member's value type. <c>null</c> or empty means no change gate.
         /// </summary>
         string? MinChange { get; }
 
         /// <summary>
         ///     When <c>true</c>, every observed change is emitted immediately, bypassing the interval and
-        ///     change gates. Defaults to <c>false</c>.
+        ///     change gates. An attribute reads <c>false</c> where it assigns none.
         /// </summary>
         bool Immediate { get; }
     }

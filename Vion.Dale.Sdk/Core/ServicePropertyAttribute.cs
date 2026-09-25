@@ -125,9 +125,9 @@ namespace Vion.Dale.Sdk.Core
         ///     built-in numeric types (<c>double</c>, <c>float</c>, <c>decimal</c>, <c>int</c>, <c>long</c>)
         ///     it is an invariant-culture number (e.g. <c>"0.1"</c>); for <c>TimeSpan</c> it is a duration
         ///     (e.g. <c>"1s"</c>). Any other type must register an <c>IChangeThreshold&lt;T&gt;</c> that
-        ///     defines its format; <c>bool</c> has no magnitude and is not supported. <c>null</c> (the
-        ///     default) means no deadband — only the value-equality dedup floor runs. Validated by analyzers
-        ///     DALE034 (type) / DALE035 (format).
+        ///     defines its format; <c>bool</c> has no magnitude and is not supported. <c>null</c> or <c>""</c>
+        ///     means no deadband — only the value-equality dedup floor runs. When not assigned, the member takes
+        ///     the interface's deadband, else none. Validated by analyzers DALE034 (type) / DALE035 (format).
         /// </summary>
         /// <remarks>
         ///     On an <c>ImmutableArray&lt;T&gt;</c> property, no deadband is needed to keep a rebuilt-but-identical
@@ -149,7 +149,8 @@ namespace Vion.Dale.Sdk.Core
 
         /// <summary>
         ///     When <c>true</c>, every observed change of this property is emitted immediately, bypassing
-        ///     the interval and change gates. Defaults to <c>false</c>.
+        ///     the interval and change gates. When not assigned, the member takes the interface's value, else
+        ///     <c>false</c>.
         /// </summary>
         public bool Immediate
         {
