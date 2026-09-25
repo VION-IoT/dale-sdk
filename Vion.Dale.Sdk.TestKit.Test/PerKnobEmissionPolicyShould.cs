@@ -113,6 +113,10 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         public sealed class PerKnobBlock : LogicBlockBase, IPerKnobService
         {
+            public PerKnobBlock(ILogger logger) : base(logger)
+            {
+            }
+
             // Redeclared for its title alone: every knob is the interface's.
             [ServiceProperty(Title = "Titled")]
             public double Titled { get; set; }
@@ -125,10 +129,6 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             [ServiceProperty(MinChange = "")]
             public double Unbanded { get; set; }
-
-            public PerKnobBlock(ILogger logger) : base(logger)
-            {
-            }
 
             protected override void Ready()
             {

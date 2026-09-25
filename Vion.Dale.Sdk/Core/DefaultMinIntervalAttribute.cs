@@ -29,16 +29,16 @@ namespace Vion.Dale.Sdk.Core
     ///     </code>
     /// </example>
     [PublicApi]
-    [AttributeUsage(AttributeTargets.Struct, AllowMultiple = false, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Struct)]
     public sealed class DefaultMinIntervalAttribute : Attribute
     {
+        /// <summary>The interval members of this type are published at when none is assigned.</summary>
+        public string MinInterval { get; }
+
         /// <param name="minInterval">A duration such as <c>"30s"</c>, in the format <c>MinInterval</c> takes.</param>
         public DefaultMinIntervalAttribute(string minInterval)
         {
             MinInterval = minInterval;
         }
-
-        /// <summary>The interval members of this type are published at when none is assigned.</summary>
-        public string MinInterval { get; }
     }
 }

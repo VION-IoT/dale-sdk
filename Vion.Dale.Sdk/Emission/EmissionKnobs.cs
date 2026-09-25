@@ -16,12 +16,6 @@ namespace Vion.Dale.Sdk.Emission
         /// <summary>The SDK's interval for a stream nothing assigns one to.</summary>
         internal const string DefaultMinInterval = "250ms";
 
-        public string MinInterval { get; }
-
-        public string? MinChange { get; }
-
-        public bool Immediate { get; }
-
         /// <summary>The property whose attribute assigned <see cref="MinChange" />; <c>null</c> when none did.</summary>
         public PropertyInfo? MinChangeSource { get; }
 
@@ -32,6 +26,12 @@ namespace Vion.Dale.Sdk.Emission
             Immediate = immediate;
             MinChangeSource = minChangeSource;
         }
+
+        public string MinInterval { get; }
+
+        public string? MinChange { get; }
+
+        public bool Immediate { get; }
 
         /// <summary>
         ///     Resolves the knobs of <paramref name="stream" /> for a member implemented by
@@ -57,8 +57,7 @@ namespace Vion.Dale.Sdk.Emission
             return new EmissionKnobs(minIntervalSource?.MinInterval ?? TypeDefaultMinInterval(valueType) ?? DefaultMinInterval,
                                      minChangeSource?.MinChange,
                                      immediateSource?.Immediate ?? false,
-                                     minChangeSource == null ? null :
-                                     minChangeSource == implementationAttribute ? implementation : serviceInterface);
+                                     minChangeSource == null ? null : minChangeSource == implementationAttribute ? implementation : serviceInterface);
         }
 
         private static IEmissionAttribute? AttributeOf(PropertyInfo property, ServiceElementStream stream)

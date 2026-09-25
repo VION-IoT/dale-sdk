@@ -79,11 +79,11 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         private sealed class InterfaceDualBlock : LogicBlockBase, IDualLevelService
         {
-            public double Level { get; private set; }
-
             public InterfaceDualBlock(ILogger logger) : base(logger)
             {
             }
+
+            public double Level { get; private set; }
 
             public void SetLevel(double value)
             {

@@ -416,8 +416,7 @@ namespace Vion.Dale.Sdk.Introspection
         // value reaches the consumer instead of being hidden behind the default.
         private static bool IsDefaultInterval(string minInterval)
         {
-            return DurationParser.TryParse(minInterval, out var declared) && DurationParser.TryParse(EmissionKnobs.DefaultMinInterval, out var standard) &&
-                   declared == standard;
+            return DurationParser.TryParse(minInterval, out var declared) && DurationParser.TryParse(EmissionKnobs.DefaultMinInterval, out var standard) && declared == standard;
         }
     }
 }

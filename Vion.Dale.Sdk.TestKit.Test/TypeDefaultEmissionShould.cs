@@ -32,9 +32,9 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [TestClass]
     public class TypeDefaultEmissionShould
     {
-        private static readonly TimeSpan AssignEvery = TimeSpan.FromMilliseconds(20);
-
         private const int AssignmentsInOneMinute = 3000;
+
+        private static readonly TimeSpan AssignEvery = TimeSpan.FromMilliseconds(20);
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-002.6")]
@@ -177,11 +177,11 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         private sealed class InterfaceRunStatisticsBlock : LogicBlockBase, IRunStatisticsService
         {
-            public RunStatistics Reported { get; set; }
-
             public InterfaceRunStatisticsBlock(ILogger logger) : base(logger)
             {
             }
+
+            public RunStatistics Reported { get; set; }
 
             protected override void Ready()
             {

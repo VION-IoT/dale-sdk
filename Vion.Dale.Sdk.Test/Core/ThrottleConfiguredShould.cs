@@ -18,6 +18,12 @@ namespace Vion.Dale.Sdk.Test.Core
         [ServiceMeasuringPoint]
         private double BareMeasuringPoint { get; set; }
 
+        [ServiceProperty(MinInterval = "250ms", MinChange = null, Immediate = false)]
+        private double DefaultsAssignedProperty { get; set; }
+
+        [ServiceMeasuringPoint(MinInterval = "250ms", MinChange = null, Immediate = false)]
+        private double DefaultsAssignedMeasuringPoint { get; set; }
+
         [TestMethod]
         [DataRow(typeof(ServicePropertyAttribute), nameof(ConfiguredProperty), DisplayName = "service property")]
         [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(ConfiguredMeasuringPoint), DisplayName = "measuring point")]
@@ -77,12 +83,6 @@ namespace Vion.Dale.Sdk.Test.Core
             var property = typeof(ThrottleConfiguredShould).GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (IThrottleConfigured)property.GetCustomAttribute(attributeType)!;
         }
-
-        [ServiceProperty(MinInterval = "250ms", MinChange = null, Immediate = false)]
-        private double DefaultsAssignedProperty { get; set; }
-
-        [ServiceMeasuringPoint(MinInterval = "250ms", MinChange = null, Immediate = false)]
-        private double DefaultsAssignedMeasuringPoint { get; set; }
 
         // Deliberately illegal: DALE038 warns that Immediate makes the other two knobs inert, which is the
         // point — these probes assert that every knob an author writes is surfaced, including the ignored

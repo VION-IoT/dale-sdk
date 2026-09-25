@@ -25,13 +25,13 @@ namespace Vion.Dale.Sdk.Core
     [AttributeUsage(AttributeTargets.Property)]
     public class ServicePropertyAttribute : Attribute, IEmissionAttribute
     {
+        private readonly EmissionKnob _assigned;
+
         private readonly bool _immediate;
 
         private readonly string? _minChange;
 
         private readonly string _minInterval = EmissionKnobs.DefaultMinInterval;
-
-        private readonly EmissionKnob _assigned;
 
         /// <summary>Display label for the property. Translatable (see the remarks on this attribute).</summary>
         public string? Title { get; init; }
@@ -162,6 +162,9 @@ namespace Vion.Dale.Sdk.Core
             }
         }
 
-        EmissionKnob IEmissionAttribute.Assigned => _assigned;
+        EmissionKnob IEmissionAttribute.Assigned
+        {
+            get => _assigned;
+        }
     }
 }
