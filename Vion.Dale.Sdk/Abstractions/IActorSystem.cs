@@ -11,6 +11,14 @@ namespace Vion.Dale.Sdk.Abstractions
         void SendTo<TMessage>(IActorReference target, TMessage message)
             where TMessage : struct;
 
+        /// <summary>
+        ///     Sends <paramref name="message" /> to each actor and completes with every actor's acknowledgement,
+        ///     keyed by the reference passed.
+        /// </summary>
+        /// <exception cref="AcknowledgementTimeoutException{TAcknowledgementMessage}">
+        ///     Thrown when <paramref name="timeout" /> elapses before every actor has answered, carrying the
+        ///     acknowledgements that arrived and the actors that did not answer.
+        /// </exception>
         Task<Dictionary<IActorReference, TAcknowledgementMessage>> SendAndWaitForAcknowledgementAsync<TRequestMessage, TAcknowledgementMessage>(
             List<IActorReference> actors,
             TRequestMessage message,
@@ -18,6 +26,14 @@ namespace Vion.Dale.Sdk.Abstractions
             where TRequestMessage : struct
             where TAcknowledgementMessage : struct;
 
+        /// <summary>
+        ///     Sends each actor its own message and completes with every actor's acknowledgement, keyed by the
+        ///     reference passed.
+        /// </summary>
+        /// <exception cref="AcknowledgementTimeoutException{TAcknowledgementMessage}">
+        ///     Thrown when <paramref name="timeout" /> elapses before every actor has answered, carrying the
+        ///     acknowledgements that arrived and the actors that did not answer.
+        /// </exception>
         Task<Dictionary<IActorReference, TAcknowledgementMessage>> SendAndWaitForAcknowledgementAsync<TRequestMessage, TAcknowledgementMessage>(
             Dictionary<IActorReference, TRequestMessage> actorMessages,
             TimeSpan timeout)
