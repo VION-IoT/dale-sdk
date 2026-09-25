@@ -30,6 +30,7 @@ instances (those live in git, the archived change docs, and the process journal)
 | Wire contracts | scenario & topology files + stepping semantics (scenario schema, committed scenarios) | `SCEN` | A |
 | Wire contracts | DevHost control API ([`specs/devhost-control.md`](specs/devhost-control.md)) | `CTRL` | A |
 | Wire contracts | plugin loading ABI (`[DaleSharedAssembly]`, ALC rules) | `PLUG` | A |
+| Wire contracts | the host vocabulary — the MQTT and lifecycle actor messages a host runtime and the SDK exchange ([`specs/host-vocabulary.md`](specs/host-vocabulary.md); anchor: the message-type declarations) | `HOST` | A |
 | Wire contracts | CLI surface (help snapshot) | `CLI` | B |
 | Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
 | Runtime semantics | Modbus family — Core binding model, TCP client + server, RTU, link policy (link verdicts, socket lifetime; anchors: modbus-smoke, the Link/Connection structs, committed scenarios) | `MODB` | A |
@@ -116,6 +117,10 @@ each:
   neighbour's GAP'd id by family (`AC-ANLZ-018.*`, never in full) and refer to your own GAP'd
   criteria by description in the prose below the bullet, never by number — four of one page's eleven
   GAPs were un-GAP'd by their own explanatory prose on the first run.
+
+An id qualified by another repository's name, `dale/AC-PROP-001.4`, cites that repository's criterion:
+`spec-trace` neither declares it nor counts it as a GAP, on a `GAP` line or in prose. A rule only a host
+outside this repository can prove names its proof that way, in its `GAP` tail.
 
 Because the gate un-GAPs an id the moment any test carries it, **a criterion no test in the suite can
 reach is `GAP` however many tests name it**: one about a CI-only gate read as proven on two

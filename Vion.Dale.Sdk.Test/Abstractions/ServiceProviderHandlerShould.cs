@@ -53,6 +53,21 @@ namespace Vion.Dale.Sdk.Test.Abstractions
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HOST-002.1")]
+        public void AnswerNothingToMqttMessage()
+        {
+            // Arrange
+            MqttTopics.Configure();
+
+            // Act
+            Send(new MqttMessageReceived($"{MqttConfiguration.InstallationTopic}/sp/svc/c1/state", default, null, null, []));
+
+            // Assert
+            Assert.HasCount(1, _sut.ReceivedMqttMessages, "The subclass received the message, so the handling the answer would follow has run.");
+            Assert.IsEmpty(_context.Responses);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-BIND-010.1")]
         [TestProperty("spec", "AC-BIND-010.2")]
         public void RouteContractMessageToSubclass()
