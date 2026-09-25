@@ -36,7 +36,10 @@ if (-not $RepoRoot) {
     $RepoRoot = $RepoRoot.Trim()
 }
 $specsDir = Join-Path $RepoRoot 'docs/specs'
-$idRx = '\b(?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?\b'
+# A bare id only: `dale/AC-PROP-001.4` cites another repository's criterion, and read through `\b` it
+# declared `AC-PROP-001.4` here and opened holes beside it. The lookbehind is the vion-sdd plugin's
+# (`spec-common.psm1`, `BareIdRx`), so a page citing that way reads the same once this repo re-points.
+$idRx = '(?<![A-Za-z0-9._/-])(?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?\b'
 # The delta-line grammar of docs/spec-process.md § Change docs: `OP <id> -> <target> : <payload>`.
 # Both readers below parse it — the scan for the REMOVED lines that explain id-sequence holes, and
 # the in-flight scan that folds a change doc's own delta into the declared set. The

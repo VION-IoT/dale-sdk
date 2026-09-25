@@ -117,6 +117,10 @@ each:
   criteria by description in the prose below the bullet, never by number — four of one page's eleven
   GAPs were un-GAP'd by their own explanatory prose on the first run.
 
+An id qualified by another repository's name, `dale/AC-PROP-001.4`, cites that repository's criterion:
+`spec-trace` neither declares it nor counts it as a GAP, on a `GAP` line or in prose. A rule only a host
+outside this repository can prove names its proof that way, in its `GAP` tail.
+
 Because the gate un-GAPs an id the moment any test carries it, **a criterion no test in the suite can
 reach is `GAP` however many tests name it**: one about a CI-only gate read as proven on two
 option-description tests.

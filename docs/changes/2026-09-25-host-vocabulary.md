@@ -318,6 +318,14 @@ criterion the same way, which (c) option 1 is what makes safe.
   `Vion.Dale.ProtoActor/ActorSystem.cs:126`, not `:125`; and question 4's list of the development host's
   `catch (TimeoutException)` sites missed `Vion.Dale.DevHost/DevLogicSystemInitializer.cs:235`, which the
   subclass leaves catching as before.
+- 2026-09-25: (c) option 1's invariant, measured before the page was added, at `845dab19` with the
+  port applied to the working tree. `pwsh -NoProfile -File scripts/spec-trace.ps1` with the script as
+  committed (`git show HEAD:scripts/spec-trace.ps1`) and with the port both print
+  `spec-trace: OK - 1214 id(s) all referenced by tests (15 traced page(s); 67 GAP id(s) awaiting tests: …)`,
+  and `cmp` of the two full outputs, GAP id list included, reports them identical. The new self-test
+  case 13 was red against the committed script (`FAIL - 3 id-sequence hole(s)`, `AC-PROP-001.1` to
+  `.3`). Case 16's shape was red on a scratch corpus (`FAIL - 2 id(s) with no test reference`,
+  `AC-HOST-009.1`, `AC-HOST-009.2`), and cases 14 and 15 are probes P3 and P5 of question 3.
 
 ---
 

@@ -205,6 +205,43 @@ The delta grammar:
     if ((Invoke-Trace) -ne 1) { throw "Case 12g (a REMOVED line inside a fence) expected 1" }
     Remove-Item (Join-Path $tmp 'docs/changes/2026-01-06-u.md')
 
+    # Cases 13-16 read a repo-qualified id (`dale/AC-…`) as a citation of another repository's
+    # criterion, never as one of this repository's: neither declared nor counted as a GAP id.
+    Remove-Item $arch
+    Set-Content -LiteralPath $page -NoNewline -Value @'
+---
+trace: enforced
+---
+- `AC-PLUG-001.1` (Event-driven): WHEN x THE SYSTEM SHALL y.
+'@
+    $host13 = New-File 'docs/specs/host.md' @'
+---
+trace: enforced
+---
+- `AC-HOST-001.1` (Ubiquitous): THE SYSTEM SHALL answer.
+- `AC-HOST-002.1` (Event-driven): WHEN a request arrives THE SYSTEM SHALL answer it once. GAP: proven by the private runtime, dale/AC-PROP-001.4
+'@
+    Add-Content -LiteralPath $test -Value "`nclass J { void K() { var c = `"AC-HOST-001.1`"; } }"
+
+    # Case 13: a GAP tail naming one leaf of another repository's umbrella opens no hole in it, and the
+    # GAP count is this page's one GAP'd leaf
+    $out13 = pwsh -NoProfile -File $trace -RepoRoot $tmp
+    if ($LASTEXITCODE -ne 0) { throw "Case 13 (qualified id in a GAP tail) expected 0: $out13" }
+    if (($out13 -join "`n") -notmatch '; 1 GAP id\(s\) awaiting tests: AC-HOST-002\.1\)') { throw "Case 13 (qualified id counted as a GAP id): $out13" }
+
+    # Case 14: a qualified id in prose, with no GAP marker, declares nothing
+    Add-Content -LiteralPath $host13 -Value "`nThe private runtime proves the answer (``dale/AC-PROP-001.1``)."
+    if ((Invoke-Trace) -ne 0) { throw "Case 14 (qualified id in prose) expected 0" }
+
+    # Case 15: a qualified id sharing this repository's area code opens no local hole
+    Add-Content -LiteralPath $host13 -Value "`n- ``AC-HOST-003.1`` (Event-driven): WHEN c THE SYSTEM SHALL d. GAP: proven by the private runtime, dale/AC-HOST-001.3"
+    if ((Invoke-Trace) -ne 0) { throw "Case 15 (qualified id with a local area code) expected 0" }
+
+    # Case 16: an id-shaped token directly after `.` or `-` is part of a longer token and reads as no id
+    # at all — neither declared (no orphan below) nor GAP'd
+    Add-Content -LiteralPath $host13 -Value "`nA file named release-AC-HOST-009.1 or notes.AC-HOST-009.2 carries no criterion."
+    if ((Invoke-Trace) -ne 0) { throw "Case 16 (id after '.' or '-') expected 0" }
+
     Write-Host 'spec-trace.tests: PASS'
     exit 0
 }
