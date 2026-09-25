@@ -326,6 +326,12 @@ criterion the same way, which (c) option 1 is what makes safe.
   case 13 was red against the committed script (`FAIL - 3 id-sequence hole(s)`, `AC-PROP-001.1` to
   `.3`). Case 16's shape was red on a scratch corpus (`FAIL - 2 id(s) with no test reference`,
   `AC-HOST-009.1`, `AC-HOST-009.2`), and cases 14 and 15 are probes P3 and P5 of question 3.
+- 2026-09-25: `AC-HOST-004.1` reworded before publication, delta and page together. The draft also said a
+  host "SHALL wait on the restore's and the start's acknowledgements", and no mutation reddens that
+  clause on its own: the restore and the start reach a block in the order they are sent whether or not
+  the host waits between them, and a start whose acknowledgement never comes is already
+  `AC-CTRL-002.4`'s failure. The draft's "link maps" is also narrowed to the one a block receives, its
+  linked-interface map; the contract link map goes to the handlers, which `AC-BIND-010.5` states.
 
 ---
 
@@ -351,7 +357,7 @@ As STOP 1 answered it (amendment 1): the tails as (b) and (c) option 1 write the
 - ADDED AC-HOST-002.1 -> docs/specs/host-vocabulary.md : THE SYSTEM SHALL hand an `MqttMessageReceived` to a service-provider handler's subclass without answering it, so the vocabulary offers a host no point after its hand-off to the handler at which to acknowledge the message.
 - ADDED AC-HOST-003.1 -> docs/specs/host-vocabulary.md : WHEN a handler sends `PublishMqttMessage` THE SYSTEM SHALL publish it without an answer and retry a failed attempt on the host's own count, which a sender leaves at its default. GAP: proven by the private runtime, dale/AC-PROP-001.1, dale/AC-PROP-001.2, dale/AC-PROP-001.3
 - ADDED AC-HOST-003.2 -> docs/specs/host-vocabulary.md : WHEN a handler sends `PublishMqttMessageRequest` THE SYSTEM SHALL publish it once without a retry and answer `PublishMqttMessageResponse` with success once the message reached the connection, which below QoS 1 is not the broker's receipt, and otherwise with failure and the reason. GAP: proven by the private runtime, dale/AC-PROP-001.4
-- ADDED AC-HOST-004.1 -> docs/specs/host-vocabulary.md : WHEN a host brings a configuration up THE SYSTEM SHALL send each logic block its configuration and its runtime-actor link, then its link maps, then its restore, then its start, and SHALL wait on the restore's and the start's acknowledgements.
+- ADDED AC-HOST-004.1 -> docs/specs/host-vocabulary.md : WHEN a host brings a configuration up THE SYSTEM SHALL deliver each logic block its configuration, its runtime-actor link and its linked-interface map before its restore, and its restore before its start.
 - ADDED AC-HOST-005.1 -> docs/specs/host-vocabulary.md : THE SYSTEM SHALL read a registration secret from its file, trimmed, and where the file is missing, empty or whitespace SHALL generate a new one, write it there creating its directory, and return it, so every later read of that file returns the same secret.
 - MODIFIED AC-LIFE-016.3 -> docs/specs/block-lifecycle.md : WHEN a wait's timeout elapses before every actor has answered THE SYSTEM SHALL fail it naming how many had not, and SHALL hand the caller every answer it received and every actor that did not answer.
 
@@ -398,6 +404,10 @@ working tree from a copy and restored from it.
 - `RegistrationSecretShould.ReturnGeneratedSecretOnLaterRead` (`AC-HOST-005.1`): the generated secret
   not written → red, alone (re-run after the file-content assertions were dropped from the two
   generating tests, which reddened only together with it).
+- `BringUpSequenceShould.DeliverConfigurationAndLinksBeforeRestoreAndRestoreBeforeStart`
+  (`AC-HOST-004.1`, both clock modes): the restore sent after the start → both rows red, with
+  `TeardownStopSequenceShould.RunRestoreBeforeStartHook`'s two (`AC-CTRL-002.8`, the same order read
+  from the start hook). The linked-interface map sent after the restore → both rows red, alone.
 
 ## Relay notes for the PR body
 
