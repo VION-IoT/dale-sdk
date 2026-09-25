@@ -19,12 +19,16 @@ namespace Vion.Dale.Sdk.Emission
         /// <summary>The property whose attribute assigned <see cref="MinChange" />; <c>null</c> when none did.</summary>
         public PropertyInfo? MinChangeSource { get; }
 
-        private EmissionKnobs(string minInterval, string? minChange, bool immediate, PropertyInfo? minChangeSource)
+        /// <summary>The value type whose <see cref="DefaultMinIntervalAttribute" /> supplied <see cref="MinInterval" />; <c>null</c> otherwise.</summary>
+        public Type? MinIntervalDefaultedBy { get; }
+
+        private EmissionKnobs(string minInterval, string? minChange, bool immediate, PropertyInfo? minChangeSource, Type? minIntervalDefaultedBy)
         {
             MinInterval = minInterval;
             MinChange = minChange;
             Immediate = immediate;
             MinChangeSource = minChangeSource;
+            MinIntervalDefaultedBy = minIntervalDefaultedBy;
         }
 
         public string MinInterval { get; }
@@ -54,10 +58,14 @@ namespace Vion.Dale.Sdk.Emission
             var minChangeSource = Assigning(EmissionKnob.MinChange, implementationAttribute, interfaceAttribute);
             var immediateSource = Assigning(EmissionKnob.Immediate, implementationAttribute, interfaceAttribute);
 
-            return new EmissionKnobs(minIntervalSource?.MinInterval ?? TypeDefaultMinInterval(valueType) ?? DefaultMinInterval,
+            var underlyingType = Nullable.GetUnderlyingType(valueType) ?? valueType;
+            var typeDefault = minIntervalSource == null ? underlyingType.GetCustomAttribute<DefaultMinIntervalAttribute>(false) : null;
+
+            return new EmissionKnobs(minIntervalSource?.MinInterval ?? typeDefault?.MinInterval ?? DefaultMinInterval,
                                      minChangeSource?.MinChange,
                                      immediateSource?.Immediate ?? false,
-                                     minChangeSource == null ? null : minChangeSource == implementationAttribute ? implementation : serviceInterface);
+                                     minChangeSource == null ? null : minChangeSource == implementationAttribute ? implementation : serviceInterface,
+                                     typeDefault == null ? null : underlyingType);
         }
 
         private static IEmissionAttribute? AttributeOf(PropertyInfo property, ServiceElementStream stream)
@@ -77,12 +85,6 @@ namespace Vion.Dale.Sdk.Emission
             }
 
             return interfaceAttribute != null && (interfaceAttribute.Assigned & knob) != 0 ? interfaceAttribute : null;
-        }
-
-        private static string? TypeDefaultMinInterval(Type valueType)
-        {
-            var type = Nullable.GetUnderlyingType(valueType) ?? valueType;
-            return type.GetCustomAttribute<DefaultMinIntervalAttribute>(false)?.MinInterval;
         }
     }
 }

@@ -145,6 +145,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             StringAssert.Contains(rejection.Message, nameof(UnreadableStatisticsBlock.Statistics));
             StringAssert.Contains(rejection.Message, nameof(UnreadableStatisticsBlock));
             StringAssert.Contains(rejection.Message, "fast");
+            StringAssert.Contains(rejection.Message, $"'{nameof(UnreadableStatistics)}'");
         }
 
         private sealed class RunStatisticsBlock : LogicBlockBase

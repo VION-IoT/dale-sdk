@@ -936,9 +936,13 @@ namespace Vion.Dale.Sdk.Core
                         {
                             // The grammar rejects a token, not a member — it has never heard of either. The
                             // author reads this at start-up with nothing else to go on, so name what they
-                            // have to go and edit, the way the unresolvable-deadband failure below does.
+                            // have to go and edit, the way the unresolvable-deadband failure below does. An
+                            // interval no attribute assigned came from the value type, which is where the edit is.
+                            var origin = configured.MinIntervalDefaultedBy != null && !DurationParser.TryParse(configured.MinInterval, out _) ?
+                                             $" Its MinInterval is the [DefaultMinInterval] its value type '{configured.MinIntervalDefaultedBy.Name}' declares." :
+                                             "";
                             throw new
-                                FormatException($"Service member '{memberIdentifier}' on service '{serviceIdentifier}' declares an emission knob the gate cannot use. {ex.Message}",
+                                FormatException($"Service member '{memberIdentifier}' on service '{serviceIdentifier}' declares an emission knob the gate cannot use.{origin} {ex.Message}",
                                                 ex);
                         }
 
