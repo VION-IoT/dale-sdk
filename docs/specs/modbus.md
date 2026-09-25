@@ -19,9 +19,10 @@ Cited rather than restated: [`contracts.md`](contracts.md) for how a block binds
 what `ServiceProviderHandlerBase` does around the RTU handler;
 [`plugin-loading.md`](plugin-loading.md) for what `[assembly: DaleSharedAssembly]` does to a type's
 identity; [`emission.md`](emission.md) for what publishing a diagnostics struct as a
-`[ServiceProperty]` costs and when it emits; [`introspection.md`](introspection.md) for what a
-`[StructField]` annotation reaches the wire as; [`block-lifecycle.md`](block-lifecycle.md) for the
-per-block DI scope that reclaims a client and for what a stop hook can and cannot finish;
+`[ServiceProperty]` costs and when it emits, and the 30 s default both summaries declare
+(`AC-EMIT-002.8`); [`introspection.md`](introspection.md) for what a `[StructField]` annotation
+reaches the wire as; [`block-lifecycle.md`](block-lifecycle.md) for the per-block DI scope that
+reclaims a client and for what a stop hook can and cannot finish;
 [`scenarios.md`](scenarios.md) and [`devhost-control.md`](devhost-control.md) for how the development
 host drives and stands in for a Modbus binding. Architecture decisions
 [`0118`](../../architecture/decisions/0118-sdk-owns-protocol-link-diagnostics.md) (the SDK owns
@@ -502,8 +503,9 @@ posts rather than invokes — so a throwing callback is contained by the same mi
 ## The link diagnostics the SDK owns
 
 Decision `0118`: the SDK accumulates a Modbus client's link diagnostics so no consumer hand-keeps
-counters. `Link` is one flat readonly record struct a block publishes as a single `[ServiceProperty]`;
-what that costs and when it emits is [`emission.md`](emission.md)'s.
+counters. `Link` is one flat readonly record struct a block publishes as a single `[ServiceProperty]`,
+and it declares a 30 s default interval (`AC-EMIT-002.8`); what that costs and when it emits is
+[`emission.md`](emission.md)'s.
 
 - `AC-MODB-016.1` (Ubiquitous): THE SYSTEM SHALL accumulate every completed transaction of one client
   into a link summary readable at any time without blocking the transaction updating it.

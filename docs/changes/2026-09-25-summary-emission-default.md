@@ -233,6 +233,31 @@ Each gets its mutation run before its criterion counts (`docs/spec-process.md` �
   (`ServiceBuilderBase.cs:44-50`, `DeclarativeServiceBinder.cs:120-130`); they differ only for an
   explicit `ServiceBuilder.BindProperty` over a nested path (`ServiceBuilder.cs:31-33`), where
   introspection already describes the root property's type rather than the bound leaf's.
+- 2026-09-25: `AC-EMIT-002.5`'s assembly half is a **surviving mutation**. Probing the implementation's
+  assembly instead of the `MinChange` property's (`EmissionKnobs.cs`, the `minChangeSource` ternary →
+  `implementation`) reddens nothing: every fixture declares its interface and its block in the one test
+  assembly, and `AC-EMIT-009.2` would find the threshold from either. The observable carried is the
+  per-knob half — `ApplyInterfaceDeadbandBesideImplementationInterval` fails when the implementation's
+  attribute wins whole. A second fixture assembly would carry the rest; none exists in the TestKit's
+  test project, and adding one is not this change's.
+- 2026-09-25: The measuring-point attribute's assignment record survived every gate test (all three
+  flags dropped, `TypeDefaultEmissionShould`/`PerKnobEmissionPolicyShould` green): no gate test assigns
+  a measuring-point knob whose loss changes the outcome. Pinned directly instead —
+  `ThrottleConfiguredShould.RecordKnobsAssignedTheirDefaultValues` / `.RecordNothingForKnobsOmitted`,
+  a row per attribute, each flag's drop now red.
+- 2026-09-25: `DALE038` and `DALE039` judge one attribute at a time (`AC-EMIT-012.7`), so a knob
+  inherited from the interface is not compared with one the implementation assigns — `Immediate` on the
+  interface makes the implementation's `MinInterval` inert and nothing warns. Stated on the page beside
+  `AC-EMIT-012.7`; a cross-attribute check is a draft item, not this change's (brief, constraint 7).
+- 2026-09-25: **Consumer sweep**, per attribute, old whole-attribute rule with 250 ms against per-knob
+  resolution with the summaries' 30 s. A scratch Roslyn syntax scan (constants resolved by name,
+  interfaces and base classes followed, test projects excluded), validated first on
+  `Vion.Dale.Sdk.TestKit.Test`, where it reported every `PerKnobEmissionPolicyShould` member and
+  `TitledCustomThresholdLogicBlock`. Results: logic-block-libraries at `70c5448f` — 462 files, 19
+  service interfaces, 398 interface-bound members, 931 extra streams, **0** streams change. This repo:
+  `examples/` **4** streams change, all by the type default and none by per-knob resolution —
+  `Em122ElectricityMeter.Link`, `ModbusTcpDebugClient.Link`, `.Connection`, `.CommandLink`, 250 ms →
+  30 s; `libraries/`, `templates/`, the SmokeHost and `Vion.Dale.Sdk`'s own examples, 0.
 
 ---
 
@@ -273,8 +298,45 @@ Each gets its mutation run before its criterion counts (`docs/spec-process.md` �
 
 ---
 
+## Test to mutation
+
+Each run from a copy of the file, the affected projects rebuilt, the whole of `Vion.Dale.Sdk.Test`
+and `Vion.Dale.Sdk.TestKit.Test` run (the analyzer rows run `MinIntervalInvalidAnalyzerTests`, the
+summary rows `DiagnosticsSummaryDefaultsShould`), then restored byte-for-byte.
+
+- `TypeDefaultEmissionShould.TakeValueTypeIntervalWhenNoneAssigned`, `.TakeUnderlyingTypeIntervalForNullableMember`, `.TakeValueTypeIntervalForMeasuringPoint`, `.RefuseToStartWhenValueTypeIntervalNotDuration`, `PropertyMetadataBuilderShould.ReportValueTypeDefaultInterval` (3 rows) ← the type default never read.
+- `TypeDefaultEmissionShould.TakeUnderlyingTypeIntervalForNullableMember`, `PropertyMetadataBuilderShould.ReportValueTypeDefaultInterval` (nullable row) ← no `Nullable<T>` unwrap.
+- `TypeDefaultEmissionShould.TakeInterfaceIntervalOverValueTypeDefault` ← the type default ahead of the interface's interval.
+- `TypeDefaultEmissionShould.KeepAssignedSdkIntervalOverValueTypeDefault`, `PropertyMetadataBuilderShould.ReportPolicyGateApplies` (cancel row), `.OmitSdkDefaultIntervalAssignedOverValueTypeDefault` ← an assigned `"250ms"` recorded as omitted.
+- `PerKnobEmissionPolicyShould.CancelInterfaceDeadbandWithEmptyAssignment`, `PropertyMetadataBuilderShould.ReportPolicyGateApplies` (cancel row) ← an assigned `""` recorded as omitted.
+- `PerKnobEmissionPolicyShould.TakeInterfaceIntervalUnderKnobFreeImplementationAttribute`, `.CombineKnobsAssignedOnEachSide`, `.TakeInterfaceImmediateUnderKnobFreeImplementationAttribute`, `.CancelInterfaceDeadbandWithEmptyAssignment`, `CustomThresholdEmissionPolicyShould.ApplyInterfaceDeadbandBesideImplementationInterval`, `PropertyMetadataBuilderShould.ReportPolicyGateApplies` (override and knob-free rows), and every type-default test ← the implementation's attribute wins whole.
+- `DualAnnotatedEmissionShould.KeepInterfacePropertyIntervalOffMeasuringPoint`, `.ApplyDefaultIntervalToStreamDeclaringNoKnobs`, `PropertyMetadataBuilderShould.OmitThrottleNodeOfStreamDeclaringNoKnobs` ← a knob-free measuring point borrows the property attribute's knobs.
+- `ThrottleConfiguredShould.RecordKnobsAssignedTheirDefaultValues` (measuring-point row) ← each of the measuring-point attribute's three flags dropped, one at a time; `PerKnobEmissionPolicyShould.TakeInterfaceImmediateUnderKnobFreeImplementationAttribute`, `PropertyMetadataBuilderShould.CarryEffectiveIntervalAlongsideImmediate` ← the property attribute's `Immediate` flag dropped.
+- `PropertyMetadataBuilderShould.ReportPolicyGateApplies` (inherited, override, knob-free rows) ← introspection resolves without the interface property.
+- `DiagnosticsSummaryDefaultsShould.DeclareThirtySecondDefaultInterval`, the matching row ← each of the four summaries' `[DefaultMinInterval]` removed, one at a time.
+- `MinIntervalInvalidAnalyzerTests.TypeDefaultUnparseable_ReportsError`, `.TypeDefaultBelowFloor_ReportsWarning` ← the analyzer's type branch unregistered.
+- Surviving: the threshold probed from the implementation's assembly (Drift checkpoints).
+
+---
+
 ## Relay notes for the PR body
 
 > Filled as each consumer-visible change lands.
 
-- _(none yet)_
+- **New — `[DefaultMinInterval("…")]`** on a struct sets the `MinInterval` of any `[ServiceProperty]`
+  or `[ServiceMeasuringPoint]` of that type (or its nullable form) that assigns none, on the member or
+  on its service interface. `DALE036`/`DALE037` validate it like a member's interval.
+- **Behaviour — the SDK's four diagnostics summaries now publish at most every 30 s by default.**
+  `ModbusLinkSummary`, `ModbusTcpConnectionSummary`, `HttpClientSummary` and `HttpServerSummary` carry
+  `[DefaultMinInterval("30s")]`. A block publishing one with no `MinInterval` of its own slows from 4/s
+  to once per 30 s on upgrade, with nothing in the build to say so; assign `MinInterval` on the member
+  (or its interface) to keep another rate. Introspection now reports `runtime.throttle.minInterval:
+  "30s"` for such a member.
+- **Behaviour — emission knobs resolve one at a time.** A block that redeclares an interface member's
+  `[ServiceProperty]` / `[ServiceMeasuringPoint]` — for its title, say — now keeps every knob it does
+  not assign from the interface, instead of falling back to the SDK defaults for all three. Assigning a
+  knob, whatever its value, still overrides the interface: `MinChange = ""` removes an interface's
+  deadband, `MinInterval = "250ms"` restores the SDK interval. The first consumer's sweep found no member
+  whose policy this changes.
+- `DALE036` / `DALE037` messages read `'X' has MinInterval = …` (they named a property as
+  `Property 'X' …`), since `X` may now be a type.
