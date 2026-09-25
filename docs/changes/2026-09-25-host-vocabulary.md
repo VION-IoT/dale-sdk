@@ -1,6 +1,6 @@
 ---
 slug: host-vocabulary
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: HOST, BIND, LIFE
 author: jonasbertsch
@@ -373,6 +373,20 @@ After STOP 1, adjusted to its answer:
 - `T-006` (`AC-HOST-*`): the page, the roster row, and the pointers in `contracts.md` and
   `block-lifecycle.md`; distill; archive.
 
+## Test to mutation
+
+Each run is `dotnet test <project> --filter "FullyQualifiedName~<class>"`, the mutation applied to the
+working tree from a copy and restored from it.
+
+- `ActorSystemShould.FailAcknowledgementWaitHandingBackWhatAnswered` (`AC-LIFE-016.3`): today's plain
+  `TimeoutException` → red, `Assert.ThrowsExactlyAsync failed … Actual exception type:<System.TimeoutException>`
+  (the red-first run, before the change). The acknowledgements handed back as an empty dictionary →
+  red, `CollectionAssert.AreEqual failed. The answer that arrived is handed back …`.
+
 ## Relay notes for the PR body
 
-- _(none yet — written as each consumer-visible change lands)_
+- **A timed-out acknowledgement wait now says what answered.** `SendAndWaitForAcknowledgementAsync`
+  throws `AcknowledgementTimeoutException<TAcknowledgementMessage>` on a timeout, carrying the
+  acknowledgements that arrived and the actors that did not answer. It is a `TimeoutException` with
+  today's message, so an existing `catch (TimeoutException)` still catches it; a test asserting the
+  exact type `TimeoutException` does not (`AC-LIFE-016.3`, `MODIFIED`).

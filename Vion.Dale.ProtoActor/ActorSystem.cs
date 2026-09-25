@@ -163,8 +163,13 @@ namespace Vion.Dale.ProtoActor
                                                                                                                         .LogWarning("Timeout waiting for {RemainingCount} acknowledgements after {ElapsedMs}ms",
                                                                                                                             remainingCount,
                                                                                                                             elapsed.TotalMilliseconds);
+                                                                                                                    var unanswered = pidToActorMap.Where(entry => !answered.Contains(entry.Key))
+                                                                                                                                                  .Select(entry => entry.Value)
+                                                                                                                                                  .ToList();
                                                                                                                     tcs.TrySetException(new
-                                                                                                                        TimeoutException($"Timeout waiting for {remainingCount} actor(s) to acknowledge"));
+                                                                                                                        AcknowledgementTimeoutException<
+                                                                                                                            TAcknowledgementMessage>(new Dictionary<IActorReference, TAcknowledgementMessage>(responses),
+                                                                                                                            unanswered));
                                                                                                                     ctx.Stop(ctx.Self);
                                                                                                                 }
 

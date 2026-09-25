@@ -164,7 +164,7 @@ namespace Vion.Dale.ProtoActor.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-LIFE-016.3")]
-        public async Task FailAcknowledgementWaitNamingHowManyDidNotAnswer()
+        public async Task FailAcknowledgementWaitHandingBackWhatAnswered()
         {
             // Arrange
             await using var host = new PipelineHost();
@@ -172,16 +172,17 @@ namespace Vion.Dale.ProtoActor.Test
             var silent = host.System.CreateRootActorFromDi<SilentReceiver>("timeout_silent");
 
             // Act / Assert
-            var timeout = await Assert.ThrowsExactlyAsync<TimeoutException>(async () =>
-                                                                                await host.System
-                                                                                          .SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
-                                                                                                  answering, silent,
-                                                                                              ],
-                                                                                              new StopLogicBlockRequest(),
-                                                                                              Short));
+            var timeout = await Assert.ThrowsExactlyAsync<AcknowledgementTimeoutException<StopLogicBlockResponse>>(async () =>
+                                                                                                                       await host.System
+                                                                                                                                 .SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest,
+                                                                                                                                     StopLogicBlockResponse>([answering, silent],
+                                                                                                                                     new StopLogicBlockRequest(),
+                                                                                                                                     Short));
             Assert.AreEqual("Timeout waiting for 1 actor(s) to acknowledge",
                             timeout.Message,
                             "The count tells an operator whether one block is stuck or all of them, and \"11 actor(s)\" contains \"1 actor(s)\".");
+            CollectionAssert.AreEqual(new[] { answering }, timeout.Acknowledgements.Keys.ToList(), "The answer that arrived is handed back against the caller's reference.");
+            CollectionAssert.AreEqual(new[] { silent }, timeout.Unanswered.ToList(), "The silent actor is named, so a host can say which block did not answer.");
         }
 
         [TestMethod]
@@ -224,7 +225,7 @@ namespace Vion.Dale.ProtoActor.Test
             var silent = host.System.CreateRootActorFromDi<SilentReceiver>("zero_ack");
 
             // Act / Assert
-            await Assert.ThrowsExactlyAsync<TimeoutException>(async () =>
+            await Assert.ThrowsAsync<TimeoutException>(async () =>
                                                                   await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([silent],
                                                                       new StopLogicBlockRequest(),
                                                                       TimeSpan.Zero));
@@ -297,7 +298,7 @@ namespace Vion.Dale.ProtoActor.Test
             var silent = host.System.CreateRootActorFromDi<SilentReceiver>("repeat_silent");
 
             // Act / Assert
-            var timeout = await Assert.ThrowsExactlyAsync<TimeoutException>(async () =>
+            var timeout = await Assert.ThrowsAsync<TimeoutException>(async () =>
                                                                                 await host.System
                                                                                           .SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
                                                                                                   doubleAnswering, silent,
