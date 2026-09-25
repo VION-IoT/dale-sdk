@@ -106,11 +106,6 @@ namespace Vion.Dale.DevHost.Test
         {
             private readonly ConcurrentQueue<(string Actor, string Message)> _entries = new();
 
-            public List<string> ReceivedBy(string actor)
-            {
-                return _entries.Where(entry => entry.Actor == actor).Select(entry => entry.Message).ToList();
-            }
-
             public void OnReceived(string actorName, object message)
             {
                 if (message is InitializeLogicBlock or LinkRuntimeActors or SetLinkedInterfaces or RestorePersistentDataRequest or StartLogicBlockRequest)
@@ -121,6 +116,11 @@ namespace Vion.Dale.DevHost.Test
 
             public void OnHandled(string actorName, object message, TimeSpan elapsed, Exception? exception)
             {
+            }
+
+            public List<string> ReceivedBy(string actor)
+            {
+                return _entries.Where(entry => entry.Actor == actor).Select(entry => entry.Message).ToList();
             }
         }
     }
