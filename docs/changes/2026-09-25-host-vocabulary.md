@@ -382,6 +382,22 @@ working tree from a copy and restored from it.
   `TimeoutException` → red, `Assert.ThrowsExactlyAsync failed … Actual exception type:<System.TimeoutException>`
   (the red-first run, before the change). The acknowledgements handed back as an empty dictionary →
   red, `CollectionAssert.AreEqual failed. The answer that arrived is handed back …`.
+- `MqttHandlerActorExtensionsShould.SendRegistrationBeforeAnswering` (`AC-HOST-001.1`): the answer sent
+  before the registration → red, and no other test in the three suites.
+- `MqttHandlerActorExtensionsShould.SendRegistrationToMqttClient` (`AC-HOST-001.1`): the registration
+  sent to a name other than `MqttConstants.MqttClientName` → red, alone.
+- `ServiceProviderHandlerShould.AnswerNothingToMqttMessage` (`AC-HOST-002.1`): the base answering after
+  it routes a received message to the subclass → red, alone.
+- `RegistrationSecretShould.ReturnSecretHeldInFileTrimmed` (`AC-HOST-005.1`): no trim → red, with the
+  whitespace row of `GenerateSecretWhenFileHoldsNone` (one rule: blank means none).
+- `RegistrationSecretShould.GenerateSecretWhenFileHoldsNone` (`AC-HOST-005.1`, rows empty and
+  whitespace): an empty or blank file returned as the secret → both rows red. A hyphenated secret → both
+  rows red, with `GenerateSecretIntoMissingDirectory`.
+- `RegistrationSecretShould.GenerateSecretIntoMissingDirectory` (`AC-HOST-005.1`): the directory not
+  created → red, alone.
+- `RegistrationSecretShould.ReturnGeneratedSecretOnLaterRead` (`AC-HOST-005.1`): the generated secret
+  not written → red, alone (re-run after the file-content assertions were dropped from the two
+  generating tests, which reddened only together with it).
 
 ## Relay notes for the PR body
 
