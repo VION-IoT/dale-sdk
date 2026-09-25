@@ -315,6 +315,9 @@ summary rows `DiagnosticsSummaryDefaultsShould`), then restored byte-for-byte.
 - `PropertyMetadataBuilderShould.ReportPolicyGateApplies` (inherited, override, knob-free rows) ← introspection resolves without the interface property.
 - `DiagnosticsSummaryDefaultsShould.DeclareThirtySecondDefaultInterval`, the matching row ← each of the four summaries' `[DefaultMinInterval]` removed, one at a time.
 - `MinIntervalInvalidAnalyzerTests.TypeDefaultUnparseable_ReportsError`, `.TypeDefaultBelowFloor_ReportsWarning` ← the analyzer's type branch unregistered.
+- `LogicBlockIntrospectionOrderingShould.EmitThrottleNodeForValueTypeDefaultInterval` ← the type default never read (the introspection document itself, end to end).
+- `TypeDefaultEmissionShould.RefuseToStartWhenValueTypeIntervalNotDuration` ← the start-time failure never names the value type whose interval it rejects.
+- `MinIntervalInvalidAnalyzerTests.TypeDefaultValid_NoDiagnostic`, `.TypeDefaultBelowFloor_ReportsWarning` ← the analyzer's type branch reports every value as `DALE036`.
 - Surviving: the threshold probed from the implementation's assembly (Drift checkpoints).
 
 ---
