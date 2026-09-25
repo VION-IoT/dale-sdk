@@ -100,7 +100,8 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-EMIT-002.7")]
         public void CancelInterfaceDeadbandWithEmptyAssignment()
         {
-            // Arrange — the interface assigns a deadband of 5 and no interval; the implementation assigns "".
+            // Arrange — the interface assigns a deadband of 5 and an interval of 0 (disabled); the
+            // implementation assigns "".
 
             // Act — three moves of 1, each inside the interface's deadband.
             _block.Unbanded = 1.0;
