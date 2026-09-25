@@ -12,8 +12,9 @@ namespace Vion.Dale.Sdk.Test.Mqtt
     /// <summary>
     ///     The message vocabulary the SDK publishes so a host outside the private runtime can drive a provider
     ///     face and a contract. What the MQTT client does with these — the registrations it aborts, the
-    ///     prefixing it applies, the retry its attempt counter drives — is the runtime's and is specified
-    ///     nowhere here; the one consequence of that split an author has to know is the last test below.
+    ///     prefixing it applies, the retry its attempt counter drives — is the host's, stated on
+    ///     <c>host-vocabulary.md</c> and proven by the private runtime; the one consequence of that split an
+    ///     author has to know is the registration-answer test below.
     /// </summary>
     [TestClass]
     public class HandlerProtocolShould

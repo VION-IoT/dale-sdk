@@ -445,12 +445,13 @@ substring cannot tell apart from a key that matches everything.
 - `AC-BIND-016.3` (Ubiquitous): THE SYSTEM SHALL publish the two message envelopes and the contract
   link map as types a host outside the runtime can construct.
 
-What the MQTT client does with those messages is not this page's and is not specified anywhere in
-this repository: the registration aborts its own remarks describe, the installation prefixing, the
-retry the attempt counter drives and delivery itself are the private runtime's. `AC-BIND-016.2` is
-the one consequence of that split an author has to know, because it is the difference between an
-acknowledged registration and a subscribed handler — a handler whose routing key is empty is answered
-here and skipped there.
+What a host's MQTT client does with those messages is not this page's but
+[`host-vocabulary.md`](host-vocabulary.md)'s: the registrations it refuses, the installation
+prefixing, the retry the attempt counter drives and delivery itself, which the private runtime proves.
+`AC-BIND-016.2` is the one consequence of that split an author has to know, because it is the
+difference between an acknowledged registration and a subscribed handler — a handler whose routing key
+is empty is answered here and skipped there.
 
 The remote-interface link and the remote installation topics ride the same published vocabulary and
-are handled nowhere in this repository — [`block-lifecycle.md`](block-lifecycle.md) carries them.
+are handled nowhere in this repository — [`host-vocabulary.md`](host-vocabulary.md) says who sends
+them.

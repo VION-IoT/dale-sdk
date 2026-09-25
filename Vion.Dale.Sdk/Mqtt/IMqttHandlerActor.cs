@@ -19,7 +19,8 @@ namespace Vion.Dale.Sdk.Mqtt
     ///         <item>Use <see cref="PublishMqttMessage" /> for fire-and-forget publishing</item>
     ///         <item>
     ///             Use <see cref="PublishMqttMessageRequest" /> and <see cref="PublishMqttMessageResponse" /> to wait for
-    ///             confirmation that publishing succeeded or failed
+    ///             the client's answer: whether the message reached its connection, which is not the broker's
+    ///             receipt below QoS 1
     ///         </item>
     ///     </list>
     /// </remarks>

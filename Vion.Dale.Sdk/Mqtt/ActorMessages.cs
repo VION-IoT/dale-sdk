@@ -21,7 +21,7 @@ namespace Vion.Dale.Sdk.Mqtt
     /// </summary>
     /// <remarks>
     ///     Must be sent by all <see cref="IMqttHandlerActor" /> implementations in response to
-    ///     <see cref="RegisterMqttHandlerResponse" />.
+    ///     <see cref="RegisterMqttHandlerRequest" />.
     ///     The runtime waits for responses from all <see cref="IMqttHandlerActor" /> instances before proceeding.
     /// </remarks>
     public readonly record struct RegisterMqttHandlerResponse;
@@ -84,8 +84,19 @@ namespace Vion.Dale.Sdk.Mqtt
         List<MqttUserProperty> UserProperties);
 
     /// <summary>
-    ///     Message from handler actors to the MQTT client
+    ///     Message from handler actors to the MQTT client: publish this, with no answer. The client retries a
+    ///     failed attempt itself.
     /// </summary>
+    /// <param name="Topic">The full MQTT topic to publish to.</param>
+    /// <param name="Payload">The message body, or <c>null</c> for none.</param>
+    /// <param name="ContentType">The MQTT content type, or <c>null</c> for a message with no body.</param>
+    /// <param name="CorrelationData">The correlation data to carry, if any.</param>
+    /// <param name="ResponseTopic">The topic a receiver answers on, if any.</param>
+    /// <param name="UserProperties">The MQTT user properties to carry, if any.</param>
+    /// <param name="Retain">Whether the broker retains the message.</param>
+    /// <param name="AttemptNumber">
+    ///     The client's own count of attempts, read by its retry. A sender leaves it at its default.
+    /// </param>
     public readonly record struct PublishMqttMessage(
         string Topic,
         byte[]? Payload,
@@ -112,12 +123,17 @@ namespace Vion.Dale.Sdk.Mqtt
     }
 
     /// <summary>
-    ///     Request message for publishing with acknowledgement.
+    ///     Request message for publishing with acknowledgement: the client publishes it once, without a retry,
+    ///     and answers <see cref="PublishMqttMessageResponse" />.
     ///     Use with
     ///     <see
     ///         cref="IActorSystem.SendAndWaitForAcknowledgementAsync{TRequestMessage, TAcknowledgementMessage}(Dictionary{IActorReference, TRequestMessage}, TimeSpan)" />
-    ///     to ensure the message is published before continuing.
+    ///     to continue only once the client has handled it.
     /// </summary>
+    /// <remarks>
+    ///     A success answer means the message reached the client's connection. That is the broker's receipt
+    ///     only where the client publishes at QoS 1 or above.
+    /// </remarks>
     public readonly record struct PublishMqttMessageRequest(
         string Topic,
         byte[]? Payload,
