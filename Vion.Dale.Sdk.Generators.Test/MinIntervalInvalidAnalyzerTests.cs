@@ -252,5 +252,46 @@ public class MyBlock
             var onMeasuringPoint = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE036_MinIntervalInvalid).WithLocation(1).WithArguments("Voltage", "later");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source, onProperty, onMeasuringPoint);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
+        public async Task TypeDefaultValid_NoDiagnostic()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[DefaultMinInterval(""30s"")]
+public readonly record struct Statistics(long Count);";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
+        public async Task TypeDefaultUnparseable_ReportsError()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[{|#0:DefaultMinInterval(""soon"")|}]
+public readonly record struct Statistics(long Count);";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE036_MinIntervalInvalid).WithLocation(0).WithArguments("Statistics", "soon");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.4")]
+        public async Task TypeDefaultBelowFloor_ReportsWarning()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[{|#0:DefaultMinInterval(""500us"")|}]
+public readonly record struct Statistics(long Count);";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE037_MinIntervalBelowFloor).WithLocation(0).WithArguments("Statistics", "500us");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source, expected);
+        }
     }
 }

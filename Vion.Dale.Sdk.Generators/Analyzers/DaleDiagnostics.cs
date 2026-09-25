@@ -440,7 +440,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         public static readonly DiagnosticDescriptor DALE036_MinIntervalInvalid = new("DALE036",
                                                                                      "MinInterval is invalid",
-                                                                                     "Property '{0}' has MinInterval = \"{1}\" which is not a valid duration. Use a number that is not negative with an optional us/ms/s/m/h suffix (bare number = milliseconds), or \"0\" to disable throttling.",
+                                                                                     "'{0}' has MinInterval = \"{1}\" which is not a valid duration. Use a number that is not negative with an optional us/ms/s/m/h suffix (bare number = milliseconds), or \"0\" to disable throttling.",
                                                                                      Category,
                                                                                      DiagnosticSeverity.Error,
                                                                                      true);
@@ -452,7 +452,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         public static readonly DiagnosticDescriptor DALE037_MinIntervalBelowFloor = new("DALE037",
                                                                                         "MinInterval is below the 1 ms floor",
-                                                                                        "Property '{0}' has MinInterval = \"{1}\" which is below the 1 ms floor the emission gate can honour. Use a value >= 1 ms, or \"0\" to disable throttling.",
+                                                                                        "'{0}' has MinInterval = \"{1}\" which is below the 1 ms floor the emission gate can honour. Use a value >= 1 ms, or \"0\" to disable throttling.",
                                                                                         Category,
                                                                                         DiagnosticSeverity.Warning,
                                                                                         true);
