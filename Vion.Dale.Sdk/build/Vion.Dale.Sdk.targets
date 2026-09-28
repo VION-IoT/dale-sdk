@@ -67,8 +67,10 @@
         <Message Text="Including published files in package..." Importance="high"/>
 
         <ItemGroup>
-            <!-- Include all published files -->
-            <None Include="$(VionDalePublishDir)**\*.*" Pack="true" PackagePath="tools\publish\"/>
+            <!-- The package path takes forward slashes: packed on Linux, a backslash-terminated folder
+                 gives every entry a doubled separator, tools/publish//<file>, while Windows packs
+                 tools/publish/<file>. -->
+            <None Include="$(VionDalePublishDir)**\*.*" Pack="true" PackagePath="tools/publish/"/>
         </ItemGroup>
 
         <Message Text="Published files included in package from: $(VionDalePublishDir)" Importance="high"/>
