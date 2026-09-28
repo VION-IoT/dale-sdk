@@ -217,7 +217,11 @@ function Assert-PublishedBlocks([string]$nupkg, [string]$projectName, [string[]]
     $entryName = "tools/publish/$projectName.json"
     $text = Read-ZipText $nupkg $entryName
     if ($null -eq $text) {
-        throw "$([System.IO.Path]::GetFileName($nupkg)) carries no $entryName, the file the SDK's build targets exist to produce."
+        # Every name, unfiltered: an entry packed under another spelling of the path is exactly
+        # what a listing narrowed to `tools/` would hide.
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($nupkg)
+        try { $names = @($zip.Entries | ForEach-Object FullName) } finally { $zip.Dispose() }
+        throw "$([System.IO.Path]::GetFileName($nupkg)) carries no $entryName, the file the SDK's build targets exist to produce. Its $($names.Count) entries: $($names -join ' | ')"
     }
     $document = $text | ConvertFrom-Json
     $published = @($document.logicBlocks | ForEach-Object { ($_.typeFullName -split '\.')[-1] })
@@ -472,7 +476,7 @@ function Invoke-SelfTest {
         [System.IO.Compression.ZipFile]::CreateFromDirectory($nupkgDir, $withJson)
         Expect-Pass 'the scaffolded block published' { Assert-PublishedBlocks $withJson 'Lib' @('Thermostat') }
         Expect-Throw 'a scaffolded block missing' { Assert-PublishedBlocks $withJson 'Lib' @('Thermostat', 'Pump') } 'missing the scaffolded \[Pump\]'
-        Expect-Throw 'no published document' { Assert-PublishedBlocks $withJson 'Other' @('Thermostat') } 'carries no tools/publish/Other\.json'
+        Expect-Throw 'no published document' { Assert-PublishedBlocks $withJson 'Other' @('Thermostat') } 'carries no tools/publish/Other\.json.*entries: .*tools/publish/Lib\.json'
 
         # A packed set, a global packages folder and an assets file, as a restore leaves them.
         $packed = Join-Path $tmp 'packed'; New-Item -ItemType Directory -Path $packed | Out-Null
