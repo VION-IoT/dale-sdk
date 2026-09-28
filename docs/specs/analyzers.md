@@ -484,7 +484,7 @@ An analyzer that is referenced is not necessarily running, and
 
 - `AC-ANLZ-018.1` (Ubiquitous): THE SYSTEM SHALL ship the analyzer assembly inside the `Vion.Dale.Sdk` package under `analyzers/dotnet/cs`, so a consumer referencing the package receives every diagnostic. GAP: observable only from a packed artifact — asserted by `scripts/verify-packed-assembly-versions.ps1`, whose own fixtures are packages rather than compilations, so no in-process test can carry the id.
 - `AC-ANLZ-018.2` (Ubiquitous): THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; twelve of them carry a committed wiring probe that proves the mechanism, under the id of whichever page owns the package — `AC-INTRO-017.4` for the two I/O packages, `AC-TKIT-013.2` for the six kits, `AC-HTTP-013.2` for HTTP, `AC-MODB-019.2` for the three Modbus packages; `AC-ANLZ-018.4` is the rule that the probe stays out of an ordinary build.
-- `AC-ANLZ-018.3` (Event-driven): WHEN the analyzer assembly is absent at pack time THE SYSTEM SHALL produce a package whose build targets still reference it, and SHALL fail the release run naming that package, which is sooner than the consumer's build that reports the missing file but not before it. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`.
+- `AC-ANLZ-018.3` (Event-driven): WHEN the analyzer assembly is absent at pack time THE SYSTEM SHALL produce a package whose build targets still reference it, and SHALL fail the release run naming that package before any feed carries it. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`.
 - `AC-ANLZ-018.4` (Ubiquitous): THE SYSTEM SHALL fail a build of a probed project when the
   analyzer-wiring probe is linked in, and SHALL keep the probe out of an ordinary build.
 - `AC-ANLZ-018.6` (Ubiquitous): THE SYSTEM SHALL ship the analyzer assembly in no package's `lib/` folder, and SHALL fail the release run naming any package that carries it there. GAP: the same packed-artifact observable as `AC-ANLZ-018.1`, asserted by the same script's forbidden-lib-assembly list.
@@ -495,11 +495,12 @@ packs the analyzer under `Condition="Exists(…)"` while `:97` packs `build/Vion
 unconditionally, and that targets file adds the analyzer unconditionally
 (`build/Vion.Dale.Sdk.targets:11`) — so a build that did not produce the generator assembly packs a
 package whose own targets file points at a file it does not carry. The consumer's build then fails
-with `CS0006`, naming a path inside our package: loud, but at the wrong desk, and only once the
-package is on a feed. Nothing in a compilation of *this* repository can see it, which is why the
-assertion is a required-content rule in the post-pack artifact gate and the criterion stays `GAP`.
-The gate runs after the push, as its job in `publish.yml` says: it names the package within a minute
-rather than preventing it.
+with `CS0006`, naming a path inside our package: loud, but at the wrong desk. Nothing in a
+compilation of *this* repository can see it, which is why the assertion is a required-content rule
+in the post-pack artifact gate and the criterion stays `GAP`. On a release tag the gate runs between
+the pack and either push, as the release smoke's first step, so a failing release run publishes
+nothing. It runs again after the push, and on pull requests and `main`, where no version is
+released.
 
 The placement half of the same criterion set is the mirror image. Twelve packable projects reference
 the generator with `ReferenceOutputAssembly="false" OutputItemType="Analyzer"`; without that first
