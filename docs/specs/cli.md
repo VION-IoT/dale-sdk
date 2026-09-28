@@ -142,11 +142,11 @@ editing or publishing a project the caller did not name.
 - `AC-CLI-005.5` (Event-driven): WHEN installing the bundled template fails THE SYSTEM SHALL report what the installer said and refuse, and WHEN restoring the new project fails THE SYSTEM SHALL warn with what the restore said and keep the scaffold. GAP: the failures reported are those of the spawned `dotnet new install` and `dotnet restore`.
 - `AC-CLI-005.6` (Ubiquitous): THE SYSTEM SHALL report the logic blocks it scaffolded, read from the project it wrote. GAP: the blocks are read from a tree `dotnet new` has just written; `scripts/release-smoke.ps1` reads that report on every release tag and finds each block in the package it packs, but a script is not a test the trace gate reads.
 - `AC-CLI-005.7` (Optional): WHERE the scaffolded project references an SDK version other than the tool's own THE SYSTEM SHALL say which it wrote. GAP: the comparison is against a scaffold `dotnet new` has just written.
+- `AC-CLI-005.8` (Optional): WHERE the tool's own version does not begin with `0.0.0` THE SYSTEM SHALL scaffold a project whose `Vion.Dale.*` package references are that version, and SHALL otherwise scaffold the template's checked-in references. GAP: observable only from a packed tool's `dale new`; `scripts/release-smoke.ps1` asserts the release-shaped half on every release tag without rewriting the scaffold, and refuses a `0.0.0` version, so nothing reaches the checked-in half; a script is not a test the trace gate reads.
 
-The template travels inside the tool, and a pack-time target rewrites its SDK references to the
-tool's own version — except for a `0.0.0` version, which is on no feed and would scaffold a project
-that cannot restore. The criterion above about naming the SDK version that was written is why that
-exception is visible rather than silent.
+The template travels inside the tool, and its SDK references are set at pack time. A `0.0.0`
+version is on no feed, so references rewritten to it would scaffold a project that cannot restore.
+The criterion that names the SDK version written makes that exception visible rather than silent.
 
 ## The generators
 
