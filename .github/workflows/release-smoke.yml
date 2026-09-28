@@ -1,6 +1,7 @@
 # The release smoke without a release: packs the solution at a version the operator gives and runs
 # scripts/release-smoke.ps1 over the packed set, the same script publish.yml runs between Pack and
-# either push on a release tag. Nothing here pushes: the job has no push step and reads no push secret.
+# either push on a release tag. Nothing here pushes: the job has no push step. The private-feed PAT
+# it reads can push, and is used only to configure that feed for the build.
 #
 # It exists beside publish.yml rather than as a dispatch of it because publish.yml's own manual run
 # packs 0.0.0-ci.N and pushes that to the private feed afterwards, and a 0.0.0* version cannot prove

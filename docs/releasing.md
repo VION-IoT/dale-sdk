@@ -46,9 +46,14 @@ Verify the result under the [VION-IoT profile on nuget.org](https://www.nuget.or
 ### When the release smoke fails
 
 The run's log names the failing step, and the tool output above that line names the cause. First
-confirm nothing was pushed: in the publish job, **Verify packages** failed and both **Push** steps are
-skipped. Then the version is not burned — § Version immutability starts at publication — and the
-release is cut again at the same number:
+confirm nothing was pushed: inside the `publish` job, its **Verify packages** step — the one that runs
+the release smoke — failed, and both **Push** steps after it are skipped. The separate
+`verify-packages` job runs only after both pushes, so a red there means the opposite (see below). With
+nothing pushed the version is not burned — § Version immutability starts at publication:
+
+- A cause outside the release — a feed or network failure while restoring — re-runs the failed job on
+  the same tag, and nothing else.
+- A fault in the release is fixed and the release cut again at the same number:
 
 1. Fix the cause on a branch and merge it through a pull request, as any change.
 2. Delete the GitHub release and its tag: `gh release delete vX.Y.Z --cleanup-tag --yes`.
