@@ -34,10 +34,53 @@ gh release create v0.2.0-preview.1 --target main --prerelease --generate-notes \
 `gh release create` creates the git tag (at the `--target` commit) and the GitHub Release in one step. The new tag triggers [`publish.yml`](../.github/workflows/publish.yml):
 
 1. Builds and packs every packable project with `Version` taken from the tag (strips the `v` prefix).
-2. Pushes `.nupkg` + `.snupkg` to the private Azure DevOps feed.
-3. Publishes to nuget.org using a long-lived API key (`NUGET_API_KEY`).
+2. Runs the release smoke, [`scripts/release-smoke.ps1`](../scripts/release-smoke.ps1), over the packed
+   set: the packed `dale` scaffolds, builds, tests and packs a new project, and `libraries/Vion.Diagnostics`
+   builds and passes its tests, all against the packed packages alone. The script's help says what it
+   asserts. A failure fails the run before either push.
+3. Pushes `.nupkg` + `.snupkg` to the private Azure DevOps feed.
+4. Publishes to nuget.org using a long-lived API key (`NUGET_API_KEY`).
 
 Verify the result under the [VION-IoT profile on nuget.org](https://www.nuget.org/profiles/VION-IoT).
+
+### When the release smoke fails
+
+The run's log names the failing step, and the tool output above that line names the cause. First
+confirm nothing was pushed: in the publish job, **Verify packages** failed and both **Push** steps are
+skipped. Then the version is not burned — § Version immutability starts at publication — and the
+release is cut again at the same number:
+
+1. Fix the cause on a branch and merge it through a pull request, as any change.
+2. Delete the GitHub release and its tag: `gh release delete vX.Y.Z --cleanup-tag --yes`.
+3. Re-create both at the fixed `main` with the `gh release create` line above, which pushes the tag and
+   runs `publish.yml` again.
+
+Steps 2 and 3 move a tag other people may already have fetched, so a maintainer runs them by hand. If
+anything *was* pushed — a failure in a later job, such as `verify-packages` — the version is burned
+and the fix ships at the next number.
+
+### Running the release smoke without a tag
+
+Before tagging, or after changing anything a consumer's build meets (the `build/` targets, the
+logic-block parser, the bundled template, the CLI), prove a packed set without releasing it. The
+version must be release-shaped — `X.Y.Z` or `X.Y.Z-suffix`, for example `0.15.0-smoke.1`; the script
+refuses a `0.0.0*` version, because the CLI scaffolds the previous release's references there.
+Nothing is pushed either way.
+
+- **From GitHub:** run the **Release smoke** workflow
+  ([`release-smoke.yml`](../.github/workflows/release-smoke.yml)) with that version —
+  `gh workflow run release-smoke.yml --ref <branch> -f version=0.15.0-smoke.1`.
+- **At the desk:**
+
+  ```bash
+  dotnet build Vion.Dale.Sdk.sln -c Release -p:Version=0.15.0-smoke.1
+  dotnet pack Vion.Dale.Sdk.sln -c Release --no-build -p:Version=0.15.0-smoke.1 -o ./artifacts
+  pwsh -NoProfile -File scripts/release-smoke.ps1 -PackagesDir ./artifacts -Version 0.15.0-smoke.1
+  ```
+
+  The script works in a fresh directory under the system temp directory, with its own global
+  packages folder, tool install and `dotnet new` template store, so it leaves the machine's `dale`,
+  NuGet cache and templates as they were.
 
 ### After a release: update example/template references
 
