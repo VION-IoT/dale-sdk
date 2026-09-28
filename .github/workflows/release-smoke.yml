@@ -1,0 +1,59 @@
+# The release smoke without a release: packs the solution at a version the operator gives and runs
+# scripts/release-smoke.ps1 over the packed set, the same script publish.yml runs between Pack and
+# either push on a release tag. Nothing here pushes: the job has no push step and reads no push secret.
+#
+# It exists beside publish.yml rather than as a dispatch of it because publish.yml's own manual run
+# packs 0.0.0-ci.N and pushes that to the private feed afterwards, and a 0.0.0* version cannot prove
+# the release — the CLI leaves its template's references at the previous release there, which the
+# script refuses. So the version is the operator's, and it has to be release-shaped, X.Y.Z or
+# X.Y.Z-suffix; the script refuses any other once the pack is done, before it installs anything.
+#
+# The job mirrors publish-nuget.yml's pack job on a tag: the same build and pack invocations, and the
+# private feed configured in the runner's user NuGet.Config. The smoke clears that feed for its own
+# restores, so its presence here is what shows that clearing works.
+name: Release smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release-shaped version to pack and prove, e.g. 0.15.0-smoke.1 (a 0.0.0* version is refused)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1
+        with:
+          pat: ${{ secrets.AZURE_DEVOPS_PAT }}
+
+      # The version reaches every step through env, never interpolated into a script.
+      - name: Build
+        env:
+          VERSION: ${{ inputs.version }}
+        run: dotnet build Vion.Dale.Sdk.sln -c Release -p:Version="$VERSION"
+
+      - name: Pack
+        env:
+          VERSION: ${{ inputs.version }}
+        run: dotnet pack Vion.Dale.Sdk.sln -c Release --no-build -p:Version="$VERSION" -o ./artifacts
+
+      - name: Release smoke
+        shell: pwsh
+        env:
+          PACKAGE_VERSION: ${{ inputs.version }}
+        run: |
+          $env:PACKAGES_DIR = (Resolve-Path -LiteralPath ./artifacts).Path
+          pwsh -NoProfile -File scripts/release-smoke.ps1
+          exit $LASTEXITCODE

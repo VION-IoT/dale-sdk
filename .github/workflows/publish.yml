@@ -3,7 +3,8 @@ name: Pack & Publish
 #   - changes: decides what this run needs from the diff, so a change that cannot affect the
 #     build skips it instead of paying for it.
 #   - publish: delegates build + test + pack/push to VION-IoT/shared-workflows
-#     (publish-nuget.yml, gate: true, run-style: false).
+#     (publish-nuget.yml, gate: true, run-style: false), with the release smoke between pack and
+#     push on a release tag.
 #   - style: the ReSharper cleanupcode gate (scripts/cleanup-code.ps1 -Verify) on its own
 #     runner, beside publish instead of after its tests — see the Code Style section in CLAUDE.md.
 #   - verify-packages: the artifact gate for the 0.11.1 class — a packed assembly whose
@@ -125,6 +126,12 @@ jobs:
       # job below instead, so it no longer queues behind the tests.
       gate: true
       run-style: false
+      # A release tag proves its packages as a consumer meets them before either push:
+      # scripts/release-smoke.ps1 installs the packed CLI, scaffolds, builds, tests and packs with it,
+      # and builds and tests libraries/Vion.Diagnostics, all against the packed set alone. Tags only,
+      # because every other run packs 0.0.0-ci.N, which the smoke refuses: the CLI leaves its template's
+      # references at the previous release for that version. release-smoke.yml runs it without a tag.
+      verify-script: ${{ github.ref_type == 'tag' && 'scripts/release-smoke.ps1' || '' }}
     permissions:
       contents: read
     secrets: inherit
@@ -168,11 +175,11 @@ jobs:
   # green and the style gate was clean — only the dll bytes were stale, and nothing in the
   # pipeline looked at those. This job does.
   #
-  # Placement, honestly: the pack AND both pushes live inside the shared publish job, so
-  # this runs after the packages are already on the feeds. It reddens the run and names the
-  # package within a minute of a bad tag instead of leaving it to a consumer, which is the
-  # difference that mattered in 0.11.1 — but it does not prevent the push. Moving the same
-  # script between Pack and Push belongs in VION-IoT/shared-workflows (publish-nuget.yml).
+  # Placement: this job runs after the shared publish job, so after both pushes. On a release tag
+  # that is the second run of the script — scripts/release-smoke.ps1 runs it first, as the publish
+  # job's verify-script, between the pack and either push, and a failure there pushes nothing. The
+  # job stays for pull requests and main, where the release smoke does not run, and because
+  # drift-and-docs and ci wait on it.
   #
   # Its version check is, by nature, a release-time check: PR and main runs pack 0.0.0-ci.N, whose
   # AssemblyVersion is 0.0.0.0 — the same value a clobbered assembly carries, so the shape
