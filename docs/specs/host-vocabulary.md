@@ -65,7 +65,7 @@ each other (`AC-BIND-016.1`), so a handler chooses per message whether it wants 
 
 - `AC-HOST-003.3` (Event-driven): WHEN the host's client establishes an operational connection THE SYSTEM SHALL publish every message registered with `RegisterMessageToSendOnConnect`, a message not registered as recurring on the first operational connect only. GAP: proven by the private runtime, dale/AC-REG-004.3
 
-`RegisterMessageToSendOnConnect` stays in the vocabulary. It registers a message for the host's client
+`RegisterMessageToSendOnConnect` registers a message for the host's client
 to publish when its operational connection comes up, the one connection whose broker permits
 publishing service state; the registration connection publishes none of them. A recurring message goes
 out on each such connect, and a message that is not recurring goes out once and is then dropped.
