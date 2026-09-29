@@ -1,0 +1,1 @@
+2026-09-28 · gate · release-smoke · The smoke merged in #262 was proven only on Windows; its first Linux run failed at dale pack because Linux packs every tools/publish entry as tools/publish//<file> from the backslash PackagePath in Vion.Dale.Sdk.targets, which no Windows run could show. (self)

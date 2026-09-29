@@ -510,9 +510,9 @@ it binds the full set. The relation half following the endpoint is this page's.
 The SDK's MSBuild targets are what make all of the above happen without a library author doing
 anything.
 
-- `AC-INTRO-017.1` (Event-driven): WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly supplying the project's package id and excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
-- `AC-INTRO-017.2` (Ubiquitous): THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: the same pack-and-consume path as `AC-INTRO-017.1`.
-- `AC-INTRO-017.3` (Ubiquitous): THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: the same pack-and-consume path as `AC-INTRO-017.1`.
+- `AC-INTRO-017.1` (Event-driven): WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly supplying the project's package id and excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, and the one this repository has is `scripts/release-smoke.ps1`, run on every release tag, which is a script and not a test the trace gate reads; the parser half it drives is covered by the document and refusal criteria above.
+- `AC-INTRO-017.2` (Ubiquitous): THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder under `tools/publish/`, each file at `tools/publish/` followed by its path relative to that folder, whichever operating system packs it. GAP: the same pack-and-consume path as `AC-INTRO-017.1`; `scripts/release-smoke.ps1` looks the document up at exactly that entry, on Linux in CI, and its scaffold publishes no subfolder, so a nested file's entry is not exercised.
+- `AC-INTRO-017.3` (Ubiquitous): THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: the same pack-and-consume path as `AC-INTRO-017.1`, whose round trip packs no project that opts out.
 - `AC-INTRO-017.4` (Ubiquitous): THE SYSTEM SHALL supply the source generator and analyzers to every
   consuming project.
 
