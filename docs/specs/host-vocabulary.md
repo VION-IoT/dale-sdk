@@ -63,9 +63,12 @@ The count is `PublishMqttMessage.AttemptNumber`. It rides the message because th
 the same message with the count raised, and a sender that sets it shortens or lengthens that retry. The two forms convert into
 each other (`AC-BIND-016.1`), so a handler chooses per message whether it wants the retry or the answer.
 
-`RegisterMessageToSendOnConnect` registers a message the host's client publishes on every connection,
-or on the next one only where it is not recurring (`dale/AC-REG-004.3`). Whether it stays in the
-vocabulary is open in the private runtime's program, so it carries no criterion here.
+- `AC-HOST-003.3` (Event-driven): WHEN the host's client establishes an operational connection THE SYSTEM SHALL publish every message registered with `RegisterMessageToSendOnConnect`, a message not registered as recurring on the first operational connect only. GAP: proven by the private runtime, dale/AC-REG-004.3
+
+`RegisterMessageToSendOnConnect` registers a message for the host's client
+to publish when its operational connection comes up, the one connection whose broker permits
+publishing service state; the registration connection publishes none of them. A recurring message goes
+out on each such connect, and a message that is not recurring goes out once and is then dropped.
 
 ## Driving the logic blocks
 
