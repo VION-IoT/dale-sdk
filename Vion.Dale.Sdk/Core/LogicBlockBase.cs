@@ -305,7 +305,8 @@ namespace Vion.Dale.Sdk.Core
                     // runtime-actor link, has set _configured and starts.
                     if (!_configured)
                     {
-                        throw new InvalidOperationException($"A logic block of type '{GetType().Name}' cannot be started: its configuration message ({nameof(InitializeLogicBlock)}) never arrived. " +
+                        throw new InvalidOperationException($"A logic block of type '{GetType().Name}' cannot be started: " +
+                                                            $"its configuration message ({nameof(InitializeLogicBlock)}) never arrived. " +
                                                             $"The host must send {nameof(InitializeLogicBlock)} before {nameof(StartLogicBlockRequest)}.");
                     }
 
