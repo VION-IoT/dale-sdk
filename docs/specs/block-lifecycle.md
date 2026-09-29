@@ -29,8 +29,9 @@ area's and are named, never restated.
 A message a block cannot handle cleanly has exactly four ends, and which one a caller gets is the
 contract.
 
-- **Refused** — the configuration message and the start, and only they, answer a failure by throwing.
-  A refused start is also unacknowledged — its hook threw (`AC-LIFE-005.2`) or the block's
+- **Refused** — the configuration message (and the runtime-actor link that completes it) and the
+  start, and only they, answer a failure by throwing instead of answering; a stop throws only after it
+  has acknowledged (`AC-LIFE-010.5`). A refused start is also unacknowledged — its hook threw (`AC-LIFE-005.2`) or the block's
   configuration message never arrived (`AC-LIFE-005.5`) — and that silence is how a host's start
   fails and names the block.
 - **Skipped with a warning** — a mapping, a link or a persisted entry naming something this instance
