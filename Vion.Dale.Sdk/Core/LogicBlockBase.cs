@@ -297,17 +297,10 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case StartLogicBlockRequest: // after initialization
-                    // A start that reaches a block before its configuration message would run the start hook on an
-                    // instance with no identifier, no bindings and no persistence, and acknowledge it — so a host that
-                    // sent the two out of order boots reporting a block that does nothing. Refuse it without an
-                    // acknowledgement instead, which the host turns into a failed start naming the block by its actor.
-                    // Only a configuration that never arrived is refused: one that failed, or that still waits for the
-                    // runtime-actor link, has set _configured and starts.
+                    // Unconfigured, the block has nothing to start. No acknowledgement, so the host's start fails.
                     if (!_configured)
                     {
-                        throw new InvalidOperationException($"A logic block of type '{GetType().Name}' cannot be started: " +
-                                                            $"its configuration message ({nameof(InitializeLogicBlock)}) never arrived. " +
-                                                            $"The host must send {nameof(InitializeLogicBlock)} before {nameof(StartLogicBlockRequest)}.");
+                        throw new InvalidOperationException($"{GetType().Name} cannot start: {nameof(InitializeLogicBlock)} never arrived.");
                     }
 
                     // A second start would run the hook again, republish every initial value and arm a second
