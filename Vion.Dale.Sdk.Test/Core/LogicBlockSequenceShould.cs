@@ -437,6 +437,69 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-005.5")]
+        [DataRow(false, DisplayName = "with nothing before it")]
+        [DataRow(true, DisplayName = "with only the runtime-actor link before it")]
+        public void RefuseStartWhenConfigurationNeverArrived(bool linkedFirst)
+        {
+            // Arrange
+            var block = new BareBlock();
+            if (linkedFirst)
+            {
+                _harness.Send(block, LifecycleHarness.RuntimeActors());
+            }
+
+            // Act - the failure is captured rather than asserted here, so the hook's claim is read first: before
+            // the guard, a start on an unlinked block could still throw later in the arm and satisfy the other two.
+            Exception? failure = null;
+            try
+            {
+                _harness.Send(block, new StartLogicBlockRequest());
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            // Assert
+            Assert.AreEqual(0, block.StartingCount, "The start hook must not run on an instance its configuration never set up.");
+            Assert.IsEmpty(_harness.Responses.OfType<StartLogicBlockResponse>(), "It is not acknowledged, which is how a host's start fails and names the block.");
+            Assert.IsInstanceOfType<InvalidOperationException>(failure, "The start fails rather than being ignored.");
+            StringAssert.Contains(failure.Message, "never arrived", "The error says why, since the block has no name or identifier yet to say who.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-005.5")]
+        [DataRow(true, DisplayName = "whose configuration failed")]
+        [DataRow(false, DisplayName = "still awaiting its runtime-actor link")]
+        public void StartBlockWhoseConfigurationArrived(bool configurationFailed)
+        {
+            // Arrange
+            LogicBlockBase block;
+            Func<int> startingCount;
+            if (configurationFailed)
+            {
+                var failing = new FailingConfigurationBlock();
+                _harness.Send(failing, LifecycleHarness.RuntimeActors());
+                Assert.Throws<Exception>(() => _harness.Send(failing, LifecycleHarness.Configuration()), "Pre-condition: the configuration must fail.");
+                (block, startingCount) = (failing, () => failing.StartingCount);
+            }
+            else
+            {
+                var awaitingLink = new BareBlock();
+                _harness.Send(awaitingLink, LifecycleHarness.Configuration());
+                (block, startingCount) = (awaitingLink, () => awaitingLink.StartingCount);
+            }
+
+            // Act
+            _harness.Send(block, new StartLogicBlockRequest());
+
+            // Assert
+            Assert.AreEqual(1, startingCount(), "The refusal is for a configuration that never arrived, not for one that failed or is not yet complete.");
+            Assert.IsNotEmpty(_harness.Responses.OfType<StartLogicBlockResponse>(), "It is acknowledged as any started block is.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-009.1")]
         public void ApplyWriteAndAnswerWithValueAfterIt()
         {
