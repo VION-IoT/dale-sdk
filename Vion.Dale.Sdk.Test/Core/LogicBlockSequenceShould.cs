@@ -437,6 +437,54 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-005.5")]
+        [DataRow(false, DisplayName = "with nothing before it")]
+        [DataRow(true, DisplayName = "with only the runtime-actor link before it")]
+        public void RefuseStartWhenConfigurationNeverArrived(bool linkedFirst)
+        {
+            // Arrange
+            var block = new BareBlock();
+            if (linkedFirst)
+            {
+                _harness.Send(block, LifecycleHarness.RuntimeActors());
+            }
+
+            // Act - captured, not asserted, so the hook assertion is the one a missing guard fails.
+            Exception? failure = null;
+            try
+            {
+                _harness.Send(block, new StartLogicBlockRequest());
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            // Assert
+            Assert.AreEqual(0, block.StartingCount, "No start hook.");
+            Assert.IsEmpty(_harness.Responses.OfType<StartLogicBlockResponse>(), "No acknowledgement.");
+            Assert.IsInstanceOfType<InvalidOperationException>(failure, "The start fails.");
+            StringAssert.Contains(failure.Message, "never arrived", "The error says why.");
+            StringAssert.Contains(failure.Message, nameof(BareBlock), "The error names the block's type.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-005.5")]
+        public void StartConfiguredBlockAwaitingRuntimeActorLink()
+        {
+            // Arrange
+            var block = new BareBlock();
+            _harness.Send(block, LifecycleHarness.Configuration());
+
+            // Act
+            _harness.Send(block, new StartLogicBlockRequest());
+
+            // Assert
+            Assert.AreEqual(1, block.StartingCount, "A pending link does not make the block unconfigured.");
+            Assert.IsNotEmpty(_harness.Responses.OfType<StartLogicBlockResponse>(), "The start is acknowledged.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-009.1")]
         public void ApplyWriteAndAnswerWithValueAfterIt()
         {

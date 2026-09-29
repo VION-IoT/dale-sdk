@@ -29,14 +29,17 @@ area's and are named, never restated.
 A message a block cannot handle cleanly has exactly four ends, and which one a caller gets is the
 contract.
 
-- **Refused** — the configuration message, and only it, answers a failure by throwing.
+- **Refused** — the configuration message (and the runtime-actor link that completes it) and the
+  start throw instead of answering; a stop throws only after acknowledging (`AC-LIFE-010.5`). A start
+  is refused when its hook throws (`AC-LIFE-005.2`) or the configuration message never arrived
+  (`AC-LIFE-005.5`).
 - **Skipped with a warning** — a mapping, a link or a persisted entry naming something this instance
   does not carry. The block stays whole; the message is partly applied.
 - **Ignored** — a value change, a timer tick or a periodic save arriving while the block is not
   started.
-- **Acknowledged anyway** — restore, start, stop and snapshot always answer, whatever state the
-  instance is in, because the runtime waits on each answer and a silent block hangs its own
-  reclamation.
+- **Acknowledged anyway** — restore, stop and snapshot always answer, whatever state the instance is
+  in, because the runtime waits on each answer and a silent block hangs its own reclamation. A start
+  answers whenever it is not refused, a second one included (`AC-LIFE-005.3`).
 
 There is no fifth. A message that is neither applied, nor answered, nor reported is a defect, and
 every one this page's pass found was made into one of the four.
@@ -149,6 +152,10 @@ declared type is the only thing that can read it.
   and change nothing.
 - `AC-LIFE-005.4` (Event-driven): WHEN a block that was stopped is started again THE SYSTEM SHALL start
   it.
+- `AC-LIFE-005.5` (Event-driven): WHEN a block whose configuration message never arrived is started
+  THE SYSTEM SHALL run no start hook, send no acknowledgement, and fail the start with an error saying
+  the configuration message never arrived; a block whose configuration message arrived but whose
+  runtime-actor link has not SHALL start.
 
 The order in `AC-LIFE-005.1` is what makes the hook contract true: the hook runs before the flag is
 set, so a write from inside it is dropped like any other pre-start write, and the initial publish runs
@@ -157,10 +164,14 @@ those publications passes its gate. `AC-LIFE-005.3` exists because a second star
 periodic-save chain that no stop retired.
 
 A block whose start hook threw never acknowledges, so a host's start fails within its own real-time
-budget and names the block through the failures it records — `AC-CTRL-002.4` and `AC-CTRL-003.*`. A
-block whose *configuration* failed is a different case: it still starts, still publishes over whatever
-bindings the failed configuration registered, and still acknowledges — so a host reports itself
-started while that block's members read their defaults.
+budget and names the block through the failures it records — `AC-CTRL-002.4` and `AC-CTRL-003.*`.
+`AC-LIFE-005.5` fails a start sent before the configuration message the same way. Its error names only
+the block's type, since name and identifier come from the configuration; the host's record names the
+block by its actor.
+
+A block whose *configuration* failed is a different case: it still starts, still publishes over
+whatever bindings the failed configuration registered, and still acknowledges — so a host reports
+itself started while that block's members read their defaults.
 
 ## The dispatcher
 

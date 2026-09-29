@@ -297,6 +297,12 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case StartLogicBlockRequest: // after initialization
+                    // Unconfigured, the block has nothing to start. No acknowledgement, so the host's start fails.
+                    if (!_configured)
+                    {
+                        throw new InvalidOperationException($"{GetType().Name} cannot start: {nameof(InitializeLogicBlock)} never arrived.");
+                    }
+
                     // A second start would run the hook again, republish every initial value and arm a second
                     // periodic-save chain that only a stop retires — so a block started twice writes its snapshot
                     // twice a minute for the rest of the process. Acknowledge it anyway: the runtime waits on this
