@@ -167,9 +167,9 @@ A block whose start hook threw never acknowledges, so a host's start fails withi
 budget and names the block through the failures it records — `AC-CTRL-002.4` and `AC-CTRL-003.*`.
 `AC-LIFE-005.5` fails a start the same way for a host that sends it before the configuration message:
 the hook would otherwise run on an instance with no identifier, no bindings and no persistence, and
-the host would boot reporting a block that does nothing. The error cannot name the block — its name
-and identifier come from the configuration it never received — so the host's record, which names it
-by its actor, is what says which one.
+the host would boot reporting a block that does nothing. The error names the block's type but not the
+block — its name and identifier come from the configuration it never received — so the host's record,
+which names it by its actor, is what says which one.
 
 "Never arrived" is the whole of the refusal. A block configured but still waiting for its
 runtime-actor link starts. A block whose *configuration* failed starts too: it publishes over whatever

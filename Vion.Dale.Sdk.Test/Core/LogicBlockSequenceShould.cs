@@ -465,7 +465,8 @@ namespace Vion.Dale.Sdk.Test.Core
             Assert.AreEqual(0, block.StartingCount, "The start hook must not run on an instance its configuration never set up.");
             Assert.IsEmpty(_harness.Responses.OfType<StartLogicBlockResponse>(), "It is not acknowledged, which is how a host's start fails and names the block.");
             Assert.IsInstanceOfType<InvalidOperationException>(failure, "The start fails rather than being ignored.");
-            StringAssert.Contains(failure.Message, "never arrived", "The error says why, since the block has no name or identifier yet to say who.");
+            StringAssert.Contains(failure.Message, "never arrived", "The error says why.");
+            StringAssert.Contains(failure.Message, nameof(BareBlock), "It names the block's type, the one thing known of it before its name and identifier arrive.");
         }
 
         [TestMethod]
