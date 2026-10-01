@@ -33,9 +33,10 @@ it publishes the value again, including a value equal to the one before the outa
 - **When the device counts as unavailable is the block's decision.** The Modbus client gives it the
   link verdict, the last contact and a receipt per read; the staleness rule depends on the poll
   cadence, which only the block knows.
-- **A getter reads whole fields and nothing else.** A property of a struct held in a field is not
-  tracked, so a member derived from one needs a scalar backing field of its own; `DALE031` reports
-  the shape. Compute a derived value where its backing field is assigned, not in the getter.
+- **A getter reads whole fields or whole properties of the block and nothing else.** A property of
+  a struct held in one is not tracked, so a member derived from a struct needs a scalar backing
+  field of its own; `DALE031` reports the shape. Compute a derived value where its backing field is
+  assigned, not in the getter.
 - **A member fed by two requests nests the flags**, for example
   `_voltageWindowLive ? _powerWindowLive ? _signedCurrent : _currentMagnitude : null`.
 - **A persisted counter is persisted on the backing member.** Put `[Persistent]` on a private
