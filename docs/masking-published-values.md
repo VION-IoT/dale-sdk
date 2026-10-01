@@ -52,6 +52,9 @@ What a consumer sees:
   absent value on one side is always a change, for the dedup floor and for a deadband
   ([`specs/emission.md`](specs/emission.md), `AC-EMIT-004.3`, `AC-EMIT-006.3`); `MinInterval` can
   hold it for up to one interval, and what is released is the member's latest value.
+- An outage that ends inside one `MinInterval` with the value unchanged publishes nothing: the held
+  `null` is discarded when the unchanged value returns (`AC-EMIT-005.7`). A member whose every outage
+  must show sets `Immediate`.
 - The publish at stop and the re-publish after a broker reconnect read the getter too, so they
   publish the masked value and not the one behind it.
 - A `null` measuring-point sample is the platform's "not measured": the series shows a gap
