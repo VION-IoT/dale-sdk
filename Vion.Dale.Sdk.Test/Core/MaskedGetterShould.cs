@@ -27,7 +27,7 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             // Arrange
             var sut = new MaskedGetterBlock();
-            sut.Store(1.5);
+            sut.Store(1.5, 0.5);
             var raised = Subscribe(sut);
 
             // Act
@@ -45,7 +45,7 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             // Arrange
             var sut = new MaskedGetterBlock();
-            sut.Store(1.5);
+            sut.Store(1.5, 0.5);
             sut.SetWindows(powerWindowLive, voltageWindowLive);
             var raised = Subscribe(sut);
 
@@ -57,19 +57,20 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [DataRow(nameof(MaskedGetterBlock.Power))]
-        [DataRow(nameof(MaskedGetterBlock.Reading))]
-        [DataRow(nameof(MaskedGetterBlock.Current))]
-        public void RaisePropertyChangedWhenBackingAssignedWhileWindowsLive(string member)
+        [DataRow(nameof(MaskedGetterBlock.Power), true, true, 2.5, 0.5)]
+        [DataRow(nameof(MaskedGetterBlock.Reading), true, true, 2.5, 0.5)]
+        [DataRow(nameof(MaskedGetterBlock.Current), true, true, 2.5, 0.5)]
+        [DataRow(nameof(MaskedGetterBlock.Current), false, true, 1.5, 3.5)]
+        public void RaisePropertyChangedWhenBackingBehindLiveWindowAssigned(string member, bool powerWindowLive, bool voltageWindowLive, double power, double magnitude)
         {
             // Arrange
             var sut = new MaskedGetterBlock();
-            sut.Store(1.5);
-            sut.SetWindows(true, true);
+            sut.Store(1.5, 0.5);
+            sut.SetWindows(powerWindowLive, voltageWindowLive);
             var raised = Subscribe(sut);
 
             // Act
-            sut.Store(2.5);
+            sut.Store(power, magnitude);
 
             // Assert
             CollectionAssert.Contains(raised, member);
@@ -80,7 +81,7 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             // Arrange
             var sut = new MaskedGetterBlock();
-            sut.Store(1.5);
+            sut.Store(1.5, 0.5);
             sut.SetWindows(false, true);
             var raised = Subscribe(sut);
 
@@ -136,11 +137,11 @@ namespace Vion.Dale.Sdk.Test.Core
             {
             }
 
-            public void Store(double value)
+            public void Store(double power, double magnitude)
             {
-                _power = value;
-                _magnitude = value + 1;
-                _reading = new MeterReading(value);
+                _power = power;
+                _magnitude = magnitude;
+                _reading = new MeterReading(power);
             }
 
             public void SetWindows(bool powerWindowLive, bool voltageWindowLive)
