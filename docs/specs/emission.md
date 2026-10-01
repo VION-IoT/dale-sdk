@@ -136,7 +136,9 @@ The dedup floor runs ahead of every other rule, `Immediate` included. `AC-EMIT-0
 reference equality of its backing array, so a table rebuilt each control cycle would otherwise
 republish forever, carrying nothing. A member typed `ImmutableArray<T>` therefore needs no `MinChange`
 to stay quiet while unchanged; reach for one only when rows should also count as unchanged within a
-per-field tolerance.
+per-field tolerance. `AC-EMIT-004.3` is what lets a member publish `null` for a value that is not
+current and the value again afterwards; [`../masking-published-values.md`](../masking-published-values.md)
+is the pattern that uses it.
 
 ### 2. It is declared urgent
 
