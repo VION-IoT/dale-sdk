@@ -81,6 +81,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         protected override void OnContractActorsLinked(LinkLogicBlockContractActors m)
         {
             LogReceivedLinkLogicBlockContractActors(m.ContractLogicBlockActorReferences.Count);
+
+            // A map is the whole of the configuration now running, so a contract it moves or leaves out must not
+            // keep the provider an earlier configuration gave it. The actor references are kept: a request for a
+            // contract the map left out still owes its block an Invalid receipt, and a host that recreates the
+            // block under the same actor name reaches the new block through the reference from the last link.
+            _serviceProviderContractIds.Clear();
             foreach (var (serviceProviderContractId, actorReferences) in m.ContractLogicBlockActorReferences)
             {
                 foreach (var (logicBlockContractId, actorReference) in actorReferences)
@@ -142,7 +148,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         private partial void LogReceivedLinkLogicBlockContractActors(int serviceProviderContracts);
 
         [LoggerMessage(Level = LogLevel.Warning,
-                       Message = "Contract cannot be linked to service provider because it is already linked. " +
+                       Message = "Contract cannot be linked to service provider because this link map already links it to another. " +
                                  "(LogicBlockContractId={LogicBlockContractId}, AttemptedServiceProviderContractId={AttemptedServiceProviderContractId}, LinkedServiceProviderContractId={LinkedServiceProviderContractId})")]
         private partial void LogContractAlreadyLinkedToServiceProvider(LogicBlockContractId logicBlockContractId,
                                                                        ServiceProviderContractId attemptedServiceProviderContractId,

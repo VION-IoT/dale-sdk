@@ -636,20 +636,102 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MODB-015.9")]
-        public async Task NotOverwriteExistingServiceProviderMappingOnRelink()
+        [DataRow(TargetMethod.Read, "installation/sp1/svc0/rtu0/hw/modbus/get")]
+        [DataRow(TargetMethod.Write, "installation/sp1/svc0/rtu0/hw/modbus/set")]
+        public async Task PublishToProviderLaterMapNames(TargetMethod targetMethod, string expectedTopic)
         {
-            // Arrange
-            var otherSpContractId = new ServiceProviderContractId("other-sp", ServiceIdentifier, ContractIdentifier);
-            await LinkAsync((otherSpContractId, LinkedLogicBlockContractId, _logicBlockActorRefMock.Object));
+            // Arrange — the recreated block brings a new actor reference with the map that moves its contract.
+            var spContractId1 = new ServiceProviderContractId("sp1", ServiceIdentifier, ContractIdentifier);
+            await LinkAsync((spContractId1, LinkedLogicBlockContractId, new Mock<IActorReference>().Object));
+            _actorContextMock.Invocations.Clear();
 
             // Act
-            await SendRequestAsync(TargetMethod.Read);
+            await SendRequestAsync(targetMethod);
 
             // Assert
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
-                                                                         It.Is<object>(message => ((PublishMqttMessage)message).Topic == GetRequestTopic),
+                                                                         It.Is<object>(message => ((PublishMqttMessage)message).Topic == expectedTopic),
                                                                          It.IsAny<Dictionary<string, string>?>()),
                                      Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.9")]
+        public async Task SendResponseToActorReferenceLaterMapNames()
+        {
+            // Arrange
+            var spContractId1 = new ServiceProviderContractId("sp1", ServiceIdentifier, ContractIdentifier);
+            var actorRef1Mock = new Mock<IActorReference>();
+            await LinkAsync((spContractId1, LinkedLogicBlockContractId, actorRef1Mock.Object));
+            var correlationId = Guid.NewGuid();
+            await SendReadRequestAsync(correlationId, (_, _, _) => { });
+            _actorContextMock.Invocations.Clear();
+
+            // Act
+            await DispatchAsync(CreateGetResponseMqttMessage(correlationId, ModbusResponseCode.Ok, ResponseData));
+
+            // Assert
+            _actorContextMock.Verify(actorContext => actorContext.SendTo(actorRef1Mock.Object,
+                                                                         It.Is<object>(message => message is ContractMessage<ReadModbusRtuResponse>),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
+                                     Times.Once);
+        }
+
+        /*
+         * The empty map carries no actor reference, so the receipt can only travel on the one the first link
+         * gave. That is the route a recreated block is reached on: the runtime names a block's actor after the
+         * block, and a reference kept from before the recreate resolves to the actor now holding that name.
+         */
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.6")]
+        [TestProperty("spec", "AC-MODB-015.9")]
+        public async Task CompleteReadInvalidWhenLaterMapLeavesContractOut()
+        {
+            // Arrange
+            await LinkAsync();
+            _actorContextMock.Invocations.Clear();
+            Exception? capturedException = null;
+            var capturedOutcome = ModbusOutcome.Success;
+
+            // Act
+            await SendReadRequestAsync(Guid.NewGuid(),
+                                       (_, exception, receipt) =>
+                                       {
+                                           capturedException = exception;
+                                           capturedOutcome = receipt.Outcome;
+                                       });
+            InvokeCapturedReadResponseCallback();
+
+            // Assert
+            Assert.IsInstanceOfType<ServiceProviderContractMappingNotFoundException>(capturedException);
+            Assert.AreEqual(ModbusOutcome.Invalid, capturedOutcome);
+            _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object, It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.6")]
+        [TestProperty("spec", "AC-MODB-015.9")]
+        public async Task CompleteWriteInvalidWhenLaterMapLeavesContractOut()
+        {
+            // Arrange
+            await LinkAsync();
+            _actorContextMock.Invocations.Clear();
+            Exception? capturedException = null;
+            var capturedOutcome = ModbusOutcome.Success;
+
+            // Act
+            await SendWriteRequestAsync(Guid.NewGuid(),
+                                        (exception, receipt) =>
+                                        {
+                                            capturedException = exception;
+                                            capturedOutcome = receipt.Outcome;
+                                        });
+            InvokeCapturedWriteResponseCallback();
+
+            // Assert
+            Assert.IsInstanceOfType<ServiceProviderContractMappingNotFoundException>(capturedException);
+            Assert.AreEqual(ModbusOutcome.Invalid, capturedOutcome);
+            _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object, It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
         }
 
         private Task DispatchAsync(object message)
