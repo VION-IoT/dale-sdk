@@ -677,13 +677,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                      Times.Once);
         }
 
-        /*
-         * The empty map carries no actor reference, so the receipt can only travel on the one the first link
-         * gave. That is the route a recreated block is reached on: Vion.Dale.ProtoActor spawns a block under its
-         * name (ActorSystem.CreateRootActorFromDi), and on Proto.Actor 1.8.0 a PID taken before a stop and a
-         * respawn under the same name delivers to the new actor (probed by hand, not in a test). A block renamed
-         * in the same apply gets a new actor name, and its receipt is lost.
-         */
+        // The empty map carries no actor reference, so the receipt travels on the one the first link gave.
         [TestMethod]
         [TestProperty("spec", "AC-MODB-015.6")]
         [TestProperty("spec", "AC-MODB-015.9")]

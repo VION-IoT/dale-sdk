@@ -82,10 +82,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         {
             LogReceivedLinkLogicBlockContractActors(m.ContractLogicBlockActorReferences.Count);
 
-            // A map is the whole of the configuration now running, so a contract it moves or leaves out must not
-            // keep the provider an earlier configuration gave it. The actor references are kept: a request for a
-            // contract the map left out still owes its block an Invalid receipt, and a host that recreates the
-            // block under the same actor name reaches the new block through the reference from the last link.
+            // Replaced whole, as the base class's map is; actor references are kept to deliver an unmapped request's receipt.
             _serviceProviderContractIds.Clear();
             foreach (var (serviceProviderContractId, actorReferences) in m.ContractLogicBlockActorReferences)
             {
