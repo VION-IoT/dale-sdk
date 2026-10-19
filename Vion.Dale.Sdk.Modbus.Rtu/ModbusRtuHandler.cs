@@ -43,8 +43,6 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
         private readonly PendingRequestsLimitReachedException _requestLimitException = new(MaxPendingRequests);
 
-        private readonly Dictionary<LogicBlockContractId, ServiceProviderContractId> _serviceProviderContractIds = [];
-
         private readonly Dictionary<ServiceProviderContractId, string> _setResponseTopics = [];
 
         private readonly Dictionary<ServiceProviderContractId, string> _setTopics = [];
@@ -81,18 +79,17 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         protected override void OnContractActorsLinked(LinkLogicBlockContractActors m)
         {
             LogReceivedLinkLogicBlockContractActors(m.ContractLogicBlockActorReferences.Count);
+
+            var linked = new Dictionary<LogicBlockContractId, ServiceProviderContractId>();
             foreach (var (serviceProviderContractId, actorReferences) in m.ContractLogicBlockActorReferences)
             {
                 foreach (var (logicBlockContractId, actorReference) in actorReferences)
                 {
+                    // Kept across maps, unlike the providers: they deliver the receipt of a request a later map leaves unmapped.
                     _actorReferences[logicBlockContractId] = actorReference;
-                    if (_serviceProviderContractIds.TryGetValue(logicBlockContractId, out var linkedServiceProviderContractId))
+                    if (!linked.TryAdd(logicBlockContractId, serviceProviderContractId))
                     {
-                        LogContractAlreadyLinkedToServiceProvider(logicBlockContractId, serviceProviderContractId, linkedServiceProviderContractId);
-                    }
-                    else
-                    {
-                        _serviceProviderContractIds[logicBlockContractId] = serviceProviderContractId;
+                        LogContractAlreadyLinkedToServiceProvider(logicBlockContractId, serviceProviderContractId, linked[logicBlockContractId]);
                     }
                 }
             }
@@ -138,11 +135,22 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             }
         }
 
+        /// <summary>
+        ///     The provider the current link map names for a contract; the first, in the map's order, where it names several.
+        /// </summary>
+        private bool TryFindServiceProviderContract(LogicBlockContractId logicBlockContractId, out ServiceProviderContractId serviceProviderContractId)
+        {
+            var mapped = FindMappedServiceProviderContracts(logicBlockContractId);
+            serviceProviderContractId = mapped.Count > 0 ? mapped[0] : default;
+
+            return mapped.Count > 0;
+        }
+
         [LoggerMessage(Level = LogLevel.Debug, Message = "Received link logic block contract actors message (ServiceProviderContracts={ServiceProviderContracts})")]
         private partial void LogReceivedLinkLogicBlockContractActors(int serviceProviderContracts);
 
         [LoggerMessage(Level = LogLevel.Warning,
-                       Message = "Contract cannot be linked to service provider because it is already linked. " +
+                       Message = "Contract cannot be linked to service provider because this link map already links it to another. " +
                                  "(LogicBlockContractId={LogicBlockContractId}, AttemptedServiceProviderContractId={AttemptedServiceProviderContractId}, LinkedServiceProviderContractId={LinkedServiceProviderContractId})")]
         private partial void LogContractAlreadyLinkedToServiceProvider(LogicBlockContractId logicBlockContractId,
                                                                        ServiceProviderContractId attemptedServiceProviderContractId,
@@ -202,7 +210,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 return;
             }
 
-            if (!_serviceProviderContractIds.TryGetValue(logicBlockContractId, out var serviceProviderContractId))
+            if (!TryFindServiceProviderContract(logicBlockContractId, out var serviceProviderContractId))
             {
                 PublishResponse(unpublished, null, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), ModbusOutcome.Invalid, request.CorrelationId);
                 return;
@@ -369,7 +377,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 return;
             }
 
-            if (!_serviceProviderContractIds.TryGetValue(logicBlockContractId, out var serviceProviderContractId))
+            if (!TryFindServiceProviderContract(logicBlockContractId, out var serviceProviderContractId))
             {
                 PublishResponse(unpublished, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), ModbusOutcome.Invalid, request.CorrelationId);
                 return;
