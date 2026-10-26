@@ -3,7 +3,7 @@ slug: vion-sdd-adoption
 status: proposed           # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: process             # the process itself, as in 2026-09-01-sdd-process.md
-author: jonasbertsch (drafted with Claude in the session `sdk: sdd plugin migration`)
+author: jonasbertsch
 created: 2026-10-26
 updated: 2026-10-26
 supersedes: none           # path of a superseded change doc, or none
