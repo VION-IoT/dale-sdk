@@ -473,15 +473,15 @@ The race is fixed, never outrun.
 
 ## 17. Citing spec ids
 
-On a Tier A area ([`spec-process.md`](spec-process.md)), a test that proves an acceptance criterion
-carries the id as a quoted literal — MSTest `[TestProperty("spec", "AC-EMIT-001.1")]`, xunit
-`[Trait("spec", "AC-EMIT-001.1")]`, a committed scenario's `"specs": ["AC-SCEN-003.1"]` — which is
-what `scripts/spec-trace.ps1` counts; a comment or method-name mention does not bind. The gate
+On a traced page ([`spec-process.md`](spec-process.md) — every roster page is), a test that proves
+an acceptance criterion carries the id as a quoted literal — MSTest `[TestProperty("spec",
+"AC-EMIT-001.1")]`, xunit `[Trait("spec", "AC-EMIT-001.1")]`, a committed scenario's `"specs":
+["AC-SCEN-003.1"]` — which is what the plugin's `spec-trace` counts; a comment or method-name mention does not bind. The gate
 matches any quoted `"AC-…"` literal, so an id belongs in exactly those three forms and in no other
 string — an assert message or an expectation array (a `CollectionAssert` over ids) carrying one
 would bind by accident; read the ids off the artifact under test instead. An id proven by **both** a unit
 test and a scenario states which half each tier owns in the test class summary (a "Cross-tier"
-clause; `spec-trace` warn-notes files missing it).
+clause; `test-style-lint` fails a citing file missing it).
 
 **A premise test cites no id, by design.** A test that pins an implementation *premise* rather than a
 criterion — two parsers agreeing on every conformance vector, two code paths a design relies on

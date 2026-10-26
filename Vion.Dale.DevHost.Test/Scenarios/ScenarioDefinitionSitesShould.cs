@@ -362,8 +362,9 @@ namespace Vion.Dale.DevHost.Test
             }
         }
 
-        // The keys of the SPA's KINDS catalog, in declaration order, read from the module as text — the SPA is
-        // Tier C and its node tests are not scanned by spec-trace, so the agreement is checked from here.
+        // The keys of the SPA's KINDS catalog, in declaration order, read from the module as text — the SPA's
+        // internals are exempt from the corpus and its node tests are not scanned by spec-trace, so the agreement is
+        // checked from here.
         private static List<string> SpaKindKeys()
         {
             return SpaKindEntries().Select(entry => entry.Key).ToList();
