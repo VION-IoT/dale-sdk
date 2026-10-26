@@ -474,7 +474,12 @@ rules of owner 2 may be none.
 > `YYYY-MM-DD: <what changed and why>`. Never inline in a spec page. A checkpoint that fixes a
 > CLASS bug states the sibling sweep (done / N/A / handed off).
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-10-26: `actions/create-github-app-token` is pinned at v3.3.0
+  (`64ab729a6294000f5aa4a4bc0b73d1f32bc45510`, released 2026-10-12), not artifacts-mender's v3.2.0:
+  v3.2.0 is a release but no longer the current one (`gh api
+  repos/actions/create-github-app-token/releases`), and v3.3.0's `action.yml` keeps `client-id`,
+  `owner`, `repositories` and `permission-contents`. Sibling sweep: artifacts-mender's pin is its
+  own, handed off as a note in the PR body.
 
 ---
 

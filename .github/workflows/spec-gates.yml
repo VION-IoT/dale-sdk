@@ -1,7 +1,8 @@
 name: Spec Gates
 # The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint, spec-trace,
 # test-style-lint, doc-comment-lint, pragma-reason-lint, bom-lint, packed-msbuild-lint,
-# sweep-residue-lint, self-reference-lint, and the shared journal-lint action as its own job.
+# sweep-residue-lint, self-reference-lint, and two jobs of their own: the shared journal-lint action,
+# and the vion-sdd plugin's action from architecture.
 # Its own workflow — not a publish.yml job — because publish.yml skips its build for a docs-only
 # change and a docs-only PR (a spec page, a change doc) must still be gated. Pure file scans, no dotnet
 # build: cheap enough to run on every PR.
@@ -105,10 +106,53 @@ jobs:
         run: ./scripts/sweep-residue-lint.ps1
 
       # No table cell points at itself: `(this PR)` in a pointer column is read after the merge that
-      # would have resolved it. Journalled once, then shipped again one commit later (T-013, T-014).
+      # would have resolved it. Journalled once, then shipped again one commit later.
       - name: Self-reference lint
         shell: pwsh
         run: ./scripts/self-reference-lint.ps1
+
+  # The vion-sdd plugin's two spec gates, spec-lint and spec-trace, from its own scripts at
+  # architecture's main, as dale and hardware-integration run them. architecture is private and this
+  # repository public, and GitHub shares a private repository's actions with private repositories
+  # only, so the plugin is checked out with an App token and its action run from that checkout. A job
+  # of its own, so the lints above never walk .vion-sdd/. A missing or revoked key reddens it: the
+  # token step fails, it never skips.
+  vion-sdd:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The lint's narrative rule reads lines added since the merge base with the base branch.
+          fetch-depth: 0
+
+      # Pinned by COMMIT, not by major tag as the other actions here are: it is handed the App's
+      # private key, so what runs is a reviewed commit rather than whatever the tag moves to. v3.3.0.
+      - name: A read token for architecture
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          client-id: ${{ secrets.ARCHITECTURE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ARCHITECTURE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: architecture
+          permission-contents: read
+
+      - name: The vion-sdd plugin, from architecture's main
+        uses: actions/checkout@v4
+        with:
+          repository: VION-IoT/architecture
+          ref: main
+          token: ${{ steps.token.outputs.token }}
+          path: .vion-sdd
+          sparse-checkout: plugins/vion-sdd
+          persist-credentials: false
+
+      - uses: ./.vion-sdd/plugins/vion-sdd/action
+        with:
+          base: ${{ github.base_ref || 'main' }}
 
   journal-lint:
     if: github.actor != 'github-actions[bot]'
