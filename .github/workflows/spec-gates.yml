@@ -1,8 +1,8 @@
 name: Spec Gates
-# The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint, spec-trace,
-# test-style-lint, doc-comment-lint, pragma-reason-lint, bom-lint, packed-msbuild-lint,
-# sweep-residue-lint, self-reference-lint, and two jobs of their own: the shared journal-lint action,
-# and the vion-sdd plugin's action from architecture.
+# The SDD gate suite (docs/spec-process.md § Gates): script self-tests, test-style-lint,
+# doc-comment-lint, pragma-reason-lint, bom-lint, packed-msbuild-lint, sweep-residue-lint,
+# self-reference-lint, and two jobs of their own: the shared journal-lint action, and the vion-sdd
+# plugin's action from architecture, which runs spec-lint and spec-trace.
 # Its own workflow — not a publish.yml job — because publish.yml skips its build for a docs-only
 # change and a docs-only PR (a spec page, a change doc) must still be gated. Pure file scans, no dotnet
 # build: cheap enough to run on every PR.
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # spec-lint -Diff needs the merge base to see what a PR ADDS to docs/specs/.
+          # The self-tests' scope diffs a pull request against its base, which needs the history.
           fetch-depth: 0
 
       # A pull request runs the self-tests only when a script or a project file changed, which is what
@@ -52,21 +52,6 @@ jobs:
         if: steps.scope.outputs.selftests == 'true'
         shell: pwsh
         run: ./scripts/run-script-tests.ps1
-
-      # On PRs, the narrative rule runs diff-scoped against the base branch (warn-only,
-      # per docs/spec-process.md); pushes to main lint without a diff window.
-      - name: Spec lint
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_BASE_REF) {
-            ./scripts/spec-lint.ps1 -Diff "origin/$env:GITHUB_BASE_REF"
-          } else {
-            ./scripts/spec-lint.ps1
-          }
-
-      - name: Spec trace
-        shell: pwsh
-        run: ./scripts/spec-trace.ps1
 
       # Settled test style, ratcheting on spec citations: a test that cites an AC id follows
       # testing-conventions §12/§13. Two passes proved the rule does not hold as prose.
