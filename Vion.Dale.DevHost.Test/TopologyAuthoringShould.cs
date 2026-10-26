@@ -19,7 +19,7 @@ namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
     ///     The server half of topology authoring: it exposes the interface-matching metadata the editor
-    ///     uses to compute wiring, and the editor's own logic is the SPA's (Tier C). The introspection result already carries
+    ///     uses to compute wiring, and the editor's own logic is the SPA's, exempt from the corpus. The introspection result already carries
     ///     each
     ///     logic interface's <c>InterfaceTypeFullNames</c> + <c>MatchingInterfaceTypeFullNames</c> back-reference;
     ///     these tests pin that the DevHost's <c>/api/configuration</c> projection does not drop them.

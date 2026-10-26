@@ -5,8 +5,8 @@ trace: enforced
 # Cross-cutting invariants
 
 `SYS-` rules every area page cites instead of restating: repository-wide guarantees no single area
-owns, which a page would otherwise re-mint from its own side. The corpus roster, area codes and
-tiers live in [`../spec-process.md`](../spec-process.md); pages arrive one per pass, each carrying
+owns, which a page would otherwise re-mint from its own side. The corpus roster and area codes
+live in [`../spec-process.md`](../spec-process.md); pages arrive one per pass, each carrying
 `trace: enforced` frontmatter from the day it lands.
 
 The minting rule for the pages themselves — one criterion states one rule, the family's members as

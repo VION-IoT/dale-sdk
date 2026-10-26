@@ -429,17 +429,183 @@ went): one row per rule, and its owner, which is exactly one of
 3. **dropped**, with the reason — `D11` of the plugin's cut, the round-2 targeted read, is the
    standing example (plugin `README.md` § One step of lane 3 is deliberately absent).
 
-The rules known to be this repository's, as a starting list and not the table:
+Source: the recipe at `f0d0c88a`, plugin paths relative to `architecture/plugins/vion-sdd/`;
+incident sentences are folded into the rule they justify. A fourth owner appears, which the plugin
+itself prescribes: the dispatch, report and ingest roles are named in `CLAUDE.md` (plugin
+`README.md` § Composing it in a repo, step 4), so their rows point there.
 
-- the self-check against the PublicApi manifest's entries for the area (`spec-process.md:421`);
-- the gate list a REPORT pastes: `/cleanup`, the CI-shape run, Stryker.NET (`574-583`);
-- the sweep discipline's pointer to `sweep-residue-lint.ps1` (`528-544`) — the rule itself is the
-  plugin's (`references/pass/5-implement.md` § Sweep discipline);
-- the review priorities beyond the template's, which name `docs/snapshots/publicapi-manifest.json`
-  and the cross-tier clause (`765-795`).
+**Preamble.**
 
-A dozen other lane-3 rules spot-checked against the plugin were all stated there, so the generic
-rules of owner 2 may be none.
+| Lines | Rule | Owner |
+|---|---|---|
+| 276-278 | Lane 3's shape: coordinator, brief checked before dispatch, one implementing session, two fresh-context checks, a fresh fix-up session | plugin — `skills/pass/SKILL.md` § The shape of the round |
+| 280-282 | A discarded round is rerun, never hand-patched; the correction goes into the recipe and the branch dies | plugin — `skills/pass/SKILL.md` § The shape of the round |
+
+**1. The brief.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 286-288 | The brief is written by `/vion-dispatch:spawn` from vion-dispatch's `templates/brief.md`; its front matter (`key`…`steer`) and lane 3's `pr: stop-before` | `CLAUDE.md` § Lanes in this repo names the role, where plugin `README.md` § Composing it in a repo, step 4, puts it; stop-before-PR is `references/pass/1-brief.md` § What it carries |
+| 288-290 | The brief lands at `architecture/.claude/briefs/brief-<slug>-dale-sdk.md` | dropped — the dispatch role's convention (`1-brief.md` § Where it lands defers to it; vion-dispatch `README.md` § Where they live states it) |
+| 290-294 | A pointer, not a restatement: change-doc path, binding decisions, PR shape, open points pre-classified, house discipline by the repo's own names, a read-only note per extra directory | plugin — `references/pass/1-brief.md` § What it carries (the names come from `CLAUDE.md`'s skills table and pre-PR obligations) |
+| 296-300 | Scope and test scope as folders/projects/ranges the session enumerates; a Drift checkpoint where the brief differs; an empty anchor kind is a checkpoint, not a row | plugin — `references/pass/1-brief.md` § Scope is enumerated, never transcribed |
+| 302-306 | A count is a hypothesis: a fresh-context reader reads the brief against the code before launch, and the brief is rewritten | plugin — `references/pass/1-brief.md` § A count in a brief is a hypothesis… (the "Opus `Explore`" spelling dropped: the skill names roles, not tools) |
+| 307-309 | A premise about what the build decides comes from the build's evaluation, never a regex over its inputs | plugin — `references/pass/1-brief.md` § A count in a brief is a hypothesis… |
+| 309-310 | The second reader is a second opinion, not an oracle | plugin — `references/pass/1-brief.md` § A count in a brief is a hypothesis… |
+| 312-315 | A hedge in a brief is a STOP: record the deviation and ask | plugin — `references/pass/1-brief.md` § A hedge in a brief is a STOP |
+
+**2. Dispatch.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 319-320 | Dispatch through the repo's mechanism; never reimplement the launch inline | plugin — `references/pass/2-dispatch.md` § Use the repo's dispatch role; never reimplement it |
+| 319, 331-335 | The dispatch role here is `/vion-dispatch:spawn`; its mechanics are vion-dispatch `README.md` and `runbooks/session-orchestration.md` | `CLAUDE.md` § Lanes in this repo names the role, where plugin `README.md` § Composing it in a repo, step 4, puts it |
+| 320-324 | The pre-flight refuses a dirty tree, wrong branch or live session; an idle notice; the permission mode is read from the target repo, never hand-added | plugin — `references/pass/2-dispatch.md` § Use the repo's dispatch role… |
+| 321-322 | The refusal asks the three-answer question (*Worktree*, *Wait*, *Override*) | dropped — vion-dispatch's pre-flight UI, owned by its `README.md` § Pre-flight |
+| 325-326 | Ratification round-trips use `-AmendFile` plus `-SessionId` | dropped — launcher parameters, owned by vion-dispatch `README.md` § launch-session.ps1 |
+| 328-329 | Model rubric: capable model unless mechanical; high effort for design-bearing work, medium for contained | plugin — `references/pass/2-dispatch.md` § Model and effort |
+| 336-337 | Cite `plugins/vion-dispatch/scripts/launch-session.ps1`, never the deprecated shim | dropped — superseded tool path; nothing left in `spec-process.md` cites a launcher script |
+
+**3. Extract before you specify.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 341-342 | Reading and one document; no edits, fixes or tracker writes; the table, status `proposed` | plugin — `references/pass/3-extract.md` (intro) |
+| 344-347 | Anchor inventory first, mechanically, listed in the change doc as the sweeps' checklist | plugin — `references/pass/3-extract.md` § Anchor inventory first |
+| 347-349 | Compare each attribute's `AttributeTargets` with the targets its readers walk; an unread target is a row | plugin — `references/pass/3-extract.md` § Anchor inventory first (as "the targets it declares") |
+| 353-356 | Statement sweep, statement by statement; every claim from code read this session | plugin — `references/pass/3-extract.md` § Then four sweeps |
+| 354-355 | `testing-conventions.md` §9's observability discriminator decides what is a row | § What a pass in this repo adds |
+| 357-363 | Consumer sweep: in-repo consumers, then layout / ownership / broken input / marker mechanics; an example on a published package is not a test bed | plugin — `references/pass/3-extract.md` § Then four sweeps |
+| 364-368 | Edge-value sweep over every knob: negative, zero, empty, non-finite, overflow, equivalent spellings, validator-accepts-runtime-ignores | plugin — `references/pass/3-extract.md` § Then four sweeps (stronger: adds shell encodings) |
+| 369-379 | State-interaction sweep; the other side of a symmetric mechanism; every later message after a fail-closed init | plugin — `references/pass/3-extract.md` § Then four sweeps |
+| 381-385 | The table: one row per observable behaviour, six columns, all required | plugin — `references/pass/3-extract.md` § The table |
+| 387-391 | Behaviour in published-surface vocabulary; the altitude test | plugin — `references/pass/3-extract.md` § The table |
+| 392-399 | Evidence is `file:line` read, not recalled; a probe is evidence only for its shape, surface and OS (a desk probe is unproven on the Linux runner and gateways) | plugin — `references/pass/3-extract.md` § The table (OS stated as desktop vs CI runner and production) |
+| 400 | Test today: the test, or `GAP` | plugin — `references/pass/3-extract.md` § The table |
+| 401-406 | The five Recs; `propose` rides the row; a `file` is a draft item | plugin — `references/pass/3-extract.md` § The table (Jira routing stays in this repo's § Routing, outside the cut) |
+| 406-412 | Why: a harm names its consumer by `file:line`; recency is no reason; a precedent names the property that transfers | plugin — `references/pass/3-extract.md` § The table |
+| 412-416 | Code is evidence of behaviour, not intent; `fix`/`file`/`propose` flagged `⚠` with a two-line sketch | plugin — `references/pass/3-extract.md` § The table |
+| 418-419 | Map every existing test in scope; the unmapped list | plugin — `references/pass/3-extract.md` § Map every existing test in scope |
+| 421-423 | Self-check against the anchor inventory and the published-surface manifest; every member visited or out of scope, counts stated | plugin — `references/pass/3-extract.md` § Self-check |
+| 421-423 | That manifest is `docs/snapshots/publicapi-manifest.json`, per assembly; an `[InternalApi]` area has no entries | § What a pass in this repo adds |
+| 423-425 | Visited is not covered: re-read after minting, every `intended`/`fix` row maps to an id or a checkpoint | plugin — `references/pass/3-extract.md` § Self-check |
+| 425-429 | The reverse question per anchor instance, and of the doc's Reviewer's questions | plugin — `references/pass/3-extract.md` § Self-check |
+| 431-433 | Commit, push, STOP with the counts, the `⚠` rows, the unmapped list and the classify line | plugin — `references/pass/3-extract.md` § Then STOP + § The second STOP (superseded: two STOPs; the classify line moved to the consolidation-map STOP) |
+
+**4. The operator gate.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 437, 450 | The operator classifies; nothing is implemented without it | plugin — `references/pass/4-classify.md` (intro) |
+| 437-443 | An optional second opinion on the `⚠` rows reads the readers' repositories; a reader named from memory is a hypothesis | plugin — `references/pass/4-classify.md` § The second opinion on the ⚠ rows |
+| 438-440 | This SDK's readers on the machine: the private runtime, the gateways, the first consumer | § What a pass in this repo adds |
+| 443-447 | The `propose` test; its second clause answered by reading; a wire change no reader reads is a `fix` with a relay note | plugin — `references/pass/4-classify.md` § The test for a `propose` row |
+| 449-450 | `fix` rows fixed this round; `file` rows drafted; the session writes nothing to Jira | plugin — `references/pass/4-classify.md` § After the classification |
+
+**5. Implement.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 454 | Ids, minting and archive are § IDs & EARS and § Change docs | plugin — `references/pass/5-implement.md` (intro) |
+| 456-462 | The mutation with the test; no mutation, no criterion; over-determined stated and both mutated; an accident of structure gets its line first | plugin — `references/pass/5-implement.md` § Write the mutation with the test… |
+| 462-463 | The `test → mutation` list, one line each, reaches the PR body | plugin — `references/pass/5-implement.md` § Write the mutation…; `7-checks.md` § The amendment… |
+| 463-465 | The test side — a surviving mutation indicting the fixture, what a merged `[DataRow]` owes — is `testing-conventions.md` §11 | § What a pass in this repo adds |
+| 466-470 | A window no seam constructs is reported as a surviving mutation, with the carried observable | plugin — `references/pass/5-implement.md` § Write the mutation… |
+| 471-473 | Fix rows: the correct-behaviour test proven red pre-fix, named in the list; then the minimal fix | plugin — `references/pass/5-implement.md` § Fix rows |
+| 474-482 | The four disciplines: every validator, the shape not the symbol, every arm, every property of rule R | plugin — `references/pass/5-implement.md` § Fix rows (`switch` generalised to "branching construct") |
+| 483-488 | Before the REPORT, re-run state-interaction and edge-value sweeps over every fixed path's neighbours | plugin — `references/pass/5-implement.md` § A fix closes one path and opens its sibling |
+| 488-490 | A behaviour the classification adds is a path nothing swept | plugin — `references/pass/5-implement.md` § A fix closes one path… |
+| 491-494 | A deviation is checkpointed with its criterion and the test carrying it | plugin — `references/pass/5-implement.md` § Deviations and size |
+| 495-496 | Size guard: non-local or design-bearing → STOP; a `file` row or its own change doc | plugin — `references/pass/5-implement.md` § Deviations and size |
+| 497-498 | The page: current-truth prose plus ACs, `trace: enforced`; rules, never rosters | plugin — `references/pass/5-implement.md` § The page |
+| 499-501 | The suite meets the testing conventions in full; ids in quoted-literal form; unmapped tests merged or deleted | plugin — `references/pass/5-implement.md` § The suite |
+| 499-501 | Here that is `testing-conventions.md` §9–17: ids per §17, no assertion on log calls per §15 | § What a pass in this repo adds |
+| 501-505 | Names and markers are gated, not remembered: run the gate before the REPORT, budget the rename round | plugin — `references/pass/5-implement.md` § The suite ("wherever the repo has a gate") |
+| 502-503 | The gate is `pwsh scripts/test-style-lint.ps1` (article in a name, missing Triple-A markers) | § What a pass in this repo adds |
+| 505-508 | Exempt list with reasons; one citation never exempts; an authored file in an exempt project conforms | plugin — `references/pass/5-implement.md` § The suite |
+| 509-515 | The rename round invalidates every test name in the doc; resolve both token shapes with a script, paste both counts | plugin — `references/pass/5-implement.md` § The suite |
+| 516 | A scripted fixture edit asserts its match count | plugin — `references/pass/5-implement.md` § The suite |
+| 517-518 | A test deleted because a gate covers it names the gate and its failure mode in the commit | plugin — `references/pass/5-implement.md` § The suite |
+| 519-521 | A fixture inserted above an attribute block steals its doc comment; re-read the insertion point | plugin — `references/pass/5-implement.md` § The suite |
+| 520-521 | `scripts/doc-comment-lint.ps1` fails the double `<summary>` | § What a pass in this repo adds |
+| 522-525 | A UI change is demonstrated on a live instance, evidence pasted; grow the fixture set if none can show it | plugin — `references/pass/5-implement.md` § The suite |
+| 522-525 | For the DevHost SPA: `devhost-smoke` Tier 2, growing the SmokeHost (`devhost-conventions.md` §1, `testing-conventions.md` §6) | § What a pass in this repo adds |
+| 526 | Distill every delta line, then `spec-change.ps1 archive` | plugin — `references/pass/5-implement.md` § Finally (the in-repo script path is superseded by the plugin's) |
+
+**5. Sweep discipline.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 530-532 | A scripted sweep deletes only matched spans and proves each line is the original minus them | plugin — `references/pass/5-implement.md` § Sweep discipline |
+| 532-535 | The file's own line endings; no whole-file tidy-up | plugin — `references/pass/5-implement.md` § Sweep discipline (`newline=''` spelling dropped) |
+| 535-537 | Run `scripts/sweep-residue-lint.ps1` (orphaned `()`, doubled space, a line ending on `(`) | § What a pass in this repo adds |
+| 537-538 | Re-read every touched sentence anyway | plugin — `references/pass/5-implement.md` § Sweep discipline |
+| 538-539 | A file `grep` calls binary is skipped; check with `grep -a`/`-c` before trusting a zero | plugin — `references/pass/5-implement.md` § Sweep discipline |
+| 539-540 | Vendored files are exempt | plugin — `references/pass/5-implement.md` § Sweep discipline |
+| 540-542 | A mirrored edit covers the files the change itself created | plugin — `references/pass/5-implement.md` § Sweep discipline |
+| 542-543 | `docs/rfcs/` stays in the lint's out-of-scope pattern deliberately | dropped — a fact about one script's pattern, carried by the script (`sweep-residue-lint.ps1:41` and its header) |
+
+**6. The REPORT.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 547-548 | Commit per task, push, STOP with the REPORT; no PR until the checks run and the operator says go | plugin — `references/pass/6-report.md` (intro) |
+| 548-568 | The seven-item self-check preamble (pasted gates, criterion/assertion pairs, disproved sentences, pasted observations, counts with commands, OUTCOME lines, relay notes as each landed) | plugin — `references/pass/6-report.md` § The mandatory preamble is the self-check, in writing |
+| 566-567 | Relay notes take the shape `.github/pull_request_template.md` sets | dropped — `CLAUDE.md` § Pre-PR obligations already states the PR body follows that template |
+| 570-572 | Then: commands and results, `test → mutation`, GAP list, uncited premise tests, a draft item per `file` row, friction one-liners | plugin — `references/pass/6-report.md` § Then (journal format: `CLAUDE.md`'s `/vion-improve:journal`) |
+| 574-576 | Every gate line pasted, unmoved ones too; carried or composed numbers are stale | plugin — `references/pass/6-report.md` § Gates, all of them, results verbatim |
+| 576-581 | The gate list: build, test, the per-script lints, `/cleanup` once | plugin — `references/pass/6-report.md` § Gates, all of them, results verbatim, which takes the list from `CLAUDE.md`'s pre-PR obligations |
+| 581-582 | Where a fixture asserts a build-time literal, add a run under CI's shape | plugin — `references/pass/6-report.md` § Gates… |
+| 581-582 | That run is `scripts/check.ps1 -CiShape` (`testing-conventions.md` §8) | § What a pass in this repo adds |
+| 582-585 | Mutation testing is optional, survivors read by hand, never a gate or a score | plugin — `references/pass/6-report.md` § Gates… |
+| 582-585 | Stryker.NET runs only where the test project references a single mutatable project | § What a pass in this repo adds |
+| 587-590 | The envelope, base sections and style are the report role's; not restated | plugin — `references/pass/6-report.md` § The envelope |
+| 590-592 | Extra sections `Self-check`, `Gates`, `Test to mutation`, `GAP`, `File rows`, `Relay notes`, copied into the brief verbatim | plugin — `references/pass/6-report.md` § The envelope |
+| 591-594 | They go in the brief's `sections:` line; the session ends with `/vion-dispatch:report`; the `Stop` hook files it under `.claude/briefs/reports/` | `CLAUDE.md` § Lanes in this repo names the role, where plugin `README.md` § Composing it in a repo, step 4, puts it; the hook and the folder are vion-dispatch's |
+
+**7. The two checks, and the fix-up session.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 598-601 | After the REPORT, two fresh-context checks run concurrently: completeness critic and adversarial review | plugin — `references/pass/7-checks.md` § The two checks, concurrently ("Opus" → "the more capable model") |
+| 602-607 | Both read criterion text vs citing test, start from the self-check, look for pending OUTCOMEs, retired names, the relay-notes section | plugin — `references/pass/7-checks.md` § The two checks, concurrently |
+| 609-611 | The checks run after the session's sibling sweep, never instead of it | plugin — `references/pass/7-checks.md` § The two checks, concurrently |
+| 611-614 | A REPORT's numbers are read against the head they were taken at | plugin — `references/pass/7-checks.md` § The two checks, concurrently |
+| 616-624 | A finding is a hypothesis: call site stated, counts with commands, verified before implementing, still tested when real, two clauses two proofs | plugin — `references/pass/7-checks.md` § A finding is a hypothesis until the tree confirms it |
+| 626-631 | One numbered amendment per round, worked by a fresh session; the implementer retires at its REPORT | plugin — `references/pass/7-checks.md` § The amendment, and the fresh fix-up session |
+| 627-629 | The amend file is the fresh session's brief: item, artifact, proof, with the self-check preamble | plugin — `references/pass/7-checks.md` § The amendment… |
+| 628 | The amend file lands at `architecture/.claude/briefs/amend-<slug>-N.md` | dropped — the dispatch role's location (vion-dispatch `README.md` § Where they live) |
+| 631-635 | Coordinator targeted reads of every item; a further check on a blocker, scoped `since:<hash>` | dropped — plugin `README.md` § One step of lane 3 is deliberately absent (`7-checks.md` § Closing the round) |
+| 637-640 | The file is the artifact both ways; ingest reads the file, not the transcript; a notification is one line | plugin — `references/pass/2-dispatch.md` § The relay, in both directions |
+| 637-640 | The tools: the `Stop` hook files reports; `/vion-dispatch:ingest` reads the latest per key and unit; `/vion-dispatch:send-report` notifies | `CLAUDE.md` § Lanes in this repo names the role, where plugin `README.md` § Composing it in a repo, step 4, puts it |
+| 641-646 | Inbound delivery is the launcher's setting; the coordinator's own inbound is a workstation setting | plugin — `references/pass/2-dispatch.md` § Use the repo's dispatch role… (the flag spelling is vion-dispatch `README.md` § Cross-session messaging) |
+| 647-648 | The amend file is written first; the message only points at it | plugin — `references/pass/7-checks.md` § The amendment… |
+| 648-650 | Held or silent after two minutes: paste the file, or resume with it only when the tab is closed | plugin — `references/pass/2-dispatch.md` § The relay, in both directions |
+| 650-651 | The sender confirms delivery, not sending | plugin — `references/pass/2-dispatch.md` § The relay… (weaker: no time bound, no tell) |
+| 651-652 | Within a minute, grep the recipient's transcript: `<cross-session-message from-name=…>` is delivery, `Held peer message` is not | dropped — vion-dispatch's markers, which its `README.md` records; the rule is `references/pass/2-dispatch.md` § The relay |
+| 652-657 | Wake on two signals (API-error last text; text unchanged past the longest task); sleep stops the watch | plugin — `references/pass/2-dispatch.md` § Watching a running session |
+
+**8. The scorecard.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 661 | The coordinator fills the scorecard into the change doc before the PR merges | plugin — `references/pass/7-checks.md` § The scorecard (stronger: the PR's correction count after merge) |
+| 663-670 | The six rows: gates, critic misses by sweep, evidence errors, mutation evidence, operator corrections, cost | plugin — `templates/scorecard.md` (this repo's gate names fold into "the repo's own") |
+
+**Appendix — the two check prompts.**
+
+| Lines | Rule | Owner |
+|---|---|---|
+| 674-676 | Both dispatched read-only, fresh-context, capable model, in one response; fill `<…>`, keep method and closing format | plugin — `templates/check-completeness.md`, `templates/check-adversarial.md` (headers; `Agent`/`Explore`/`opus` spelling dropped) |
+| 678-687 | Why they are templates, not commands: one rubric for the review; round prose for the critic; commands are what the operator types | plugin — both templates' "It stays a template" paragraphs (the `T-014` provenance dropped) |
+| 691-741 | The completeness-critic prompt | plugin — `templates/check-completeness.md` (stronger: the `newly-possible` sweep) |
+| 694-731 | Critic fill-ins: discriminator §9, log text not observable §15, data rows are `[DataRow]`s, sample over test roots and scenario files, may run `spec-trace` and one `dotnet test` | § What a pass in this repo adds |
+| 745-803 | The adversarial-review prompt | plugin — `templates/check-adversarial.md` |
+| 746-792, 795 | Adversarial fill-ins: Windows and `pwsh`, `docs/review-checks.md`, §9–17, `sweep-residue-lint`, `spec-lint -Diff main`, `/vion-improve:journal`'s format | § What a pass in this repo adds |
+| 770-773 | Adversarial priority 2 also checks the cross-tier clause where a scenario claims the id, no log assertions, merges as `[DataRow]`s | § What a pass in this repo adds |
+| 794 | Adversarial priority 5 checks `docs/snapshots/publicapi-manifest.json` unchanged or changed only as intended | § What a pass in this repo adds |
+
+**Counts.** 116 rows: plugin 88 · `CLAUDE.md` § Lanes in this repo 4 · § What a pass in this repo adds 15 (none *until the plugin takes it*) · dropped 9.
 
 ### What this does not do
 
@@ -487,6 +653,23 @@ rules of owner 2 may be none.
   formatter enforces. `D13`'s build and suite are one obligation, `dotnet build` then `dotnet test`,
   because `/vion-git:pr` matches only an `On <pattern>:` opening and the second would otherwise
   have had to repeat the six patterns.
+- 2026-10-26: the where-every-rule-goes table has a fourth owner beside the three § The lane-3
+  recipe's retirement names: four rows name the dispatch, report and ingest roles, which the plugin
+  puts in `CLAUDE.md` (its `README.md` § Composing it in a repo, step 4) and `T-010` already wrote
+  there. The REPORT's gate list goes to the plugin, which takes it from `CLAUDE.md`'s pre-PR
+  obligations, and the transcript markers that confirm a delivery are dropped as vion-dispatch's. No
+  generic rule lacks a plugin owner, so nothing is marked *until the plugin takes it* and nothing is
+  proposed to the plugin from this table.
+- 2026-10-26: the roster's *Pinned by* cells are written from the old roster's anchors where it named
+  one, and inferred from the page where it did not — `LIFE`, `IO`, `TKIT`, `HTTP` and the two
+  invariant families; no page carries a "What pins it:" line to copy. dale-sdk's finer minting
+  granularity is stated as the old text's absence of the template's coarsening rule: a bounding row
+  a consumer observes on its own may be a leaf.
+- 2026-10-26: `docs/specs/_invariants.md:8-9` said tiers live in `spec-process.md`; with `D5` that
+  prose was false, so "and tiers" is struck. Prose, not a criterion: no id moves. Sibling sweep:
+  `git grep -niE 'tier [ABC]\b|tiers live'` outside the archive found one more beside the
+  `ScenarioDefinitionSitesShould.cs` comment `T-009` named, `TopologyAuthoringShould.cs:22`'s "(Tier
+  C)", reworded the same way.
 
 ---
 
