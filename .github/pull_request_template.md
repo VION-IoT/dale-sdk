@@ -9,8 +9,8 @@ recorded. `docs/spec-process.md` § Lanes says which lane you are in.
 
 <!-- One to three sentences: what a consumer of the SDK sees change, in their words, not the
 diff's — a behaviour, a diagnostic, a CLI default, a message; nothing consumer-visible is a fine
-answer. Name the spec, brief, change doc or issue. For a change doc's PR this quotes its "Relay notes
-for the PR body" section. -->
+answer. Name the spec, brief, change doc or issue. For a lane-3 round's PR this quotes its change
+doc's "Relay notes for the PR body" section. -->
 
 ## Changes
 
