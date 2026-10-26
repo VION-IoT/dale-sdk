@@ -189,12 +189,20 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
    one App serves every later need from that repository (operator, 2026-10-26) — `D11`.
 2. **(b) `D6`'s cross-tier rule fails rather than warns.** The alternatives are porting it warn-only,
    as it is today, or dropping it; flagged because it turns a note into a gate.
+   **OUTCOME:** kept as written (implementer's call, the work showing nothing against it): the rule
+   fails, and the tree carries no instance — `test-style-lint` on this branch: `OK - 2831 cited
+   test(s) conform`. `T-005`.
 3. **(b) `D5` drops the Tier column.** `testing-conventions.md:476` says "On a Tier A area", which
    becomes "on a traced page" — every page.
+   **OUTCOME:** kept as written. `T-009` made the change; `T-013` then folded §17's citation forms
+   into a pointer at `spec-process.md` § IDs & EARS, where the corpus is traced page by page. Two
+   code comments still said "Tier C" (Drift checkpoints).
 4. **(b) The action floats with architecture's `main`, as at dale and hardware-integration.** A
    plugin change can therefore redden dale-sdk's CI with no dale-sdk commit; the other consumers
    accept that, and `D7`'s partial state makes a desk run that differs from CI's visible. Pinning a
    commit would trade that for a bump per plugin change.
+   **OUTCOME:** kept as written: `ref: main` in the `vion-sdd` job, and `check.ps1` compares the
+   checkout's plugin tree with the one at the origin's `main`. `T-003`, `T-004`.
 5. **(c) The standing rule that every dispatched worker is steered** (`spec-process.md:230-233`,
    operator 2026-09-09) is not read where it is written. `/vion-dispatch:spawn` decides `steer:` from
    two triggers — a STOP the brief names, or a target `CLAUDE.md` that pauses before committing —
