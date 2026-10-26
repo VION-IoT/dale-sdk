@@ -480,6 +480,13 @@ rules of owner 2 may be none.
   repos/actions/create-github-app-token/releases`), and v3.3.0's `action.yml` keeps `client-id`,
   `owner`, `repositories` and `permission-contents`. Sibling sweep: artifacts-mender's pin is its
   own, handed off as a note in the PR body.
+- 2026-10-26: `D10`'s moves alone left `CLAUDE.md` at 11,186 bytes (`wc -c`). It reaches 9,969 by
+  also cutting what the file restated of its targets: the *Read before you write* table's summaries
+  of what each linked doc says (the emission row's rule stays, being a trigger's reason), the
+  sentence describing the `vion-git` hook, which enforces it, and "Allman brace style", which the
+  formatter enforces. `D13`'s build and suite are one obligation, `dotnet build` then `dotnet test`,
+  because `/vion-git:pr` matches only an `On <pattern>:` opening and the second would otherwise
+  have had to repeat the six patterns.
 
 ---
 

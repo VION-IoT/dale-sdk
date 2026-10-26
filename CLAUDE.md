@@ -21,16 +21,16 @@ the work they govern — **read the linked doc before doing the matching work, a
 
 | When you're… | Read |
 | --- | --- |
-| adding or changing an attribute, a public type or member, an analyzer, or anything reaching the introspection JSON | [`docs/sdk-surface-conventions.md`](docs/sdk-surface-conventions.md) — surface minimalism, XML-doc style, delete-don't-deprecate, the analyzer obligation and the **Metalama blind spot**, PublicApi snapshots |
+| adding or changing an attribute, a public type or member, an analyzer, or anything reaching the introspection JSON | [`docs/sdk-surface-conventions.md`](docs/sdk-surface-conventions.md) — including the analyzer obligation and the **Metalama blind spot** |
 | touching the emission pipeline, or a member carrying both `[ServiceProperty]` and `[ServiceMeasuringPoint]` | [`docs/specs/emission.md`](docs/specs/emission.md) — the two streams are independent, so never key per-member state by `(service, member)` name alone, and never read a member's knobs off a `PropertyInfo` without being told which stream is served |
-| writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) — MSTest inside / xunit.v3 outside, analyzer tests vs the real compilation, packed-artifact verification, determinism, and the authoring discipline (§9–17: behavior tables, prove-red, naming, Moq, async) |
-| changing specified behavior, or dispatching an implementing session | [`docs/spec-process.md`](docs/spec-process.md) — the spec corpus (`docs/specs/`), the change-doc lane (`docs/changes/`), the three lanes work runs in and lane 3's recipe, the launcher recipe, the gates |
-| writing or reworking an inline comment | [`docs/comment-conventions.md`](docs/comment-conventions.md) — why not what, a comment is a claim, no history/tickets, name the concrete failure |
-| touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/specs/devhost-control.md`](docs/specs/devhost-control.md) — what the host guarantees in process, over HTTP and on stdout; and [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md); after a change here, the `devhost-smoke` skill verifies it |
-| writing a simulator block or a provider face (the peer a bench needs on the far side of a contract) | [`docs/simulator-authoring.md`](docs/simulator-authoring.md) — provider faces, the ideal-I/O echo recipe, when to model the device instead |
-| renaming anything that reaches introspection (service, member, contract, interface, enum member, enum/struct type, PackageId) | [`docs/specs/introspection.md`](docs/specs/introspection.md) — the document, and which C# name keys each element; [`docs/identifier-stability.md`](docs/identifier-stability.md) is the short practical companion |
-| touching any `Vion.Dale.Sdk.*TestKit` package or one of their test projects | [`docs/specs/testkit.md`](docs/specs/testkit.md) — what the six kits guarantee a block author: the builder's phases and knobs, the verification family and its `Times` default, the raise helpers, virtual time's two drivers, the Modbus and HTTP fakes, and what a kit costs the SDK |
-| touching `Vion.Dale.Sdk.Modbus.*` or either Modbus example | the `modbus-smoke` skill ([`.claude/skills/modbus-smoke/`](.claude/skills/modbus-smoke/SKILL.md)) — the link policy over a real socket pair on `127.0.0.1:15020`; real clock, ~1 min |
+| writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) |
+| changing specified behavior, or dispatching an implementing session | [`docs/spec-process.md`](docs/spec-process.md) — the corpus, the lanes, what a pass here adds, the gates |
+| writing or reworking an inline comment | [`docs/comment-conventions.md`](docs/comment-conventions.md) |
+| touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/specs/devhost-control.md`](docs/specs/devhost-control.md) and [`docs/devhost-conventions.md`](docs/devhost-conventions.md); the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md); after a change here, the `devhost-smoke` skill verifies it |
+| writing a simulator block or a provider face (the peer a bench needs on the far side of a contract) | [`docs/simulator-authoring.md`](docs/simulator-authoring.md) |
+| renaming anything that reaches introspection (service, member, contract, interface, enum member, enum/struct type, PackageId) | [`docs/specs/introspection.md`](docs/specs/introspection.md); [`docs/identifier-stability.md`](docs/identifier-stability.md) is the short practical companion |
+| touching any `Vion.Dale.Sdk.*TestKit` package or one of their test projects | [`docs/specs/testkit.md`](docs/specs/testkit.md) |
+| touching `Vion.Dale.Sdk.Modbus.*` or either Modbus example | the `modbus-smoke` skill ([`.claude/skills/modbus-smoke/`](.claude/skills/modbus-smoke/SKILL.md)) |
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
 | reviewing a change | `/vion-git:review` — it reads [`docs/review-checks.md`](docs/review-checks.md), this repo's named checks |
@@ -40,10 +40,9 @@ structure. Do not invent new patterns; name the precedent you followed.
 
 **Design docs are change docs in [`docs/changes/`](docs/changes/)** per
 [`docs/spec-process.md`](docs/spec-process.md); the current-truth spec corpus is
-[`docs/specs/`](docs/specs/). There is no `docs/rfcs/`, and nothing left to add one to.
-`docs/superpowers/` is **gitignored** (`.gitignore:301`) per architecture decision 0011, so anything
-a planning skill writes there cannot be committed — `git check-ignore` is the tell; redirect anything
-meant to last to `docs/changes/`. Cross-repo specs live in `../architecture/specs/`, never here.
+[`docs/specs/`](docs/specs/). `docs/superpowers/` is **gitignored** (`.gitignore:301`), so anything a
+planning skill writes there cannot be committed; redirect anything meant to last to `docs/changes/`.
+Cross-repo specs live in `../architecture/specs/`, never here.
 
 ## Working agreement
 
@@ -95,18 +94,25 @@ At the start of a task, answer two questions out loud: is the change local? is a
 | editing a file written for the agent — `CLAUDE.md`, a command, a skill, a convention doc, settings | `/vion-improve:harness` |
 | the branch is ready for a pull request | `/vion-git:pr` |
 | a retro is due, by the count and age `retro` states | `/vion-improve:retro` |
+| work changes specified behaviour — a criterion fixed, behaviour new or reshaped | `/vion-sdd:change` |
+| a whole area is brought to current truth | `/vion-sdd:pass` |
 
 ### Lanes in this repo
 
 The block's **Fix-sized** is lane 1 and **Feature-sized** is lane 2 of
-[`docs/spec-process.md`](docs/spec-process.md) § Lanes, which owns all three and what each obliges.
+[`docs/spec-process.md`](docs/spec-process.md) § Lanes, which owns all three and what each obliges;
+lane 3 is `/vion-sdd:pass`, whose roles are: dispatch `/vion-dispatch:spawn`, report
+`/vion-dispatch:report`, ingest `/vion-dispatch:ingest`, git flow `/vion-git:branch`, `commit` and `pr`.
 Kind is not lane: the branch prefix names what the change is for release notes, the lane names its
 process weight.
 
 ### Pre-PR obligations
 
-1. On `*.cs`: `/cleanup`; commit what it changes.
-2. `/check`, with `-Build` and `-Test` when the change touches C#.
+1. On `*.cs`, `*.csproj`, `Vion.Dale.Sdk.sln`, `Vion.Dale.Sdk.sln.DotSettings`, `Directory.Build.props`,
+   `Directory.Build.targets`, `.config/dotnet-tools.json`: `/cleanup`; commit what it changes.
+2. On `*.cs`, `*.csproj`, `Vion.Dale.Sdk.sln`, `Directory.Build.props`, `Directory.Build.targets`,
+   `.config/dotnet-tools.json`: `dotnet build Vion.Dale.Sdk.sln`, then `dotnet test Vion.Dale.Sdk.sln`.
+3. `/check`.
 
 The pull request body follows [`.github/pull_request_template.md`](.github/pull_request_template.md),
 which adds `## Draft items`, `## Spec ids touched` and `## Gates` to the base sections.
@@ -116,13 +122,13 @@ which adds `## Draft items`, `## Spec ids touched` and `## Gates` to the base se
 Beyond `/vion-git:pr`'s defaults:
 
 - contract: `docs/specs/**`
+- harness: `docs/spec-process.md`, `docs/*-conventions.md`, `docs/releasing.md`
 - generated: `docs/snapshots/**`
 
 ### Parallel sessions
 
 The main checkout, `C:\_gh\dale-sdk`, stays on `main`; a branch lives in `../dale-sdk-<key>`
-(`/vion-git:branch`). The `vion-git` hook denies a write the main checkout's git does not ignore, and
-a branch or commit made there.
+(`/vion-git:branch`).
 
 A new worktree gets nothing copied into it, so it lacks the main checkout's ignored local state:
 
@@ -139,24 +145,6 @@ whichever checkout it runs from.
 
 CI regenerates `docs/snapshots/*` and commits them onto the pull request head. That commit is
 accepted; pull before the next push.
-
-## Building
-
-```bash
-dotnet build Vion.Dale.Sdk.sln
-dotnet test Vion.Dale.Sdk.sln
-```
-
-## Code Style
-
-- Code cleanup: `/cleanup` (`scripts/cleanup-code.ps1`); never the `Built-in: Reformat Code` profile, which fights cleanup-on-save.
-- Allman brace style throughout.
-
-**Formatter escape hatch:** for the rare span where `cleanupcode` formats inconsistently
-across OSes (local vs the Linux CI runner) or where you intentionally hand-format (e.g. an
-aligned table), wrap it in `// @formatter:off` / `// @formatter:on` with a short reason
-comment — `cleanupcode` honors these on every OS, so the style gate stays green. Use it
-sparingly and locally, never to opt a whole file out.
 
 ## Feedback intake
 

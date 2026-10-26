@@ -19,3 +19,12 @@ Run the repo's canonical code-cleanup and report the result:
 This is the same cleanup CI enforces, so running it now keeps the style gate from
 failing the PR. The script captures cleanupcode's (benign, noisy) output and only
 surfaces it if cleanupcode itself fails — so a quiet run means success.
+
+Never run `cleanupcode` with `--profile="Built-in: Reformat Code"`: it differs from the profile in
+`Vion.Dale.Sdk.sln.DotSettings` that the script and CI use, and fights cleanup-on-save.
+
+**Formatter escape hatch.** For the rare span where `cleanupcode` formats inconsistently across
+operating systems (a local run against the Linux CI runner), or one formatted by hand on purpose (an
+aligned table, for example), wrap it in `// @formatter:off` / `// @formatter:on` with a short reason
+comment — `cleanupcode` honours these on every operating system, so the style gate stays green. Use
+it sparingly and locally, never to opt a whole file out.
