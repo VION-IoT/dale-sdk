@@ -1,15 +1,14 @@
 # Testing conventions
 
-Read this before writing or changing a test. §1–8 are this repo's specific traps; §9–17 are the
-authoring discipline (adapted from mesh's testing conventions), applied in full whenever a test is
-written or rewritten — a lane-3 round ([`spec-process.md`](spec-process.md)) brings whole suites to it.
+§1–8 are this repo's specific traps; §9–17 are the authoring discipline, applied in full whenever a
+test is written or rewritten.
 
 ## 1. Which framework — it depends which side of the package boundary you are on
 
-| Where | Framework | Count today |
-| --- | --- | --- |
-| SDK-internal test projects (`Vion.Dale.*.Test`) | **MSTest** | 20 (all of them) |
-| Consumer-facing — `examples/*.Test`, `libraries/*.Test`, `templates/*.Test` | **xunit.v3** | 11 |
+| Where | Framework |
+| --- | --- |
+| SDK-internal test projects (`Vion.Dale.*.Test`) | **MSTest** |
+| Consumer-facing — `examples/*.Test`, `libraries/*.Test`, `templates/*.Test` | **xunit.v3** |
 
 Both are present in the solution on purpose: the second group models what a library author writes, and
 the shipped `Vion.Dale.DevHost.Xunit` integration exists to serve them. A new SDK test project written
@@ -27,9 +26,7 @@ counting.
 
 - **Assert state, not hop counts.** Timing and message interleaving are not part of the contract at
   runtime; a test that counts convergence hops encodes an implementation detail and breaks when the
-  scheduler changes. This was the guidance given to the first consumer adopting stepping: *"They should
-  assert the state, not the process details, right? At runtime timing is not deterministic, so their
-  test should not rely on it"*.
+  scheduler changes.
 - **A "no-throw" assertion is not a test.** Asserting that driving a contract does not throw passes
   when the message is silently dropped. Assert the **consuming block received it** — a positive
   round-trip, not the absence of an exception.
@@ -37,13 +34,13 @@ counting.
   prove the write was refused; assert the value is unchanged.
 - **A fix has a test proven red.** Revert the fix, watch the new test fail, restore. Say so in the PR
   description — there is no cheap gate for this, so the claim is the record.
-- **Prefer parameterised rows over near-duplicate methods** — `[DataRow]` on the MSTest side (19 files
-  use it), `[Theory]` + `[InlineData]` on the xunit side.
+- **Prefer parameterised rows over near-duplicate methods** — `[DataRow]` on the MSTest side,
+  `[Theory]` + `[InlineData]` on the xunit side.
 
 ## 3. Analyzer tests must reproduce the real compilation
 
 Analyzer unit tests build a small compilation from stub sources. That compilation is **not** what a
-consumer's build looks like, and the difference has already shipped a dead analyzer:
+consumer's build looks like:
 
 - Contract interfaces emitted by `LogicClassGenerator` are **absent** from the compilation analyzers
   see in a real (Metalama-hosted) build. A stub interface that resolves cleanly in a test does not
@@ -51,15 +48,14 @@ consumer's build looks like, and the difference has already shipped a dead analy
   interface is genuinely unresolved — the test expects `CS0246` alongside the Dale diagnostic. Details
   and the required by-symbol-**and**-by-name resolution:
   [`sdk-surface-conventions.md`](sdk-surface-conventions.md) § 5.
-- **An analyzer that is referenced is not necessarily running.** Proving it used to mean breaking a real
-  declaration by hand and remembering to revert. The standing form is a committed probe: an invalid
-  declaration excluded from the ordinary build, compiled by a test that shells out to MSBuild and
-  requires the diagnostic to fail it (`AnalyzerWiringShould` +
-  `Vion.Dale.Sdk.Generators.Test/AnalyzerWiring/`, linked into the project under test — never a source file
-  of a shipped project).
-- **Test rules in combination, not only in isolation.** The supported-type gate is spread across
-  `DALE003`, `DALE016` and `DALE008`; each one's tests passed while a newly supported value type was
-  still rejected by a sibling rule, and it shipped broken.
+- **An analyzer that is referenced is not necessarily running.** The proof is a committed probe: an
+  invalid declaration excluded from the ordinary build, compiled by a test that shells out to MSBuild
+  and requires the diagnostic to fail it (`AnalyzerWiringShould` +
+  `Vion.Dale.Sdk.Generators.Test/AnalyzerWiring/`, linked into the project under test — never a source
+  file of a shipped project).
+- **Test rules in combination, not only in isolation.** A gate spread across several diagnostics — the
+  supported-type gate is `DALE003`, `DALE016` and `DALE008` — can pass each rule's tests while a sibling
+  rule still rejects the case one of them was changed to allow.
 - **A local run is one culture and one OS; CI's runner is another.** A diagnostic that renders a
   number formats it in the invariant culture (`sdk-surface-conventions.md` § 4), and the test that
   pins the message expects the invariant text — never the symbol the developer's machine happens to
@@ -76,8 +72,7 @@ The introspection JSON that cloud-api reads is produced by `Vion.Dale.LogicBlock
 - **`tools/publish/*.json` is gitignored build output** (`.gitignore` ignores `publish/`). There is no
   checked-in copy to inspect or regenerate.
 - So: to verify what a consumer will actually receive, `dotnet pack` the example and read the JSON out
-  of the produced package — *"check the introspection result … by looking at the json of the packed
-  energy examples nugpk"*. Derive the expectations from the sources and check them off against the
+  of the produced package. Derive the expectations from the sources and check them off against the
   packed file, rather than reading the file and describing it.
 - In-repo, pin the emitted shape with **golden assertions** at introspection level
   (`ContractCarriedServiceRelationsShould`) so a wire change cannot land silently, and run the real
@@ -91,16 +86,14 @@ The introspection JSON that cloud-api reads is produced by `Vion.Dale.LogicBlock
 
 Scenarios run under either a stepped virtual clock or the real clock. A step that cannot work in the
 active mode is **rejected**, not tolerated — see [`devhost-conventions.md`](devhost-conventions.md) § 3
-for the rule and its history. When you add a step kind, decide its behaviour in both modes and make the
-unsupported combination an error the runner reports.
+for the rule. When you add a step kind, decide its behaviour in both modes and make the unsupported
+combination an error the runner reports.
 
 - Under stepping, `advance` / `waitUntil` must return only once every message due in the advanced
-  window has been processed. Sampling before quiescence is what made `ScenarioSteppingShould` flake in
-  the parallel CI suite while passing 10/10 locally: the DevHost's `InFlight` bracketing covered the
-  handler but not the whole mailbox run.
-- **A flake that does not reproduce locally is still a real bug.** Windows timer coarseness hid the
-  above entirely; the fix was verified by CI, not by a local loop. Do not close a flake as
-  unreproducible.
+  window has been processed — the whole mailbox run, not only the handler. Sampling before quiescence
+  flakes in the parallel CI suite while passing every local run.
+- **A flake that does not reproduce locally is still a real bug.** Windows timer coarseness can hide
+  one entirely; verify its fix on CI, not by a local loop. Do not close a flake as unreproducible.
 - **Examples used in scenarios must be deterministic.** `Vion.Examples.Energy`'s `OpenMeteoService`
   calls `https://api.open-meteo.com/v1/forecast` live, and `PhotovoltaicsSimulation` consumes it
   through `WeatherDataService` — so that path cannot carry a scenario assertion. Assert around it, or
@@ -115,45 +108,32 @@ Tier 2 drives the real SPA. Details: [`devhost-conventions.md`](devhost-conventi
 
 ## 7. Reach for the seam, not for reflection
 
-Reading private fields out of a type to assert on them is a signal the type has no test seam. It is a
-finding on new tests: *"i see reflection used in unit tests to get _serviceBinder etc, is there no
-better way currently to validate the it?"* — either assert through the public introspection result, or
-add the seam.
+A test reading private fields out of a type to assert on them is a finding: either assert through the
+public introspection result, or add the seam. Which seam depends on the question the reach was
+asking — emission policy is read back through the kit's `VerifyServicePropertyEmitted`; what a block
+**bound** is `LogicBlockBase.BoundInterfaceIdentifiers()`, which `InterfaceBindingShould` and
+`GatedMemberBindingShould` assert against.
 
-**No test in this repository does it today.** The site this paragraph used to name —
-`Vion.Dale.Sdk.TestKit.Test/EmissionPolicyShould.cs`, reaching `LogicBlockBase._serviceBinder` by
-`BindingFlags.NonPublic` — was retired by the `EMIT` pass, which put the answer on the wire instead.
-Which seam replaces such a reach depends on the question it was asking. That one was about **emission
-policy**, and the test now reads the emitted value back through the kit's own
-`VerifyServicePropertyEmitted`. A reach asking what a block **bound** is answered by
-`LogicBlockBase.BoundInterfaceIdentifiers()`, which is what `InterfaceBindingShould` and
-`GatedMemberBindingShould` assert against. Naming the wrong one of the two sends the next author to a
-seam that cannot answer their question.
+The rule is about **tests**. The TestKit's own *production* code reaches for three private fields —
+`_serviceBinder` and `_interfaces` on the builder, `_timerCallbacks` on the timer helpers — because
+it stands in for a runtime that has no other way to hand those over, and
+[`specs/testkit.md`](specs/testkit.md) states them as part of what a kit costs the SDK.
 
-The distinction the rule turns on is **kit code against kit tests**. The TestKit's own *production*
-code still reaches for three private fields — `_serviceBinder` and `_interfaces` on the builder,
-`_timerCallbacks` on the timer helpers — because it is standing in for a runtime that has no other
-way to hand those over, and `docs/specs/testkit.md` states them as part of what a kit costs the SDK.
-That is a shipped surface's business. A *test* reaching for a private field is the finding this
-section is about, and there are none.
-
-**The seam is usually already on the wire.** The `GATE` pass retired three such sites — this list
-named one of them and did not know about the other two — without adding a single member to any SUT:
-a block announces its bound service map in `BindLogicBlockServices` at the end of initialization, and
-hands over its persistent state in response to `GetPersistentDataSnapshotRequest` after a stop. Both
-are messages the runtime already sends, so a test that drives the real message sequence can read the
-answer off them. Look for that before concluding a type has no seam.
+**The seam is usually already on the wire.** A block announces its bound service map in
+`BindLogicBlockServices` at the end of initialization, and hands over its persistent state in response
+to `GetPersistentDataSnapshotRequest` after a stop. Both are messages the runtime already sends, so a
+test that drives the real message sequence can read the answer off them. Look for that before
+concluding a type has no seam.
 
 The same rule in its other costume: **no test-only accessors** — never add a member to the SUT
 whose sole purpose is letting tests inspect internal state. It widens the published surface for
-non-production reasons (CHK-01 territory) and couples tests to the current representation. If neither
-the introspection result, an event, a return value, nor a collaborator can observe the behavior,
-stop and surface the design issue rather than carving a hole in the SUT. A **seam** a test
-overrides — an injected transport, a redirectable store root, a console a renderer writes through —
-is not a test-only accessor when production composes the SUT through the same member from one
-composition root, so the test overrides a value production also sets; a static setter only tests
-call is one, whatever production reads afterwards. Two checks of one pass disagreed on exactly this
-until the composition root existed.
+non-production reasons (CHK-01) and couples tests to the current representation. If neither the
+introspection result, an event, a return value, nor a collaborator can observe the behavior, stop and
+surface the design issue rather than carving a hole in the SUT. A **seam** a test overrides — an
+injected transport, a redirectable store root, a console a renderer writes through — is not a
+test-only accessor when production composes the SUT through the same member from one composition
+root, so the test overrides a value production also sets; a static setter only tests call is one,
+whatever production reads afterwards.
 
 ## 8. The machine baseline
 
@@ -167,10 +147,8 @@ Do not spend review effort on anything these three would catch.
 
 The SDK's own build carries **zero `DALE` warnings**. A deliberately illegal fixture gets a
 `#pragma warning disable` with its reason, so the count stays a signal rather than a background
-level. The reason is **gated** (`scripts/pragma-reason-lint.ps1`, in `spec-gates.yml`): a directive
-with no comment reaching it, or one built from nothing but the directive's own words, fails. It
-belongs after the directive or directly above it, where the next reader is — not above the class,
-which is where four of them sat while the rule was prose.
+level. The reason belongs after the directive or directly above it, where the next reader is — not
+above the class; `scripts/pragma-reason-lint.ps1` gates it.
 
 **CI runs the suite in a shape a local run does not.** Where a fixture asserts a build-time literal,
 run it CI's way once — `dotnet test <project> -p:Version=0.0.0-ci.1` — because CI passes `Version` as
@@ -180,10 +158,7 @@ A proof about what the build decides — which projects pack, which assemblies c
 what a property evaluates to — is taken from the build system's evaluation (`dotnet msbuild <csproj>
 -getProperty:<name>`, the generated `AssemblyInfo.cs` under `obj/`, a full `--no-incremental` build's
 diagnostics), never from a regex over the csprojs: MSBuild's defaults and the packages' props decide
-what the file does not say. Two claims fell that way in one pass — a roster proof that matched
-`<IsPackable>true</IsPackable>` and could not see a package packable by default, and a
-parallelisation claim read off three csprojs whose test-framework props set the property the claim
-said was missing.
+what the file does not say.
 
 A transient `CSC error LAMA0601: … Insufficient system resources` after many host boots is a process
 leak, not a test failure: `dotnet build-server shutdown`, kill stray `dotnet` / `VBCSCompiler` /
@@ -192,22 +167,19 @@ leak, not a test failure: `dotnet build-server shutdown`, kill stray `dotnet` / 
 `An Application Control policy has blocked this file. (0x800711C7)` is a Windows host refusing an
 assembly the suite just produced, never a broken reference — a package or reference break says so in
 the restore or compiler output instead. Check `HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy` →
-`VerifiedAndReputablePolicyState: 1`, which is Smart App Control enforcing. It reaches the suite in two
-shapes, and only the second names itself:
+`VerifiedAndReputablePolicyState: 1`, which is Smart App Control enforcing. It reaches the suite in
+three shapes, and only the second names itself:
 
 - **A build output.** An xunit project reports `Catastrophic failure: … Test process did not return
   valid JSON (non-object)` and discovers no test, because the test process died loading its own
-  `.dll`. Run the test assembly's own `.exe` to get the real error — the runner swallows it. Observed
-  on `Vion.Examples.Emission.Test` and `Vion.Examples.Http.IntegrationTest`, where a clean rebuild
-  reproduced it byte-for-byte and appending one comment to a source file cleared it.
+  `.dll`. Run the test assembly's own `.exe` to get the real error — the runner swallows it. A clean
+  rebuild can reproduce it byte-for-byte while a one-comment source change clears it.
 - **An assembly the tests emit at run time**, which carries a fresh name per run and so is blocked
-  intermittently: `Vion.Dale.Plugin.Test` failed 2, then 2, then 1 of 40 across consecutive runs, each
-  on a different `%TEMP%\dale-plug-*\Shared*.dll`.
-- **The analyzer assembly a probe build loads**, which fails as a *wiring* regression and is the most
-  misleading of the three: all six `AnalyzerWiringShould.RunDaleAnalyzersOverTestKits` rows failed
-  saying "the Dale analyzers did not run over it", which is true and is the point of the test — but
-  the cause was `CSC : warning CS8034: Unable to load Analyzer assembly … Vion.Dale.Sdk.Generators.dll`
-  carrying the same `0x800711C7`. Read the probe build's `CS8034` before believing the assertion.
+  intermittently, each run on a different `%TEMP%\dale-plug-*\Shared*.dll`.
+- **The analyzer assembly a probe build loads**, which fails as a *wiring* regression:
+  `AnalyzerWiringShould` reports that the Dale analyzers did not run, and the cause is `CSC : warning
+  CS8034: Unable to load Analyzer assembly … Vion.Dale.Sdk.Generators.dll` carrying the same
+  `0x800711C7`. Read the probe build's `CS8034` before believing the assertion.
 
 So a differing configuration or a green re-run is a way to get the suite through, never proof of the
 diagnosis: the block attaches to the artefact, not to the project. Judge such a failure on Linux CI,
@@ -242,7 +214,7 @@ explicit throws-test exactly when "just catch and ignore it" is a plausible futu
 
 **A test deleted because "another gate already covers this" names the gate and its failure mode** in
 the commit. A snapshot that is regenerated and auto-committed gates nothing, and a warning-level
-diagnostic fails no build — two suites lost a test to that sentence and had to restore it.
+diagnostic fails no build.
 
 ## 10. Enumerate the behaviors before writing the tests
 
@@ -259,11 +231,8 @@ gap by reading fifty test bodies takes an hour. **Rows with no test are the poin
 with the reason (unobservable, covered elsewhere) rather than omitting them. Derive rows from the
 SUT and the spec page, never from the tests already written. Produce it whenever the request is
 about *coverage* (a new `…Should` class, "write tests for this", a rewrite); skip it when the
-request names the behavior ("add a test for the timeout path").
-
-This is the same artifact a lane-3 extraction produces
-([`spec-process.md`](spec-process.md)) — there each row additionally carries `file:line` evidence,
-its recommended disposition, and the AC id it is minted into.
+request names the behavior ("add a test for the timeout path"). A lane-3 extraction's behavior table
+is the same artifact with more columns.
 
 ## 11. A test must be able to fail — the vacuous-test catalogue
 
@@ -292,15 +261,11 @@ The recurring shapes:
 **Prove every new behavioral test red** (§2 states it for fixes): revert the fix or delete the
 branch, watch it fail, restore — and **name the mutation in the PR** ("made the replay conditional →
 `PublishAllStatesToLateSubscriber` fails"). A red-proof belongs to the assertion it ran against;
-re-prove after rewriting it. This repo has paid for the alternative twice in one month: a
-late-subscriber test green against the pre-fix code because the drive's own event satisfied the
-waiter, and an `AdvanceTime` regression row that was a slower copy of the flush row — both exposed
-only by the revert.
+re-prove after rewriting it.
 
 **A test that pins an ordering, a bound or an edge value runs its own mutation once before it is
-cited.** A flush-ordering test survived its mutation for a whole round, because the put-back landed
-in a queue the snapshot had just emptied — where inserting at the head and appending coincide. A test
-that survives its mutation pins nothing.
+cited.** Two orders can coincide on the fixture — inserting at the head of an empty queue and
+appending to it — and a test that survives its mutation pins nothing.
 
 **A red run is read for the assertion that failed.** A test that fails on its own reddens under every
 mutation, so a red summary line proves nothing until the failure message is the claim's own and the same
@@ -318,12 +283,12 @@ observable passes under either, and its mutation proves the mechanism exists, no
 one. Build the case where the wrong reading gives a different observable.
 
 **A `[DataRow]` merge is a rewrite of the assertion**: re-derive the mutation after it, or the merge
-is a deletion. One merge dropped a criterion's own sentence and nothing noticed until the review.
+is a deletion.
 
 **A mutation that survives is a hypothesis about the test as much as about the mutation.** When
-another mechanism produces the same observable — a stop's drain republished the value the hook wrote,
-so a test about the started flag read green with the flag already down — remove *that mechanism* from
-the fixture (a controllable clock turns the emission policy off) rather than strengthen the mutation.
+another mechanism produces the same observable — a stop's drain republishing the value a hook wrote,
+for example — remove *that mechanism* from the fixture (a controllable clock turns the emission policy
+off) rather than strengthen the mutation.
 
 **Settle step-versus-field with the mutation.** Fields are the arguments of one call; steps are
 calls in a sequence. Mutate once per candidate assertion: assertions that redden under *different*
@@ -335,11 +300,9 @@ together are one behavior in one test.
 Form a sentence with the class name — `[Sut]Should` + `[ExpectedResult][Condition]`:
 `DeliverWriteIssuedFromStopping`, `ThrowWhenPayloadEmpty`, `RefuseDriveWhenUnmapped`.
 
-The no-articles rule below and §13's marker rule are **gated** for every test that cites a spec id
-(`scripts/test-style-lint.ps1`, in `spec-gates.yml`): citing an id is what a suite does once it has
-been brought to this style, so the gate ratchets with the corpus and never sweeps a legacy suite
-early. Projects a suite cites from without owning are exempt in the script, each entry with its
-reason.
+The no-articles rule below and §13's marker rule hold for every test that cites a spec id, and
+`scripts/test-style-lint.ps1` gates them there: citing an id is what a suite does once it has been
+brought to this style, so the gate ratchets with the corpus and never sweeps a legacy suite early.
 
 - **Name the behavior, not the collaborator** — `ReturnStoredTopology` ✓, `ReturnTopologyFromRepositoryProvider` ✗.
   Exception: routing SUTs, where the destination *is* the behavior.
@@ -457,10 +420,10 @@ remainder:
   remove it.
 - **A wall-clock bound is never the discriminator** when the stepped clock or the branch's own
   effect is observable: force the SUT onto its real-clock branch and assert that branch's effect.
-  A bound standing in for the claim flakes under load and says nothing about behaviour (one pass
-  wrote three and replaced all three). Where nothing but wall time is observable — a private
-  budget with no injection seam — make the window's *expiry* the assertion, the one shape load can
-  only make more likely to hold, and say so in the class summary.
+  A bound standing in for the claim flakes under load and says nothing about behaviour. Where nothing
+  but wall time is observable — a private budget with no injection seam — make the window's *expiry*
+  the assertion, the one shape load can only make more likely to hold, and say so in the class
+  summary.
 - **A negative without a synchronisation point is vacuous** — anchor `Times.Never` on a real signal
   the SUT emits under the same conditions, or don't write it.
 - No `Interlocked`/`lock` for ordinary test state — awaiting the SUT serializes its work onto the
@@ -468,29 +431,19 @@ remainder:
 
 **A suite that gains a real-clock interaction** — a runner loop, a captured console, a background
 host — **runs five times in a row**, every result line pasted, before it is handed over. A pasted run
-count is not itself a proof against load: one suite passed three runs and failed a reviewer's first.
-The race is fixed, never outrun.
+count is not itself a proof against load. The race is fixed, never outrun.
 
 ## 17. Citing spec ids
 
-On a traced page ([`spec-process.md`](spec-process.md) — every roster page is), a test that proves
-an acceptance criterion carries the id as a quoted literal — MSTest `[TestProperty("spec",
-"AC-EMIT-001.1")]`, xunit `[Trait("spec", "AC-EMIT-001.1")]`, a committed scenario's `"specs":
-["AC-SCEN-003.1"]` — which is what the plugin's `spec-trace` counts; a comment or method-name mention does not bind. The gate
-matches any quoted `"AC-…"` literal, so an id belongs in exactly those three forms and in no other
-string — an assert message or an expectation array (a `CollectionAssert` over ids) carrying one
-would bind by accident; read the ids off the artifact under test instead. An id proven by **both** a unit
-test and a scenario states which half each tier owns in the test class summary (a "Cross-tier"
-clause; `test-style-lint` fails a citing file missing it).
+A test that proves an acceptance criterion carries the id in one of the three quoted-literal forms
+[`spec-process.md`](spec-process.md) § IDs & EARS names, which also says what a citation proves and
+when a criterion stays `GAP`; read the criterion's text against the assertion before adding the tag,
+whoever asked for it. An id proven by **both** a unit test and a scenario states which half each tier
+owns in the test class summary — a "Cross-tier" clause, which `scripts/test-style-lint.ps1` requires
+of a citing file.
 
 **A premise test cites no id, by design.** A test that pins an implementation *premise* rather than a
 criterion — two parsers agreeing on every conformance vector, two code paths a design relies on
 staying in step — has no consumer-observable requirement to hang itself on, and minting one would
 mint a criterion no mutation reddens. Its class summary says so, the PR that writes it lists it, and
 `spec-trace` never sees it. Never mint a criterion to hold a premise test.
-
-**Citing is not proving.** `spec-trace` checks that a cited id exists, not that its sentence states
-what the test asserts — read the criterion's text against the assertion before adding the tag,
-whoever asked for it ([`spec-process.md`](spec-process.md) § IDs & EARS). And because the gate un-GAPs
-an id the moment any test carries it, a criterion the suite cannot actually reach stays `GAP` however
-many tests name it.

@@ -14,8 +14,7 @@ The Vion Dale SDK is an IoT runtime SDK for actor-based logic blocks. This repos
 
 The private Vion Dale runtime lives in a separate repository and consumes the packages published from here as NuGet packages.
 
-This file is the always-loaded contract. Detail lives in the convention docs below, loaded when you do
-the work they govern — **read the linked doc before doing the matching work, and follow it.**
+Detail lives in the convention docs below, loaded when you do the work they govern — **read the linked doc before doing the matching work, and follow it.**
 
 ## Read before you write
 
@@ -157,5 +156,5 @@ skill ([`.claude/skills/dale-sdk-feedback/`](.claude/skills/dale-sdk-feedback/SK
 ## How this file stays true
 
 Harness budgets, in bytes of the committed file: this file 10 kB, a `.claude/commands/*.md` 12 kB,
-any other `.claude/**/*.md` 6 kB; `docs/review-checks.md` 15 checks. No gate reads these numbers —
-enforced by hand.
+any other `.claude/**/*.md` 6 kB, `docs/testing-conventions.md` 31 kB; `docs/review-checks.md` 15
+checks. No gate reads these numbers — enforced by hand.
