@@ -16,6 +16,9 @@
       `// Act` marker, or the combined `// Arrange / Act` / `// Act / Assert`
       (§13: "Every test carries // Arrange, // Act, // Assert — always")
 
+  And per id: one a test file cites and a committed scenario also claims needs a
+  "Cross-tier" clause in a citing file (§17), saying which half each tier owns.
+
   Scans every *.Test directory in the repo (the xunit projects live nested under
   examples/, libraries/, templates/), skipping bin/ and obj/.
 #>
@@ -226,6 +229,40 @@ foreach ($file in (Get-ChildItem -Path $testRoots -Recurse -Filter *.cs -ErrorAc
         if ($body -notmatch $markerRx) {
             $problems.Add("${rel}:${line}: '$name' has no Triple-A markers (testing-conventions section 13: Triple-A markers)")
         }
+    }
+}
+
+# Cross-tier (section 17): an id a test file cites and a committed scenario also claims is proven
+# twice, and the file states which half each tier owns in a "Cross-tier" clause - one citing file
+# carrying it is enough for the id. Read over the same roots the trace counts coverage in: every
+# *.Test directory and the DevHost smoke host, any quoted id in a .cs file, a scenario's quoted ids.
+$tierRoots = @($testRoots)
+$smokeHost = Join-Path $RepoRoot 'Vion.Dale.DevHost.SmokeHost'
+if (Test-Path -LiteralPath $smokeHost) { $tierRoots += $smokeHost }
+$quotedIdRx = '"((?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?)"'
+$scenarioIds = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($file in (Get-ChildItem -Path $tierRoots -Recurse -Filter *.scenario.json -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' })) {
+    foreach ($m in [regex]::Matches((Get-Content -Raw -LiteralPath $file.FullName), $quotedIdRx)) { [void]$scenarioIds.Add($m.Groups[1].Value) }
+}
+$citingFiles = @{}
+$hasClause = @{}
+foreach ($file in (Get-ChildItem -Path $tierRoots -Recurse -Filter *.cs -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' })) {
+    $raw = Get-Content -Raw -LiteralPath $file.FullName
+    $rel = ($file.FullName.Substring($RepoRoot.Length).TrimStart('\', '/')) -replace '\\', '/'
+    $hasClause[$rel] = $raw -match '(?i)cross-tier'
+    foreach ($m in [regex]::Matches($raw, $quotedIdRx)) {
+        $id = $m.Groups[1].Value
+        if (-not $scenarioIds.Contains($id)) { continue }
+        if (-not $citingFiles.ContainsKey($id)) { $citingFiles[$id] = [System.Collections.Generic.HashSet[string]]::new() }
+        [void]$citingFiles[$id].Add($rel)
+    }
+}
+foreach ($id in $citingFiles.Keys) {
+    if (@($citingFiles[$id] | Where-Object { $hasClause[$_] }).Count) { continue }
+    foreach ($rel in $citingFiles[$id]) {
+        $problems.Add("${rel}: cites $id, which a committed scenario also claims, with no 'Cross-tier' clause in the file (testing-conventions section 17)")
     }
 }
 

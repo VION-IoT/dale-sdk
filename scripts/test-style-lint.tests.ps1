@@ -316,6 +316,29 @@ public class VerbatimShould
     if ((Invoke-Lint) -ne 1) { throw "Case 10b (`$@ verbatim spelling) expected 1" }
     Remove-Item $v
 
+    # Case 12: an id a test file cites and a committed scenario also claims needs a "Cross-tier"
+    # clause in that file (testing-conventions section 17) -> 1; with the clause -> 0; and a scenario
+    # claiming an id no test file cites asks nothing of anyone -> 0.
+    $ct = New-File 'Fake.Sdk.Test/TierShould.cs' @'
+/// <summary>Proves the stepped tier.</summary>
+public class TierShould
+{
+    [TestMethod]
+    [TestProperty("spec", "AC-SCEN-099.1")]
+    public void StepWhenAsked()
+    {
+        // Act
+    }
+}
+'@
+    $sc = New-File 'Fake.Sdk.Test/Scenarios/step.scenario.json' '{ "specs": ["AC-SCEN-099.1"] }'
+    if ((Invoke-Lint) -ne 1) { throw "Case 12 (cited and scenario-claimed, no Cross-tier clause) expected 1" }
+    Set-Content -LiteralPath $ct -NoNewline -Value ((Get-Content -Raw -LiteralPath $ct) -replace 'Proves the stepped tier\.', 'Proves the stepped tier. Cross-tier: the scenario owns the wiring.')
+    if ((Invoke-Lint) -ne 0) { throw "Case 12b (the same, with a Cross-tier clause) expected 0" }
+    Remove-Item $ct
+    if ((Invoke-Lint) -ne 0) { throw "Case 12c (scenario-claimed, cited by no test file) expected 0" }
+    Remove-Item $sc
+
     # Case 11: the anti-vacuous floor. A gate that can silently match nothing can silently die with
     # nothing else in CI noticing - the shape this gate was in for a week while its block pattern
     # skipped 21 cited methods. Test roots present but not one cited method parsed -> 1; and no
