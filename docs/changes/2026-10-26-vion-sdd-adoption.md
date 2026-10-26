@@ -678,6 +678,15 @@ itself prescribes: the dispatch, report and ingest roles are named in `CLAUDE.md
   `git grep -niE 'tier [ABC]\b|tiers live'` outside the archive found one more beside the
   `ScenarioDefinitionSitesShould.cs` comment `T-009` named, `TopologyAuthoringShould.cs:22`'s "(Tier
   C)", reworded the same way.
+- 2026-10-26: CI proof (`T-015`). The `vion-sdd` job ran green on `d1b2bec7` (run `40376657253`)
+  and red on `c8390c11`, which stripped `AC-CLI-001.1`'s `SHALL` (run `40376868672`: `spec-lint:
+  FAIL - … AC-CLI-001.1 - no EARS 'SHALL' predicate`, `spec-trace: OK`); `af664863` reverts it. The
+  token step logged "Creating token for the following repositories: - VION-IoT/architecture", and
+  the action ran its scripts from the sparse checkout through `GITHUB_ACTION_PATH`, so both of the
+  brief's `[assumed]` CI claims hold. In both runs the plugin checkout's first fetch answered
+  "Repository not found" and `actions/checkout`'s own retry succeeded about 16 seconds later — a
+  freshly minted installation token not yet honoured, inferred. The job is green through it; it is
+  journalled rather than worked around.
 
 ---
 
