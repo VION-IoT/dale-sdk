@@ -93,6 +93,19 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
 - `D10` — **`CLAUDE.md` names the plugin's two skills and the `pass` skill's four roles, as dale's
   does, and ends no larger than it starts.** It is 11,223 bytes against a 10 kB budget before this
   change; the rows it loses (the lane-3 and launcher wording) pay for the rows it gains.
+- `D11` **(a) the App, (b) its shape** — **One App for everything a workflow needs from
+  architecture, named for that repository rather than for this job.** A dedicated App, named so the
+  next need from architecture uses it instead of minting a second one (operator, 2026-10-26). The
+  shape that holds it to that: the App and its secrets name the repository it reaches — proposed
+  *VION architecture access* (a GitHub App's name is unique across GitHub, so whoever creates it
+  settles the spelling), with the secrets `ARCHITECTURE_APP_CLIENT_ID` and
+  `ARCHITECTURE_APP_PRIVATE_KEY`, artifacts-mender's `<NAME>_APP_*` shape with the client id named for
+  what it holds. Its installation carries the union of what its callers need, `contents: read` today,
+  and each job narrows the token it mints to what that job uses with `permission-<name>` inputs, as
+  artifacts-mender does (`vion-gateway-suite-windows.yml:198`). A later need widens this App's
+  installation by an amendment an organisation owner approves — moving `ARCHITECTURE_REPO_PAT`'s
+  issue-opening onto it would add `issues: write` — and the jobs already minting read tokens keep
+  minting read tokens.
 
 ### Reviewer's questions
 
@@ -100,9 +113,10 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
    architecture alone — recommended: the release lane's App keeps its installation to itself, and a
    leaked dale-sdk secret reads one repository. (ii) `COMPONENT_RELEASE_APP`, artifacts-mender's,
    with architecture added to its installation — no new App, but one key then serves two lanes.
-   Either way its client id and private key become two dale-sdk secrets (proposed:
-   `SDD_READ_APP_CLIENT_ID`, `SDD_READ_APP_PRIVATE_KEY`). Creating or installing an App and adding the
-   secrets is an organisation-admin step: `T-001`, routes to a human.
+   Either way its client id and private key become two dale-sdk secrets. Creating or installing an
+   App and adding the secrets is an organisation-admin step: `T-001`, routes to a human.
+   **OUTCOME:** (i), a dedicated App, named for architecture rather than for the spec gates, so that
+   one App serves every later need from that repository (operator, 2026-10-26) — `D11`.
 2. **(b) `D6`'s cross-tier rule fails rather than warns.** The alternatives are porting it warn-only,
    as it is today, or dropping it; flagged because it turns a note into a gate.
 3. **(b) `D5` drops the Tier column.** `testing-conventions.md:476` says "On a Tier A area", which
@@ -158,8 +172,8 @@ A second job in `.github/workflows/spec-gates.yml`, beside `spec-gates` and `jou
         id: token
         uses: actions/create-github-app-token@<commit>   # pinned by commit: it holds the private key
         with:
-          client-id: ${{ secrets.SDD_READ_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SDD_READ_APP_PRIVATE_KEY }}
+          client-id: ${{ secrets.ARCHITECTURE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.ARCHITECTURE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: architecture
           permission-contents: read
@@ -327,7 +341,8 @@ rules of owner 2 may be none.
 - Change architecture. What this work surfaced for the plugin — the README's *Verified on* row still
   saying no repository has run a pass, and any generic rule `T-008` keeps under owner 2 — is
   proposed to the plugin on its own.
-- Replace `ARCHITECTURE_REPO_PAT` or `DOCS_REPO_PAT`; an App could, later.
+- Replace `ARCHITECTURE_REPO_PAT` or `DOCS_REPO_PAT`. Moving the first onto `D11`'s App is a change
+  of its own; the second writes to documentation, which that App does not reach.
 - Change required checks (`D9`), or `.claude/settings.json`: the plugins are enabled per user, and
   the file carries no `enabledPlugins` today.
 
@@ -365,14 +380,16 @@ rules of owner 2 may be none.
 
 > One-commit tasks, each tagged with the decision it lands; this change mints no id. Ephemeral —
 > they live and die with this change doc. Plain list, no checkboxes — the PR's per-task commits are
-> the completion record. **No task starts before this doc is ratified**: reviewer's question 1 is
+> the completion record. **No task starts before this doc is ratified**: reviewer's question 1 was
 > propose-and-wait, and `CLAUDE.md` § Lanes ratifies a feature-sized doc with an open question
-> before code. After ratification `T-001` is a human's, `T-003`'s job goes green only once it is
-> done, and every other task proceeds at the desk meanwhile.
+> before code; it carries its outcome. `T-001` is a human's, `T-003`'s job goes green only once it
+> is done, and every other task proceeds at the desk meanwhile.
 
-- `T-001` (`D1`): **STOP — routes to a human.** The App, per reviewer's question 1's outcome:
-  created or extended, installed on architecture with `contents: read`, its client id and private
-  key added to dale-sdk as the two secrets the job names.
+- `T-001` (`D1`, `D11`): **STOP — routes to a human.** The App `D11` names: created, installed on
+  architecture alone with `contents: read`, its client id and private key added to dale-sdk as
+  `ARCHITECTURE_APP_CLIENT_ID` and `ARCHITECTURE_APP_PRIVATE_KEY` — as repository secrets, or as
+  organisation secrets granted to dale-sdk, which lets the next repository that needs architecture be
+  granted access rather than handed a copy of the key.
 - `T-002` (`D2`): `docs/specs/_corpus.yml`, the template's header and the config above.
 - `T-003` (`D1`): the `vion-sdd` job in `spec-gates.yml`, `actions/create-github-app-token` pinned
   by commit; the workflow's header comment names it.
