@@ -41,7 +41,7 @@ matters most to a script: **in table mode a failure goes to standard error and e
 standard output; in JSON mode there is one stream, and it carries only JSON.**
 
 - `AC-CLI-001.1` (Event-driven): WHEN `--version` or `-v` appears before any command name THE SYSTEM
-  prints the tool's version and exit 0 without running a command.
+  SHALL print the tool's version and exit 0 without running a command.
 - `AC-CLI-001.11` (Optional): WHERE a command has already been named THE SYSTEM SHALL leave
   `--version` and `-v` to that command.
 - `AC-CLI-001.2` (Ubiquitous): THE SYSTEM SHALL print that version with the source-link commit
