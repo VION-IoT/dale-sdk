@@ -333,6 +333,9 @@ public class TierShould
 '@
     $sc = New-File 'Fake.Sdk.Test/Scenarios/step.scenario.json' '{ "specs": ["AC-SCEN-099.1"] }'
     if ((Invoke-Lint) -ne 1) { throw "Case 12 (cited and scenario-claimed, no Cross-tier clause) expected 1" }
+    # Case 12d: the words in a line comment are not the clause - it belongs in a doc comment -> 1.
+    Set-Content -LiteralPath $ct -NoNewline -Value ((Get-Content -Raw -LiteralPath $ct) -replace '// Act', '// Act - cross-tier, see the scenario')
+    if ((Invoke-Lint) -ne 1) { throw "Case 12d (cross-tier in a line comment only) expected 1" }
     Set-Content -LiteralPath $ct -NoNewline -Value ((Get-Content -Raw -LiteralPath $ct) -replace 'Proves the stepped tier\.', 'Proves the stepped tier. Cross-tier: the scenario owns the wiring.')
     if ((Invoke-Lint) -ne 0) { throw "Case 12b (the same, with a Cross-tier clause) expected 0" }
     Remove-Item $ct

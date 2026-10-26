@@ -251,7 +251,9 @@ foreach ($file in (Get-ChildItem -Path $tierRoots -Recurse -Filter *.cs -ErrorAc
         Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' })) {
     $raw = Get-Content -Raw -LiteralPath $file.FullName
     $rel = ($file.FullName.Substring($RepoRoot.Length).TrimStart('\', '/')) -replace '\\', '/'
-    $hasClause[$rel] = $raw -match '(?i)cross-tier'
+    # The clause is the class summary's, so only a /// doc-comment line carries it; the words in a
+    # line comment say nothing about which tier owns which half.
+    $hasClause[$rel] = $raw -match '(?im)^[ \t]*///.*cross-tier'
     foreach ($m in [regex]::Matches($raw, $quotedIdRx)) {
         $id = $m.Groups[1].Value
         if (-not $scenarioIds.Contains($id)) { continue }
