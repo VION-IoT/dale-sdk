@@ -1,6 +1,6 @@
 ---
 slug: vion-sdd-adoption
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: process             # the process itself, as in 2026-09-01-sdd-process.md
 author: jonasbertsch

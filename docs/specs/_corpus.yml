@@ -1,0 +1,65 @@
+# dale-sdk's corpus config, copied from vion-sdd's `templates/corpus.yml`; the repo owns it from then on.
+#
+# THIS HEADER OWNS THE FORMAT. The three spec scripts read this file with a narrow purpose-built
+# reader — no YAML library — so only what is written here parses:
+#
+#   * Flat `key: value` lines at column 0. No nesting, no anchors, no multi-line scalars.
+#   * A value is a scalar, an inline list `[a, b, c]`, or a block list of `- item` lines indented
+#     under the key. Surrounding single or double quotes are stripped.
+#   * `#` starts a comment, at the start of a line or after a value.
+#   * An unknown key is an error, not a silent no-op: a typo that disabled a gate would otherwise
+#     read as a clean run.
+#
+# A repo with no `_corpus.yml` has not opted in. The scripts say so and skip; they never invent a
+# default corpus. They find the file wherever it lives in the tree, so a repo whose corpus is not
+# `docs/specs` needs no flag — THE DIRECTORY THIS FILE SITS IN IS THE CORPUS, which is why there is
+# no key naming it. Two of them anywhere in one repo is an error, not a pick — including a stale one
+# left behind by a move, which is why there is no shortcut that would have returned it.
+#
+# There are three keys and no others. Change docs are `docs/changes`, fixed by the method.
+
+# ---------------------------------------------------------------------------------------------
+# owns  (required) — the area codes this repo may declare ids for.
+#
+# An id is `AC-<AREA>-NNN[.M]` or `SYS-<AREA>-NNN`. A page may declare only ids whose AREA is
+# listed here. Every other id on a page is a citation and is written `<repo>/AC-…`; a bare id with
+# an unlisted area fails the lint. List the invariant codes too — `_invariants.md` declares its
+# `SYS-` rules the same way and they are owned the same way.
+#
+# dale-sdk's fifteen areas and the two invariant families `_invariants.md` declares: the roster in
+# `docs/spec-process.md`.
+owns: [ANLZ, EMIT, BIND, GATE, INTRO, SCEN, CTRL, PLUG, HOST, CLI, LIFE, MODB, IO, TKIT, HTTP, API, REL]
+
+# ---------------------------------------------------------------------------------------------
+# tests  (required) — where coverage is counted, as repo-root-relative globs over FILES.
+#
+# An id counts as covered when it appears as a quoted string literal — `[TestProperty("spec",
+# "AC-…")]`, `[Trait("spec", "AC-…")]`, a scenario file's `"specs": ["AC-…"]` — in a file one of
+# these globs matches. A glob names the place and the kind at once, which is why this is one key
+# and not two.
+#
+# Glob syntax: `**/` matches any run of directories including none, `*` matches within one
+# segment, `?` matches one character. `bin/`, `obj/`, `.git/` and `node_modules/` are never
+# walked. Matching is CASE-INSENSITIVE on every platform, not the platform's own rule — otherwise
+# one config would reach a different file set at a Windows desk and on a Linux runner.
+#
+# Scan more than the one obvious project. Coverage only ever grows by scanning another root, and
+# a criterion proven in a suite nobody listed reads as an orphan and reddens the gate.
+#
+# Every test project, and the DevHost smoke host, whose scenarios prove criteria too.
+tests:
+  - "**/*.Test/**/*.cs"
+  - "**/*.Test/**/*.scenario.json"
+  - "Vion.Dale.DevHost.SmokeHost/**/*.cs"
+  - "Vion.Dale.DevHost.SmokeHost/**/*.scenario.json"
+
+# ---------------------------------------------------------------------------------------------
+# cites  (optional, default none) — the foreign repos whose ids may appear on a page.
+#
+# A citation is `<repo>/AC-…` with `<repo>` listed here. It is never counted as declared and never
+# needs a test in this repo — the repo that owns it proves it. A qualified id naming a repo that
+# is not listed fails the lint, so a corpus cannot drift into citing something nobody declared.
+#
+# dale: the HOST page cites the host runtime's criteria, which only that runtime can prove.
+cites: [dale]
+
