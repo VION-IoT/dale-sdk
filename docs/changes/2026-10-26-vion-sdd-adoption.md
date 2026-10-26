@@ -76,9 +76,11 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
   discipline (`testing-conventions.md:483-484`), which is the style gate's subject, not the trace's.
   It fails rather than warns because `test-style-lint` is a failing gate and the tree carries no
   instance today: this repo's `spec-trace` on `4a0b0fd3` prints no cross-tier note.
-- `D7` — **`check.ps1` runs the plugin's gates from an architecture checkout, on journal-lint's
-  rules.** A checkout beside this one, or `-ArchitectureRoot`; with none the two gates **fail**
-  rather than skip (`check.ps1:14-20`, `194-196` for the shared-workflows precedent). They are
+- `D7` — **`check.ps1` runs the plugin's gates from an architecture checkout.** A checkout beside
+  this one, or `-ArchitectureRoot`. With none the two gates are **skipped** with the reason — the
+  pull request's `vion-sdd` job runs them — as dale's `/check` reports them, and a skip is never a
+  pass (reviewer's question 7). journal-lint keeps its **fail** (`check.ps1:14-20`, `194-196`), and
+  `check.ps1`'s header names the difference. They are
   **partial** when the plugin they would run differs from the one CI runs — its tree, not the
   checkout's commit, because architecture's `main` moves far more often than the plugin does: 127
   commits since 2026-09-26, 7 of them under `plugins/vion-sdd` (`git log --oneline
@@ -157,7 +159,8 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
   in read it as dangling, since the change-doc template has no such section; but the plugin's pass
   recipe has the implementing session write that section into the round's change doc, "what the PR
   body's summary quotes" (`references/pass/6-report.md:25-27`, `7-checks.md:18`). So it is narrowed
-  to lane 3, not dropped as dale's was — flagged for the operator, who approved a drop.
+  to lane 3, not dropped as dale's was; the operator, who had approved a drop, accepted the
+  narrowing (2026-10-26).
 - `D18` **(a)** — **`docs/review-checks.md` loses its fifteen `(was Dn)` / `(was Pn)` aliases**
   (`grep -c '(was [DP][0-9]' docs/review-checks.md` → 15). Nothing live refers to them (`git grep`
   outside the archive, the retro notes and the journal: no hit), and the retro counts checks by
@@ -201,20 +204,28 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
    the override the skill already honours, a brief with a STOP is steered anyway, and dale runs this
    way. (ii) Keep it, moved into `CLAUDE.md`, with an amendment making a repository's default a third
    trigger in vion-dispatch. (iii) Keep it where it is.
+   **OUTCOME:** (i) (operator, 2026-10-26). The standing rule goes; a brief that wants a steered
+   worker with no STOP sets `steer: yes` in its front matter. `T-008`.
 6. **(c) The fixed `sections:` list of a lane-1 or lane-2 brief** (`spec-process.md:214-221`: the
    dispatch plugin's four plus `Gates` and `Review`). dale names a brief's sections per brief: nine
    different sets across its briefs (`grep -h '^sections:' .claude/briefs/*.md | sort | uniq -c` in
    dale). (i) Drop the fixed list, keeping two sentences on what `Gates` and `Review` carry when a
    brief names them — **recommended**: the PR template's *Reviewed at* line keeps its source, and a
    brief asks for what it needs. (ii) Keep the list.
-7. **(c) A missing architecture checkout at the desk.** `D7` reports the two spec gates **FAIL**, on
+   **OUTCOME:** (i) (operator, 2026-10-26). The fixed list goes; § Starting a lane-1 or lane-2
+   session keeps what the two sections carry when a brief names them — `Gates` the pasted `/check`
+   output, `Review` the round's findings and what was done with each, which the PR body's *Reviewed
+   at* line carries. `T-008`.
+7. **(c) A missing architecture checkout at the desk.** `D7` reported the two spec gates **FAIL**, on
    journal-lint's rule here (`check.ps1:16-20`). dale reports them **SKIP** — "the pull request's
    spec-gates job runs them" (dale `.claude/commands/check.md:18`) — and the plugin's template lets a
    gate that cannot run at the desk be reported skipped with its reason, never as a pass
    (`templates/spec-process.md` § Gates). (i) SKIP with the reason, as dale — **recommended**: the
    job runs on every pull request, and the rule then reads the same in both repositories;
-   journal-lint keeps its FAIL, a difference `check.ps1`'s header names. (ii) FAIL, as `D7` has it.
+   journal-lint keeps its FAIL, a difference `check.ps1`'s header names. (ii) FAIL, as `D7` had it.
    On (i), `D7`'s first row and `T-004` change.
+   **OUTCOME:** (i) (operator, 2026-10-26). `D7`, § The desk and `T-004` amended to SKIP with the
+   reason.
 
 ---
 
@@ -312,12 +323,11 @@ from `<ArchitectureRoot>/plugins/vion-sdd/scripts/` with today's arguments (`che
 `-RepoRoot`, and `-Diff <base>` for the lint when the base resolves.
 
 `-ArchitectureRoot` defaults to `../architecture`, the checkout dale's `/check` runs the same scripts
-from (dale `.claude/commands/check.md:9,13`). The states follow journal-lint's, for the reason that
-journal-lint gives (`check.ps1:16-20`):
+from (dale `.claude/commands/check.md:9,13`). The states:
 
 | at the desk | `spec-lint` / `spec-trace` |
 | --- | --- |
-| no checkout at the root | **FAIL**, naming the root and `-ArchitectureRoot` — a skipped gate reads as a green one |
+| no checkout at the root | **SKIP**, naming the root, `-ArchitectureRoot`, and that the pull request's `vion-sdd` job runs both gates — dale's wording (dale `.claude/commands/check.md:18`); never counted as a pass |
 | `HEAD:plugins/vion-sdd` is not the tree of the commit `git ls-remote origin refs/heads/main` names | runs, **PARTIAL**: its rules differ from CI's |
 | that commit is not in the checkout, so its tree cannot be read | runs, **PARTIAL**, naming `git -C <root> fetch origin` |
 | uncommitted changes under `plugins/vion-sdd` (`git -C <root> status --porcelain -- plugins/vion-sdd`) | runs, **PARTIAL**: it ran rules CI does not have |
@@ -385,7 +395,7 @@ the cross-tier note alone (`D6`).
 | `spec-process.md` § The corpus, its Tier column and tier prose (`11-49`) | the template's text, the roster in dale's shape (`D14`), the Tier C list as the exempt paragraph | `T-008` |
 | § IDs & EARS (`65-146`) | the template's text, keeping this repo's three citation forms (`90-104`) and stating its finer granularity; the cross-tier paragraph (`129-130`) leaves for `testing-conventions.md` | `T-008` |
 | § Change docs (`148-186`) | the template's text | `T-008` |
-| § Lanes, lanes 1 and 2 (`188-272`) | the template's text and the review-round pointers to `/vion-git:pr`; the lane-1/2 dispatch envelope (`211-233`) as reviewer's questions 5 and 6 settle it | `T-008` |
+| § Lanes, lanes 1 and 2 (`188-272`) | the template's text and the review-round pointers to `/vion-git:pr`; the lane-1/2 dispatch envelope (`211-233`) reduced to what `Gates` and `Review` carry, with no standing steer rule and no fixed section list (reviewer's questions 5 and 6) | `T-008` |
 | § Lane 3 (`274-805`) | the plugin's `pass` skill, and § What a pass in this repo adds — every rule placed by the table below | `T-008` |
 | § Routing (`806-818`) | kept | — |
 | § Gates (`820-858`) | the template's three plugin rows, this repo's other rows one line each (`D15`), the `check.ps1` paragraph re-pointed | `T-008` |
@@ -481,8 +491,9 @@ rules of owner 2 may be none.
 > they live and die with this change doc. Plain list, no checkboxes — the PR's per-task commits are
 > the completion record. **No task starts before this doc is ratified**: `CLAUDE.md` § Lanes
 > ratifies a feature-sized doc with an open question before code, so every propose-and-wait
-> question carries its outcome first — question 1 does, 5, 6 and 7 wait. Then `T-001` is a human's,
-> `T-003`'s job goes green only once it is done, and every other task proceeds at the desk meanwhile.
+> question carries its outcome first. Questions 1, 5, 6 and 7 do (operator, 2026-10-26), so code may
+> start. `T-001` is a human's, `T-003`'s job goes green only once it is done, and every other task
+> proceeds at the desk meanwhile.
 
 - `T-001` (`D1`, `D11`): **STOP — routes to a human.** The App `D11` names: created, installed on
   architecture alone with `contents: read`, its client id and private key added to dale-sdk as
@@ -493,15 +504,16 @@ rules of owner 2 may be none.
 - `T-003` (`D1`, `D15`): the `vion-sdd` job in `spec-gates.yml`, `actions/create-github-app-token`
   pinned by commit; the workflow's header comment names it; the step comment at `:108` loses its
   ticket references.
-- `T-004` (`D7`): `check.ps1` derives the step, runs both gates from `-ArchitectureRoot`, fails with
-  no checkout and is partial in the three states § The desk names; `check.tests.ps1` proves each.
+- `T-004` (`D7`): `check.ps1` derives the step, runs both gates from `-ArchitectureRoot`, skips them
+  with the reason when there is no checkout and is partial in the three states § The desk names; its
+  header says why journal-lint fails where these skip; `check.tests.ps1` proves each state.
 - `T-005` (`D6`): the cross-tier rule in `test-style-lint.ps1`, its self-test case red first.
 - `T-006` (`D3`): the three scripts and their self-tests deleted, the two steps out of the
   `spec-gates` job; `run-script-tests.ps1` green with no exemption added.
 - `T-007` (`D4`): `docs/changes/_template.md` from the plugin's `templates/change-doc.md`.
 - `T-008` (`D4`, `D5`, `D14`, `D15`): `docs/spec-process.md` re-based — the roster in dale's
-  shape, one line a gate, § What a pass in this repo adds, the lane-1/2 envelope as questions 5 and
-  6 settle it — and the where-every-rule-goes table in this doc.
+  shape, one line a gate, § What a pass in this repo adds, the lane-1/2 envelope reduced to what
+  `Gates` and `Review` carry — and the where-every-rule-goes table in this doc.
 - `T-009` (`D5`, `D6`): `testing-conventions.md:476-484`, `.claude/commands/check.md`, the
   `ScenarioDefinitionSitesShould.cs` comment.
 - `T-010` (`D10`, `D12`, `D13`, `D16`): `CLAUDE.md` — the two skill rows and the roles line, the
