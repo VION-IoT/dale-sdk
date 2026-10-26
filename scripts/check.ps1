@@ -20,6 +20,15 @@
   It is reported PARTIAL when the checkout is not at the commit the workflow's ref names on the
   checkout's origin, or when that origin cannot be asked, because its rules may differ from CI's.
 
+  The vion-sdd plugin's action is two gates, spec-lint and spec-trace, run from the plugin's
+  scripts in a checkout of VION-IoT/architecture - beside this repository unless -ArchitectureRoot
+  names another. With no checkout both are SKIPPED with the reason, never counted as passes: the
+  pull request's vion-sdd job runs them on every pull request, which is not true of a journal, so
+  journal-lint fails where these skip. They run PARTIAL when the plugin they would run is not the
+  one CI runs: its tree differs from the one at the origin's main, that commit is not fetched, the
+  origin cannot be asked, or the plugin has uncommitted changes. The plugin's tree is compared, not
+  the checkout's commit, because architecture's main moves far more often than the plugin does.
+
   Not covered here: the ReSharper style gate (`scripts/cleanup-code.ps1 -Changed`, or the
   /cleanup command) and the packed-artifact gate, whose input is the publish job's .nupkg
   output rather than the working tree.
@@ -65,11 +74,16 @@ param(
     # Run in the Linux runner's shape — see .DESCRIPTION.
     [switch]$CiShape,
     # A checkout of VION-IoT/shared-workflows, whose actions' scripts the shared gates run.
-    [string]$SharedWorkflowsRoot
+    [string]$SharedWorkflowsRoot,
+    # A checkout of VION-IoT/architecture, whose vion-sdd plugin's scripts the spec gates run.
+    [string]$ArchitectureRoot
 )
 $ErrorActionPreference = 'Stop'
 if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
 if (-not $SharedWorkflowsRoot) { $SharedWorkflowsRoot = Join-Path (Split-Path -Parent $RepoRoot) 'shared-workflows' }
+if (-not $ArchitectureRoot) { $ArchitectureRoot = Join-Path (Split-Path -Parent $RepoRoot) 'architecture' }
+# Where the plugin lives inside that checkout, as git names the path.
+$pluginPath = 'plugins/vion-sdd'
 
 # The base ref CI diffs against: spec-gates.yml passes origin/$GITHUB_BASE_REF, and every PR
 # in this repo targets main.
@@ -92,9 +106,9 @@ if (-not (Test-Path -LiteralPath $workflow)) {
 # whole gate for want of a fetch would hide those on every unfetched clone.
 $invocation = @{
     'run-script-tests'    = @{ Args = @(); RepoRootArg = $false }
-    'spec-lint'           = @{ Args = @(); RefArgs = @('-Diff', $baseRef); RepoRootArg = $true; NeedsRef = $baseRef
+    'spec-lint'           = @{ Plugin = 'spec-lint.ps1'; Args = @(); RefArgs = @('-Diff', $baseRef); RepoRootArg = $true; NeedsRef = $baseRef
                                WithoutRef = 'the narrative rule needs a base ref; its other rules ran' }
-    'spec-trace'          = @{ Args = @(); RepoRootArg = $true }
+    'spec-trace'          = @{ Plugin = 'spec-trace.ps1'; Args = @(); RepoRootArg = $true }
     'test-style-lint'     = @{ Args = @(); RepoRootArg = $true }
     'doc-comment-lint'    = @{ Args = @(); RepoRootArg = $true }
     'pragma-reason-lint'  = @{ Args = @(); RepoRootArg = $true }
@@ -109,30 +123,57 @@ $invocation = @{
     'journal-lint'        = @{ Shared = 'actions/journal-lint/journal-lint.ps1'; Args = @('-Path', (Join-Path $RepoRoot 'docs/process-journal')) }
 }
 
-# Derive the gate list, in the workflow's own order, from the scripts its steps invoke and the
-# shared-workflows actions its steps use. The spec-lint step names its script twice (an if/else
-# on GITHUB_BASE_REF), hence the dedupe. Comment lines are skipped: the workflow's header names
-# every gate in prose, and a comment mentioning one the workflow does not run would mint a gate
-# that is not one. Any other action - actions/checkout - is plumbing, not a gate.
+# Derive the gate list, in the workflow's own order, from the scripts its steps invoke, the
+# shared-workflows actions its steps use, and the vion-sdd plugin's action, which is two gates. A
+# step may name its script twice (an if/else on GITHUB_BASE_REF), hence the dedupe. Comment lines
+# are skipped: the workflow's header names every gate in prose, and a comment mentioning one the
+# workflow does not run would mint a gate that is not one. Any other action - actions/checkout,
+# the token step - is plumbing, not a gate.
 $derived = [System.Collections.Generic.List[string]]::new()
 $source = @{}
 $pinnedRef = @{}
 foreach ($line in (Get-Content -LiteralPath $workflow)) {
     if ($line -match '^\s*#') { continue }
-    foreach ($m in [regex]::Matches($line, '\./scripts/([A-Za-z0-9._-]+)\.ps1|uses:\s*VION-IoT/shared-workflows/actions/([A-Za-z0-9._-]+)@([A-Za-z0-9._/-]+)')) {
-        $isScript = $m.Groups[1].Success
-        $name = if ($isScript) { $m.Groups[1].Value } else { $m.Groups[2].Value }
-        if (-not $derived.Contains($name)) {
-            $derived.Add($name)
-            $source[$name] = if ($isScript) { "scripts/$name.ps1" } else { "the shared-workflows action $name" }
-            if (-not $isScript) { $pinnedRef[$name] = $m.Groups[3].Value }
+    foreach ($m in [regex]::Matches($line, '\./scripts/([A-Za-z0-9._-]+)\.ps1|uses:\s*VION-IoT/shared-workflows/actions/([A-Za-z0-9._-]+)@([A-Za-z0-9._/-]+)|uses:\s*\./\.vion-sdd/plugins/vion-sdd/action\b')) {
+        if ($m.Groups[1].Success) { $found = @(@{ Name = $m.Groups[1].Value; Source = "scripts/$($m.Groups[1].Value).ps1" }) }
+        elseif ($m.Groups[2].Success) { $found = @(@{ Name = $m.Groups[2].Value; Source = "the shared-workflows action $($m.Groups[2].Value)"; Ref = $m.Groups[3].Value }) }
+        else { $found = @('spec-lint', 'spec-trace' | ForEach-Object { @{ Name = $_; Source = "the vion-sdd plugin's action ($_)" } }) }
+        foreach ($f in $found) {
+            if ($derived.Contains($f.Name)) { continue }
+            $derived.Add($f.Name)
+            $source[$f.Name] = $f.Source
+            if ($f.Ref) { $pinnedRef[$f.Name] = $f.Ref }
         }
     }
 }
 if ($derived.Count -eq 0) {
-    Write-Host 'check: FAIL - spec-gates.yml names no ./scripts/*.ps1 step and no shared-workflows action - the derivation is broken, not the repository'
+    Write-Host 'check: FAIL - spec-gates.yml names no ./scripts/*.ps1 step, no shared-workflows action and no vion-sdd action - the derivation is broken, not the repository'
     exit 2
 }
+
+# Whether the plugin in the architecture checkout is the one CI runs, asked once for both of its
+# gates. CI checks out the origin's main, so that commit's plugin tree is the reference; null when
+# the plugin would run CI's rules. Reads only, never fetches: a gate run that writes into another
+# repository's refs is a side effect nobody asked for.
+function Get-PluginCaveat {
+    $notes = [System.Collections.Generic.List[string]]::new()
+    $remote = @(git -C $ArchitectureRoot ls-remote origin refs/heads/main 2>$null)
+    $reached = $LASTEXITCODE -eq 0
+    $mainCommit = @($remote | Where-Object { $_ }) | ForEach-Object { ($_ -split '\s+')[0] } | Select-Object -First 1
+    if (-not $reached) { $notes.Add("the checkout's origin could not be asked what main names, so the plugin's rules may differ from CI's") }
+    elseif (-not $mainCommit) { $notes.Add("the checkout's origin has no main, which CI checks the plugin out from") }
+    else {
+        $ciTree = git -C $ArchitectureRoot rev-parse --verify --quiet "$($mainCommit):$pluginPath" 2>$null
+        $headTree = git -C $ArchitectureRoot rev-parse --verify --quiet "HEAD:$pluginPath" 2>$null
+        if (-not $ciTree) { $notes.Add("the origin's main ($($mainCommit.Substring(0, 8))) is not in the checkout, so its plugin cannot be compared; run 'git -C $ArchitectureRoot fetch origin'") }
+        elseif ($headTree -ne $ciTree) { $notes.Add("the checkout's $pluginPath differs from the origin's main ($($mainCommit.Substring(0, 8))), so its rules differ from CI's") }
+    }
+    if (@(git -C $ArchitectureRoot status --porcelain -- $pluginPath 2>$null | Where-Object { $_ }).Count) {
+        $notes.Add("$pluginPath has uncommitted changes, so it ran rules CI does not have")
+    }
+    return ($notes -join '; ')
+}
+$pluginCaveat = $null
 
 $results = [System.Collections.Generic.List[psobject]]::new()
 function Add-Result([string]$name, [string]$state, [string]$elapsed, [string]$detail, [string]$output, [string]$caveat) {
@@ -216,13 +257,22 @@ try {
             Invoke-Step $name 'pwsh' (@('-NoProfile', '-File', $sharedScript) + $invocation[$name].Args) $caveat
             continue
         }
-        if (-not (Test-Path -LiteralPath $script)) {
+        $spec = $invocation[$name]
+        $caveat = ''
+        if ($spec.Plugin) {
+            $script = Join-Path $ArchitectureRoot "$pluginPath/scripts/$($spec.Plugin)"
+            if (-not (Test-Path -LiteralPath $script)) {
+                Add-Result $name 'SKIP' '-' "no VION-IoT/architecture checkout with the vion-sdd plugin at '$ArchitectureRoot' - clone it there, or pass -ArchitectureRoot, to run it; the pull request's vion-sdd job runs it" '' ''
+                continue
+            }
+            if ($null -eq $pluginCaveat) { $pluginCaveat = Get-PluginCaveat }
+            $caveat = $pluginCaveat
+        }
+        elseif (-not (Test-Path -LiteralPath $script)) {
             Add-Result $name 'FAIL' '-' "spec-gates.yml runs scripts/$name.ps1 and no such script exists" '' ''
             continue
         }
-        $spec = $invocation[$name]
         $stepArgs = @('-NoProfile', '-File', $script) + $spec.Args
-        $caveat = ''
         if ($spec.NeedsRef) {
             git -C $RepoRoot rev-parse --verify --quiet "$($spec.NeedsRef)^{commit}" *> $null
             if ($LASTEXITCODE -eq 0) { $stepArgs += $spec.RefArgs }
@@ -230,7 +280,7 @@ try {
                 # The gate still runs; the rules that read the ref do not. spec-lint swallows a
                 # -Diff ref git cannot resolve and reports OK having compared nothing, so passing
                 # the ref anyway would turn one rule into a vacuous pass with nothing said.
-                $caveat = "$($spec.NeedsRef) does not resolve, so $($spec.WithoutRef); run 'git fetch origin'"
+                $caveat = (@($caveat, "$($spec.NeedsRef) does not resolve, so $($spec.WithoutRef); run 'git fetch origin'") | Where-Object { $_ }) -join '; '
             }
         }
         if ($spec.RepoRootArg) { $stepArgs += @('-RepoRoot', $RepoRoot) }
