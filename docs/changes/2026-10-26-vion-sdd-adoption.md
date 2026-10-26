@@ -32,10 +32,11 @@ in-repo copies retire. The corpus is untouched.
 None. No criterion is added, reworded or removed: the corpus passes the plugin's two gates as it
 stands, with the same counts as this repo's own gates (§ The corpus under the plugin's gates). What
 changes is process. `docs/specs/_corpus.yml` is new. `docs/spec-process.md`,
-`docs/changes/_template.md`, `docs/testing-conventions.md`, `CLAUDE.md` and
-`.claude/commands/check.md` are rewritten in part. `.github/workflows/spec-gates.yml`,
-`scripts/check.ps1` and `scripts/test-style-lint.ps1` change with their self-tests. Three gate
-scripts and their self-tests go. Every page's `Process: ../spec-process.md` link, and every code
+`docs/changes/_template.md`, `docs/testing-conventions.md`, `docs/review-checks.md`, `CLAUDE.md`,
+`.claude/commands/check.md`, `.claude/commands/cleanup.md` and `.github/pull_request_template.md`
+are rewritten in part. `.github/workflows/spec-gates.yml`, `scripts/check.ps1` and
+`scripts/test-style-lint.ps1` change with their self-tests. Three gate scripts and their self-tests
+go, and so does `docs/harness-conventions.md`. Every page's `Process: ../spec-process.md` link, and every code
 comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections keep their names.
 
 ### Decisions
@@ -91,8 +92,8 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
   (`gh api repos/VION-IoT/dale-sdk/branches/main/protection`: `contexts: ["ci"]`); the `spec-gates`
   job is not required today, and the new job takes the same standing.
 - `D10` — **`CLAUDE.md` names the plugin's two skills and the `pass` skill's four roles, as dale's
-  does, and ends no larger than it starts.** It is 11,223 bytes against a 10 kB budget before this
-  change; the rows it loses (the lane-3 and launcher wording) pay for the rows it gains.
+  does, and ends under its 10 kB budget.** It is 11,223 bytes before this change; the lane-3 and
+  launcher wording it loses and `D16`'s moves pay for the rows it, `D12` and `D13` add.
 - `D11` **(a) the App, (b) its shape** — **One App for everything a workflow needs from
   architecture, named for that repository rather than for this job.** A dedicated App, named so the
   next need from architecture uses it instead of minting a second one (operator, 2026-10-26). The
@@ -106,6 +107,72 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
   installation by an amendment an organisation owner approves — moving `ARCHITECTURE_REPO_PAT`'s
   issue-opening onto it would add `issues: write` — and the jobs already minting read tokens keep
   minting read tokens.
+  Its callers are the repositories that need architecture's content and cannot reach it through
+  architecture's Actions access setting, which serves private repositories only: the six public
+  ones — dale-sdk, documentation, mosquitto, service-provider-sdk-dotnet, shared-workflows and
+  vion-contracts (`gh repo list VION-IoT --json name,visibility`) — and a private one that needs a
+  plain checkout rather than an action. documentation, public and with a change-doc lane but no
+  corpus, takes the same job when it adopts the plugin. A second public caller is the point to move
+  the job's steps into a reusable workflow in `shared-workflows`, so they exist once. `contents:
+  read` reaches the whole repository — an App's permissions do not narrow to a folder — so every
+  repository holding the key can read all of architecture: the holders stay few, and organisation
+  secrets granted per repository keep their list in one place.
+- `D12` **(a)** — **Reader depth gains `harness: docs/spec-process.md, docs/*-conventions.md,
+  docs/releasing.md`.** `/vion-git:pr` classes an unlisted `*.md` as prose, read at depth `none`,
+  and its harness defaults name `CLAUDE.md`, `.claude/**` and `docs/review-checks.md` but neither
+  the process doc nor a convention doc (vion-git `pr/SKILL.md:44-45`), so a change to how this
+  repository works can reach a pull request with no reader. dale's line (dale `CLAUDE.md:90`), plus
+  the process doc. `D12`–`D20` align this repository with dale's handling; the operator folded them
+  in on 2026-10-26 from a read of both repositories' harness.
+- `D13` **(a)** — **The pre-PR obligations key on the paths that shape a build, as dale's do.**
+  `/cleanup` on `*.cs`, `*.csproj`, `Vion.Dale.Sdk.sln`, `Vion.Dale.Sdk.sln.DotSettings`,
+  `Directory.Build.props`, `Directory.Build.targets` and `.config/dotnet-tools.json`; the build and
+  the suite on the same paths less the two that shape only formatting; `/check` always (`ls`
+  evidence: the five files exist, no `Directory.Packages.props` or `global.json`). Today the
+  obligations key on `*.cs` alone and say "when the change touches C#" in prose (`CLAUDE.md:108-109`),
+  which `/vion-git:pr` cannot match — it runs an obligation opening `On <pattern>:` when a changed
+  path matches (`pr/SKILL.md:35-36`) — so a change to a project file or the tool pin runs neither
+  cleanup nor build. Every condition is an `On <pattern>:` opening, and no gate runs twice; the
+  exact wording is the builder's, dale's (dale `CLAUDE.md:76-84`) the precedent.
+- `D14` **(a)** — **The roster takes dale's shape: Page | Area code | Pinned by.** Every row names
+  its page file — three of today's fifteen do (`sed -n 25,39p docs/spec-process.md | grep -c
+  'specs/'`) — the Group column goes with the Tier column (`D5`), and the anchor states what pins the
+  area, not today's instances: "44 live DALE descriptors; ids run to DALE046" (`spec-process.md:25`)
+  is the roster of instances the corpus rule keeps off a page. dale's roster (dale
+  `spec-process.md:29-43`). No page changes for it.
+- `D15` **(a)** — **§ Gates gives each gate one line of what it fails on; the why stays in the
+  script's header.** Rows 826–836 run to 8,939 bytes (`awk 'NR>=826&&NR<=836' docs/spec-process.md |
+  wc -c`), telling founding incidents the scripts' headers and `spec-gates.yml`'s step comments
+  already tell. dale's table is one line a gate (dale `spec-process.md:281-290`). The step comment
+  citing `T-013, T-014` (`spec-gates.yml:108`) loses the ticket references, which
+  `docs/comment-conventions.md` keeps out of comments.
+- `D16` **(a)** — **`CLAUDE.md` loses what lives better elsewhere.** The formatter escape hatch
+  moves into `.claude/commands/cleanup.md` beside the `Built-in: Reformat Code` warning, where dale
+  keeps both (dale `.claude/commands/cleanup.md:12-19`); § Building goes, its two commands being what
+  `/check -Build -Test` and `D13` run; the design-docs paragraph (`CLAUDE.md:41-46`) keeps change docs
+  in `docs/changes/` and the warning that `docs/superpowers/` is gitignored — which redirected this
+  doc there — and drops `docs/rfcs/`, which no longer exists to warn about.
+- `D17` **(a), narrowed** — **The PR template's "Relay notes for the PR body" clause applies to a
+  lane-3 round alone** (`.github/pull_request_template.md:10-13`). The comparison that folded this
+  in read it as dangling, since the change-doc template has no such section; but the plugin's pass
+  recipe has the implementing session write that section into the round's change doc, "what the PR
+  body's summary quotes" (`references/pass/6-report.md:25-27`, `7-checks.md:18`). So it is narrowed
+  to lane 3, not dropped as dale's was — flagged for the operator, who approved a drop.
+- `D18` **(a)** — **`docs/review-checks.md` loses its fifteen `(was Dn)` / `(was Pn)` aliases**
+  (`grep -c '(was [DP][0-9]' docs/review-checks.md` → 15). Nothing live refers to them (`git grep`
+  outside the archive, the retro notes and the journal: no hit), and the retro counts checks by
+  `CHK-` id; dale pruned its own at its programme's retro (dale
+  `docs/changes/archive/2026-09-18-sdd-migration.md` § Implementation state, `T-016`).
+- `D19` **(a)** — **`docs/testing-conventions.md` states its rules without the incidents behind
+  them, and gets a budget.** It is 35,063 bytes with none; dale's states its rules alone and is
+  budgeted at 24 kB (dale `CLAUDE.md:124`). An incident stays in git, the journal and the archived
+  change doc that recorded it. The SDK-specific sections keep their substance: §1–8, §15 Moq, §16
+  Async. The budget is the trimmed size rounded up to the next whole kB, written into `CLAUDE.md`
+  § How this file stays true beside the others.
+- `D20` **(a)** — **`docs/harness-conventions.md` is deleted**: a pointer to the
+  `/vion-improve:harness` skill that no live file links to (`git grep -n harness-conventions -- .
+  ':!docs/changes/archive' ':!docs/retro' ':!docs/process-journal'` → nothing), while `CLAUDE.md`
+  names the skill itself.
 
 ### Reviewer's questions
 
@@ -125,6 +192,29 @@ comment pointing at `spec-process.md` § IDs & EARS, stays valid: those sections
    plugin change can therefore redden dale-sdk's CI with no dale-sdk commit; the other consumers
    accept that, and `D7`'s partial state makes a desk run that differs from CI's visible. Pinning a
    commit would trade that for a bump per plugin change.
+5. **(c) The standing rule that every dispatched worker is steered** (`spec-process.md:230-233`,
+   operator 2026-09-09) is not read where it is written. `/vion-dispatch:spawn` decides `steer:` from
+   two triggers — a STOP the brief names, or a target `CLAUDE.md` that pauses before committing —
+   after reading the brief and that `CLAUDE.md`, and an explicit `steer:` in the brief's front
+   matter overrides both (vion-dispatch `spawn/SKILL.md` § steer). (i) Drop the rule; a brief that
+   wants a steered worker with no STOP says `steer: yes` in its front matter — **recommended**: it is
+   the override the skill already honours, a brief with a STOP is steered anyway, and dale runs this
+   way. (ii) Keep it, moved into `CLAUDE.md`, with an amendment making a repository's default a third
+   trigger in vion-dispatch. (iii) Keep it where it is.
+6. **(c) The fixed `sections:` list of a lane-1 or lane-2 brief** (`spec-process.md:214-221`: the
+   dispatch plugin's four plus `Gates` and `Review`). dale names a brief's sections per brief: nine
+   different sets across its briefs (`grep -h '^sections:' .claude/briefs/*.md | sort | uniq -c` in
+   dale). (i) Drop the fixed list, keeping two sentences on what `Gates` and `Review` carry when a
+   brief names them — **recommended**: the PR template's *Reviewed at* line keeps its source, and a
+   brief asks for what it needs. (ii) Keep the list.
+7. **(c) A missing architecture checkout at the desk.** `D7` reports the two spec gates **FAIL**, on
+   journal-lint's rule here (`check.ps1:16-20`). dale reports them **SKIP** — "the pull request's
+   spec-gates job runs them" (dale `.claude/commands/check.md:18`) — and the plugin's template lets a
+   gate that cannot run at the desk be reported skipped with its reason, never as a pass
+   (`templates/spec-process.md` § Gates). (i) SKIP with the reason, as dale — **recommended**: the
+   job runs on every pull request, and the rule then reads the same in both repositories;
+   journal-lint keeps its FAIL, a difference `check.ps1`'s header names. (ii) FAIL, as `D7` has it.
+   On (i), `D7`'s first row and `T-004` change.
 
 ---
 
@@ -292,17 +382,23 @@ the cross-tier note alone (`D6`).
 | the cross-tier note, `spec-trace.ps1:166-224` | `scripts/test-style-lint.ps1`, failing | `T-005` |
 | the `Spec lint` and `Spec trace` steps, `spec-gates.yml:55-68` | the `vion-sdd` job | `T-003`, `T-006` |
 | `docs/changes/_template.md` | the plugin's `templates/change-doc.md`, three lines away from it | `T-007` |
-| `spec-process.md` § The corpus, its Tier column and tier prose (`11-49`) | the template's text, the roster without the column, the Tier C list as the exempt paragraph | `T-008` |
+| `spec-process.md` § The corpus, its Tier column and tier prose (`11-49`) | the template's text, the roster in dale's shape (`D14`), the Tier C list as the exempt paragraph | `T-008` |
 | § IDs & EARS (`65-146`) | the template's text, keeping this repo's three citation forms (`90-104`) and stating its finer granularity; the cross-tier paragraph (`129-130`) leaves for `testing-conventions.md` | `T-008` |
 | § Change docs (`148-186`) | the template's text | `T-008` |
-| § Lanes, lanes 1 and 2 (`188-272`) | the template's text, keeping the lane-1/2 dispatch envelope (`211-233`) and the review-round pointers to `/vion-git:pr` | `T-008` |
+| § Lanes, lanes 1 and 2 (`188-272`) | the template's text and the review-round pointers to `/vion-git:pr`; the lane-1/2 dispatch envelope (`211-233`) as reviewer's questions 5 and 6 settle it | `T-008` |
 | § Lane 3 (`274-805`) | the plugin's `pass` skill, and § What a pass in this repo adds — every rule placed by the table below | `T-008` |
 | § Routing (`806-818`) | kept | — |
-| § Gates (`820-858`) | the template's three plugin rows, this repo's other rows, the `check.ps1` paragraph re-pointed | `T-008` |
+| § Gates (`820-858`) | the template's three plugin rows, this repo's other rows one line each (`D15`), the `check.ps1` paragraph re-pointed | `T-008` |
+| the ticket references in `spec-gates.yml:108` | gone (`D15`) | `T-003` |
 | `testing-conventions.md:476-484` | "on a traced page"; the cross-tier clause enforced by `test-style-lint` | `T-009` |
-| `CLAUDE.md` § Read before you write, § Lanes in this repo, § Skills in this repo | `D10` | `T-009` |
 | `.claude/commands/check.md` | names the architecture checkout beside the shared-workflows one | `T-009` |
 | `Vion.Dale.DevHost.Test/Scenarios/ScenarioDefinitionSitesShould.cs:366` | "Tier C" reworded to the exempt set | `T-009` |
+| `CLAUDE.md` § Read before you write, § Lanes in this repo, § Skills in this repo, § Pre-PR obligations, § Reader depth, § Building, § Code Style, the design-docs paragraph | `D10`, `D12`, `D13`, `D16` | `T-010` |
+| `.claude/commands/cleanup.md` | gains the formatter escape hatch (`D16`) | `T-010` |
+| `.github/pull_request_template.md:10-13` | the Relay-notes clause narrowed to lane 3 (`D17`) | `T-011` |
+| `docs/review-checks.md` | its fifteen aliases go (`D18`) | `T-012` |
+| the rest of `docs/testing-conventions.md` | its rules without their incidents, under a budget (`D19`) | `T-013` |
+| `docs/harness-conventions.md` | deleted (`D20`) | `T-014` |
 
 The code comments pointing at `spec-process.md` § IDs & EARS (`Vion.Dale.Cli.Test/ProgramShould.cs:53`,
 `Vion.Dale.Sdk.TestKit.Test/TestKitSurfaceShould.cs:165`,
@@ -355,6 +451,9 @@ rules of owner 2 may be none.
   the PR body, so the job is shown to gate, not just to run.
 - **The cross-tier rule, red first:** `T-005`'s self-test case is run against the script before the
   rule exists and observed failing.
+- **Budgets and reader depth:** `wc -c CLAUDE.md` under 10,000 and `docs/testing-conventions.md`
+  within the budget `D19` writes; `/vion-git:pr`'s weight step on this branch classes
+  `docs/spec-process.md` as harness.
 - **Not run here, routes to a human:** `T-001` — the App and its two secrets.
 
 ---
@@ -380,10 +479,10 @@ rules of owner 2 may be none.
 
 > One-commit tasks, each tagged with the decision it lands; this change mints no id. Ephemeral —
 > they live and die with this change doc. Plain list, no checkboxes — the PR's per-task commits are
-> the completion record. **No task starts before this doc is ratified**: reviewer's question 1 was
-> propose-and-wait, and `CLAUDE.md` § Lanes ratifies a feature-sized doc with an open question
-> before code; it carries its outcome. `T-001` is a human's, `T-003`'s job goes green only once it
-> is done, and every other task proceeds at the desk meanwhile.
+> the completion record. **No task starts before this doc is ratified**: `CLAUDE.md` § Lanes
+> ratifies a feature-sized doc with an open question before code, so every propose-and-wait
+> question carries its outcome first — question 1 does, 5, 6 and 7 wait. Then `T-001` is a human's,
+> `T-003`'s job goes green only once it is done, and every other task proceeds at the desk meanwhile.
 
 - `T-001` (`D1`, `D11`): **STOP — routes to a human.** The App `D11` names: created, installed on
   architecture alone with `contents: read`, its client id and private key added to dale-sdk as
@@ -391,17 +490,27 @@ rules of owner 2 may be none.
   organisation secrets granted to dale-sdk, which lets the next repository that needs architecture be
   granted access rather than handed a copy of the key.
 - `T-002` (`D2`): `docs/specs/_corpus.yml`, the template's header and the config above.
-- `T-003` (`D1`): the `vion-sdd` job in `spec-gates.yml`, `actions/create-github-app-token` pinned
-  by commit; the workflow's header comment names it.
+- `T-003` (`D1`, `D15`): the `vion-sdd` job in `spec-gates.yml`, `actions/create-github-app-token`
+  pinned by commit; the workflow's header comment names it; the step comment at `:108` loses its
+  ticket references.
 - `T-004` (`D7`): `check.ps1` derives the step, runs both gates from `-ArchitectureRoot`, fails with
   no checkout and is partial in the three states § The desk names; `check.tests.ps1` proves each.
 - `T-005` (`D6`): the cross-tier rule in `test-style-lint.ps1`, its self-test case red first.
 - `T-006` (`D3`): the three scripts and their self-tests deleted, the two steps out of the
   `spec-gates` job; `run-script-tests.ps1` green with no exemption added.
 - `T-007` (`D4`): `docs/changes/_template.md` from the plugin's `templates/change-doc.md`.
-- `T-008` (`D4`, `D5`): `docs/spec-process.md` re-based, § What a pass in this repo adds, and the
-  where-every-rule-goes table in this doc.
-- `T-009` (`D5`, `D6`, `D10`): `testing-conventions.md`, `CLAUDE.md`, `.claude/commands/check.md`,
-  the `ScenarioDefinitionSitesShould.cs` comment.
-- `T-010`: the CI proof (§ Verification), gates pasted, every reviewer's question carrying its
+- `T-008` (`D4`, `D5`, `D14`, `D15`): `docs/spec-process.md` re-based — the roster in dale's
+  shape, one line a gate, § What a pass in this repo adds, the lane-1/2 envelope as questions 5 and
+  6 settle it — and the where-every-rule-goes table in this doc.
+- `T-009` (`D5`, `D6`): `testing-conventions.md:476-484`, `.claude/commands/check.md`, the
+  `ScenarioDefinitionSitesShould.cs` comment.
+- `T-010` (`D10`, `D12`, `D13`, `D16`): `CLAUDE.md` — the two skill rows and the roles line, the
+  `harness:` reader-depth line, the path-keyed obligations, the moves — under 10 kB; the escape
+  hatch into `.claude/commands/cleanup.md`.
+- `T-011` (`D17`): the PR template's Relay-notes clause narrowed to a lane-3 round.
+- `T-012` (`D18`): the aliases out of `docs/review-checks.md`.
+- `T-013` (`D19`): `docs/testing-conventions.md` without its incidents, and its budget in
+  `CLAUDE.md`.
+- `T-014` (`D20`): `docs/harness-conventions.md` deleted.
+- `T-015`: the CI proof (§ Verification), gates pasted, every reviewer's question carrying its
   `OUTCOME`, and the archive.
