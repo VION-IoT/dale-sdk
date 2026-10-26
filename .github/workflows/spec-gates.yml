@@ -54,7 +54,8 @@ jobs:
         run: ./scripts/run-script-tests.ps1
 
       # Settled test style, ratcheting on spec citations: a test that cites an AC id follows
-      # testing-conventions §12/§13. Two passes proved the rule does not hold as prose.
+      # testing-conventions §12/§13, and a file citing an id a scenario also claims carries its
+      # cross-tier clause (§17).
       - name: Test style lint
         shell: pwsh
         run: ./scripts/test-style-lint.ps1
