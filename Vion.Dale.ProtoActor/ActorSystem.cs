@@ -81,7 +81,12 @@ namespace Vion.Dale.ProtoActor
                                                                 {
                                                                     if (e.Message is not Continuation) // Ignore continuation messages from ctx.ReenterAfter() timeout checking
                                                                     {
-                                                                        logger.LogWarning("DeadLetter: message {Message} from {Sender} to {PID}", e.Message, e.Sender, e.Pid);
+                                                                        // The type, never the message: a record's ToString prints every member, a
+                                                                        // write-only property's value included, onto a log stream that leaves the gateway.
+                                                                        logger.LogWarning("DeadLetter: message {Message} from {Sender} to {PID}",
+                                                                                          ActorMiddleware.GetFriendlyTypeName(e.Message.GetType()),
+                                                                                          e.Sender,
+                                                                                          e.Pid);
                                                                     }
                                                                 });
         }
