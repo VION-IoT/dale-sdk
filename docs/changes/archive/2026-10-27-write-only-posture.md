@@ -1,6 +1,6 @@
 ---
 slug: write-only-posture
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: LIFE,CTRL
 author: jonasbertsch
