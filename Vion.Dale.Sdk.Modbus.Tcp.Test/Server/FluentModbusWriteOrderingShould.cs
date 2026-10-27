@@ -17,6 +17,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
     ///         (<c>AC-SCEN-012.5</c>, and the prose under <c>AC-MODB-020.1</c>). A FluentModbus upgrade that answered before
     ///         notifying would leave a stepped settle free to return before the server had stored the write.
     ///     </para>
+    ///     <para>
+    ///         The ordering is pinned twice: for unit 0 alone, as the hosted server serves it, and for several units
+    ///         with a map each, as a simulator that builds its own FluentModbus server serves them
+    ///         (<c>docs/simulator-authoring.md</c>).
+    ///     </para>
     /// </summary>
     [TestClass]
     public class FluentModbusWriteOrderingShould
@@ -50,7 +55,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             try
             {
                 // Act / Assert — inseparable: the write must be seen not completing while the notification is still parked.
-                var write = Task.Run(() => Write(client, functionCode));
+                var write = Task.Run(() => Write(client, 0, functionCode));
                 Assert.IsTrue(entered.Wait(Timeout));
                 await Assert.ThrowsExactlyAsync<TimeoutException>(() => write.WaitAsync(Window));
                 released.Set();
@@ -73,21 +78,73 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             }
         }
 
-        private static void Write(ModbusTcpClient client, ModbusFunctionCode functionCode)
+        [TestMethod]
+        [DataRow(ModbusFunctionCode.WriteSingleRegister, DisplayName = "WriteSingleRegister")]
+        [DataRow(ModbusFunctionCode.WriteMultipleRegisters, DisplayName = "WriteMultipleRegisters")]
+        [DataRow(ModbusFunctionCode.WriteSingleCoil, DisplayName = "WriteSingleCoil")]
+        [DataRow(ModbusFunctionCode.WriteMultipleCoils, DisplayName = "WriteMultipleCoils")]
+        public async Task HoldClientWriteToOneOfSeveralUnitsWhileChangeNotificationRuns(ModbusFunctionCode functionCode)
+        {
+            // Arrange — the layout of a consumer's per-unit simulator: units 1 and 2 at the same addresses, and a third unit.
+            // Unit 1 sits at the written address untouched, which is what tells a map per unit from one map shared by all.
+            using var entered = new ManualResetEventSlim();
+            using var released = new ManualResetEventSlim();
+            var storedWhenNotified = false;
+            var siblingUntouchedWhenNotified = false;
+            var server = new ModbusTcpServer { EnableRaisingEvents = true, AlwaysRaiseChangedEvent = true };
+            server.AddUnit(1);
+            server.AddUnit(2);
+            server.AddUnit(200);
+            server.RegistersChanged += (_, _) => Park(() => server.GetHoldingRegisters(2)[1] == 42, () => server.GetHoldingRegisters(1)[1] == 0);
+            server.CoilsChanged += (_, _) => Park(() => (server.GetCoils(2)[0] & 0b10) != 0, () => (server.GetCoils(1)[0] & 0b10) == 0);
+            var port = LoopbackPorts.Free();
+            server.Start(new IPEndPoint(IPAddress.Loopback, port));
+            using var client = new ModbusTcpClient();
+            client.Connect(new IPEndPoint(IPAddress.Loopback, port), ModbusEndianness.LittleEndian);
+
+            try
+            {
+                // Act / Assert — inseparable: the write must be seen not completing while the notification is still parked.
+                var write = Task.Run(() => Write(client, 2, functionCode));
+                Assert.IsTrue(entered.Wait(Timeout));
+                await Assert.ThrowsExactlyAsync<TimeoutException>(() => write.WaitAsync(Window));
+                released.Set();
+                await write.WaitAsync(Timeout);
+
+                // Assert — the value was already stored in the written unit's map, and only there, when the notification ran.
+                Assert.IsTrue(storedWhenNotified);
+                Assert.IsTrue(siblingUntouchedWhenNotified);
+            }
+            finally
+            {
+                released.Set();
+                server.Stop();
+            }
+
+            void Park(Func<bool> stored, Func<bool> siblingUntouched)
+            {
+                storedWhenNotified = stored();
+                siblingUntouchedWhenNotified = siblingUntouched();
+                entered.Set();
+                released.Wait(Timeout);
+            }
+        }
+
+        private static void Write(ModbusTcpClient client, byte unitIdentifier, ModbusFunctionCode functionCode)
         {
             switch (functionCode)
             {
                 case ModbusFunctionCode.WriteSingleRegister:
-                    client.WriteSingleRegister(0, 1, 42);
+                    client.WriteSingleRegister(unitIdentifier, 1, 42);
                     break;
                 case ModbusFunctionCode.WriteMultipleRegisters:
-                    client.WriteMultipleRegisters(0, 1, new short[] { 42 });
+                    client.WriteMultipleRegisters(unitIdentifier, 1, new short[] { 42 });
                     break;
                 case ModbusFunctionCode.WriteSingleCoil:
-                    client.WriteSingleCoil(0, 1, true);
+                    client.WriteSingleCoil(unitIdentifier, 1, true);
                     break;
                 case ModbusFunctionCode.WriteMultipleCoils:
-                    client.WriteMultipleCoils(0, 1, new[] { true });
+                    client.WriteMultipleCoils(unitIdentifier, 1, new[] { true });
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(functionCode), functionCode, "Not a write this test drives.");
