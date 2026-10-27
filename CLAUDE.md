@@ -95,6 +95,7 @@ At the start of a task, answer two questions out loud: is the change local? is a
 | a retro is due, by the count and age `retro` states | `/vion-improve:retro` |
 | work changes specified behaviour — a criterion fixed, behaviour new or reshaped | `/vion-sdd:change` |
 | a whole area is brought to current truth | `/vion-sdd:pass` |
+| feedback on the SDK arrives from a consumer or customer — a bug report, a feature ask, a pasted log | `dale-sdk-feedback` |
 
 ### Lanes in this repo
 
@@ -144,14 +145,6 @@ whichever checkout it runs from.
 
 CI regenerates `docs/snapshots/*` and commits them onto the pull request head. That commit is
 accepted; pull before the next push.
-
-## Feedback intake
-
-Consumer and customer feedback on the SDK is curated **by the maintainer** into the **"Dale SDK
-Feedback" epic (VION-62)** in the VION project, label `dale-sdk` — consumers do not file items; the
-first of them, `logic-block-libraries` (ecocoach org, private), is where most features and fixes
-here come from. Turning a report into an item or a recorded dismissal is the `dale-sdk-feedback`
-skill ([`.claude/skills/dale-sdk-feedback/`](.claude/skills/dale-sdk-feedback/SKILL.md)).
 
 ## How this file stays true
 
