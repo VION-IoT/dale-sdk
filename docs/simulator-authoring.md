@@ -151,10 +151,31 @@ Two things a simulator block must not become:
 
 - **A second copy of the logic under test.** If the sim mirrors the consumer's decision, the bench
   passes whatever the consumer does and asserts nothing. Model the *device*, from the device's side.
-- **A socket of its own.** Serve through the SDK's hosted Modbus TCP or HTTP server, or bind a
-  contract. A stepped host waits for the requests those servers and the SDK's clients carry
-  (`AC-SCEN-012.5`); a listener opened any other way — a `TcpListener`, a Modbus library used
-  directly — is invisible to the quiescence barrier and wall-clock forever.
+- **A socket the stepped barrier does not wait for.** Serve through the SDK's hosted Modbus TCP or
+  HTTP server, or bind a contract. A stepped host waits while an exchange one of the SDK's clients
+  started is open, until its result has reached the block, and while a request the hosted HTTP server
+  accepted is not yet recorded. The hosted Modbus TCP server counts nothing of its own: it stores a
+  client's write before it answers, so the client's counted request covers it (`AC-SCEN-012.5` and
+  its prose in [`specs/scenarios.md`](specs/scenarios.md) § Stepping guarantees; the prose under
+  `AC-MODB-020.1` in [`specs/modbus.md`](specs/modbus.md)). A socket a block opens any other way — a
+  `TcpListener`, say — is not seen, and whatever it does that no SDK client's open exchange spans is
+  not waited for.
+
+  One such socket is allowed, narrowly, because the barrier waits for it the way it waits for the
+  hosted Modbus TCP server. The store-before-answer premise is FluentModbus's, which the hosted
+  server inherits: `FluentModbusWriteOrderingShould` builds a bare FluentModbus server and pins that
+  a client's write is stored, and its change notification has returned, before the write completes.
+  That reaches a FluentModbus server a simulator builds itself only as far as the test pins it —
+  FluentModbus 5.3.2, the version the SDK ships, in its default asynchronous mode, with
+  `EnableRaisingEvents` and `AlwaysRaiseChangedEvent` on, serving either unit 0 alone or several
+  non-zero units with a map each (the test serves units 1, 2 and 200, and writes one of two units
+  that share an address) — and only for requests from the SDK's own Modbus TCP clients in the same
+  host. The several-unit layout is the usual reason to build one, since the hosted server answers
+  every unit id from one map (`AC-MODB-014.1`). Inside that scope a simulator may build one; outside
+  it the rule above stands, because nothing in this repo says the barrier waits: another FluentModbus
+  version, synchronous mode, events off, unit 0 served beside other units, another Modbus library, a
+  client that is not the SDK's. No test here runs an SDK client against such a server on a stepped
+  host.
 
 ## 5. Simulating against a real gateway
 

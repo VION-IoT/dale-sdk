@@ -394,8 +394,9 @@ observation is true quiescence. An exchange a block's Modbus TCP or HTTP client 
 request a block's hosted HTTP server has accepted, holds its result outside every mailbox, so it counts
 with the handlers in the same observation until that result has reached the block or the request is
 recorded. The guarantee stops at the SDK's own clients and servers: a socket a block opens any other
-way is not seen. An open exchange is waited for until its own bound ends it — a refused connect, an
-operation timeout, a client's timeout — in real time, and it moves no virtual time; `AC-SCEN-012.11`
+way is not seen and counts nothing of its own, so it is waited for only while an exchange an SDK
+client started with it is still open. An open exchange is waited for until its own bound ends it —
+a refused connect, an operation timeout, a client's timeout — in real time, and it moves no virtual time; `AC-SCEN-012.11`
 names what was still open when a bound longer than the budget outlasted it. `AC-SCEN-012.6` is the other half of that: never a heuristic
 stand-down. Its budget is a backstop, not a tolerance — no scenario is meant to reach it — and it is
 the host's, not this page's ([`devhost-control.md`](devhost-control.md)). `AC-SCEN-012.10` is what makes a run reproducible; the round-trip a
