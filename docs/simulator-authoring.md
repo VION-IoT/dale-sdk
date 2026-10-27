@@ -167,13 +167,15 @@ Two things a simulator block must not become:
   a client's write is stored, and its change notification has returned, before the write completes.
   That reaches a FluentModbus server a simulator builds itself only as far as the test pins it —
   FluentModbus 5.3.2, the version the SDK ships, in its default asynchronous mode, with
-  `EnableRaisingEvents` and `AlwaysRaiseChangedEvent` on, serving unit 0 alone — and only for
-  requests from the SDK's own Modbus TCP clients in the same host. Inside that scope a simulator may
-  build one; outside it the rule above stands, because nothing in this repo says the barrier waits:
-  another FluentModbus version, synchronous mode, events off, more than one unit, another Modbus
-  library, a client that is not the SDK's. More than one unit is the usual reason to build one — a
-  map per unit id, where the hosted server answers every unit id from one (`AC-MODB-014.1`) — and
-  the test does not run it. No test here runs an SDK client against such a server on a stepped host.
+  `EnableRaisingEvents` and `AlwaysRaiseChangedEvent` on, serving either unit 0 alone or several
+  non-zero units with a map each (the test serves units 1, 2 and 200, and writes one of two units
+  that share an address) — and only for requests from the SDK's own Modbus TCP clients in the same
+  host. The several-unit layout is the usual reason to build one, since the hosted server answers
+  every unit id from one map (`AC-MODB-014.1`). Inside that scope a simulator may build one; outside
+  it the rule above stands, because nothing in this repo says the barrier waits: another FluentModbus
+  version, synchronous mode, events off, unit 0 served beside other units, another Modbus library, a
+  client that is not the SDK's. No test here runs an SDK client against such a server on a stepped
+  host.
 
 ## 5. Simulating against a real gateway
 
