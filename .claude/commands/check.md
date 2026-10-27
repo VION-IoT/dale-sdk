@@ -8,6 +8,11 @@ Run the repo's gate suite and report the result:
    `.github/workflows/spec-gates.yml` — the workflow is the authority on which gates run and in
    what order — and runs each with the arguments CI gives it, printing one line per gate with
    that gate's own summary line. Takes about 90 seconds, nearly all of it the script self-tests.
+   Two gates' scripts live in other repositories and run from checkouts beside this one:
+   `spec-lint` and `spec-trace` from `../architecture` (`-ArchitectureRoot`), the vion-sdd
+   plugin's, and `journal-lint` from `../shared-workflows` (`-SharedWorkflowsRoot`). With no
+   architecture checkout the two spec gates are `SKIP` — the pull request's `vion-sdd` job runs
+   them; with no shared-workflows checkout `journal-lint` is `FAIL`.
 2. Add `-CiShape` when the change touches a gate script, a self-test, or anything whose
    behaviour could depend on the filesystem. It runs with the repository's dot-directories
    hidden (Linux hides them, Windows does not), scans `scripts/*.ps1` for path literals whose

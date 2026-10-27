@@ -2,7 +2,7 @@
 slug: <kebab-case-slug>
 status: proposed           # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
-areas: <AREA[, AREA]>      # roster codes from docs/spec-process.md (e.g. EMIT, SCEN)
+areas: <AREA[, AREA]>      # area codes from docs/specs/_corpus.yml's `owns:`
 author: <name>
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
@@ -13,8 +13,8 @@ supersedes: none           # path of a superseded change doc, or none
 
 > Change doc — one in-flight change. The `Spec delta` below is distilled into the current-truth
 > pages under `docs/specs/` in the implementation PR, then this doc is archived
-> (`pwsh scripts/spec-change.ps1 archive <slug>`). Process: `docs/spec-process.md`. Never put
-> change narrative inline in a spec page — it lives here.
+> (`spec-change.ps1 archive <slug>`). Process: `docs/spec-process.md`. Never put change narrative
+> inline in a spec page — it lives here.
 
 ## At a glance
 
@@ -73,7 +73,9 @@ hints at best.>
 >
 > On the implementation PR each line is applied into the named target; `spec-change.ps1 archive`
 > refuses until every line is applied. The `ID` must be an exact token greppable in the target
-> after distill (backticks stripped) — a real `AC-`/`SYS-` id, never an ad-hoc label.
+> after distill (backticks stripped) — a real `AC-`/`SYS-` id in an area this repo owns, never an
+> ad-hoc label and never another repo's area. A criterion the delta declares unreachable carries
+> its `GAP: <reason>` marker on the delta line.
 
 - ADDED AC-<AREA>-001.1 -> docs/specs/<page>.md : <EARS text>
 - MODIFIED AC-<AREA>-002.1 -> docs/specs/<page>.md : <new EARS text>

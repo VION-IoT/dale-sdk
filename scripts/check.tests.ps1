@@ -24,14 +24,20 @@ $tmp = Join-Path $base 'repo'
 $scriptsDir = Join-Path $tmp 'scripts'
 $workflow = Join-Path $tmp '.github/workflows/spec-gates.yml'
 
-# Nine of the gate names spec-gates.yml runs, in its order - a subset, not the whole list, and
-# deliberately so: this fixture tests the derivation, not the roster, and pinning it to every gate
-# would make an unrelated addition to the workflow fail these cases. The fixture reuses REAL names
-# because check.ps1's invocation table is keyed on them.
+# Seven of the gate names spec-gates.yml runs as ./scripts steps, in its order - a subset, not the
+# whole list, and deliberately so: this fixture tests the derivation, not the roster, and pinning it
+# to every gate would make an unrelated addition to the workflow fail these cases. The fixture reuses
+# REAL names because check.ps1's invocation table is keyed on them.
 $gates = @(
-    'run-script-tests', 'spec-lint', 'spec-trace', 'test-style-lint', 'doc-comment-lint',
+    'run-script-tests', 'test-style-lint', 'doc-comment-lint',
     'pragma-reason-lint', 'bom-lint', 'packed-msbuild-lint', 'sweep-residue-lint'
 )
+# The two gates the vion-sdd plugin's action runs, derived from its one step, after the others.
+$pluginGates = @('spec-lint', 'spec-trace')
+# The architecture checkout check.ps1 looks for beside the fixture, cloned from an origin of its
+# own, so a case can move the origin's main the way a plugin change does.
+$archOrigin = Join-Path $base 'architecture-origin'
+$archRoot = Join-Path $base 'architecture'
 
 function Write-File([string]$path, [string[]]$lines) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
@@ -51,13 +57,27 @@ function Write-Gate([string]$name, [int]$exit) {
     )
 }
 
-# A workflow naming the given scripts as steps, in the given order, in spec-gates.yml's shape.
+# A stand-in for one of the plugin's two gates, in the given architecture tree.
+function Write-PluginGate([string]$root, [string]$name, [int]$exit) {
+    $saved = $scriptsDir
+    $script:scriptsDir = Join-Path $root 'plugins/vion-sdd/scripts'
+    Write-Gate $name $exit
+    $script:scriptsDir = $saved
+}
+
+# The vion-sdd job's steps, in spec-gates.yml's shape: plumbing, then the plugin's action.
+$pluginJob = @('  vion-sdd:', '    steps:', '      - uses: actions/checkout@v4',
+    '      - uses: actions/create-github-app-token@0000000000000000000000000000000000000000',
+    '      - uses: ./.vion-sdd/plugins/vion-sdd/action', '        with:', "          base: main")
+
+# A workflow naming the given scripts as steps, in the given order, in spec-gates.yml's shape, and
+# the vion-sdd job after them.
 function Write-Workflow([string[]]$names) {
     $lines = @('name: Spec Gates', 'jobs:', '  spec-gates:', '    steps:')
     foreach ($n in $names) {
         $lines += @("      - name: $n", '        shell: pwsh', "        run: ./scripts/$n.ps1")
     }
-    Write-File $workflow $lines
+    Write-File $workflow ($lines + $pluginJob)
 }
 
 function Invoke-Check([string[]]$extra) {
@@ -93,6 +113,30 @@ try {
     # What CI diffs against, and what check.ps1 requires before it will run spec-lint.
     git -C $tmp update-ref refs/remotes/origin/main HEAD
 
+    # Case 0: no architecture checkout beside the repository -> the plugin's two gates are SKIPPED,
+    # naming where check.ps1 looked and that CI runs them, and never counted among the passes.
+    Expect 0 'Case 0 (no architecture checkout)' @(
+        'check: 9 gate(s)', 'SKIP  spec-lint', 'SKIP  spec-trace',
+        "no VION-IoT/architecture checkout with the vion-sdd plugin at '$archRoot'", '-ArchitectureRoot',
+        "the pull request's vion-sdd job runs it",
+        'check: OK - 7 step(s) passed, 4 skipped')
+    if ($script:out -match 'args RepoRoot=') { throw "Case 0 ran a plugin gate with no checkout`n$script:out" }
+
+    New-Item -ItemType Directory -Force -Path $archOrigin | Out-Null
+    git -C $archOrigin init --quiet -b main 2>&1 | Out-Null
+    git -C $archOrigin config user.email 'check-tests@example.invalid' | Out-Null
+    git -C $archOrigin config user.name 'check tests' | Out-Null
+    foreach ($g in $pluginGates) { Write-PluginGate $archOrigin $g 0 }
+    git -C $archOrigin add -A 2>&1 | Out-Null
+    git -C $archOrigin commit -m 'fixture' --quiet 2>&1 | Out-Null
+    git clone --quiet $archOrigin $archRoot 2>&1 | Out-Null
+
+    # Case 0b: -ArchitectureRoot names a checkout elsewhere, and the plugin's gates run from it.
+    $archElsewhere = Join-Path $base 'elsewhere/arch'
+    git clone --quiet $archOrigin $archElsewhere 2>&1 | Out-Null
+    Write-PluginGate $archElsewhere 'spec-trace' 1
+    Expect 1 'Case 0b (-ArchitectureRoot)' @('FAIL  spec-trace', "spec-trace: args RepoRoot=[$tmp]") @('-ArchitectureRoot', $archElsewhere)
+
     # Case 1: nine green gates -> exit 0, one PASS line each, build and test skipped unasked.
     Expect 0 'Case 1 (all green)' @(
         'check: 9 gate(s), derived from .github/workflows/spec-gates.yml',
@@ -105,21 +149,25 @@ try {
     if ($script:out -match 'args RepoRoot=') { throw "Case 1 should carry each gate's LAST line, not its first`n$script:out" }
     if ($script:out -match 'PARTIAL') { throw "Case 1 has a resolvable base ref, so nothing should run partially`n$script:out" }
 
-    # Case 1b: a step naming its script twice is one gate, not two. spec-gates.yml's real
-    # spec-lint step does exactly this, in an if/else on GITHUB_BASE_REF.
+    # Case 1b: a step naming its script twice is one gate, not two, as a step does whose if/else on
+    # GITHUB_BASE_REF passes a ref on one branch only. And spec-lint derived from the plugin's
+    # action is one gate even beside a ./scripts step of the same name.
     $ifElse = @('name: Spec Gates', 'jobs:', '  spec-gates:', '    steps:')
     foreach ($n in $gates) {
-        if ($n -eq 'spec-lint') {
-            $ifElse += @('      - name: spec-lint', '        run: |',
-                '          if ($env:GITHUB_BASE_REF) { ./scripts/spec-lint.ps1 -Diff "origin/$env:GITHUB_BASE_REF" }',
-                '          else { ./scripts/spec-lint.ps1 }')
+        if ($n -eq 'bom-lint') {
+            $ifElse += @('      - name: bom-lint', '        run: |',
+                '          if ($env:GITHUB_BASE_REF) { ./scripts/bom-lint.ps1 -Diff "origin/$env:GITHUB_BASE_REF" }',
+                '          else { ./scripts/bom-lint.ps1 }')
         }
         else { $ifElse += @("      - name: $n", "        run: ./scripts/$n.ps1") }
     }
-    Write-File $workflow $ifElse
+    $ifElse += @('      - name: spec-lint', '        run: ./scripts/spec-lint.ps1')
+    Write-File $workflow ($ifElse + $pluginJob)
     Expect 0 'Case 1b (a step naming its script twice)' @('check: 9 gate(s)', 'check: OK - 9 step(s) passed, 2 skipped')
-    if (@([regex]::Matches($script:out, '(?m)^\s+PASS\s+spec-lint\s')).Count -ne 1) {
-        throw "Case 1b expected one spec-lint line`n$script:out"
+    foreach ($once in 'bom-lint', 'spec-lint') {
+        if (@([regex]::Matches($script:out, "(?m)^\s+PASS\s+$once\s")).Count -ne 1) {
+            throw "Case 1b expected one $once line`n$script:out"
+        }
     }
     Write-Workflow $gates
 
@@ -129,7 +177,7 @@ try {
     $commented = @('name: Spec Gates', '# See also ./scripts/cleanup-code.ps1, which the style gate runs elsewhere.',
         'jobs:', '  spec-gates:', '    steps:')
     foreach ($n in $gates) { $commented += @("      - name: $n", "        run: ./scripts/$n.ps1") }
-    Write-File $workflow $commented
+    Write-File $workflow ($commented + $pluginJob)
     Expect 0 'Case 1c (a script named in a comment)' @('check: 9 gate(s)', 'check: OK - 9 step(s) passed, 2 skipped')
     if ($script:out -match 'cleanup-code') { throw "Case 1c minted a gate from a comment`n$script:out" }
     Write-Workflow $gates
@@ -139,8 +187,9 @@ try {
     Write-Workflow $reordered
     Expect 0 'Case 2 (workflow order)' @('check: OK')
     $printed = @([regex]::Matches($script:out, '(?m)^\s+PASS\s+(\S+)') | ForEach-Object { $_.Groups[1].Value })
-    if (($printed -join ',') -ne ($reordered -join ',')) {
-        throw "Case 2 expected the workflow's order '$($reordered -join ',')', got '$($printed -join ',')'`n$script:out"
+    $expected = $reordered + $pluginGates
+    if (($printed -join ',') -ne ($expected -join ',')) {
+        throw "Case 2 expected the workflow's order '$($expected -join ',')', got '$($printed -join ',')'`n$script:out"
     }
     Write-Workflow $gates
 
@@ -154,9 +203,9 @@ try {
     # Case 3b: spec-lint gets the base ref CI gives it. This is the one argument that makes a
     # desk run equivalent to CI's, and dropping it is otherwise invisible - spec-lint without
     # -Diff still exits 0 and still reports PASS.
-    Write-Gate 'spec-lint' 1
+    Write-PluginGate $archRoot 'spec-lint' 1
     Expect 1 'Case 3b (spec-lint arguments)' @("spec-lint: args RepoRoot=[$tmp] Diff=[origin/main]")
-    Write-Gate 'spec-lint' 0
+    Write-PluginGate $archRoot 'spec-lint' 0
 
     # Case 4: the workflow gained a gate check.ps1 has no local invocation for -> exit 1. This
     # is the drift the derivation exists to catch: the gate would otherwise not run at all.
@@ -181,10 +230,46 @@ try {
         'check: OK - 9 step(s) passed, 2 skipped; 1 ran partially: spec-lint')
 
     # Case 6b: and it really did run without the ref, rather than with an unresolvable one.
-    Write-Gate 'spec-lint' 1
+    Write-PluginGate $archRoot 'spec-lint' 1
     Expect 1 'Case 6b (no base ref, arguments)' @("spec-lint: args RepoRoot=[$tmp] Diff=[]")
-    Write-Gate 'spec-lint' 0
+    Write-PluginGate $archRoot 'spec-lint' 0
     git -C $tmp update-ref refs/remotes/origin/main HEAD
+
+    # Case 6c: the origin's main moves past the checkout without touching the plugin, as most of
+    # architecture's commits do. Fetched, the plugin's tree is CI's: nothing runs partially.
+    Write-File (Join-Path $archOrigin 'specs/other.md') @('unrelated')
+    git -C $archOrigin add -A 2>&1 | Out-Null
+    git -C $archOrigin commit -m 'unrelated' --quiet 2>&1 | Out-Null
+    git -C $archRoot fetch --quiet origin 2>&1 | Out-Null
+    Expect 0 'Case 6c (main moved, plugin unchanged)' @('PASS  spec-lint', 'PASS  spec-trace', 'check: OK - 9 step(s) passed, 2 skipped')
+    if ($script:out -match 'PARTIAL') { throw "Case 6c runs CI's plugin, so nothing should run partially`n$script:out" }
+
+    # Case 6d: the origin's main changes the plugin and the checkout has not fetched it, so CI's
+    # plugin cannot be read: both gates run PARTIAL, naming the fetch.
+    Write-File (Join-Path $archOrigin 'plugins/vion-sdd/scripts/new-rule.txt') @('a rule CI has')
+    git -C $archOrigin add -A 2>&1 | Out-Null
+    git -C $archOrigin commit -m 'plugin change' --quiet 2>&1 | Out-Null
+    Expect 0 'Case 6d (plugin changed on main, not fetched)' @(
+        'PASS  spec-lint', "is not in the checkout, so its plugin cannot be compared; run 'git -C $archRoot fetch origin'",
+        'check: OK - 9 step(s) passed, 2 skipped; 2 ran partially: spec-lint, spec-trace')
+
+    # Case 6e: fetched but not checked out, the plugin's tree differs from CI's: PARTIAL.
+    git -C $archRoot fetch --quiet origin 2>&1 | Out-Null
+    Expect 0 'Case 6e (plugin changed on main, fetched)' @(
+        "PARTIAL: the checkout's plugins/vion-sdd differs from the origin's main", 'so its rules differ from CI', '2 ran partially')
+
+    # Case 6f: checked out, it is CI's again; an uncommitted change under the plugin is not.
+    git -C $archRoot merge --quiet --ff-only origin/main 2>&1 | Out-Null
+    Expect 0 'Case 6f (plugin at main)' @('check: OK - 9 step(s) passed, 2 skipped')
+    if ($script:out -match 'PARTIAL') { throw "Case 6f is at the origin's main, so nothing should run partially`n$script:out" }
+    Write-File (Join-Path $archRoot 'plugins/vion-sdd/scripts/new-rule.txt') @('a rule CI does not have')
+    Expect 0 'Case 6f (uncommitted plugin change)' @('PARTIAL: plugins/vion-sdd has uncommitted changes, so it ran rules CI does not have', '2 ran partially')
+    git -C $archRoot checkout --quiet -- plugins/vion-sdd 2>&1 | Out-Null
+
+    # Case 6g: an origin that cannot be asked still runs both gates, and says main went unchecked.
+    git -C $archRoot remote set-url origin (Join-Path $base 'no-such-origin') 2>&1 | Out-Null
+    Expect 0 'Case 6g (origin unreachable)' @("PARTIAL: the checkout's origin could not be asked what main names", '2 ran partially')
+    git -C $archRoot remote set-url origin $archOrigin 2>&1 | Out-Null
 
     # Case 7: -CiShape's path-case scan catches a literal that differs from the index only in
     # case - true for Test-Path on Windows, false on the runner.
@@ -278,6 +363,7 @@ try {
     # checkout step beside it is plumbing and mints no row.
     $shared = @('name: Spec Gates', 'jobs:', '  spec-gates:', '    steps:')
     foreach ($n in $gates) { $shared += @("      - name: $n", "        run: ./scripts/$n.ps1") }
+    $shared += $pluginJob
     $shared += @('  journal-lint:', '    steps:', '      - uses: actions/checkout@v4',
         '      - uses: VION-IoT/shared-workflows/actions/journal-lint@v1')
     Write-File $workflow $shared
