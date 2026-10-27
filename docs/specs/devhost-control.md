@@ -572,7 +572,9 @@ A block's start publishes every property, so a write always finds a held value t
 
 The host writes two kinds of file. A topology file carries no service-property value, since an
 instantiation parameter is never write-only (`AC-GATE-011.8`). A scenario file holds what its author
-wrote. The editor's copy of a live value copies what the browser was shown, which is the sentinel.
+wrote. The editor's copy of a live value copies what the browser was shown, which is the sentinel,
+and the runner compares in process against the secret itself. So an `expect` or a `waitUntil` copied
+from a secret never holds until its author types the secret in.
 
 - `AC-CTRL-021.1` (Ubiquitous): THE SYSTEM SHALL serve a service property's value on the state routes, the captured-message route and the push wire with each write-only position replaced by the redaction sentinel and a null one left null.
 - `AC-CTRL-021.2` (Event-driven): WHEN a JSON write value holds the redaction sentinel at a write-only position THE SYSTEM SHALL write in its place the value last published or acknowledged for that property, leaving a null position null.
