@@ -134,6 +134,40 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestCategory("Smoke")]
+        [TestProperty("spec", "AC-CTRL-021.1")]
+        public async Task ServeCapturedMessageRouteAfterWrongTypedWriteToSecret()
+        {
+            // Arrange — an in-process caller hands a string secret a value of another type, which the codec cannot encode.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("secrets").AddLogicBlock<ShowcaseBlock>("Showcase").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<SmokeHost.DependencyInjection>()
+                                                 .WithConfiguration(config)
+                                                 .WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromMilliseconds(500) })
+                                                 .WithWebUi(port)
+                                                 .Build();
+            await host.StartAsync();
+            using var client = Client(port);
+            try
+            {
+                await host.Control.SetPropertyAsync("Showcase", nameof(ShowcaseBlock.ApiKey), new Uri("https://wrong-typed-secret.example"));
+            }
+            catch (ServicePropertyWriteException)
+            {
+                // A string member cannot apply a Uri, so the block never acknowledges the write; the route is the subject.
+            }
+
+            // Act
+            var response = await client.GetAsync("/api/messages");
+
+            // Assert
+            var messages = await response.Content.ReadAsStringAsync();
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "A value the schema cannot encode is redacted whole rather than failing the route: " + messages);
+            Assert.DoesNotContain("wrong-typed-secret", messages, "Failing closed still names no value.");
+        }
+
+        [TestMethod]
+        [TestCategory("Smoke")]
         [TestProperty("spec", "AC-CTRL-021.2")]
         public async Task KeepHeldSecretWhenWriteEchoesSentinel()
         {

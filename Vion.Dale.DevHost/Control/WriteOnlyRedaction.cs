@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Vion.Contracts.Codec;
+using Vion.Contracts.Conventions;
 using Vion.Contracts.TypeRef;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Messages;
@@ -33,11 +35,29 @@ namespace Vion.Dale.DevHost.Control
 
         /// <summary>
         ///     The value of a property addressed by service-config id with each write-only position replaced by the
-        ///     sentinel and a null one left null, as JSON; any other member's value as it is.
+        ///     sentinel and a null one left null, as JSON; any other member's value as it is. A value the schema cannot
+        ///     encode is redacted whole.
         /// </summary>
         public object? Redact(string serviceId, string propertyName, object? value)
         {
-            return WriteOnlySchema(serviceId, propertyName) is { } schema ? WriteOnlyCodec.Redact(schema, PropertyValueCodec.ClrToJson(value, schema.Type)) : value;
+            if (WriteOnlySchema(serviceId, propertyName) is not { } schema)
+            {
+                return value;
+            }
+
+            JsonNode? json;
+            try
+            {
+                json = PropertyValueCodec.ClrToJson(value, schema.Type);
+            }
+            catch (Exception)
+            {
+                // An in-process caller can hand a secret a value of another type. Failing closed keeps the value out
+                // of what leaves the process without failing the route, the log line or the write that carries it.
+                return JsonValue.Create(WriteOnlyConventions.RedactedSentinel);
+            }
+
+            return WriteOnlyCodec.Redact(schema, json);
         }
 
         /// <summary>

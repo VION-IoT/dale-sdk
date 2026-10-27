@@ -212,6 +212,7 @@ file echoing a sentinel is the same input (Reviewer's question 2).
 | `WriteOnlyValuesShould.ServeClearedWriteOnlyValueAsNull` | `AC-CTRL-021.1` | redact a null to the sentinel |
 | `WriteOnlyValuesShould.RedactWriteOnlyPositionsOnPushWire` | `AC-CTRL-021.1` | drop the `Redact` call in `DevHostEventBroadcaster` |
 | `WriteOnlyValuesShould.RedactWriteOnlyPositionsOnCapturedMessageRoute` | `AC-CTRL-021.1` | drop the `RedactMessage` call in `DevHostController.GetMessages` |
+| `WriteOnlyValuesShould.ServeCapturedMessageRouteAfterWrongTypedWriteToSecret` | `AC-CTRL-021.1` | let an encode failure in `Redact` propagate (the pre-fix code; observed 500) |
 | `WriteOnlyValuesShould.KeepHeldSecretWhenWriteEchoesSentinel`, `…KeepHeldMemberSecretWhenStructWriteEchoesSentinel` | `AC-CTRL-021.2` | drop the `Resolve` call in `NormalizeValue` |
 | `WriteOnlyValuesShould.ClearSecretWhenWriteCarriesNull` | `AC-CTRL-021.2` | resolve a null position as an echo |
 | `WriteOnlyValuesShould.ReportWriteOnlyValueUnredactedInProcess` | `AC-CTRL-021.3` | redact on the value cache instead of on the routes |
@@ -240,6 +241,14 @@ The mutations are run and recorded under Drift checkpoints.
   `[Persistent]` persisted twice, under `Account.FlaggedAndPersistent` and
   `_direct.Account.FlaggedAndPersistent`. This existed before the change and is outside its scope, so it
   is a draft item. Sibling sweep: N/A.
+- 2026-10-27: Review round 1 at `cd3cea5f`, blocker 1: `WriteOnlyRedaction.Redact` threw when an
+  in-process caller handed a secret a value of another type, which `PropertyValueCodec.ClrToJson`
+  cannot encode. The mock handler's log line then threw before the send, and every later
+  `GET /api/messages` answered 500 while the captured message stayed buffered. `Redact` now fails
+  closed: such a value goes out as the sentinel, whole. Test:
+  `WriteOnlyValuesShould.ServeCapturedMessageRouteAfterWrongTypedWriteToSecret`, observed red (500)
+  before the fix. Sibling sweep: `Resolve` encodes only the cache's value, which the block itself
+  published, so it cannot be wrong-typed. Done.
 - 2026-10-27: The DevHost logs a redacted struct as the `JsonObject` it is
   (`[userName, operator], [password, ***]`) rather than as the record's `ToString`. It is cosmetic and
   accepted.
