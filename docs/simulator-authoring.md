@@ -151,27 +151,29 @@ Two things a simulator block must not become:
 
 - **A second copy of the logic under test.** If the sim mirrors the consumer's decision, the bench
   passes whatever the consumer does and asserts nothing. Model the *device*, from the device's side.
-- **A socket the stepped barrier cannot see.** Serve through the SDK's hosted Modbus TCP or HTTP
-  server, or bind a contract. A stepped host waits while an exchange one of the SDK's clients started
-  is open, until its result has reached the block, and while a request the hosted HTTP server accepted
-  is not yet recorded. The hosted Modbus TCP server counts nothing of its own: it stores a client's
-  write before it answers, so the client's counted request covers it (`AC-SCEN-012.5` and its prose
-  in [`specs/scenarios.md`](specs/scenarios.md) § Stepping guarantees; the prose under
+- **A socket the stepped barrier does not wait for.** Serve through the SDK's hosted Modbus TCP or
+  HTTP server, or bind a contract. A stepped host waits while an exchange one of the SDK's clients
+  started is open, until its result has reached the block, and while a request the hosted HTTP server
+  accepted is not yet recorded. The hosted Modbus TCP server counts nothing of its own: it stores a
+  client's write before it answers, so the client's counted request covers it (`AC-SCEN-012.5` and
+  its prose in [`specs/scenarios.md`](specs/scenarios.md) § Stepping guarantees; the prose under
   `AC-MODB-020.1` in [`specs/modbus.md`](specs/modbus.md)). A socket a block opens any other way — a
   `TcpListener`, say — is not seen, and whatever it does that no SDK client's open exchange spans is
   not waited for.
 
-  One such socket is covered, narrowly. A simulator can need a Modbus TCP server the hosted one cannot
-  be — a map per unit id, where the hosted server answers every unit id from one (`AC-MODB-014.1`).
-  The store-before-answer premise is FluentModbus's, which the hosted server inherits, so a
-  FluentModbus server the simulator builds itself is covered the same way:
-  `FluentModbusWriteOrderingShould` builds a bare FluentModbus server and pins that a client's write
-  is stored, and its change notification has returned, before the write completes. That reaches only as far as the test pins
-  it — FluentModbus 5.3.2, the version the SDK ships, in its default asynchronous mode, with
-  `EnableRaisingEvents` and `AlwaysRaiseChangedEvent` on — and only to requests from the SDK's own
-  Modbus TCP clients in the same host. Outside it — another FluentModbus version, synchronous mode,
-  events off, another Modbus library, a client that is not the SDK's — nothing in this repo says the
-  barrier waits. No test here runs an SDK client against such a server on a stepped host.
+  One such socket is allowed, narrowly, because the barrier waits for it the way it waits for the
+  hosted Modbus TCP server. The store-before-answer premise is FluentModbus's, which the hosted
+  server inherits: `FluentModbusWriteOrderingShould` builds a bare FluentModbus server and pins that
+  a client's write is stored, and its change notification has returned, before the write completes.
+  That reaches a FluentModbus server a simulator builds itself only as far as the test pins it —
+  FluentModbus 5.3.2, the version the SDK ships, in its default asynchronous mode, with
+  `EnableRaisingEvents` and `AlwaysRaiseChangedEvent` on, serving unit 0 alone — and only for
+  requests from the SDK's own Modbus TCP clients in the same host. Inside that scope a simulator may
+  build one; outside it the rule above stands, because nothing in this repo says the barrier waits:
+  another FluentModbus version, synchronous mode, events off, more than one unit, another Modbus
+  library, a client that is not the SDK's. More than one unit is the usual reason to build one — a
+  map per unit id, where the hosted server answers every unit id from one (`AC-MODB-014.1`) — and
+  the test does not run it. No test here runs an SDK client against such a server on a stepped host.
 
 ## 5. Simulating against a real gateway
 
