@@ -1,0 +1,1 @@
+2026-10-27 · gate · vion-sdd job · On the push of the vion-sdd adoption's merge to main, all three of the plugin checkout's fetches with a freshly minted App token answered "Repository not found" over 27 s and the job went red; of the four runs before it, two fetched at once and two after one retry.

@@ -126,6 +126,26 @@ jobs:
           repositories: architecture
           permission-contents: read
 
+      # A freshly minted installation token can be refused for longer than actions/checkout's own
+      # three attempts, and the checkout then fails a correct pull request on "Repository not found".
+      # Waits for git to accept the token, up to two minutes, so one that never works fails here and
+      # says why.
+      - name: Wait until architecture accepts the token
+        shell: bash
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          for attempt in $(seq 1 24); do
+            if git ls-remote --heads "https://x-access-token:${TOKEN}@github.com/VION-IoT/architecture.git" main > /dev/null 2>&1; then
+              echo "architecture accepted the token on attempt ${attempt}, after ${SECONDS} s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::architecture refused the App token for two minutes: check the App's installation on architecture and the ARCHITECTURE_APP_* secrets"
+          exit 1
+
       - name: The vion-sdd plugin, from architecture's main
         uses: actions/checkout@v4
         with:
