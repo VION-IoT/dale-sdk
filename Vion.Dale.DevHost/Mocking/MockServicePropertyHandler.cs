@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost.Control;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
@@ -15,10 +16,13 @@ namespace Vion.Dale.DevHost.Mocking
 
         private readonly Dictionary<ServiceIdentifier, Dictionary<string, object?>> _state = new();
 
-        public MockServicePropertyHandler(ILogger<MockServicePropertyHandler> logger, DevHostEvents devHostEvents)
+        private readonly WriteOnlyRedaction _writeOnly;
+
+        public MockServicePropertyHandler(ILogger<MockServicePropertyHandler> logger, DevHostEvents devHostEvents, WriteOnlyRedaction writeOnly)
         {
             _logger = logger;
             _devHostEvents = devHostEvents;
+            _writeOnly = writeOnly;
         }
 
         public Task HandleMessageAsync(object message, IActorContext actorContext)
@@ -26,7 +30,11 @@ namespace Vion.Dale.DevHost.Mocking
             switch (message)
             {
                 case ServicePropertyValueChanged m:
-                    _logger.LogInformation("Service property changed: {ServiceIdentifier}.{Property} = {Value}", m.ServiceIdentifier, m.PropertyIdentifier, m.Value);
+                    // The captured log lines are served over HTTP, so a write-only value is logged redacted.
+                    _logger.LogInformation("Service property changed: {ServiceIdentifier}.{Property} = {Value}",
+                                           m.ServiceIdentifier,
+                                           m.PropertyIdentifier,
+                                           _writeOnly.Redact(m.ServiceIdentifier.ToString(), m.PropertyIdentifier, m.Value));
 
                     // Store the value
                     if (!_state.ContainsKey(m.ServiceIdentifier))
@@ -81,7 +89,7 @@ namespace Vion.Dale.DevHost.Mocking
             _logger.LogInformation("Set property request: {ServiceIdentifier}.{Property} = {Value}",
                                    message.Request.ServiceIdentifier,
                                    message.Request.PropertyIdentifier,
-                                   message.Request.Value);
+                                   _writeOnly.Redact(message.Request.ServiceIdentifier.ToString(), message.Request.PropertyIdentifier, message.Request.Value));
             actorContext.SendTo(message.LogicBlock, message.Request);
         }
 

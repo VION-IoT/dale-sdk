@@ -125,6 +125,17 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         [Presentation(Group = PropertyGroup.Configuration, Order = 52, VisibleWhen = "DirectMeasurement == false")]
         public double SecondaryCurrentToWriteA { get; set; } = 5;
 
+        // ── Secrets (write-only) ────────────────────────────────────────────────────
+        // What leaves the host shows "***" at each write-only position; a write that echoes it back keeps the
+        // secret, so the struct form can edit the user name without wiping the password.
+        [ServiceProperty(Title = "API-Schlüssel", WriteOnly = true, Description = "Write-only string — served as \"***\", never as its value.")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 60)]
+        public string? ApiKey { get; set; } = "showcase-api-key";
+
+        [ServiceProperty(Title = "Zugang", Description = "Credential struct — the user name visible, the password write-only.")]
+        [Presentation(DisplayName = "Zugang", Group = PropertyGroup.Configuration, Order = 65)]
+        public AccountCredentials Account { get; set; } = new("operator", "showcase-password");
+
         // ── Diagnostics (read-only, private setter) ─────────────────────────────────
 
         [ServiceProperty(Title = "Letzte Notiz", Description = "Read-only status string (private setter) — writing it must be rejected.")]
@@ -204,6 +215,13 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         DateTime LastContactAt,
         [StructField(Title = "Queued wait (last)", Description = "Nullable duration — the ∅ toggle applies here.")]
         TimeSpan? QueuedWait);
+
+    /// <summary>A credential in the shape a cloud-device block holds one: a visible user name beside a write-only password.</summary>
+    public readonly record struct AccountCredentials(
+        [StructField(Title = "Benutzername")]
+        string UserName,
+        [StructField(Title = "Passwort", WriteOnly = true, Description = "string? so it can be cleared: null is cleared, \"***\" is set and hidden.")]
+        string? Password);
 
     /// <summary>Status enum with per-member label + severity — exercises the status-pill render across value / nullable.</summary>
     public enum Mood

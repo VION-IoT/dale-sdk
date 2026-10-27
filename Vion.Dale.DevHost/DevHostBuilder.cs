@@ -190,6 +190,7 @@ namespace Vion.Dale.DevHost
             _services.AddSingleton<DevHostLogSink>();
             _services.AddSingleton<ILoggerProvider>(sp => new DevHostLogSinkProvider(sp.GetRequiredService<DevHostLogSink>()));
             _services.AddSingleton<DevHostIntrospection>();
+            _services.AddSingleton<WriteOnlyRedaction>();
 
             // Message tap: the SAME instance is registered as both the concrete type and the opt-in
             // IActorMessageObserver the ProtoActor middleware looks up. Registering the observer
