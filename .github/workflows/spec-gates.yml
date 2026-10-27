@@ -100,9 +100,9 @@ jobs:
   # The vion-sdd plugin's two spec gates, spec-lint and spec-trace, from its own scripts at
   # architecture's main, as dale and hardware-integration run them. architecture is private and this
   # repository public, and GitHub shares a private repository's actions with private repositories
-  # only, so the plugin is checked out with an App token and its action run from that checkout. A job
-  # of its own, so the lints above never walk .vion-sdd/. A missing or revoked key reddens it: the
-  # token step fails, it never skips.
+  # only, so the plugin is downloaded with an App token and its action run from that copy. A job of
+  # its own, so the lints above never walk .vion-sdd/. A missing or revoked key reddens it: the token
+  # step fails, it never skips.
   vion-sdd:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
@@ -126,15 +126,22 @@ jobs:
           repositories: architecture
           permission-contents: read
 
+      # Architecture's main tarball through the REST API, not a git fetch: GitHub's git endpoint
+      # answers "Repository not found" to this App's tokens while the API serves the same repository
+      # and its tarball with the same token. Only plugins/vion-sdd is unpacked; the action needs no
+      # .git of its own, since its merge base is read in this repository's checkout.
       - name: The vion-sdd plugin, from architecture's main
-        uses: actions/checkout@v4
-        with:
-          repository: VION-IoT/architecture
-          ref: main
-          token: ${{ steps.token.outputs.token }}
-          path: .vion-sdd
-          sparse-checkout: plugins/vion-sdd
-          persist-credentials: false
+        shell: bash
+        timeout-minutes: 3
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          mkdir -p .vion-sdd
+          curl -fsSL --retry 3 --retry-all-errors -m 60 \
+            -H "Authorization: Bearer ${TOKEN}" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/VION-IoT/architecture/tarball/main \
+            | tar -xz -C .vion-sdd --strip-components=1 --wildcards '*/plugins/vion-sdd/*'
+          test -f .vion-sdd/plugins/vion-sdd/action/action.yml
 
       - uses: ./.vion-sdd/plugins/vion-sdd/action
         with:
