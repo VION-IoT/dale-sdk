@@ -70,6 +70,28 @@ namespace Vion.Dale.Sdk.Test.Persistence
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-021.1")]
+        public void PersistWriteOnlyValuesUnredacted()
+        {
+            // Arrange
+            var block = new SecretHoldingBlock();
+            _harness.ConfigureAndStart(block, ["Account"]);
+            block.Account.ApiKey = "top-level-secret";
+            block.Account.Credentials = new Credentials("operator", "member-secret");
+
+            // Act
+            var entries = SnapshotEntries(block);
+
+            // Assert
+            Assert.AreEqual("top-level-secret",
+                            entries.Single(entry => entry.Key == "Account." + nameof(SecretAccount.ApiKey)).Value,
+                            "Redaction is the host's, on the wire; at rest a secret is what the block holds, and the store keeps it in plaintext.");
+            Assert.AreEqual(new Credentials("operator", "member-secret"),
+                            entries.Single(entry => entry.Key == "Account." + nameof(SecretAccount.Credentials)).Value,
+                            "A write-only struct member is persisted as held too, beside the members that are not secret.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-008.2")]
         public void PersistPropertyDeclaredPrivateOnBaseClass()
         {
@@ -437,6 +459,33 @@ namespace Vion.Dale.Sdk.Test.Persistence
             }
 
             public UnreadableMemberBlock() : base(NullLogger.Instance)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        /// <summary>A credential in the consumer's shape: a visible member beside a write-only one.</summary>
+        public readonly record struct Credentials([StructField] string UserName, [StructField(WriteOnly = true)] string? Password);
+
+        /// <summary>The service a secret lives on: a write-only string and a struct with a write-only member.</summary>
+        public sealed class SecretAccount
+        {
+            [ServiceProperty(WriteOnly = true)]
+            public string? ApiKey { get; set; }
+
+            [ServiceProperty]
+            public Credentials Credentials { get; set; } = new("operator", null);
+        }
+
+        /// <summary>A block holding secrets on its one service.</summary>
+        public sealed class SecretHoldingBlock : LogicBlockBase
+        {
+            public SecretAccount Account { get; } = new();
+
+            public SecretHoldingBlock() : base(NullLogger.Instance)
             {
             }
 
