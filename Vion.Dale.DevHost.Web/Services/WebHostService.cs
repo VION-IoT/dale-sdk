@@ -47,6 +47,10 @@ namespace Vion.Dale.DevHost.Web.Services
         // host-independent DevTopologyLoader.Build.
         private readonly DevHostIntrospection _introspection;
 
+        // The generation's redaction: everything the web host serves leaves the process, so every value it serves
+        // passes through it.
+        private readonly WriteOnlyRedaction _writeOnly;
+
         private WebApplication? _app;
 
         public WebHostService(WebHostConfiguration config,
@@ -55,8 +59,10 @@ namespace Vion.Dale.DevHost.Web.Services
                               IDevHostControl control,
                               DevBlockCatalog blockCatalog,
                               DevHostIntrospection introspection,
-                              DevHostBudgets budgets)
+                              DevHostBudgets budgets,
+                              WriteOnlyRedaction writeOnly)
         {
+            _writeOnly = writeOnly;
             _budgets = budgets;
             _config = config;
             _devConfiguration = devConfiguration;
@@ -197,6 +203,7 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddSingleton<ScenarioRunRegistry>();
             builder.Services.AddSingleton(new DevTopologyStore(_devConfiguration.TopologiesPath, _introspection.ValidateContractPairings));
             builder.Services.AddSingleton(_blockCatalog);
+            builder.Services.AddSingleton(_writeOnly);
 
             var app = builder.Build();
 

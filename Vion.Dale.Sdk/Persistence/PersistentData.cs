@@ -347,7 +347,8 @@ namespace Vion.Dale.Sdk.Persistence
                 var typedValue = ConvertValue(value, servicePropertyMeta.PropertyType);
                 serviceBinder.SetPropertyValue(servicePropertyMeta.ServiceIdentifier, servicePropertyMeta.PropertyIdentifier, typedValue);
 
-                logger.LogDebug("Restored service property '{Key}' = {Value}", propertyKey, typedValue);
+                // The key alone: a write-only value must not reach a log stream that leaves the gateway.
+                logger.LogDebug("Restored service property '{Key}'", propertyKey);
                 return;
             }
 
@@ -357,7 +358,7 @@ namespace Vion.Dale.Sdk.Persistence
                 var typedValue = ConvertValue(value, otherMeta.PropertyType);
                 otherMeta.Setter(logicBlock, typedValue);
 
-                logger.LogDebug("Restored other property '{Key}' = {Value}", propertyKey, typedValue);
+                logger.LogDebug("Restored other property '{Key}'", propertyKey);
                 return;
             }
 

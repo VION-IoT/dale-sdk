@@ -59,10 +59,14 @@ namespace Vion.Dale.Sdk.Core
         public double Maximum { get; init; } = double.PositiveInfinity;
 
         /// <summary>
-        ///     Marks a writable property as a secret — clients see a redaction sentinel
-        ///     (<c>"***"</c>) on the publish-state channel instead of the actual value.
-        ///     Restricted to <c>string</c> / <c>string?</c> properties in v1. Routes into
-        ///     <c>schema.writeOnly</c>.
+        ///     Marks a writable property as a secret on the wire. The host runtime publishes and answers it as the
+        ///     redaction sentinel (<c>"***"</c>), a null staying null, and keeps the value it holds when a client
+        ///     echoes the sentinel back; the DevHost does the same on what it serves a browser. The block holds the
+        ///     real value, and it is persisted unencrypted unless excluded with
+        ///     <c>[Persistent(Exclude = true)]</c>. No SDK log line carries it; a block that logs it, or hands it
+        ///     to a library that does, publishes it. A measuring point is never redacted, so never also declare a
+        ///     secret <c>[ServiceMeasuringPoint]</c>. Restricted to <c>string</c> / <c>string?</c> properties in
+        ///     v1. Routes into <c>schema.writeOnly</c>.
         /// </summary>
         public bool WriteOnly { get; init; }
 

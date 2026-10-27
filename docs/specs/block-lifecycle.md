@@ -282,6 +282,50 @@ publishes every answer it receives, so answering with nothing would tell the clo
 set to nothing. A host refuses such a request before sending it (`AC-CTRL-009.1`), and the runtime's
 caller bounds its own wait.
 
+## Write-only values
+
+A service property declared `WriteOnly`, or one whose struct type has a `WriteOnly` member, is a
+secret on the wire and nowhere else. The schema flag is all the SDK adds (`AC-INTRO-007.5`,
+`AC-INTRO-008.6`). Redaction is the host runtime's, through the platform's shared codec:
+
+- **Outbound.** dale replaces each write-only position with the sentinel `"***"`, a null one staying
+  null, in the state it publishes and in a set's answer (`dale/AC-PROP-003.1`, `dale/AC-PROP-003.2`).
+- **The echo.** A sentinel a client echoes back stands for the value dale last published or
+  answered for that property, or for null when it holds none (`dale/AC-PROP-002.1`). So a client that
+  edits a struct's other members and sends the sentinel back keeps the secret.
+- **The block.** It holds, receives and publishes the real value. Its setter gets the cleartext, and
+  so does every message it sends.
+
+**At rest, nothing is encrypted.** A write-only property persists like any other writable one unless
+its author excludes it with `[Persistent(Exclude = true)]` (`AC-LIFE-008.1`). The entry carries the
+value the block holds, and the host keeps entries as plain JSON (`dale/AC-PERS-001.1`). Treat a
+persisted secret as plaintext on the gateway's disk.
+
+**The log stream leaves the gateway too.** dale logs a set's value only redacted, and its reports
+name no write-only value (`dale/AC-PROP-002.1`, `dale/AC-PROP-002.2`). None of the SDK's own log lines
+on a gateway carries a value a write-only position could hold:
+
+- a restore names its keys;
+- a dead letter names its message type;
+- a failed restore names the member and the conversion that failed.
+
+The SDK cannot see what a block does with the value. A block that logs it, or hands it to a library
+that does, publishes it. The HTTP package logs a request's full URL and the names of its headers,
+never a header's value or a body, so a credential travels in a header or the body, not in the URL.
+
+**Redaction keys off the service property's schema, and a measuring point is not redacted**
+(`dale/AC-PROP-003.1` redacts a property's write-only positions, not a measuring point's). A member that is also a `[ServiceMeasuringPoint]`, or a measuring point whose struct type has a
+write-only member, publishes the secret in cleartext on its measuring-point stream. Declare a secret
+as a service property only. What the development host does with a write-only value is
+[`devhost-control.md`](devhost-control.md)'s.
+
+- `AC-LIFE-021.1` (Ubiquitous): THE SYSTEM SHALL persist a write-only service property, and a struct-typed one with write-only members, as it persists any writable service property, capturing the value the block holds unredacted.
+- `AC-LIFE-021.2` (Ubiquitous): THE SYSTEM SHALL log a restored persisted entry by its key alone, naming no value. GAP: log text, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Trace and recorded under the pull request's Verification (VION-379).
+- `AC-LIFE-021.3` (Ubiquitous): THE SYSTEM SHALL log a dead-lettered message by its type name, its sender and its target, naming none of its values. GAP: log text, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Trace and recorded under the pull request's Verification (VION-379).
+
+`AC-LIFE-021.1` is the storage fact an integrator decides on. Whether to accept a password at all
+depends on it, and it is the one this repository can prove.
+
 ## Stopping a block
 
 - `AC-LIFE-010.1` (Ubiquitous): THE SYSTEM SHALL stop a block by taking its persistent-data snapshot,

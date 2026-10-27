@@ -127,6 +127,28 @@ namespace Vion.Dale.DevHost.Control
                    members.TryGetValue(propertyName, out serviceId!);
         }
 
+        /// <summary>
+        ///     Resolve a member addressed the way a state read addresses it — a bare name, or a dotted
+        ///     <c>service.member</c> path that reaches a nested component whose members the flat per-block name map
+        ///     does not key by their bare name (DF-47) — to the service-config id carrying it and the bare member
+        ///     name. A dotted path no service resolves falls back to the whole path as a bare name.
+        /// </summary>
+        public bool TryResolveMember(string blockId, string memberPath, out string serviceId, out string member)
+        {
+            var separatorIndex = memberPath.IndexOf('.');
+            if (separatorIndex > 0 && separatorIndex < memberPath.Length - 1)
+            {
+                member = memberPath.Substring(separatorIndex + 1);
+                if (TryGetServiceId(blockId, memberPath.Substring(0, separatorIndex), member, out serviceId))
+                {
+                    return true;
+                }
+            }
+
+            member = memberPath;
+            return TryGetServiceId(blockId, memberPath, out serviceId);
+        }
+
         /// <summary>All property/measuring-point names known for a block.</summary>
         public IReadOnlyCollection<string> PropertyNames(string blockId)
         {

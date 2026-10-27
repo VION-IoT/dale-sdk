@@ -1,0 +1,1 @@
+2026-10-27 · gate · devhost-smoke · The devhost-smoke SKILL.md is 25.7 kB against CLAUDE.md's 6 kB budget for .claude/**/*.md. The DevHost's new write-only redaction therefore got no Tier 2 bullet: the run was done by hand, and the new Tier 1 tests carry TestCategory Smoke instead. (self)

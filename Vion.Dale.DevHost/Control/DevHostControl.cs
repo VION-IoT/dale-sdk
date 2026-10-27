@@ -76,6 +76,8 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly List<Func<DevHostEvent, bool>> _waiters = new();
 
+        private readonly WriteOnlyRedaction _writeOnly;
+
         // service-id (GUID carried on the events) → logic block name. Built lazily: in a headless boot the
         // config's Services aren't populated until DevHostIntrospection runs, which may be after construction.
         private Dictionary<string, string>? _serviceToLogicBlock;
@@ -95,9 +97,11 @@ namespace Vion.Dale.DevHost.Control
                               TimeProvider timeProvider,
                               ServiceProviderOutputCache outputCache,
                               ServiceProviderStandIns standIns,
-                              DevHostBudgets budgets)
+                              DevHostBudgets budgets,
+                              WriteOnlyRedaction writeOnly)
         {
             _budgets = budgets;
+            _writeOnly = writeOnly;
             _configuration = configuration;
             _events = events;
             _outputCache = outputCache;
@@ -240,27 +244,12 @@ namespace Vion.Dale.DevHost.Control
                 return null;
             }
 
-            // A dotted "service.member" path addresses a specific service — typically a nested component
-            // (e.g. "ChargePoint1.IsPluggedIn") whose members the flat per-block name map does not key by
-            // their bare name. Route it through the service-qualified resolver so it isn't looked up (and
-            // missed) as a bare member name. (DF-47)
-            var separatorIndex = propertyName.IndexOf('.');
-            if (separatorIndex > 0 && separatorIndex < propertyName.Length - 1)
-            {
-                var serviceIdentifier = propertyName.Substring(0, separatorIndex);
-                var member = propertyName.Substring(separatorIndex + 1);
-                if (_introspection.TryGetServiceId(logicBlock.Id, serviceIdentifier, member, out var qualifiedServiceId))
-                {
-                    return _values.TryGetValue((qualifiedServiceId, member), out var qualifiedValue) ? qualifiedValue : null;
-                }
-            }
-
-            if (!_introspection.TryGetServiceId(logicBlock.Id, propertyName, out var serviceId))
+            if (!_introspection.TryResolveMember(logicBlock.Id, propertyName, out var serviceId, out var member))
             {
                 return null;
             }
 
-            return _values.TryGetValue((serviceId, propertyName), out var value) ? value : null;
+            return _values.TryGetValue((serviceId, member), out var value) ? value : null;
         }
 
         public object? GetProperty(string logicBlockIdOrName, string serviceIdentifier, string propertyName)
@@ -654,6 +643,10 @@ namespace Vion.Dale.DevHost.Control
                 JsonNode node => JsonNode.Parse(node.ToJsonString()),
                 _ => null,
             };
+
+            // A client that round-trips a value it was shown redacted echoes the sentinel for a secret it did not
+            // change; without this the block would store the literal "***" over the real secret.
+            json = _writeOnly.Resolve(serviceId, propertyName, json, _values.TryGetValue((serviceId, propertyName), out var current) ? current : null);
 
             // Duration is the one primitive whose wire form is ambiguous: the codec parses ISO-8601 ("PT5S")
             // only (XmlConvert.ToTimeSpan), but the web UI and .NET callers submit the .NET ToString form

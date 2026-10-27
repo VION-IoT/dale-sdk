@@ -163,8 +163,9 @@ namespace Vion.Examples.RichTypes.LogicBlocks
 
         /// <summary>
         ///     Writable struct with a per-member secret — the <c>[StructField(WriteOnly)]</c> showcase.
-        ///     On the publish-state channel the dashboard sees <c>"***"</c> for the AccessToken while the
-        ///     Endpoint stays visible; a client that echoes the sentinel back keeps the stored token.
+        ///     Wherever the value leaves the gateway, or the DevHost, the AccessToken reads <c>"***"</c> while the
+        ///     Endpoint stays visible; a client that writes the struct back with the sentinel keeps the stored
+        ///     token. The block holds the real token, and persists it unencrypted.
         /// </summary>
         [ServiceProperty(Description = "Verbindungsdaten — das Zugriffstoken ist ein Secret (WriteOnly).")]
         [Presentation(DisplayName = "Verbindungsdaten", Group = PropertyGroup.Configuration, Order = 45)]
@@ -339,7 +340,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     /// <summary>
     ///     Flat record struct with a secret member — showcases per-field
     ///     <see cref="StructFieldAttribute.WriteOnly" />. Only <c>AccessToken</c> is redacted to the
-    ///     sentinel (<c>"***"</c>) on the publish-state channel; <c>Endpoint</c> stays visible. The token
+    ///     sentinel (<c>"***"</c>) wherever the value is published or answered; <c>Endpoint</c> stays visible. The token
     ///     is <c>string?</c> so it can be cleared (null is the "cleared" state; "***" is "set, hidden").
     ///     WriteOnly struct fields are restricted to <c>string</c> / <c>string?</c> (enforced by DALE040).
     /// </summary>

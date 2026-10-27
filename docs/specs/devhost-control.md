@@ -551,6 +551,41 @@ is asked to re-publish by nobody and is told so by nothing. A client that needs 
 connection fetches a snapshot itself rather than relying on the replay alone, which is what the
 bundled web UI does.
 
+## Write-only values
+
+The host is not a security boundary. It runs at the developer's desk, the developer typed the
+secret, and it persists nothing: its persistence stand-in drops every snapshot. What it owes a
+write-only value is fidelity to a gateway. A browser sees what a dashboard would see from a gateway,
+and a write that echoes the sentinel back behaves as it does on a gateway
+([`block-lifecycle.md`](block-lifecycle.md) § Write-only values). A block author meets both at the
+desk first. Redaction and resolution use the same codec, keyed off the same schema.
+
+- **Leaving the process** — the routes, the push wire and the host's own log lines: write-only
+  positions are redacted.
+- **In process** — a read, the observation stream, the scenario runner and the run report it writes:
+  the value stays as the block published it. That is what lets a scenario set a secret and assert it,
+  and `AC-CTRL-009.2`'s read after a write is the value written.
+- **The run-report route** serves the run report as the runner wrote it, so a scenario that watches or
+  asserts a secret reports it.
+
+A block's start publishes every property, so a write always finds a held value to keep.
+
+The host writes two kinds of file. A topology file carries no service-property value, since an
+instantiation parameter is never write-only (`AC-GATE-011.8`). A scenario file holds what its author
+wrote. The editor's copy of a live value copies what the browser was shown, which is the sentinel,
+and the runner compares in process against the secret itself. So an `expect` or a `waitUntil` copied
+from a secret never holds until its author types the secret in.
+
+- `AC-CTRL-021.1` (Ubiquitous): THE SYSTEM SHALL serve a service property's value on the state routes, the captured-message route and the push wire with each write-only position replaced by the redaction sentinel and a null one left null.
+- `AC-CTRL-021.2` (Event-driven): WHEN a JSON write value holds the redaction sentinel at a write-only position THE SYSTEM SHALL write in its place the value last published or acknowledged for that property, leaving a null position null.
+- `AC-CTRL-021.3` (Ubiquitous): THE SYSTEM SHALL report a write-only value unredacted in process, on a read and on the observation stream.
+- `AC-CTRL-021.4` (Ubiquitous): THE SYSTEM SHALL write a service property's value into its own log lines with each write-only position redacted. GAP: log text, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Information and recorded under the pull request's Verification (VION-379).
+
+`AC-CTRL-021.2` says **JSON** for the reason `AC-CTRL-009.3` does. A sentinel arrives in the wire's
+form, so a scenario's `set` step that writes one keeps the secret just as the HTTP route does, while
+a runtime value from an in-process caller passes through unchanged. `AC-CTRL-021.1`'s null clause is
+what keeps a cleared secret from reading as one set and hidden.
+
 ## The exported configuration
 
 One shape serves the configuration route and both export modes. What each field *means* is

@@ -40,10 +40,13 @@ namespace Vion.Dale.Sdk.Core
         public double Maximum { get; init; } = double.PositiveInfinity;
 
         /// <summary>
-        ///     Marks this field as a secret — clients see a redaction sentinel (<c>"***"</c>) on the
-        ///     publish-state channel instead of the actual value, while the struct's other fields stay
-        ///     visible. Restricted to <c>string</c> / <c>string?</c> fields in v1. Routes into the
-        ///     field's <c>schema.writeOnly</c>.
+        ///     Marks this field as a secret on the wire, while the struct's other fields stay visible. Where the
+        ///     struct is a service property's type, the host runtime publishes and answers this field as the
+        ///     redaction sentinel (<c>"***"</c>), a null staying null, and keeps the value it holds when a client
+        ///     writes the struct back with the sentinel in this field; the DevHost does the same on what it serves
+        ///     a browser. The block holds the real value, and it is persisted unencrypted unless the property is
+        ///     excluded with <c>[Persistent(Exclude = true)]</c>. A measuring point is never redacted. Restricted
+        ///     to <c>string</c> / <c>string?</c> fields in v1. Routes into the field's <c>schema.writeOnly</c>.
         /// </summary>
         public bool WriteOnly { get; init; }
     }

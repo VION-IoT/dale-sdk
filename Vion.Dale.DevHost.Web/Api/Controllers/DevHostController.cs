@@ -22,10 +22,13 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
         private readonly ScenarioRunRegistry _runs;
 
-        public DevHostController(IDevHostControl control, ScenarioRunRegistry runs)
+        private readonly WriteOnlyRedaction _writeOnly;
+
+        public DevHostController(IDevHostControl control, ScenarioRunRegistry runs, WriteOnlyRedaction writeOnly)
         {
             _control = control;
             _runs = runs;
+            _writeOnly = writeOnly;
         }
 
         // --- Configuration & writes ---
@@ -103,7 +106,8 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 return NotFound(new { error = $"no logic block '{logicBlockIdOrName}' in the wired network", reason = "unknownLogicBlock" });
             }
 
-            return Ok(_control.GetAllProperties(logicBlockIdOrName));
+            // A route leaves the process: write-only positions go out redacted, as a gateway publishes them.
+            return Ok(_control.GetAllProperties(logicBlockIdOrName).ToDictionary(entry => entry.Key, entry => _writeOnly.RedactMember(logicBlockIdOrName, entry.Key, entry.Value)));
         }
 
         /// <summary>The last-known value of a single service property or measuring point.</summary>
@@ -120,7 +124,11 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 return NotFound(new { error = $"logic block '{logicBlockIdOrName}' carries no member '{propertyName}'", reason = "unknownMember" });
             }
 
-            return Ok(new { logicBlockIdOrName, propertyName, value = _control.GetProperty(logicBlockIdOrName, propertyName) });
+            return Ok(new
+                      {
+                          logicBlockIdOrName, propertyName,
+                          value = _writeOnly.RedactMember(logicBlockIdOrName, propertyName, _control.GetProperty(logicBlockIdOrName, propertyName)),
+                      });
         }
 
         /// <summary>Recent captured log lines (bounded scrollback) — the machine-readable console.</summary>
@@ -274,7 +282,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                                                 {
                                                     actor = m.ActorName,
                                                     type = m.MessageType,
-                                                    message = m.Message.ToString(),
+                                                    message = _writeOnly.RedactMessage(m.Message).ToString(),
                                                     timestamp = m.Timestamp,
                                                 });
             return Ok(messages);

@@ -119,7 +119,7 @@ namespace Vion.Dale.ProtoActor
                            };
         }
 
-        private static string GetFriendlyTypeName(Type type)
+        internal static string GetFriendlyTypeName(Type type)
         {
             if (!type.IsGenericType)
             {
