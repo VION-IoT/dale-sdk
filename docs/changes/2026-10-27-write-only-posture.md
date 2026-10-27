@@ -84,19 +84,22 @@ unchanged.
 1. **(b)** The run-report route serves cleartext. A report is the runner's in-process account of what
    it compared and watched, and the scenario file it ran already holds whatever secret it set or
    asserted. Redacting a report means redacting inside free-text step details. Is that exemption
-   acceptable?
+   acceptable? OUTCOME: accepted as decided here (`D5`); the page states it. The operator may
+   overturn it on the pull request.
 2. **(b)** Resolve applies to every JSON write value, so a scenario's `set` step that writes `"***"`
    keeps the held secret just as an HTTP write does. A CLR value from an in-process caller passes
    through unchanged (`AC-CTRL-009.3`'s second clause). Is the line drawn at JSON-or-not right, rather
-   than at HTTP-or-not?
+   than at HTTP-or-not? OUTCOME: accepted as decided here (`D5`); `AC-CTRL-021.2` says JSON.
 3. **(b)** A measuring point is published unredacted by dale (`dale/Dale/Mqtt/Handlers/
    ServiceMeasuringPointHandler.cs:118` calls no codec), so a write-only member that is also a
    `[ServiceMeasuringPoint]`, or a measuring point whose struct has a write-only member, publishes the
    secret in cleartext. No analyzer refuses either. The page states this. The fix — an analyzer — is a
-   draft item, not this change.
+   draft item, not this change. OUTCOME: stated on `block-lifecycle.md` and in the XML docs, and
+   drafted for VION-62.
 4. **(b)** The HTTP package logs a request's full URL (`HttpRequestExecutor.cs:517-530`), so a
    credential in a query string or user-info reaches the log stream. The page says to carry a
    credential in a header or body, whose values it never logs. Scrubbing the URL is a draft item.
+   OUTCOME: stated on `block-lifecycle.md`, and drafted for VION-62.
 
 ---
 
@@ -206,9 +209,10 @@ file echoing a sentinel is the same input (Reviewer's question 2).
 | --- | --- | --- |
 | `PersistentDataShould.PersistWriteOnlyValuesUnredacted` | `AC-LIFE-021.1` | redact the captured value through `WriteOnlyCodec` in `PersistentData`'s capture |
 | `WriteOnlyValuesShould.RedactWriteOnlyPositionsOnStateRoutes` | `AC-CTRL-021.1` | drop the `RedactMember` calls in `DevHostController.GetState` |
+| `WriteOnlyValuesShould.ServeClearedWriteOnlyValueAsNull` | `AC-CTRL-021.1` | redact a null to the sentinel |
 | `WriteOnlyValuesShould.RedactWriteOnlyPositionsOnPushWire` | `AC-CTRL-021.1` | drop the `Redact` call in `DevHostEventBroadcaster` |
 | `WriteOnlyValuesShould.RedactWriteOnlyPositionsOnCapturedMessageRoute` | `AC-CTRL-021.1` | drop the `RedactMessage` call in `DevHostController.GetMessages` |
-| `WriteOnlyValuesShould.KeepHeldSecretWhenWriteEchoesSentinel` (rows: top-level, struct member) | `AC-CTRL-021.2` | drop the `Resolve` call in `NormalizeValue` |
+| `WriteOnlyValuesShould.KeepHeldSecretWhenWriteEchoesSentinel`, `…KeepHeldMemberSecretWhenStructWriteEchoesSentinel` | `AC-CTRL-021.2` | drop the `Resolve` call in `NormalizeValue` |
 | `WriteOnlyValuesShould.ClearSecretWhenWriteCarriesNull` | `AC-CTRL-021.2` | resolve a null position as an echo |
 | `WriteOnlyValuesShould.ReportWriteOnlyValueUnredactedInProcess` | `AC-CTRL-021.3` | redact on the value cache instead of on the routes |
 
@@ -218,7 +222,27 @@ The mutations are run and recorded under Drift checkpoints.
 
 ## Drift checkpoints
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-10-27: The state route's per-block map is keyed camelCase on the wire (`apiKey`, `account`) by
+  the web serializer, not by the bare member name; the tests read it that way. No design change.
+- 2026-10-27: `AC-CTRL-021.1`'s null clause got a test of its own,
+  `WriteOnlyValuesShould.ServeClearedWriteOnlyValueAsNull`. None of the three redaction-site mutations
+  can redden it, because a null passes through either way. Its mutation is a whole-value strip that
+  turns null into the sentinel (`M1b`).
+- 2026-10-27: Mutations run against `c5292cdf` with `python -I mutate.py` (scratchpad), one at a time
+  over `--filter FullyQualifiedName~WriteOnlyValuesShould`, file restored from git after each:
+  `M1` state routes unredacted → `RedactWriteOnlyPositionsOnStateRoutes`; `M1b` null redacted →
+  `ServeClearedWriteOnlyValueAsNull`; `M2` push wire unredacted → `RedactWriteOnlyPositionsOnPushWire`;
+  `M3` message route unredacted → `RedactWriteOnlyPositionsOnCapturedMessageRoute`; `M4` no resolve →
+  both `KeepHeld…` tests; `M5` null resolved as echo → `ClearSecretWhenWriteCarriesNull`; `M6` cache
+  redacted → five, `ReportWriteOnlyValueUnredactedInProcess` among them. `AC-LIFE-021.1`: a top-level
+  redaction at capture, and a struct-only one, each redden `PersistWriteOnlyValuesUnredacted`.
+- 2026-10-27: The probe's snapshot shows a member carrying both `[ServiceProperty]` and
+  `[Persistent]` persisted twice, under `Account.FlaggedAndPersistent` and
+  `_direct.Account.FlaggedAndPersistent`. This existed before the change and is outside its scope, so it
+  is a draft item. Sibling sweep: N/A.
+- 2026-10-27: The DevHost logs a redacted struct as the `JsonObject` it is
+  (`[userName, operator], [password, ***]`) rather than as the record's `ToString`. It is cosmetic and
+  accepted.
 
 ---
 
