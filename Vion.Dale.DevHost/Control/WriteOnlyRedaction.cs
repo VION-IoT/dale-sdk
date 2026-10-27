@@ -48,9 +48,8 @@ namespace Vion.Dale.DevHost.Control
         {
             var logicBlock = _configuration.LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName) ??
                              _configuration.LogicBlocks.FirstOrDefault(b => b.Id == logicBlockIdOrName);
-            return logicBlock is not null && _introspection.TryResolveMember(logicBlock.Id, memberPath, out var serviceId, out var member)
-                       ? Redact(serviceId, member, value)
-                       : value;
+            return logicBlock is not null && _introspection.TryResolveMember(logicBlock.Id, memberPath, out var serviceId, out var member) ? Redact(serviceId, member, value) :
+                       value;
         }
 
         /// <summary>A captured message with a service property's value redacted; any other message as it is.</summary>

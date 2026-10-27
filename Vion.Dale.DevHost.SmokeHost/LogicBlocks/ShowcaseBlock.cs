@@ -218,8 +218,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
 
     /// <summary>A credential in the shape a cloud-device block holds one: a visible user name beside a write-only password.</summary>
     public readonly record struct AccountCredentials(
-        [StructField(Title = "Benutzername")]
-        string UserName,
+        [StructField(Title = "Benutzername")] string UserName,
         [StructField(Title = "Passwort", WriteOnly = true, Description = "string? so it can be cleared: null is cleared, \"***\" is set and hidden.")]
         string? Password);
 

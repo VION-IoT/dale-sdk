@@ -124,7 +124,11 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 return NotFound(new { error = $"logic block '{logicBlockIdOrName}' carries no member '{propertyName}'", reason = "unknownMember" });
             }
 
-            return Ok(new { logicBlockIdOrName, propertyName, value = _writeOnly.RedactMember(logicBlockIdOrName, propertyName, _control.GetProperty(logicBlockIdOrName, propertyName)) });
+            return Ok(new
+                      {
+                          logicBlockIdOrName, propertyName,
+                          value = _writeOnly.RedactMember(logicBlockIdOrName, propertyName, _control.GetProperty(logicBlockIdOrName, propertyName)),
+                      });
         }
 
         /// <summary>Recent captured log lines (bounded scrollback) — the machine-readable console.</summary>

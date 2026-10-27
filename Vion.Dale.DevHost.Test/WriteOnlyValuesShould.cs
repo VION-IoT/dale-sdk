@@ -65,9 +65,7 @@ namespace Vion.Dale.DevHost.Test
             using var member = JsonDocument.Parse(await client.GetStringAsync("/api/state/Showcase/ApiKey"));
 
             // Assert
-            Assert.AreEqual(JsonValueKind.Null,
-                            member.RootElement.GetProperty("value").ValueKind,
-                            "A cleared secret must not read as one set and hidden, so a null stays null.");
+            Assert.AreEqual(JsonValueKind.Null, member.RootElement.GetProperty("value").ValueKind, "A cleared secret must not read as one set and hidden, so a null stays null.");
         }
 
         [TestMethod]
@@ -205,9 +203,8 @@ namespace Vion.Dale.DevHost.Test
             var port = FreePort();
             await using var host = BuildHost(port);
             await host.StartAsync();
-            var observe = host.Control.WaitForAsync(e => e is ServicePropertyChanged { Property: nameof(ShowcaseBlock.ApiKey) } changed && Equals(changed.Value, "rotated-secret")
-                                                             ? changed.Value
-                                                             : null,
+            var observe = host.Control.WaitForAsync(e => e is ServicePropertyChanged { Property: nameof(ShowcaseBlock.ApiKey) } changed && Equals(changed.Value, "rotated-secret") ?
+                                                             changed.Value : null,
                                                     Generous);
 
             // Act
