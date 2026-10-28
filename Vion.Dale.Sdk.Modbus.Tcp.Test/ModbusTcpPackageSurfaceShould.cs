@@ -52,9 +52,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test
         public void PublishOnlyWhatBlockAuthorNames()
         {
             // Arrange
-            // The client and server surfaces a block injects, the registration it calls, the queue policy and
-            // drop reason it configures and reads, the connection diagnostics it publishes, and the four
-            // exceptions its error callback receives by name. The proxies, the wrapper, the request seam and the
+            // The client and server surfaces a block injects, the server unit handle it declares, the registration
+            // it calls, the queue policy and drop reason it configures and reads, the connection diagnostics it
+            // publishes, and the four exceptions its error callback receives by name. The proxies, the wrapper, the request seam and the
             // concrete clients and factories are public only so the TestKit's fakes and the container's activator
             // can reach them, and the TestKit hands out its own concrete types rather than these interfaces.
 
@@ -67,7 +67,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test
 
             // Assert
             Assert.AreEqual("ConnectionTimeoutException,ILogicBlockModbusTcpClient,ILogicBlockModbusTcpClientFactory,ILogicBlockModbusTcpServer," +
-                            "ILogicBlockModbusTcpServerFactory,IpAddressNotSetException,LinkBackoffException,ModbusTcpConnectionState," +
+                            "ILogicBlockModbusTcpServerFactory,ILogicBlockModbusTcpServerUnit,IpAddressNotSetException,LinkBackoffException,ModbusTcpConnectionState," +
                             "ModbusTcpConnectionSummary,QueueOverflowPolicy,RequestDropReason,RequestDroppedException,ServiceCollectionExtensions",
                             string.Join(",", published));
         }

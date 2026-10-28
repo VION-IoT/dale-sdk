@@ -11,14 +11,37 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     ///     client code. Typed values are deliberately encoded with <see cref="BinaryPrimitives" /> (big-endian),
     ///     independent of the SDK's converter — so a conversion bug cannot cancel itself out in a test.
     /// </summary>
+    /// <remarks>
+    ///     The harness's view addresses no unit, which a server that declares no unit answers from its one map. A
+    ///     server that declares units needs the unit a master addresses: take that view with <see cref="ForUnit" />.
+    ///     Every member's exceptions then also include <see cref="ModbusExceptionCode.GatewayTargetDeviceFailedToRespond" />
+    ///     for a unit the server does not declare, and the unaddressed view throws
+    ///     <see cref="InvalidOperationException" /> on such a server.
+    /// </remarks>
     [PublicApi]
     public sealed class FakeModbusTcpServerClient
     {
         private readonly FakeModbusTcpServerProxy _proxy;
 
-        internal FakeModbusTcpServerClient(FakeModbusTcpServerProxy proxy)
+        private readonly byte? _unitId;
+
+        internal FakeModbusTcpServerClient(FakeModbusTcpServerProxy proxy, byte? unitId = null)
         {
             _proxy = proxy;
+            _unitId = unitId;
+        }
+
+        /// <summary>
+        ///     Gets a master view whose requests address <paramref name="unitId" />.
+        /// </summary>
+        /// <param name="unitId">The unit identifier every request of the returned view carries.</param>
+        /// <returns>
+        ///     A view answered from that unit's map on a server that declares units, and from the one map on a
+        ///     server that declares none.
+        /// </returns>
+        public FakeModbusTcpServerClient ForUnit(byte unitId)
+        {
+            return new FakeModbusTcpServerClient(_proxy, unitId);
         }
 
         /// <summary>
@@ -34,7 +57,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         {
             var bytes = new byte[2];
             BinaryPrimitives.WriteUInt16BigEndian(bytes, value);
-            _proxy.SimulateClientWriteHoldingRegisters(address, bytes);
+            WriteHoldingRegisters(address, bytes);
         }
 
         /// <summary>
@@ -48,7 +71,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public void WriteMultipleHoldingRegistersRaw(ushort startingAddress, byte[] registerBytes)
         {
-            _proxy.SimulateClientWriteHoldingRegisters(startingAddress, registerBytes);
+            WriteHoldingRegisters(startingAddress, registerBytes);
         }
 
         /// <summary>
@@ -62,7 +85,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public void WriteSingleCoil(ushort address, bool value)
         {
-            _proxy.SimulateClientWriteSingleCoil(address, value);
+            if (_unitId is { } unitId)
+            {
+                _proxy.SimulateClientWriteSingleCoil(unitId, address, value);
+            }
+            else
+            {
+                _proxy.SimulateClientWriteSingleCoil(address, value);
+            }
         }
 
         /// <summary>
@@ -77,7 +107,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public byte[] ReadHoldingRegistersRaw(ushort startingAddress, ushort quantity)
         {
-            return _proxy.SimulateClientReadHoldingRegisters(startingAddress, quantity);
+            return _unitId is { } unitId ? _proxy.SimulateClientReadHoldingRegisters(unitId, startingAddress, quantity) :
+                       _proxy.SimulateClientReadHoldingRegisters(startingAddress, quantity);
         }
 
         /// <summary>
@@ -92,7 +123,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public byte[] ReadInputRegistersRaw(ushort startingAddress, ushort quantity)
         {
-            return _proxy.SimulateClientReadInputRegisters(startingAddress, quantity);
+            return _unitId is { } unitId ? _proxy.SimulateClientReadInputRegisters(unitId, startingAddress, quantity) :
+                       _proxy.SimulateClientReadInputRegisters(startingAddress, quantity);
         }
 
         /// <summary>
@@ -107,7 +139,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public bool[] ReadCoils(ushort startingAddress, ushort quantity)
         {
-            return _proxy.SimulateClientReadCoils(startingAddress, quantity);
+            return _unitId is { } unitId ? _proxy.SimulateClientReadCoils(unitId, startingAddress, quantity) : _proxy.SimulateClientReadCoils(startingAddress, quantity);
         }
 
         /// <summary>
@@ -122,7 +154,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public bool[] ReadDiscreteInputs(ushort startingAddress, ushort quantity)
         {
-            return _proxy.SimulateClientReadDiscreteInputs(startingAddress, quantity);
+            return _unitId is { } unitId ? _proxy.SimulateClientReadDiscreteInputs(unitId, startingAddress, quantity) :
+                       _proxy.SimulateClientReadDiscreteInputs(startingAddress, quantity);
+        }
+
+        private void WriteHoldingRegisters(ushort startingAddress, byte[] registerBytes)
+        {
+            if (_unitId is { } unitId)
+            {
+                _proxy.SimulateClientWriteHoldingRegisters(unitId, startingAddress, registerBytes);
+            }
+            else
+            {
+                _proxy.SimulateClientWriteHoldingRegisters(startingAddress, registerBytes);
+            }
         }
     }
 }

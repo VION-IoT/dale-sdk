@@ -448,6 +448,9 @@ settles it.
 - `AC-TKIT-012.3` (Ubiquitous): THE SYSTEM SHALL stamp a fake server's last client write from its
   own clock, which defaults to the real system clock, and SHALL let a test set the reported
   connection count and last-write instant directly.
+- `AC-TKIT-012.4` (Ubiquitous): THE SYSTEM SHALL offer a master-side view addressing one unit identifier, answered from that unit's map on a fake server that declares units, with the `GatewayTargetDeviceFailedToRespond` exception for a unit it did not declare, and from the one map on a fake server that declares none.
+- `AC-TKIT-012.5` (Event-driven): WHEN a simulated client access addresses no unit and the fake server declares units THE SYSTEM SHALL throw an `InvalidOperationException` naming the unit-addressed view.
+- `AC-TKIT-012.6` (Ubiquitous): THE SYSTEM SHALL stamp a fake server's last client write at each unit from its own clock, together with the server's own.
 
 `AC-TKIT-012.1`'s independent encoding is deliberate: the master view encodes with the platform's own
 primitives rather than the converter under test, so a conversion bug cannot cancel itself out across
@@ -455,6 +458,14 @@ a round trip.
 
 `AC-TKIT-012.2`'s two guards fire in argument-then-state order: an alignment complaint about the
 bytes reaches the caller before the complaint that the server is not listening.
+
+`AC-TKIT-012.4` and `AC-TKIT-012.5` are the fake's half of `modbus.md`'s *Serving a map per unit*. The
+harness's view addresses no unit, and `ForUnit` returns one that does. A real master always sends some
+unit identifier, which a server that declares none answers from its one map, so either view works
+there; a fake that declares units cannot guess which unit an unaddressed access meant, so it refuses
+one — through the harness's view and through the fake proxy's own unaddressed simulate methods alike,
+since the view only forwards to them. The fake offers no way to set a unit's last write directly, as
+`AC-TKIT-012.3` does for the server's; a test reaches any value by simulating a write on a fake clock.
 
 ## The HTTP kit
 

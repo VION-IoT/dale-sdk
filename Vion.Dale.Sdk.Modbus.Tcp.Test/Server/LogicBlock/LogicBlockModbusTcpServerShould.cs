@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Threading;
@@ -483,6 +484,215 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
             Assert.AreEqual(1, _proxy.StopCalls);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.6")]
+        public void StartProxyWithUnitExtentsWhenEnabled()
+        {
+            // Arrange
+            _sut.Port = 1502;
+            var unit1 = _sut.AddUnit(1);
+            unit1.HoldingRegisterCount = 10;
+            unit1.CoilCount = 3;
+            var unit200 = _sut.AddUnit(200);
+            unit200.InputRegisterCount = 20;
+            unit200.DiscreteInputCount = 1;
+
+            // Act
+            _sut.IsEnabled = true;
+
+            // Assert
+            Assert.AreEqual(1, _proxy.StartCalls);
+            Assert.AreEqual(1502, _proxy.LastPort);
+            Assert.HasCount(2, _proxy.LastUnitExtents!);
+            Assert.AreEqual(new ModbusServerAreaExtents(10, 0, 3, 0), _proxy.LastUnitExtents[1]);
+            Assert.AreEqual(new ModbusServerAreaExtents(0, 20, 0, 1), _proxy.LastUnitExtents[200]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.2")]
+        public void EnforceUnitExtentsInUnitSnapshot()
+        {
+            // Arrange
+            var unit1 = _sut.AddUnit(1);
+            var unit200 = _sut.AddUnit(200);
+
+            // Act
+            unit1.HoldingRegisterCount = 10;
+            unit200.HoldingRegisterCount = 5;
+
+            // Assert
+            unit1.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(9, 1));
+            Assert.ThrowsExactly<InvalidServerAddressException>(() => unit200.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUShort(9)));
+            Assert.ThrowsExactly<InvalidServerAddressException>(() => unit1.Sync(snapshot => snapshot.InputRegisters.ReadAsUShort(0)));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.5")]
+        public void RejectUnitDeclarationWhileEnabled()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+
+            // Act / Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.AddUnit(1));
+            Assert.IsEmpty(_proxy.AddedUnits);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.5")]
+        public void RejectUnitExtentChangeWhileEnabled()
+        {
+            // Arrange
+            var unit1 = _sut.AddUnit(1);
+            unit1.HoldingRegisterCount = 10;
+            _sut.IsEnabled = true;
+
+            // Act / Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => unit1.HoldingRegisterCount = 20);
+            Assert.ThrowsExactly<InvalidOperationException>(() => unit1.InputRegisterCount = 1);
+            Assert.ThrowsExactly<InvalidOperationException>(() => unit1.CoilCount = 1);
+            Assert.ThrowsExactly<InvalidOperationException>(() => unit1.DiscreteInputCount = 1);
+            Assert.AreEqual((ushort)10, unit1.HoldingRegisterCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.5")]
+        public void RejectDuplicateUnitDeclaration()
+        {
+            // Arrange
+            var unit1 = _sut.AddUnit(1);
+            unit1.HoldingRegisterCount = 10;
+
+            // Act / Assert
+            Assert.ThrowsExactly<ArgumentException>(() => _sut.AddUnit(1));
+            CollectionAssert.AreEqual(new byte[] { 1 }, _proxy.AddedUnits);
+            Assert.AreEqual((ushort)10, unit1.HoldingRegisterCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.6")]
+        public void RejectServerSyncWhenUnitsDeclared()
+        {
+            // Arrange
+            _sut.HoldingRegisterCount = 10;
+            _sut.AddUnit(1);
+            var called = false;
+
+            // Act / Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.Sync(_ => { called = true; }));
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.Sync(_ => called = true));
+            Assert.IsFalse(called);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.6")]
+        [DataRow((ushort)1, (ushort)0, (ushort)0, (ushort)0, DisplayName = "HoldingRegisterCount")]
+        [DataRow((ushort)0, (ushort)1, (ushort)0, (ushort)0, DisplayName = "InputRegisterCount")]
+        [DataRow((ushort)0, (ushort)0, (ushort)1, (ushort)0, DisplayName = "CoilCount")]
+        [DataRow((ushort)0, (ushort)0, (ushort)0, (ushort)1, DisplayName = "DiscreteInputCount")]
+        public void RejectEnablingWithServerExtentWhenUnitsDeclared(ushort holdingRegisterCount, ushort inputRegisterCount, ushort coilCount, ushort discreteInputCount)
+        {
+            // Arrange
+            _sut.HoldingRegisterCount = holdingRegisterCount;
+            _sut.InputRegisterCount = inputRegisterCount;
+            _sut.CoilCount = coilCount;
+            _sut.DiscreteInputCount = discreteInputCount;
+            _sut.AddUnit(1);
+
+            // Act / Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = true);
+            Assert.IsFalse(_sut.IsEnabled);
+            Assert.AreEqual(0, _proxy.StartCalls);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.7")]
+        public void ExecuteUnitSyncUnderProxyLock()
+        {
+            // Arrange
+            var unit1 = _sut.AddUnit(1);
+            unit1.HoldingRegisterCount = 1;
+            var lockHeld = false;
+
+            // Act
+            unit1.Sync(snapshot =>
+                       {
+                           lockHeld = Monitor.IsEntered(_proxy.Lock);
+                           snapshot.HoldingRegisters.WriteAsUShort(0, 7);
+                       });
+
+            // Assert
+            Assert.IsTrue(lockHeld);
+            Assert.IsFalse(Monitor.IsEntered(_proxy.Lock));
+            Assert.IsFalse(_sut.IsEnabled);
+            Assert.AreEqual(7, _proxy.Units[1].HoldingRegisters[1]);
+            Assert.AreEqual(0, _proxy.HoldingRegisters[1]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.7")]
+        public void ReturnUnitSyncCallbackResult()
+        {
+            // Arrange
+            _sut.AddUnit(1).HoldingRegisterCount = 1;
+            var unit2 = _sut.AddUnit(2);
+            unit2.HoldingRegisterCount = 1;
+            _proxy.Units[2].HoldingRegisters[1] = 0x2A;
+
+            // Act
+            var value = unit2.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUShort(0));
+
+            // Assert
+            Assert.AreEqual((ushort)42, value);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.7")]
+        public void RejectDisablingFromInsideUnitSyncCallback()
+        {
+            // Arrange
+            var unit1 = _sut.AddUnit(1);
+            _sut.IsEnabled = true;
+
+            // Act
+            unit1.Sync(_ => Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = false));
+
+            // Assert
+            Assert.IsTrue(_sut.IsEnabled);
+            Assert.AreEqual(0, _proxy.StopCalls);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.7")]
+        public void RefuseUnitSnapshotCapturedPastItsCallback()
+        {
+            // Arrange
+            var unit1 = _sut.AddUnit(1);
+            unit1.HoldingRegisterCount = 10;
+            IModbusServerSnapshot? captured = null;
+
+            // Act
+            unit1.Sync(snapshot => captured = snapshot);
+
+            // Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => captured!.HoldingRegisters.ReadAsUShort(0));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.4")]
+        public void PassUnitLastClientWriteThrough()
+        {
+            // Arrange
+            var unit1 = _sut.AddUnit(1);
+            var unit2 = _sut.AddUnit(2);
+            var writeTime = DateTimeOffset.UtcNow;
+            _proxy.UnitLastClientWriteAt[1] = writeTime;
+
+            // Act / Assert
+            Assert.AreEqual(writeTime, unit1.LastClientWriteAt);
+            Assert.IsNull(unit2.LastClientWriteAt);
+        }
+
         private sealed class StubModbusTcpServerProxy : IModbusTcpServerProxy
         {
             public byte[] Coils { get; } = new byte[65536 / 8];
@@ -506,6 +716,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
             public int StopCalls { get; private set; }
 
             public Exception? ThrowOnStart { get; set; }
+
+            public IReadOnlyDictionary<byte, ModbusServerAreaExtents>? LastUnitExtents { get; private set; }
+
+            public Dictionary<byte, DateTimeOffset?> UnitLastClientWriteAt { get; } = new();
+
+            public Dictionary<byte, StubModbusTcpServerProxy> Units { get; } = new();
+
+            public List<byte> AddedUnits { get; } = new();
 
             public int ConnectionCount { get; set; }
 
@@ -558,6 +776,46 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
             {
                 StopCalls++;
                 IsListening = false;
+            }
+
+            public void Start(IPAddress listenAddress, int port, IReadOnlyDictionary<byte, ModbusServerAreaExtents> unitExtents)
+            {
+                StartCalls++;
+                LastListenAddress = listenAddress;
+                LastPort = port;
+                LastUnitExtents = unitExtents;
+                IsListening = true;
+            }
+
+            public void AddUnit(byte unitId)
+            {
+                AddedUnits.Add(unitId);
+                Units[unitId] = new StubModbusTcpServerProxy();
+            }
+
+            public DateTimeOffset? GetLastClientWriteAt(byte unitId)
+            {
+                return UnitLastClientWriteAt.GetValueOrDefault(unitId);
+            }
+
+            public Span<byte> GetHoldingRegisterBuffer(byte unitId)
+            {
+                return Units[unitId].HoldingRegisters;
+            }
+
+            public Span<byte> GetInputRegisterBuffer(byte unitId)
+            {
+                return Units[unitId].InputRegisters;
+            }
+
+            public Span<byte> GetCoilBuffer(byte unitId)
+            {
+                return Units[unitId].Coils;
+            }
+
+            public Span<byte> GetDiscreteInputBuffer(byte unitId)
+            {
+                return Units[unitId].DiscreteInputs;
             }
         }
     }

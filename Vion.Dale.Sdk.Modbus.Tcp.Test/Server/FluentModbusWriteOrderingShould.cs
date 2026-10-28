@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentModbus;
+using Microsoft.Extensions.Logging.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Server;
+using Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
@@ -18,9 +22,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
     ///         notifying would leave a stepped settle free to return before the server had stored the write.
     ///     </para>
     ///     <para>
-    ///         The ordering is pinned twice: for unit 0 alone, as the hosted server serves it, and for several units
-    ///         with a map each, as a simulator that builds its own FluentModbus server serves them
-    ///         (<c>docs/simulator-authoring.md</c>).
+    ///         The ordering is pinned twice: for unit 0 alone, as a server that declares no unit serves every unit
+    ///         identifier, and for several declared units with a map each, driven through the hosted proxy itself, as a
+    ///         server that declares units serves them.
     ///     </para>
     /// </summary>
     [TestClass]
@@ -83,22 +87,28 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         [DataRow(ModbusFunctionCode.WriteMultipleRegisters, DisplayName = "WriteMultipleRegisters")]
         [DataRow(ModbusFunctionCode.WriteSingleCoil, DisplayName = "WriteSingleCoil")]
         [DataRow(ModbusFunctionCode.WriteMultipleCoils, DisplayName = "WriteMultipleCoils")]
-        public async Task HoldClientWriteToOneOfSeveralUnitsWhileChangeNotificationRuns(ModbusFunctionCode functionCode)
+        public async Task HoldClientWriteToOneOfSeveralHostedUnitsWhileChangeNotificationRuns(ModbusFunctionCode functionCode)
         {
-            // Arrange — the layout of a consumer's per-unit simulator: units 1 and 2 at the same addresses, and a third unit.
-            // Unit 1 sits at the written address untouched, which is what tells a map per unit from one map shared by all.
+            // Arrange — the hosted proxy serving units 1 and 2 at the same addresses, and a third unit. Unit 1 sits at the
+            // written address untouched, which is what tells a map per unit from one map shared by all. The proxy reads
+            // its clock from inside the change notification, so a clock that parks is the notification parking.
             using var entered = new ManualResetEventSlim();
             using var released = new ManualResetEventSlim();
             var storedWhenNotified = false;
             var siblingUntouchedWhenNotified = false;
-            var server = new ModbusTcpServer { EnableRaisingEvents = true, AlwaysRaiseChangedEvent = true };
-            server.AddUnit(1);
-            server.AddUnit(2);
-            server.AddUnit(200);
-            server.RegistersChanged += (_, _) => Park(() => server.GetHoldingRegisters(2)[1] == 42, () => server.GetHoldingRegisters(1)[1] == 0);
-            server.CoilsChanged += (_, _) => Park(() => (server.GetCoils(2)[0] & 0b10) != 0, () => (server.GetCoils(1)[0] & 0b10) == 0);
+            var clock = new ParkingClock();
+            var server = new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance, clock);
+            var unitExtents = new Dictionary<byte, ModbusServerAreaExtents>();
+            foreach (var unitId in new byte[] { 1, 2, 200 })
+            {
+                server.AddUnit(unitId);
+                unitExtents[unitId] = new ModbusServerAreaExtents(10, 0, 10, 0);
+            }
+
+            clock.Parked = () => Park(() => BitConverter.ToInt16(server.GetHoldingRegisterBuffer(2).Slice(2, 2)) == 42 || (server.GetCoilBuffer(2)[0] & 0b10) != 0,
+                                      () => BitConverter.ToInt16(server.GetHoldingRegisterBuffer(1).Slice(2, 2)) == 0 && (server.GetCoilBuffer(1)[0] & 0b10) == 0);
             var port = LoopbackPorts.Free();
-            server.Start(new IPEndPoint(IPAddress.Loopback, port));
+            server.Start(IPAddress.Loopback, port, unitExtents);
             using var client = new ModbusTcpClient();
             client.Connect(new IPEndPoint(IPAddress.Loopback, port), ModbusEndianness.LittleEndian);
 
@@ -118,7 +128,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             finally
             {
                 released.Set();
-                server.Stop();
+                server.Dispose();
             }
 
             void Park(Func<bool> stored, Func<bool> siblingUntouched)
@@ -148,6 +158,19 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(functionCode), functionCode, "Not a write this test drives.");
+            }
+        }
+
+        /// <summary>The system clock, running <see cref="Parked" /> on the caller's thread each time it is read.</summary>
+        private sealed class ParkingClock : TimeProvider
+        {
+            public Action? Parked { get; set; }
+
+            public override DateTimeOffset GetUtcNow()
+            {
+                Parked?.Invoke();
+
+                return base.GetUtcNow();
             }
         }
     }

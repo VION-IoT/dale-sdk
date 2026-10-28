@@ -433,8 +433,7 @@ accessor kept past its callback reaches the live buffers with no lock held.
 
 ## The server's endpoint and listener
 
-- `AC-MODB-014.1` (Ubiquitous): THE SYSTEM SHALL accept requests for any unit identifier and echo the
-  request's identifier in the response.
+- `AC-MODB-014.1` (Optional): WHERE a server declares no unit THE SYSTEM SHALL accept requests for any unit identifier, answer them from its one register map, and echo the request's identifier in the response.
 - `AC-MODB-014.2` (Event-driven): WHEN the underlying server library's per-unit buffer maps are not the shape the identifier aliasing expects THE SYSTEM SHALL refuse to construct the server, naming what it could not find. GAP: reachable only by changing the pinned library version; the real-socket suite covers the served behaviour it protects.
 - `AC-MODB-014.3` (Ubiquitous): THE SYSTEM SHALL leave a function code it maps to no area for the
   underlying server to answer.
@@ -445,10 +444,12 @@ accessor kept past its callback reaches the live buffers with no lock held.
 
 `AC-MODB-014.1` is the endpoint behaviour the Modbus TCP specification intends for directly connected
 servers, which every fielded master in the porting pipeline assumes; a strict per-unit filter would
-protect nothing in a one-map-per-port topology and would break ported masters. The refusal above
-fails loudly rather than degrading because a warn-and-degrade fallback to a unit-0-only server would look green in the
-development host and the TestKit while every fielded master broke. `AC-MODB-014.5` counts an
-unchanged re-write because a master cyclically re-asserting a setpoint must still count as alive.
+protect nothing in a one-map-per-port topology and would break ported masters. A server that stands
+in for several devices behind one port declares them instead (*Serving a map per unit*, below). The
+refusal above fails loudly rather than degrading because a warn-and-degrade fallback to a unit-0-only
+server would look green in the development host and the TestKit while every fielded master broke, and
+it guards a server that declares units the same way. `AC-MODB-014.5` counts an unchanged re-write
+because a master cyclically re-asserting a setpoint must still count as alive.
 
 `AC-MODB-014.4` is the same-version redeploy: the runtime stops the outgoing blocks before it starts the
 new ones, so a disposed server's closed connections can still hold the port when its successor binds.
@@ -456,6 +457,39 @@ new ones, so a disposed server's closed connections can still hold the port when
 and stated with its reason in [`http.md`](http.md) under `AC-HTTP-015.8`: the listener is bound with no
 address-reuse option, because an option only adds port sharing. So a server that was never disposed, and
 still listens, makes its successor's enable throw rather than share the port with it.
+
+## Serving a map per unit
+
+Some devices serve several unit identifiers behind one port, with different values at the same
+addresses under each: a charging station with a socket at unit 1, a second at unit 2 and station data
+at unit 200, all read by one master over one connection. A block standing in for one declares each
+unit with `AddUnit` and configures and reads each through the handle it returns — four extents, a
+`Sync` pair and a last client write, the same shape as the server's own. Declaring the first unit is
+the opt-in; a server that declares none keeps `AC-MODB-014.1`. Any unit identifier from 0 to 255 can be
+declared.
+
+- `AC-MODB-021.1` (Optional): WHERE a server declares units THE SYSTEM SHALL serve each declared unit identifier from a register map of its own, so that a value one unit holds or a client writes at one unit is not seen at another.
+- `AC-MODB-021.2` (Optional): WHERE a server declares units THE SYSTEM SHALL bound each unit's four areas by that unit's own declared extents, on the wire and in that unit's snapshot.
+- `AC-MODB-021.3` (Unwanted): IF a server declares units and a client requests an area at a unit identifier the server did not declare THEN THE SYSTEM SHALL answer with a `GatewayTargetDeviceFailedToRespond` Modbus exception and keep serving the connection.
+- `AC-MODB-021.4` (Optional): WHERE a server declares units THE SYSTEM SHALL timestamp the most recent client write at each unit, including a write that does not change the stored value, leaving every other unit's timestamp where it was, and SHALL move the server's own timestamp on a write at any unit.
+- `AC-MODB-021.5` (Event-driven): WHEN a unit is declared, or a unit's extent is set, while the server is enabled THE SYSTEM SHALL throw an `InvalidOperationException`, and WHEN a unit identifier is declared a second time THE SYSTEM SHALL throw an `ArgumentException`.
+- `AC-MODB-021.6` (Event-driven): WHEN a server that declares units is given a server-level `Sync` callback, or is enabled with a non-zero server-level extent, THE SYSTEM SHALL throw an `InvalidOperationException`.
+- `AC-MODB-021.7` (Ubiquitous): THE SYSTEM SHALL execute a unit's `Sync` callback, in both forms, on the caller's thread under the server lock, while the server is disabled as while it is enabled, and SHALL hold it to the refusals `AC-MODB-013.3` to `AC-MODB-013.5` state for the server's own.
+
+`AC-MODB-021.3` answers rather than drops, and with that code. To the master, a server that declares
+units is a gateway in front of several devices, and an undeclared identifier is a device that is not
+there — which is what `0x0B` names; `GatewayPathUnavailable` would blame the gateway's own
+configuration, and `ServerDeviceFailure` a device that is present. The connection stays open because
+the master reads the declared units over that same connection, and a misaddressed request must not take
+their traffic down with it. The SDK's own client classifies any exception answer as a device error, not
+a link fault, so a block polling an absent unit keeps its link healthy.
+
+`AC-MODB-021.4` keeps `AC-MODB-014.5` true on such a server: the server's timestamp still answers "is a
+master talking to me", and each unit's answers "has it written to this device lately". `AC-MODB-021.6`
+refuses rather than ignores, because a server-level extent or `Sync` on a server that has no map of its
+own is a block that meant a unit and named the server. A unit's `Sync` takes the same lock as every
+other, so a callback that calls another unit's `Sync` changes both atomically with respect to client
+requests.
 
 ## Modbus RTU
 
@@ -594,7 +628,8 @@ counted from the moment it is queued until its completion has been handed to the
 dropped. While a request is counted the stepped clock cannot move, so a queued request cannot expire on
 its queued age (`AC-MODB-003.6`); the connect and operation timeouts are real time and are what end a
 request to a peer that is absent or never answers. A hosted Modbus TCP server stores a client's write
-before it answers, so the client's counted request covers it and the server counts nothing of its own.
+before it answers, whether it declares units or not, so the client's counted request covers it and the
+server counts nothing of its own.
 
 ## The published surface
 

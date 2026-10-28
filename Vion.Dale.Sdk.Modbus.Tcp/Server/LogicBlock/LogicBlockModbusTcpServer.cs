@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
@@ -21,6 +23,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         private readonly ILogger<LogicBlockModbusTcpServer> _logger;
 
         private readonly IModbusTcpServerProxy _proxy;
+
+        private readonly Dictionary<byte, LogicBlockModbusTcpServerUnit> _units = new();
 
         private bool _isEnabled;
 
@@ -52,7 +56,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 
                 if (value)
                 {
-                    _proxy.Start(_parsedListenAddress, Port, new ModbusServerAreaExtents(HoldingRegisterCount, InputRegisterCount, CoilCount, DiscreteInputCount));
+                    var extents = new ModbusServerAreaExtents(HoldingRegisterCount, InputRegisterCount, CoilCount, DiscreteInputCount);
+                    if (_units.Count == 0)
+                    {
+                        _proxy.Start(_parsedListenAddress, Port, extents);
+                    }
+                    else
+                    {
+                        // A server-level extent on a per-unit server bounds a map nobody serves; ignoring it would hide
+                        // a block that set the server's counts where it meant a unit's.
+                        if (extents != default)
+                        {
+                            throw new
+                                InvalidOperationException("This server declares units, so it has no register map of its own: leave its four extents at 0 and set each unit's extents on the handle AddUnit returned.");
+                        }
+
+                        _proxy.Start(_parsedListenAddress, Port, _units.Values.ToDictionary(unit => unit.UnitId, unit => unit.Extents));
+                    }
+
                     LogEnabled(ListenAddress!, Port);
                 }
                 else
@@ -169,41 +190,38 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         }
 
         /// <inheritdoc />
+        public ILogicBlockModbusTcpServerUnit AddUnit(byte unitId)
+        {
+            if (IsEnabled)
+            {
+                throw new InvalidOperationException("Units can only be declared while the server is disabled. Disable the server, declare the unit, then re-enable it.");
+            }
+
+            if (_units.ContainsKey(unitId))
+            {
+                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture, "Unit {0} is already declared on this server.", unitId), nameof(unitId));
+            }
+
+            _proxy.AddUnit(unitId);
+            var unit = new LogicBlockModbusTcpServerUnit(this, _proxy, unitId);
+            _units.Add(unitId, unit);
+
+            return unit;
+        }
+
+        /// <inheritdoc />
         public void Sync(Action<IModbusServerSnapshot> access)
         {
-            lock (_proxy.Lock)
-            {
-                _syncCallbackDepth++;
-                var lifetime = new SnapshotLifetime();
-                try
-                {
-                    access(CreateSnapshot(lifetime));
-                }
-                finally
-                {
-                    lifetime.End();
-                    _syncCallbackDepth--;
-                }
-            }
+            EnsureNoUnits();
+            RunSync(null, new ModbusServerAreaExtents(HoldingRegisterCount, InputRegisterCount, CoilCount, DiscreteInputCount), access);
         }
 
         /// <inheritdoc />
         public T Sync<T>(Func<IModbusServerSnapshot, T> access)
         {
-            lock (_proxy.Lock)
-            {
-                _syncCallbackDepth++;
-                var lifetime = new SnapshotLifetime();
-                try
-                {
-                    return access(CreateSnapshot(lifetime));
-                }
-                finally
-                {
-                    lifetime.End();
-                    _syncCallbackDepth--;
-                }
-            }
+            EnsureNoUnits();
+
+            return RunSync(null, new ModbusServerAreaExtents(HoldingRegisterCount, InputRegisterCount, CoilCount, DiscreteInputCount), access);
         }
 
         public void Dispose()
@@ -218,30 +236,79 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         }
 
         /// <summary>
-        ///     Builds the snapshot one callback sees. Every accessor reaches the live buffer through
-        ///     <paramref name="lifetime" />, so an accessor kept past the callback refuses instead of writing the
-        ///     server's buffers without the lock the callback held.
+        ///     Runs one <c>Sync</c> callback, the server's (<paramref name="unitId" /> null) or a unit's, under the server
+        ///     lock and the guards every callback shares.
         /// </summary>
-        private IModbusServerSnapshot CreateSnapshot(SnapshotLifetime lifetime)
+        internal void RunSync(byte? unitId, ModbusServerAreaExtents extents, Action<IModbusServerSnapshot> access)
         {
-            return new ModbusServerSnapshot(new ModbusRegisterAccessor(() => lifetime.Buffer(_proxy.GetHoldingRegisterBuffer()),
-                                                                       HoldingRegisterCount,
-                                                                       ModbusServerArea.HoldingRegisters,
-                                                                       _dataConverter),
-                                            new ModbusRegisterAccessor(() => lifetime.Buffer(_proxy.GetInputRegisterBuffer()),
-                                                                       InputRegisterCount,
-                                                                       ModbusServerArea.InputRegisters,
-                                                                       _dataConverter),
-                                            new ModbusBitAccessor(() => lifetime.Buffer(_proxy.GetCoilBuffer()), CoilCount, ModbusServerArea.Coils),
-                                            new ModbusBitAccessor(() => lifetime.Buffer(_proxy.GetDiscreteInputBuffer()), DiscreteInputCount, ModbusServerArea.DiscreteInputs));
+            RunSync(unitId,
+                    extents,
+                    snapshot =>
+                    {
+                        access(snapshot);
+
+                        return 0;
+                    });
         }
 
-        private void EnsureDisabled(string propertyName)
+        /// <inheritdoc cref="RunSync(byte?, ModbusServerAreaExtents, Action{IModbusServerSnapshot})" />
+        internal T RunSync<T>(byte? unitId, ModbusServerAreaExtents extents, Func<IModbusServerSnapshot, T> access)
+        {
+            lock (_proxy.Lock)
+            {
+                _syncCallbackDepth++;
+                var lifetime = new SnapshotLifetime();
+                try
+                {
+                    return access(CreateSnapshot(lifetime, unitId, extents));
+                }
+                finally
+                {
+                    lifetime.End();
+                    _syncCallbackDepth--;
+                }
+            }
+        }
+
+        internal void EnsureDisabled(string propertyName)
         {
             if (IsEnabled)
             {
                 throw new
                     InvalidOperationException($"{propertyName} can only be changed while the server is disabled. Disable the server, update the configuration, then re-enable it.");
+            }
+        }
+
+        /// <summary>
+        ///     Builds the snapshot one callback sees. Every accessor reaches the live buffer through
+        ///     <paramref name="lifetime" />, so an accessor kept past the callback refuses instead of writing the
+        ///     server's buffers without the lock the callback held.
+        /// </summary>
+        private IModbusServerSnapshot CreateSnapshot(SnapshotLifetime lifetime, byte? unitId, ModbusServerAreaExtents extents)
+        {
+            return new
+                ModbusServerSnapshot(new ModbusRegisterAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetHoldingRegisterBuffer(id) : _proxy.GetHoldingRegisterBuffer()),
+                                                                extents.HoldingRegisterCount,
+                                                                ModbusServerArea.HoldingRegisters,
+                                                                _dataConverter),
+                                     new ModbusRegisterAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetInputRegisterBuffer(id) : _proxy.GetInputRegisterBuffer()),
+                                                                extents.InputRegisterCount,
+                                                                ModbusServerArea.InputRegisters,
+                                                                _dataConverter),
+                                     new ModbusBitAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetCoilBuffer(id) : _proxy.GetCoilBuffer()),
+                                                           extents.CoilCount,
+                                                           ModbusServerArea.Coils),
+                                     new ModbusBitAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetDiscreteInputBuffer(id) : _proxy.GetDiscreteInputBuffer()),
+                                                           extents.DiscreteInputCount,
+                                                           ModbusServerArea.DiscreteInputs));
+        }
+
+        private void EnsureNoUnits()
+        {
+            if (_units.Count > 0)
+            {
+                throw new
+                    InvalidOperationException("This server declares units, so it has no register map of its own to sync. Sync through the handle AddUnit returned for the unit you mean.");
             }
         }
 

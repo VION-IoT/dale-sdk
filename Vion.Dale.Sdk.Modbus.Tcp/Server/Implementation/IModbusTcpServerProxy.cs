@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Server;
@@ -11,7 +12,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
     /// <remarks>
     ///     <para>
     ///         The register buffers exist independently of the listener: the buffer accessors are valid before
-    ///         <see cref="Start" /> and after <see cref="Stop" />, so a logic block can seed default values before
+    ///         either <c>Start</c> and after <see cref="Stop" />, so a logic block can seed default values before
     ///         it starts listening, and buffer contents survive stop/start cycles.
     ///     </para>
     ///     <para>
@@ -61,6 +62,65 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         ///     Bind failures propagate to the caller.
         /// </remarks>
         void Start(IPAddress listenAddress, int port, ModbusServerAreaExtents extents);
+
+        /// <summary>
+        ///     Binds the listener and starts serving each declared unit from its own register map.
+        /// </summary>
+        /// <param name="listenAddress">The local address to bind to.</param>
+        /// <param name="port">The local port to bind to.</param>
+        /// <param name="unitExtents">
+        ///     The declared register-map extents of each unit declared with <see cref="AddUnit" />. A request to a
+        ///     unit outside its extents is answered with an IllegalDataAddress Modbus exception.
+        /// </param>
+        /// <remarks>
+        ///     A request to a unit identifier absent from <paramref name="unitExtents" /> is answered with a
+        ///     GatewayTargetDeviceFailedToRespond Modbus exception and the connection stays open. Bind failures
+        ///     propagate to the caller.
+        /// </remarks>
+        void Start(IPAddress listenAddress, int port, IReadOnlyDictionary<byte, ModbusServerAreaExtents> unitExtents);
+
+        /// <summary>
+        ///     Gives <paramref name="unitId" /> register buffers of its own, so the unit-addressed buffer accessors
+        ///     reach a map no other unit shares.
+        /// </summary>
+        /// <param name="unitId">The unit identifier to declare.</param>
+        void AddUnit(byte unitId);
+
+        /// <summary>
+        ///     Gets the time of the most recent client write at <paramref name="unitId" />, or <c>null</c> when no
+        ///     client has written there since the server was created.
+        /// </summary>
+        /// <param name="unitId">The unit identifier the write addressed.</param>
+        /// <returns>The time of the unit's most recent client write, or <c>null</c>.</returns>
+        DateTimeOffset? GetLastClientWriteAt(byte unitId);
+
+        /// <summary>
+        ///     Gets a unit's holding register buffer in wire order. Hold <see cref="Lock" /> while accessing.
+        /// </summary>
+        /// <param name="unitId">The unit identifier whose map to reach.</param>
+        /// <returns>The holding register buffer (2 bytes per register).</returns>
+        Span<byte> GetHoldingRegisterBuffer(byte unitId);
+
+        /// <summary>
+        ///     Gets a unit's input register buffer in wire order. Hold <see cref="Lock" /> while accessing.
+        /// </summary>
+        /// <param name="unitId">The unit identifier whose map to reach.</param>
+        /// <returns>The input register buffer (2 bytes per register).</returns>
+        Span<byte> GetInputRegisterBuffer(byte unitId);
+
+        /// <summary>
+        ///     Gets a unit's bit-packed coil buffer. Hold <see cref="Lock" /> while accessing.
+        /// </summary>
+        /// <param name="unitId">The unit identifier whose map to reach.</param>
+        /// <returns>The coil buffer (8 coils per byte, least significant bit first).</returns>
+        Span<byte> GetCoilBuffer(byte unitId);
+
+        /// <summary>
+        ///     Gets a unit's bit-packed discrete input buffer. Hold <see cref="Lock" /> while accessing.
+        /// </summary>
+        /// <param name="unitId">The unit identifier whose map to reach.</param>
+        /// <returns>The discrete input buffer (8 inputs per byte, least significant bit first).</returns>
+        Span<byte> GetDiscreteInputBuffer(byte unitId);
 
         /// <summary>
         ///     Stops listening. Buffer contents are retained.
