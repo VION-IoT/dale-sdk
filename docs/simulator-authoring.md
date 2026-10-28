@@ -161,21 +161,12 @@ Two things a simulator block must not become:
   `TcpListener`, say — is not seen, and whatever it does that no SDK client's open exchange spans is
   not waited for.
 
-  One such socket is allowed, narrowly, because the barrier waits for it the way it waits for the
-  hosted Modbus TCP server. The store-before-answer premise is FluentModbus's, which the hosted
-  server inherits: `FluentModbusWriteOrderingShould` builds a bare FluentModbus server and pins that
-  a client's write is stored, and its change notification has returned, before the write completes.
-  That reaches a FluentModbus server a simulator builds itself only as far as the test pins it —
-  FluentModbus 5.3.2, the version the SDK ships, in its default asynchronous mode, with
-  `EnableRaisingEvents` and `AlwaysRaiseChangedEvent` on, serving either unit 0 alone or several
-  non-zero units with a map each (the test serves units 1, 2 and 200, and writes one of two units
-  that share an address) — and only for requests from the SDK's own Modbus TCP clients in the same
-  host. The several-unit layout is the usual reason to build one, since the hosted server answers
-  every unit id from one map (`AC-MODB-014.1`). Inside that scope a simulator may build one; outside
-  it the rule above stands, because nothing in this repo says the barrier waits: another FluentModbus
-  version, synchronous mode, events off, unit 0 served beside other units, another Modbus library, a
-  client that is not the SDK's. No test here runs an SDK client against such a server on a stepped
-  host.
+  A device that serves several unit identifiers behind one port — different values at the same
+  addresses under each, as a charging station serves one socket per unit — is still served through
+  the hosted Modbus TCP server: declare each unit with `AddUnit` and tick each through its own handle
+  (*Serving a map per unit* in [`specs/modbus.md`](specs/modbus.md)). The barrier waits for it exactly
+  as for a server that declares no unit. A simulator does not build its own Modbus server, of any
+  library, for that layout or any other.
 
 ## 5. Simulating against a real gateway
 
