@@ -1,6 +1,6 @@
 ---
 slug: publish-deadline
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: HOST,BIND,MODB      # area codes from docs/specs/_corpus.yml's `owns:`
 author: jonasbertsch
@@ -31,8 +31,8 @@ is unchanged. dale (step 2) turns the deadline into the MQTT 5 Message Expiry In
 
 `host-vocabulary.md` § Publishing mints three criteria. `AC-HOST-003.4` is the vocabulary: both
 publish forms carry an optional deadline, and their conversion into each other keeps it — tested
-here. `AC-HOST-003.5` (the expiry interval each attempt gets) and `AC-HOST-003.6` (an attempt past
-the deadline is dropped) are what a host does with it, `GAP` until dale's criterion exists, marked the
+here. `AC-HOST-003.5` (the expiry interval each attempt gets) and `AC-HOST-003.6` (an attempt is
+dropped once the deadline is reached) are what a host does with it, `GAP` until dale's criterion exists, marked the
 way `AC-HOST-003.1` marks its proof. `contracts.md` § Publishing from a provider face mints
 `AC-BIND-011.6`: a deadline passed to a publish helper reaches the published message, and none is
 set where none is passed. `modbus.md` § Modbus RTU mints `AC-MODB-015.11`: each read and write is
@@ -43,7 +43,7 @@ reworded or removed.
 ### Decisions
 
 - `D1` **(a) ratified** — **The carrier is the MQTT 5 Message Expiry Interval, and the wire is
-  dale's.** Whole seconds left, rounded up, set at each attempt, nothing sent past the deadline.
+  dale's.** Whole seconds left, rounded up, set at each attempt, nothing sent once the deadline is reached.
   Brief, *Decisions already taken*. This repo carries the deadline to dale and no further.
 - `D2` **(a) ratified** — **Opt-in and generic: offered where every handler publishes.** Brief,
   *Decisions already taken*; decision 0014 (integrators write their own handlers). RTU is the only
@@ -51,10 +51,10 @@ reworded or removed.
 - `D3` **(a) ratified** — **The deadline is an absolute instant inside the process**, because dale
   computes the time left at each attempt and its retry re-sends the same message. Brief, *Decisions
   already taken*.
-- `D4` **(c) proposed** — **The shape: an `init` property `DateTimeOffset? Deadline` on both
+- `D4` **(a) ratified** (operator, 2026-10-28) — **The shape: an `init` property `DateTimeOffset? Deadline` on both
   `PublishMqttMessage` and `PublishMqttMessageRequest`, outside their positional parameter lists;
   `ToRequest` and `ToMessage` copy it.** § The shape. `null` means none, the default.
-- `D5` **(c) proposed** — **Three new helper overloads on `ServiceProviderHandlerBase`, one per
+- `D5` **(a) ratified** (operator, 2026-10-28) — **Three new helper overloads on `ServiceProviderHandlerBase`, one per
   existing helper, each taking a required `DateTimeOffset deadline` right after the existing required
   parameters; the existing three keep their signatures and publish with no deadline.** § The shape.
 - `D6` **(b)** — **The RTU handler's deadline is the pending entry's own `expiresAt`, computed before
@@ -73,20 +73,23 @@ reworded or removed.
 ### Reviewer's questions
 
 1. **(c) Is the shape `D4`/`D5` the contract dale and integrators build against?** It is the STOP A
-   question. The alternatives are under § The shape, with why each was set aside.
+   question. The alternatives are under § The shape, with why each was set aside. OUTCOME: accepted,
+   the shape ratified by the operator at STOP A, 2026-10-28.
 2. **(c) The name: `Deadline`, or `ExpiresAt`?** `Deadline` follows the brief's word and the SDK's
    one precedent for an absolute instant on a public type (`OfferResult.Deadline`,
    `Vion.Dale.Sdk/Emission/OfferResult.cs:19`). `ExpiresAt` follows the RTU handler's own variable and
    MQTT's "message expiry". Recommendation: `Deadline` — it says what the sender means, and the
-   expiry is one host's rendering of it.
+   expiry is one host's rendering of it. OUTCOME: accepted, `Deadline` (operator, 2026-10-28).
 3. **(c) `DateTimeOffset`, or a UTC `DateTime`?** The RTU handler's clock reads are UTC `DateTime`
    (`ModbusRtuHandler.cs:219`), and the SDK's request records carry `DateTime` timestamps; dale reads
    `TimeProvider.GetUtcNow()`, a `DateTimeOffset` (`PublishQueue.cs:322`). Recommendation:
    `DateTimeOffset` — an absolute instant with no `Kind` to get wrong across a library boundary an
-   integrator writes, and the precedent above.
+   integrator writes, and the precedent above. OUTCOME: accepted, `DateTimeOffset` (operator,
+   2026-10-28).
 4. **(b) `AC-HOST-003.5` and `.6` state dale's behaviour from the ratified carrier.** If step 2 words
    its own criterion differently, the `GAP` tail is re-pointed to it and the text follows it in that
-   round, by a `MODIFIED` line.
+   round, by a `MODIFIED` line. OUTCOME: accepted as stated; at STOP A the operator tightened
+   `AC-HOST-003.6` to drop an attempt once its deadline is reached (Drift checkpoints).
 
 ---
 
@@ -187,7 +190,7 @@ What dale builds against, the released version it references, and what happens a
 REPORT's *Affects others* carries the same.
 
 - **Shape:** `PublishMqttMessage.Deadline` and `PublishMqttMessageRequest.Deadline`, both
-  `DateTimeOffset?`, `null` for none (pending `D4` and questions 2–3).
+  `DateTimeOffset?`, `null` for none.
 - **Version:** the first release cut after this merges; it adds public API, so `0.15.0` under SemVer.
   Not cut by this change (`docs/releasing.md`).
 - **Both forms:** the request form reaches `BuildApplicationMessage` through `ToMessage`, so step 2's
@@ -211,6 +214,11 @@ REPORT's *Affects others* carries the same.
   references it, so the baseline is 0.14.3.
 - 2026-10-28: The brief points the helper criterion at `AC-BIND-016.*`; the helpers are
   `AC-BIND-011`'s (`D8`).
+- 2026-10-28: At STOP A the operator tightened `AC-HOST-003.6` from a deadline that has gone by to
+  one that is reached: at the deadline itself the time left rounds up to 0, and the HAL reads an
+  interval of 0 as no deadline (`../hal-unipi-neuron/Vion.Hal.UnipiNeuron/Handlers/ModbusRtuHandler.cs:26`,
+  `:64`). Every attempt that goes ahead then has time left above 0, so `AC-HOST-003.5` gives it at
+  least 1 s and needs no change.
 
 ---
 
@@ -218,7 +226,7 @@ REPORT's *Affects others* carries the same.
 
 - ADDED AC-HOST-003.4 -> docs/specs/host-vocabulary.md : THE SYSTEM SHALL let a handler give `PublishMqttMessage` and `PublishMqttMessageRequest` an absolute deadline, none by default, and SHALL keep it when either form converts into the other.
 - ADDED AC-HOST-003.5 -> docs/specs/host-vocabulary.md : WHEN a host makes an attempt at a publish carrying a deadline THE SYSTEM SHALL give it the whole seconds left until the deadline, rounded up, as its MQTT message expiry interval, and SHALL give a publish carrying none no expiry interval. GAP: proven by the private runtime, VION-376
-- ADDED AC-HOST-003.6 -> docs/specs/host-vocabulary.md : IF a publish's deadline has passed when the host would make an attempt at it THEN THE SYSTEM SHALL drop it without sending it. GAP: proven by the private runtime, VION-376
+- ADDED AC-HOST-003.6 -> docs/specs/host-vocabulary.md : IF a publish's deadline is not later than the moment the host would make an attempt at it THEN THE SYSTEM SHALL drop it without sending it. GAP: proven by the private runtime, VION-376
 - ADDED AC-BIND-011.6 -> docs/specs/contracts.md : WHERE a caller passes a deadline to a publish helper THE SYSTEM SHALL carry it on the published message, and SHALL publish with no deadline where the caller passes none.
 - ADDED AC-MODB-015.11 -> docs/specs/modbus.md : THE SYSTEM SHALL publish each Modbus RTU read and write request with a deadline of the moment the handler publishes it plus the request's operation timeout, the instant at which the handler itself expires the request.
 
