@@ -39,8 +39,7 @@ premise it rests on is pinned for the configuration that server runs (`D9`). `te
 `AC-TKIT-012.4`–`.6` under *The fake Modbus TCP server*: a unit-addressed master view, the refusal of
 an unaddressed one against a per-unit fake, and the per-unit last write. `docs/simulator-authoring.md`
 § 4 points a several-unit simulator at the hosted server and drops the narrow allowance to build one's
-own (`D10`). The exact ids and texts in the delta are drafted against option A of `D5` and are
-re-drafted on whichever option is ratified.
+own (`D10`). The delta is option A of `D5`, which the operator ratified on 2026-10-28.
 
 ### Decisions
 
@@ -66,7 +65,7 @@ re-drafted on whichever option is ratified.
   instead puts FluentModbus in multi-unit mode, whose request filter drops an unregistered id's request
   with no answer at all. The guard `AC-MODB-014.2` states is reused as is: the per-unit path writes the
   same four private maps the aliasing does, so one upgrade check covers both.
-- `D5` **(c)** — **The API shape.** Three options in § Full design, *The API shape*. **Recommended: A,
+- `D5` **(c), ratified 2026-10-28: A** — **The API shape.** Three options in § Full design, *The API shape*. **Recommended: A,
   a unit handle** — `ILogicBlockModbusTcpServerUnit AddUnit(byte unitId)` on the existing server,
   the handle carrying the unit's four extents, its own `Sync` pair and its own `LastClientWriteAt`.
   It covers how a block declares units and their extents, reads and writes one unit's map, reads its
@@ -103,6 +102,12 @@ re-drafted on whichever option is ratified.
   server is enabled, declared twice, a server-level `Sync` on a per-unit server — of the same kind as
   `AC-MODB-011.1`, which no analyzer can see either (`sdk-surface-conventions.md` § 4 covers rules an
   author can violate in source).
+- `D12` **(b)** — **Every unaddressed simulated access refuses on a per-unit fake, the fake proxy's
+  `SimulateClient…` overloads included, not only `harness.Client`.** Ratified point (ii)'s reason — a
+  master always sends some id, and a per-unit fake cannot guess which — holds for the proxy's
+  unaddressed overloads as much as for the master view, which only forwards to them. So the refusal
+  sits in the proxy and `harness.Client` surfaces it; `AC-TKIT-012.5` ("a simulated client access
+  addressing no unit") already says this, and § The API shape now says the same.
 
 ### Reviewer's questions
 
@@ -112,19 +117,27 @@ re-drafted on whichever option is ratified.
    refuses to enable with a non-zero server-level extent, rather than ignoring either; (ii) the fake's
    unaddressed master view (`harness.Client`) refuses on a per-unit fake, and `harness.Client.ForUnit(id)`
    addresses one unit on either kind of fake.
+   **OUTCOME: accepted — option A with (i) and (ii); operator, 2026-10-28, amendment 1.** The
+   misalignment the operator found between (ii), `AC-TKIT-012.5` and the design is settled as `D12`.
 2. **(b) `D3` — `0x0B`.** Recorded with its reason; say so if the consumer's production block treats
    `0x0B` differently from another code.
+   **OUTCOME: accepted; operator, 2026-10-28, amendment 1.**
 3. **(b) `D7` — no write counter.** The consumer's migration swaps a count comparison for the stamp
    (Affects others). If a second consumer needs "how many writes", it is an additive member later.
+   **OUTCOME: accepted; operator, 2026-10-28, amendment 1.**
 4. **(b) `D10` — drop the allowance and retire the multi-unit premise case.** The Alfen simulator in
    logic-block-libraries runs the self-built configuration until it migrates; it stays green meanwhile
    (nothing it runs changes), but the premise it rests on is no longer pinned here once the case is
    gone. Keeping the case until the consumer migrates is the alternative.
+   **OUTCOME: accepted — allowance dropped, case retired; keeping it until the consumer migrates is not
+   wanted. Operator, 2026-10-28, amendment 1.**
 5. **The brief's account of a plain `AddUnit` server is not quite what FluentModbus does.** Read, not
    run: an undeclared id is *dropped unanswered* in multi-unit mode (the connection stays open, the
    master times out); it is single-zero-unit mode *without* a buffer-map entry that closes the
    connection (`9f240521`). The verification keeps both failure targets — § Full design, *What each
    check fails against*.
+   **OUTCOME: accepted — this account supersedes the brief's, and § What each check fails against
+   replaces the brief's bullets of that name. Operator, 2026-10-28, amendment 1.**
 
 ---
 
@@ -238,7 +251,9 @@ default fake it is answered from the one map, as `AC-MODB-014.1` answers any id.
 `harness.Client` is unchanged on a default fake and throws `InvalidOperationException` naming `ForUnit`
 on a per-unit one, because a master always sends some id and a per-unit fake cannot guess which.
 `FakeModbusTcpServerProxy` gains per-unit storage and `SimulateClient…(byte unitId, …)` overloads
-beside today's, and stamps a per-unit last write from its `TimeProvider`. It does not offer setting a
+beside today's; today's unaddressed overloads refuse on a per-unit fake for the same reason, and that
+refusal is the one `harness.Client` surfaces, since it forwards to them (`D12`). The proxy stamps a
+per-unit last write from its `TimeProvider`. It does not offer setting a
 unit's last write directly, as `AC-TKIT-012.3` offers for the server's: no consumer needs it, and a
 test reaches any value by simulating a write on a fake clock.
 
@@ -302,7 +317,7 @@ vacuously; the shared address is the point.
 
 ## Spec delta (to distill)
 
-> Drafted against option A of `D5`; re-drafted on ratification.
+> Option A of `D5`, ratified 2026-10-28.
 
 - MODIFIED AC-MODB-014.1 -> docs/specs/modbus.md : WHERE a server declares no unit THE SYSTEM SHALL accept requests for any unit identifier, answer them from its one register map, and echo the request's identifier in the response.
 - ADDED AC-MODB-021.1 -> docs/specs/modbus.md : WHERE a server declares units THE SYSTEM SHALL serve each declared unit identifier from a register map of its own, so that a value one unit holds or a client writes at one unit is not seen at another, and SHALL echo the request's identifier in the response.
