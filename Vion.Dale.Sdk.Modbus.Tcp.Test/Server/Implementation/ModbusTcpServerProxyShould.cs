@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using FluentModbus;
 using Vion.Dale.Sdk.Modbus.Core.Server;
 using Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation;
@@ -31,6 +32,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.Implementation
         {
             // Act & Assert
             Assert.AreEqual(expected, ModbusTcpServerProxy.ValidateRequest(functionCode, startingAddress, quantity, Extents));
+        }
+
+        [TestMethod]
+        [DataRow((byte)1, (ushort)9, ModbusExceptionCode.OK)]
+        [DataRow((byte)1, (ushort)10, ModbusExceptionCode.IllegalDataAddress)]
+        [DataRow((byte)200, (ushort)4, ModbusExceptionCode.OK)]
+        [DataRow((byte)200, (ushort)9, ModbusExceptionCode.IllegalDataAddress)]
+        [DataRow((byte)2, (ushort)0, ModbusExceptionCode.GatewayTargetDeviceFailedToRespond)]
+        public void ValidateRequestsAgainstAddressedUnit(byte unitId, ushort startingAddress, ModbusExceptionCode expected)
+        {
+            // Arrange
+            var unitExtents = new Dictionary<byte, ModbusServerAreaExtents> { [1] = new(10, 0, 0, 0), [200] = new(5, 0, 0, 0) };
+
+            // Act
+            var actual = ModbusTcpServerProxy.ValidateRequest(unitId, ModbusFunctionCode.ReadHoldingRegisters, startingAddress, 1, unitExtents);
+
+            // Assert
+            Assert.AreEqual(expected, actual);
         }
 
         [TestMethod]

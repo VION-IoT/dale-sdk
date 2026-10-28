@@ -35,10 +35,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
     ///         disable/enable cycles.
     ///     </para>
     ///     <para>
-    ///         The server accepts requests for any unit identifier and echoes the request's unit identifier in
-    ///         the response — the endpoint behavior the Modbus TCP specification intends for directly connected
-    ///         servers. Client requests outside the declared register-map extents are answered with an
-    ///         IllegalDataAddress Modbus exception.
+    ///         A server that declares no unit accepts requests for any unit identifier, answers them from its one
+    ///         register map and echoes the request's unit identifier in the response — the endpoint behavior the
+    ///         Modbus TCP specification intends for directly connected servers. Client requests outside the declared
+    ///         register-map extents are answered with an IllegalDataAddress Modbus exception.
+    ///     </para>
+    ///     <para>
+    ///         A server that stands in for a device serving several unit identifiers behind one port — different
+    ///         values at the same addresses under each — declares each with <see cref="AddUnit" /> instead, and
+    ///         configures and reads each unit through the handle it returns. A request to a unit identifier it
+    ///         did not declare is then answered with a GatewayTargetDeviceFailedToRespond Modbus exception, and the
+    ///         connection stays open.
     ///     </para>
     ///     <para>
     ///         The server should be disposed when no longer needed. Disposal stops the listener and releases all
@@ -63,6 +70,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///         no-op.
         ///     </para>
         ///     <para>
+        ///         Enabling a server that declares units throws <see cref="InvalidOperationException" /> when any
+        ///         server-level extent is non-zero: those extents bound a map such a server does not serve.
+        ///     </para>
+        ///     <para>
         ///         Must not be set from inside a <see cref="Sync(Action{IModbusServerSnapshot})" /> callback —
         ///         stopping the listener joins request-handler threads that may be waiting for the server lock
         ///         the callback holds. Doing so throws <see cref="InvalidOperationException" />; react to
@@ -70,7 +81,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///     </para>
         /// </remarks>
         /// <exception cref="InvalidOperationException">
-        ///     Thrown when set from inside a <see cref="Sync(Action{IModbusServerSnapshot})" /> callback.
+        ///     Thrown when set from inside a <c>Sync</c> callback, the server's or a unit's, or when enabling a
+        ///     server that declares units while a server-level extent is non-zero.
         /// </exception>
         bool IsEnabled { get; set; }
 
@@ -104,7 +116,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         /// <remarks>
         ///     Counts are extents, not sizes from an offset — a 10-register map at address 0x8000 declares 0x800A.
         ///     Client requests outside the extent are answered with an IllegalDataAddress Modbus exception;
-        ///     snapshot accessors enforce the same bounds.
+        ///     snapshot accessors enforce the same bounds. The four server-level extents bound the one map of a
+        ///     server that declares no unit; a server that declares units leaves them at 0 and sets each unit's
+        ///     own.
         /// </remarks>
         /// <exception cref="InvalidOperationException">
         ///     Thrown when the server is enabled. Disable, reconfigure, then re-enable.
@@ -158,14 +172,38 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         int ConnectionCount { get; }
 
         /// <summary>
-        ///     Gets the time of the most recent client write to any register area, or <c>null</c> when no client
-        ///     has written yet.
+        ///     Gets the time of the most recent client write to any register area, at any unit, or <c>null</c> when
+        ///     no client has written yet.
         /// </summary>
         /// <remarks>
         ///     Maintained by the SDK from the underlying server's change notifications — no events are surfaced
-        ///     to the logic block. Useful for communication surveillance (e.g. detecting a silent master).
+        ///     to the logic block. Useful for communication surveillance (e.g. detecting a silent master). A server
+        ///     that declares units also keeps one per unit, <see cref="ILogicBlockModbusTcpServerUnit.LastClientWriteAt" />.
         /// </remarks>
         DateTimeOffset? LastClientWriteAt { get; }
+
+        /// <summary>
+        ///     Declares a unit identifier this server serves from a register map of its own, and returns the handle
+        ///     that configures and reads that map.
+        /// </summary>
+        /// <param name="unitId">The unit identifier to serve, 0 to 255.</param>
+        /// <returns>The unit's handle: its extents, its <c>Sync</c> and its last client write.</returns>
+        /// <remarks>
+        ///     <para>
+        ///         Declaring the first unit is the opt-in: the server then answers each declared unit identifier
+        ///         from that unit's own map, bounded by that unit's own extents, and answers a unit identifier it
+        ///         did not declare with a GatewayTargetDeviceFailedToRespond Modbus exception, keeping the
+        ///         connection open. Declare every unit while the server is disabled; a unit cannot be removed —
+        ///         a block that needs another layout creates another server.
+        ///     </para>
+        ///     <para>
+        ///         A server that declares units has no map of its own: its <c>Sync</c> throws, and its four
+        ///         extents stay 0.
+        ///     </para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">Thrown when the server is enabled.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="unitId" /> is already declared.</exception>
+        ILogicBlockModbusTcpServerUnit AddUnit(byte unitId);
 
         /// <summary>
         ///     Executes <paramref name="access" /> with a consistent view of all four register areas.
@@ -182,6 +220,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///     Do not set <see cref="IsEnabled" /> or call <see cref="IDisposable.Dispose" /> from inside the
         ///     callback — both throw <see cref="InvalidOperationException" /> there (see <see cref="IsEnabled" />).
         /// </remarks>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown when the server declares units, which have no shared map; sync through each unit's handle.
+        /// </exception>
         void Sync(Action<IModbusServerSnapshot> access);
 
         /// <summary>
@@ -198,6 +239,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         /// <remarks>
         ///     See <see cref="Sync(Action{IModbusServerSnapshot})" /> for the execution semantics.
         /// </remarks>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown when the server declares units, which have no shared map; sync through each unit's handle.
+        /// </exception>
         T Sync<T>(Func<IModbusServerSnapshot, T> access);
     }
 }

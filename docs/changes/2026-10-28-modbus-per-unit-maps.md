@@ -1,6 +1,6 @@
 ---
 slug: modbus-per-unit-maps
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: MODB,TKIT
 author: jonasbertsch
@@ -311,7 +311,28 @@ vacuously; the shared address is the point.
 
 ## Drift checkpoints
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-10-28: `AC-MODB-021.1` drops its echo clause (`MODIFIED` below). The response echoes the
+  request's unit id from FluentModbus's frame writer in every mode; no SDK code decides it, and the
+  FluentModbus client the real-socket tests use does not check it, so no mutation here can redden it.
+  Sibling sweep: `AC-MODB-014.1` carries the same clause from before this change and its test does not
+  check it either; left as it stands (constraint 2) and handed off as a draft item in the PR.
+- 2026-10-28: The brief's account of a plain `AddUnit` server, superseded by Reviewer's question 5 as
+  read, is now also run. Mutating the proxy to register each unit with FluentModbus's own `AddUnit`
+  made `AnswerUndeclaredUnitWithGatewayExceptionAndKeepConnection` fail with an `IOException` at the
+  client's 2 s read timeout: no answer, as § What FluentModbus does read it.
+- 2026-10-28: `D9`'s premise case reaches the hosted proxy's change notification through its injected
+  `TimeProvider`, which the proxy reads inside the notification, so the test parks the clock rather than
+  reflecting into the proxy's FluentModbus server. Mutating the proxy to share one map across units
+  reddens all four rows.
+- 2026-10-28: `AC-MODB-021.5`'s duplicate refusal was over-determined against the test's stub proxy:
+  `Dictionary.Add` throws the same `ArgumentException` without the guard. The stub now records every
+  `AddUnit` call, so the test sees the second proxy call the guard prevents — which on the real proxy
+  would replace a seeded unit's buffers. Sibling sweep: N/A, no other refusal leans on a collection's
+  own throw.
+- 2026-10-28: `AC-MODB-021.7`'s refusals are the server's own guards: a unit's `Sync` runs through the
+  same method as the server's. The depth-guard mutation reddens the `AC-MODB-013.3`/`.4` tests together
+  with the unit's, and the lifetime mutation the `AC-MODB-013.5` test with the unit's — one mechanism,
+  two claims, each with a test of its own.
 
 ---
 
@@ -330,6 +351,7 @@ vacuously; the shared address is the point.
 - ADDED AC-TKIT-012.4 -> docs/specs/testkit.md : THE SYSTEM SHALL offer a master-side view addressing one unit identifier, answered from that unit's map on a fake server that declares units, with the `GatewayTargetDeviceFailedToRespond` exception for a unit it did not declare, and from the one map on a fake server that declares none.
 - ADDED AC-TKIT-012.5 -> docs/specs/testkit.md : WHEN a simulated client access addresses no unit and the fake server declares units THE SYSTEM SHALL throw an `InvalidOperationException` naming the unit-addressed view.
 - ADDED AC-TKIT-012.6 -> docs/specs/testkit.md : THE SYSTEM SHALL stamp a fake server's last client write at each unit from its own clock, together with the server's own.
+- MODIFIED AC-MODB-021.1 -> docs/specs/modbus.md : WHERE a server declares units THE SYSTEM SHALL serve each declared unit identifier from a register map of its own, so that a value one unit holds or a client writes at one unit is not seen at another.
 
 ---
 
