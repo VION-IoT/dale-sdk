@@ -503,7 +503,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
             // Assert
             Assert.AreEqual(1, _proxy.StartCalls);
             Assert.AreEqual(1502, _proxy.LastPort);
-            Assert.AreEqual(2, _proxy.LastUnitExtents!.Count);
+            Assert.HasCount(2, _proxy.LastUnitExtents!);
             Assert.AreEqual(new ModbusServerAreaExtents(10, 0, 3, 0), _proxy.LastUnitExtents[1]);
             Assert.AreEqual(new ModbusServerAreaExtents(0, 20, 0, 1), _proxy.LastUnitExtents[200]);
         }
@@ -535,7 +535,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
 
             // Act / Assert
             Assert.ThrowsExactly<InvalidOperationException>(() => _sut.AddUnit(1));
-            Assert.AreEqual(0, _proxy.AddedUnits.Count);
+            Assert.IsEmpty(_proxy.AddedUnits);
         }
 
         [TestMethod]
