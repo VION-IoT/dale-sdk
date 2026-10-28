@@ -108,7 +108,7 @@ namespace Vion.Dale.Sdk.Mqtt
         int AttemptNumber = 1)
     {
         /// <summary>
-        ///     The instant from which the client makes no further attempt at this message, or <c>null</c> for none.
+        ///     The instant from which a host that honours it makes no further attempt at this message, or <c>null</c> for none.
         /// </summary>
         public DateTimeOffset? Deadline { get; init; }
 
@@ -149,7 +149,7 @@ namespace Vion.Dale.Sdk.Mqtt
         bool Retain = false)
     {
         /// <summary>
-        ///     The instant from which the client no longer publishes this request, or <c>null</c> for none.
+        ///     The instant from which a host that honours it no longer publishes this request, or <c>null</c> for none.
         /// </summary>
         public DateTimeOffset? Deadline { get; init; }
 

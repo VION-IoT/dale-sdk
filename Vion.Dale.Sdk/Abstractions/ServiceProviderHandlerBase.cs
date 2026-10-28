@@ -207,7 +207,7 @@ namespace Vion.Dale.Sdk.Abstractions
 
         /// <summary>
         ///     Publishes an MQTT message as <see cref="Publish(string, byte[], string, string, Guid?, string?, bool)" />
-        ///     does, with a deadline from which the MQTT client makes no further attempt at it.
+        ///     does, with a deadline from which a host that honours it makes no further attempt at it.
         /// </summary>
         /// <param name="topic">The full MQTT topic to publish to.</param>
         /// <param name="payload">The serialized payload bytes.</param>
@@ -269,7 +269,7 @@ namespace Vion.Dale.Sdk.Abstractions
 
         /// <summary>
         ///     Serializes the payload as JSON and publishes it with <c>application/json</c> content type, with a
-        ///     deadline from which the MQTT client makes no further attempt at it.
+        ///     deadline from which a host that honours it makes no further attempt at it.
         /// </summary>
         /// <param name="topic">The full MQTT topic to publish to.</param>
         /// <param name="payload">The value to serialize as the message body.</param>
@@ -332,8 +332,8 @@ namespace Vion.Dale.Sdk.Abstractions
 
         /// <summary>
         ///     Serializes the payload through the supplied source-generated type metadata and publishes it with
-        ///     <c>application/json</c> content type, with a deadline from which the MQTT client makes no further
-        ///     attempt at it.
+        ///     <c>application/json</c> content type, with a deadline from which a host that honours it makes no
+        ///     further attempt at it.
         /// </summary>
         /// <param name="topic">The full MQTT topic to publish to.</param>
         /// <param name="payload">The value to serialize as the message body.</param>
