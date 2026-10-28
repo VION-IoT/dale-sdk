@@ -503,9 +503,7 @@ provider per binding is the configuration's rule, declared by the binding's mult
 that names one contract under several providers leaves which of them is used unspecified.
 
 `AC-MODB-015.11`'s deadline is the instant from which the handler's own sweep times the request out
-(`AC-MODB-015.3`, `AC-MODB-015.4`), so a host and a hardware-abstraction layer that honour it stop
-serving the request close to the moment the block stops waiting for its answer, later only by the
-rounding to whole seconds and the transit, rather than long after it and into a response nobody reads (`AC-MODB-015.7`). What a host makes of the deadline is
+(`AC-MODB-015.3`, `AC-MODB-015.4`). What a host makes of the deadline is stated in
 [`host-vocabulary.md`](host-vocabulary.md) § Publishing.
 
 `AC-MODB-015.1` is why an outcome of `Dropped` on one binding may have been caused by another block's

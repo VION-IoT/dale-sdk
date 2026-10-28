@@ -231,9 +231,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var payload = new GetModbusPayload(request.FunctionCode, request.UnitId, request.StartingAddress, request.Quantity);
 
             // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
-            // The request is published with the same instant as its deadline, so a receiver that honours it drops the
-            // request once that deadline, rounded up to whole seconds and counted from its arrival, has run out,
-            // rather than serving it long after this side stopped waiting for the answer.
+            // Computed before the publish, so the published deadline and this handler's own expiry are one instant.
             var expiresAt = publishedAt + request.OperationTimeout;
             PublishRequest(requestTopic,
                            responseTopic,
@@ -401,9 +399,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var payload = new SetModbusPayload(request.FunctionCode, request.UnitId, request.Address, request.Data);
 
             // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
-            // The request is published with the same instant as its deadline, so a receiver that honours it drops the
-            // request once that deadline, rounded up to whole seconds and counted from its arrival, has run out,
-            // rather than serving it long after this side stopped waiting for the answer.
+            // Computed before the publish, so the published deadline and this handler's own expiry are one instant.
             var expiresAt = publishedAt + request.OperationTimeout;
             PublishRequest(requestTopic,
                            responseTopic,
