@@ -333,6 +333,12 @@ vacuously; the shared address is the point.
   same method as the server's. The depth-guard mutation reddens the `AC-MODB-013.3`/`.4` tests together
   with the unit's, and the lifetime mutation the `AC-MODB-013.5` test with the unit's — one mechanism,
   two claims, each with a test of its own.
+- 2026-10-28: § The mechanism's step 1 had unit 0, if declared, keep its own buffers. Those are the one
+  map the server served before it declared units, so a block that seeded it, or a master that wrote it,
+  left values there that a declared unit 0 then served, while the TestKit's fake starts every declared
+  unit empty (review note 1). Declaring unit 0 now allocates fresh buffers like any other unit;
+  `GiveDeclaredUnitMapOfItsOwn` pins it, red with the old early return. `AC-MODB-021.1`'s text already
+  said "a register map of its own" and is unchanged. Sibling sweep: N/A, unit 0 was the one special case.
 
 ---
 

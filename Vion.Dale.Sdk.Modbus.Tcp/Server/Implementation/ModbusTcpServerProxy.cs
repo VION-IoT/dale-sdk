@@ -109,20 +109,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         /// <inheritdoc />
         public void AddUnit(byte unitId)
         {
-            // Unit 0 is the one FluentModbus registered, and its buffers are its own already. Any other id is still
-            // aliased to them, so it gets fresh full-range arrays, as FluentModbus's own AddUnit would allocate.
-            // The server stays in single-zero-unit mode, whose request filter passes every id: an undeclared one
-            // reaches the validator, which refuses it, instead of being dropped unanswered (multi-unit mode).
-            if (unitId == 0)
-            {
-                return;
-            }
-
+            // Every declared id gets fresh full-range arrays, as FluentModbus's own AddUnit would allocate — unit 0
+            // too: its old arrays are the one map the server served before it declared units, and may hold what a
+            // block seeded or a master wrote there. The server stays in single-zero-unit mode, whose request filter
+            // passes every id: an undeclared one reaches the validator, which refuses it, instead of being dropped
+            // unanswered (multi-unit mode).
             lock (_server.Lock)
             {
                 foreach (var bufferMap in GetBufferMaps())
                 {
-                    bufferMap[unitId] = new byte[bufferMap[0].Length];
+                    bufferMap[unitId] = new byte[bufferMap[unitId].Length];
                 }
             }
         }

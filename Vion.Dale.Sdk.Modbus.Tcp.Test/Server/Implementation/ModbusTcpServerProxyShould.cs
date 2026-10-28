@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using FluentModbus;
+using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Server;
 using Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation;
 
@@ -32,6 +34,27 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.Implementation
         {
             // Act & Assert
             Assert.AreEqual(expected, ModbusTcpServerProxy.ValidateRequest(functionCode, startingAddress, quantity, Extents));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-021.1")]
+        [DataRow((byte)0, DisplayName = "unit 0")]
+        [DataRow((byte)7, DisplayName = "unit 7")]
+        public void GiveDeclaredUnitMapOfItsOwn(byte unitId)
+        {
+            // Arrange
+            // Unit 0's buffers are the server's one map until units are declared; a block may have seeded it, or a
+            // master written it, before the declaration.
+            using var sut = new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance, TimeProvider.System);
+            sut.GetHoldingRegisterBuffer()[1] = 0x2A;
+            sut.GetCoilBuffer()[0] = 0b1;
+
+            // Act
+            sut.AddUnit(unitId);
+
+            // Assert
+            Assert.AreEqual(0, sut.GetHoldingRegisterBuffer(unitId)[1]);
+            Assert.AreEqual(0, sut.GetCoilBuffer(unitId)[0]);
         }
 
         [TestMethod]
