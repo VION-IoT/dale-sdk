@@ -68,13 +68,12 @@ each other (`AC-BIND-016.1`), so a handler chooses per message whether it wants 
 - `AC-HOST-003.6` (Unwanted): IF a publish's deadline is not later than the moment the host would make an attempt at it THEN THE SYSTEM SHALL drop it without sending it. GAP: proven by the private runtime, VION-376
 
 The deadline is `Deadline` on either form, an instant on the clock the host and its handlers share in
-one process. It rides the message for the same reason the count does: the retry re-sends the same
+one process. It rides the message for the same reason the count does. The retry re-sends the same
 message, so the time left is worked out again at each attempt rather than fixed once by the sender.
 The interval is what crosses the wire, not the instant, so a receiver measures what is left on its
-own clock and no two hosts' clocks are compared. A broker counts it down while it holds the message,
-and a receiver that honours it can drop a message whose interval has run out. Every attempt that goes ahead
-has time left above zero, so its interval is at least one second; an interval of zero would read as
-no expiry at all. A handler sets a deadline through the publish helpers (`AC-BIND-011.6`).
+own clock and no two hosts' clocks are compared. Every attempt that goes ahead has time left above
+zero, so its interval is at least one second; an interval of zero would read as no expiry at all. A
+handler sets a deadline through the publish helpers (`AC-BIND-011.6`).
 
 - `AC-HOST-003.3` (Event-driven): WHEN the host's client establishes an operational connection THE SYSTEM SHALL publish every message registered with `RegisterMessageToSendOnConnect`, a message not registered as recurring on the first operational connect only. GAP: proven by the private runtime, dale/AC-REG-004.3
 
