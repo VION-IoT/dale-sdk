@@ -197,8 +197,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///         a block that needs another layout creates another server.
         ///     </para>
         ///     <para>
-        ///         A server that declares units has no map of its own: its <c>Sync</c> throws, and its four
-        ///         extents stay 0.
+        ///         A server that declares units has no map of its own: its <c>Sync</c> throws, and enabling it
+        ///         throws while any of its four extents is non-zero.
         ///     </para>
         /// </remarks>
         /// <exception cref="InvalidOperationException">Thrown when the server is enabled.</exception>
