@@ -352,10 +352,9 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         [Presentation(DisplayName = "Link", Group = PropertyGroup.Status, StatusIndicator = true, Importance = Importance.Primary)]
         public LinkStatus LinkHealth { get; private set; } = LinkStatus.Unknown;
 
-        // The SDK accumulates every receipt into these snapshots, so this block counts nothing. Link is the verdict
-        // on the device (local outcomes never move Link.State); Connection is the verdict on the socket. All three
-        // assign 250 ms over the types' 30 s default: this block is watched live, and at 30 s a scenario step
-        // times out before a state change is published.
+        // The SDK accumulates every receipt into these snapshots, so this block counts nothing. All three assign
+        // 250 ms over the types' 30 s default: this block is watched live, and at 30 s a scenario step times out
+        // before a state change is published. A block deployed against a device keeps the default.
         [ServiceProperty(Title = "Link",
                          MinInterval = "250ms",
                          Description = "The polling connection's view of the device: state, last contact, per-outcome counters and latencies.")]
