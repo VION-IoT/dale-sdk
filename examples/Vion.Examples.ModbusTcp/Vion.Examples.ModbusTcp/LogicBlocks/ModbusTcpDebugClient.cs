@@ -352,20 +352,25 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         [Presentation(DisplayName = "Link", Group = PropertyGroup.Status, StatusIndicator = true, Importance = Importance.Primary)]
         public LinkStatus LinkHealth { get; private set; } = LinkStatus.Unknown;
 
-        // The SDK accumulates every receipt into these two snapshots, so there is nothing to count here:
-        // ModbusLinkSummary and ModbusTcpConnectionSummary are flat readonly record structs of
-        // service-property-legal types and publish as they are. Link is the verdict on the *device* — local
-        // outcomes (a backed-up queue, an expired request) are counted in it but never move Link.State, so a
-        // congested client stays distinguishable from a broken one. Connection is the verdict on the *socket*.
-        [ServiceProperty(Title = "Link", Description = "The polling connection's view of the device: state, last contact, per-outcome counters and latencies.")]
+        // The SDK accumulates every receipt into these snapshots, so this block counts nothing. Link is the verdict
+        // on the device (local outcomes never move Link.State); Connection is the verdict on the socket. All three
+        // assign 250 ms over the types' 30 s default: this block is watched live, and at 30 s a scenario step
+        // times out before a state change is published.
+        [ServiceProperty(Title = "Link",
+                         MinInterval = "250ms",
+                         Description = "The polling connection's view of the device: state, last contact, per-outcome counters and latencies.")]
         [Presentation(DisplayName = "Link", Group = PropertyGroup.Diagnostics, Order = 10)]
         public ModbusLinkSummary Link { get; private set; }
 
-        [ServiceProperty(Title = "Connection", Description = "The polling connection's socket: connect attempts, failures, and the backoff the client is waiting out.")]
+        [ServiceProperty(Title = "Connection",
+                         MinInterval = "250ms",
+                         Description = "The polling connection's socket: connect attempts, failures, and the backoff the client is waiting out.")]
         [Presentation(DisplayName = "Connection", Group = PropertyGroup.Diagnostics, Order = 20)]
         public ModbusTcpConnectionSummary Connection { get; private set; }
 
-        [ServiceProperty(Title = "Command link", Description = "The same summary for the second connection — the one carrying the reads and writes you trigger by hand.")]
+        [ServiceProperty(Title = "Command link",
+                         MinInterval = "250ms",
+                         Description = "The same summary for the second connection — the one carrying the reads and writes you trigger by hand.")]
         [Presentation(DisplayName = "Command link", Group = PropertyGroup.Diagnostics, Order = 30)]
         public ModbusLinkSummary CommandLink { get; private set; }
 
