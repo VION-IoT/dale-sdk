@@ -142,6 +142,7 @@
     "Vion.Dale.Sdk.Modbus.Tcp.Diagnostics.ModbusTcpConnectionSummary",
     "Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock.ILogicBlockModbusTcpServer",
     "Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock.ILogicBlockModbusTcpServerFactory",
+    "Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock.ILogicBlockModbusTcpServerUnit",
     "Vion.Dale.Sdk.Modbus.Tcp.ServiceCollectionExtensions",
     "Vion.Dale.Sdk.Modbus.Tcp.TestKit.ConnectionEvent",
     "Vion.Dale.Sdk.Modbus.Tcp.TestKit.ConnectionEventKind",
