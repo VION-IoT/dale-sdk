@@ -10,6 +10,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 
         private readonly LogicBlockModbusTcpServer _server;
 
+        internal ModbusServerAreaExtents Extents
+        {
+            get => new(HoldingRegisterCount, InputRegisterCount, CoilCount, DiscreteInputCount);
+        }
+
         public LogicBlockModbusTcpServerUnit(LogicBlockModbusTcpServer server, IModbusTcpServerProxy proxy, byte unitId)
         {
             _server = server;
@@ -72,11 +77,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         public DateTimeOffset? LastClientWriteAt
         {
             get => _proxy.GetLastClientWriteAt(UnitId);
-        }
-
-        internal ModbusServerAreaExtents Extents
-        {
-            get => new(HoldingRegisterCount, InputRegisterCount, CoilCount, DiscreteInputCount);
         }
 
         /// <inheritdoc />

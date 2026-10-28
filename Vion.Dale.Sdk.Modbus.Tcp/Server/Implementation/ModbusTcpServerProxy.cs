@@ -25,6 +25,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
             "_discreteInputBufferMap",
         };
 
+        // The same, per unit identifier the write addressed.
+        private readonly long[] _lastClientWriteAtUtcTicksByUnit = new long[byte.MaxValue + 1];
+
         private readonly ILogger<ModbusTcpServerProxy> _logger;
 
         private readonly ModbusTcpServer _server;
@@ -39,9 +42,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         // DateTimeOffset? field because the writers are FluentModbus request threads while the reader is the
         // block's actor thread — multi-word struct copies can tear, an aligned long cannot.
         private long _lastClientWriteAtUtcTicks;
-
-        // The same, per unit identifier the write addressed.
-        private readonly long[] _lastClientWriteAtUtcTicksByUnit = new long[byte.MaxValue + 1];
 
         private Dictionary<byte, ModbusServerAreaExtents> _unitExtents = new();
 
@@ -159,28 +159,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
             return _server.GetDiscreteInputBuffer(unitId);
         }
 
-        private void StartListening(IPAddress listenAddress, int port)
-        {
-            // Change notifications stay inside the SDK: they only feed the LastClientWriteAt timestamp and are
-            // never surfaced to consumer code (FluentModbus raises them on its background request threads).
-            // AlwaysRaiseChangedEvent is required because single-value writes (FC5/FC6) that do not change the
-            // stored value would otherwise raise no event — a master cyclically re-writing an unchanged setpoint
-            // must still count as alive for comm surveillance.
-            _server.EnableRaisingEvents = true;
-            _server.AlwaysRaiseChangedEvent = true;
-            _server.RegistersChanged -= OnClientWrite;
-            _server.RegistersChanged += OnClientWrite;
-            _server.CoilsChanged -= OnClientWriteCoils;
-            _server.CoilsChanged += OnClientWriteCoils;
-
-            // Start(IPEndPoint) binds through FluentModbus's DefaultTcpClientProvider, which sets no
-            // address-reuse option: a plain bind already rebinds over a port whose closed connections
-            // still linger, and a held port is refused rather than shared (AC-MODB-014.4, docs/specs/modbus.md).
-            _server.Start(new IPEndPoint(listenAddress, port));
-            IsListening = true;
-            LogStarted(listenAddress, port);
-        }
-
         /// <inheritdoc />
         public void Stop()
         {
@@ -278,9 +256,30 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         {
             // FluentModbus calls the validator before it touches any buffer, so refusing here answers the master and
             // keeps the connection. An undeclared unit is a device that is not there: the gateway code says so.
-            return unitExtents.TryGetValue(unitId, out var extents)
-                       ? ValidateRequest(functionCode, startingAddress, quantity, extents)
-                       : ModbusExceptionCode.GatewayTargetDeviceFailedToRespond;
+            return unitExtents.TryGetValue(unitId, out var extents) ? ValidateRequest(functionCode, startingAddress, quantity, extents) :
+                       ModbusExceptionCode.GatewayTargetDeviceFailedToRespond;
+        }
+
+        private void StartListening(IPAddress listenAddress, int port)
+        {
+            // Change notifications stay inside the SDK: they only feed the LastClientWriteAt timestamp and are
+            // never surfaced to consumer code (FluentModbus raises them on its background request threads).
+            // AlwaysRaiseChangedEvent is required because single-value writes (FC5/FC6) that do not change the
+            // stored value would otherwise raise no event — a master cyclically re-writing an unchanged setpoint
+            // must still count as alive for comm surveillance.
+            _server.EnableRaisingEvents = true;
+            _server.AlwaysRaiseChangedEvent = true;
+            _server.RegistersChanged -= OnClientWrite;
+            _server.RegistersChanged += OnClientWrite;
+            _server.CoilsChanged -= OnClientWriteCoils;
+            _server.CoilsChanged += OnClientWriteCoils;
+
+            // Start(IPEndPoint) binds through FluentModbus's DefaultTcpClientProvider, which sets no
+            // address-reuse option: a plain bind already rebinds over a port whose closed connections
+            // still linger, and a held port is refused rather than shared (AC-MODB-014.4, docs/specs/modbus.md).
+            _server.Start(new IPEndPoint(listenAddress, port));
+            IsListening = true;
+            LogStarted(listenAddress, port);
         }
 
         private void AliasAllUnitIdentifiersToUnitZero()
@@ -306,10 +305,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
                                                       // look green in DevHost and TestKit paths while every fielded master (which sends its
                                                       // own unit identifier) breaks. Refusing to construct turns an unverified FluentModbus
                                                       // upgrade into an immediate, visible failure.
-                                                      throw new
-                                                          NotSupportedException($"FluentModbus internals changed ('{fieldName}' is not the expected per-unit buffer map) — " +
-                                                                                "the unit-id-agnostic endpoint cannot be set up, so the Modbus TCP server cannot start. " +
-                                                                                "Re-verify the buffer aliasing in ModbusTcpServerProxy against the upgraded FluentModbus version.");
+                                                      throw new NotSupportedException($"FluentModbus internals changed ('{fieldName}' is not the expected per-unit buffer map) — " +
+                                                                                      "the unit-id-agnostic endpoint cannot be set up, so the Modbus TCP server cannot start. " +
+                                                                                      "Re-verify the buffer aliasing in ModbusTcpServerProxy against the upgraded FluentModbus version.");
                                                   }
 
                                                   return bufferMap;

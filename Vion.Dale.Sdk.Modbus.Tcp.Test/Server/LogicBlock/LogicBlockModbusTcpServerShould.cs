@@ -717,6 +717,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
 
             public Exception? ThrowOnStart { get; set; }
 
+            public IReadOnlyDictionary<byte, ModbusServerAreaExtents>? LastUnitExtents { get; private set; }
+
+            public Dictionary<byte, DateTimeOffset?> UnitLastClientWriteAt { get; } = new();
+
+            public Dictionary<byte, StubModbusTcpServerProxy> Units { get; } = new();
+
+            public List<byte> AddedUnits { get; } = new();
+
             public int ConnectionCount { get; set; }
 
             public bool IsListening { get; set; }
@@ -770,12 +778,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
                 IsListening = false;
             }
 
-            public IReadOnlyDictionary<byte, ModbusServerAreaExtents>? LastUnitExtents { get; private set; }
-
-            public Dictionary<byte, DateTimeOffset?> UnitLastClientWriteAt { get; } = new();
-
-            public Dictionary<byte, StubModbusTcpServerProxy> Units { get; } = new();
-
             public void Start(IPAddress listenAddress, int port, IReadOnlyDictionary<byte, ModbusServerAreaExtents> unitExtents)
             {
                 StartCalls++;
@@ -784,8 +786,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
                 LastUnitExtents = unitExtents;
                 IsListening = true;
             }
-
-            public List<byte> AddedUnits { get; } = new();
 
             public void AddUnit(byte unitId)
             {

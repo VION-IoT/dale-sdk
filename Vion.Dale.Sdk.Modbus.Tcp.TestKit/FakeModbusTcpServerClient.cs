@@ -107,7 +107,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public byte[] ReadHoldingRegistersRaw(ushort startingAddress, ushort quantity)
         {
-            return _unitId is { } unitId ? _proxy.SimulateClientReadHoldingRegisters(unitId, startingAddress, quantity) : _proxy.SimulateClientReadHoldingRegisters(startingAddress, quantity);
+            return _unitId is { } unitId ? _proxy.SimulateClientReadHoldingRegisters(unitId, startingAddress, quantity) :
+                       _proxy.SimulateClientReadHoldingRegisters(startingAddress, quantity);
         }
 
         /// <summary>
@@ -122,7 +123,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public byte[] ReadInputRegistersRaw(ushort startingAddress, ushort quantity)
         {
-            return _unitId is { } unitId ? _proxy.SimulateClientReadInputRegisters(unitId, startingAddress, quantity) : _proxy.SimulateClientReadInputRegisters(startingAddress, quantity);
+            return _unitId is { } unitId ? _proxy.SimulateClientReadInputRegisters(unitId, startingAddress, quantity) :
+                       _proxy.SimulateClientReadInputRegisters(startingAddress, quantity);
         }
 
         /// <summary>
@@ -152,7 +154,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public bool[] ReadDiscreteInputs(ushort startingAddress, ushort quantity)
         {
-            return _unitId is { } unitId ? _proxy.SimulateClientReadDiscreteInputs(unitId, startingAddress, quantity) : _proxy.SimulateClientReadDiscreteInputs(startingAddress, quantity);
+            return _unitId is { } unitId ? _proxy.SimulateClientReadDiscreteInputs(unitId, startingAddress, quantity) :
+                       _proxy.SimulateClientReadDiscreteInputs(startingAddress, quantity);
         }
 
         private void WriteHoldingRegisters(ushort startingAddress, byte[] registerBytes)

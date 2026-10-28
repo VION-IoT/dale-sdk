@@ -286,20 +286,21 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         /// </summary>
         private IModbusServerSnapshot CreateSnapshot(SnapshotLifetime lifetime, byte? unitId, ModbusServerAreaExtents extents)
         {
-            return new ModbusServerSnapshot(new ModbusRegisterAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetHoldingRegisterBuffer(id) : _proxy.GetHoldingRegisterBuffer()),
-                                                                       extents.HoldingRegisterCount,
-                                                                       ModbusServerArea.HoldingRegisters,
-                                                                       _dataConverter),
-                                            new ModbusRegisterAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetInputRegisterBuffer(id) : _proxy.GetInputRegisterBuffer()),
-                                                                       extents.InputRegisterCount,
-                                                                       ModbusServerArea.InputRegisters,
-                                                                       _dataConverter),
-                                            new ModbusBitAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetCoilBuffer(id) : _proxy.GetCoilBuffer()),
-                                                                  extents.CoilCount,
-                                                                  ModbusServerArea.Coils),
-                                            new ModbusBitAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetDiscreteInputBuffer(id) : _proxy.GetDiscreteInputBuffer()),
-                                                                  extents.DiscreteInputCount,
-                                                                  ModbusServerArea.DiscreteInputs));
+            return new
+                ModbusServerSnapshot(new ModbusRegisterAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetHoldingRegisterBuffer(id) : _proxy.GetHoldingRegisterBuffer()),
+                                                                extents.HoldingRegisterCount,
+                                                                ModbusServerArea.HoldingRegisters,
+                                                                _dataConverter),
+                                     new ModbusRegisterAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetInputRegisterBuffer(id) : _proxy.GetInputRegisterBuffer()),
+                                                                extents.InputRegisterCount,
+                                                                ModbusServerArea.InputRegisters,
+                                                                _dataConverter),
+                                     new ModbusBitAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetCoilBuffer(id) : _proxy.GetCoilBuffer()),
+                                                           extents.CoilCount,
+                                                           ModbusServerArea.Coils),
+                                     new ModbusBitAccessor(() => lifetime.Buffer(unitId is { } id ? _proxy.GetDiscreteInputBuffer(id) : _proxy.GetDiscreteInputBuffer()),
+                                                           extents.DiscreteInputCount,
+                                                           ModbusServerArea.DiscreteInputs));
         }
 
         private void EnsureNoUnits()

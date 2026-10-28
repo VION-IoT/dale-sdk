@@ -294,7 +294,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         ///     The layout of the device that motivated per-unit maps: sockets at units 1 and 2 sharing their addresses,
         ///     and a station at unit 200 whose extent stops short of the address the sockets share.
         /// </summary>
-        private static (ILogicBlockModbusTcpServerUnit Socket1, ILogicBlockModbusTcpServerUnit Socket2, ILogicBlockModbusTcpServerUnit Station) DeclareSocketsAndStation(ILogicBlockModbusTcpServer server)
+        private static (ILogicBlockModbusTcpServerUnit Socket1, ILogicBlockModbusTcpServerUnit Socket2, ILogicBlockModbusTcpServerUnit Station) DeclareSocketsAndStation(
+            ILogicBlockModbusTcpServer server)
         {
             var socket1 = server.AddUnit(1);
             socket1.HoldingRegisterCount = 10;
