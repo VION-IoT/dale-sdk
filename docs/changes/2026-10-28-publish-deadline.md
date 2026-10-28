@@ -219,6 +219,10 @@ REPORT's *Affects others* carries the same.
   interval of 0 as no deadline (`../hal-unipi-neuron/Vion.Hal.UnipiNeuron/Handlers/ModbusRtuHandler.cs:26`,
   `:64`). Every attempt that goes ahead then has time left above 0, so `AC-HOST-003.5` gives it at
   least 1 s and needs no change.
+- 2026-10-28: `AC-MODB-015.11` lost its closing clause, "the instant at which the handler itself
+  expires the request": its test proves the published deadline and not the sweep, and the sweep's
+  timing is `AC-MODB-015.3` and `AC-MODB-015.4`'s. The page's prose below the criterion says the two
+  instants are one.
 
 ---
 
@@ -228,7 +232,7 @@ REPORT's *Affects others* carries the same.
 - ADDED AC-HOST-003.5 -> docs/specs/host-vocabulary.md : WHEN a host makes an attempt at a publish carrying a deadline THE SYSTEM SHALL give it the whole seconds left until the deadline, rounded up, as its MQTT message expiry interval, and SHALL give a publish carrying none no expiry interval. GAP: proven by the private runtime, VION-376
 - ADDED AC-HOST-003.6 -> docs/specs/host-vocabulary.md : IF a publish's deadline is not later than the moment the host would make an attempt at it THEN THE SYSTEM SHALL drop it without sending it. GAP: proven by the private runtime, VION-376
 - ADDED AC-BIND-011.6 -> docs/specs/contracts.md : WHERE a caller passes a deadline to a publish helper THE SYSTEM SHALL carry it on the published message, and SHALL publish with no deadline where the caller passes none.
-- ADDED AC-MODB-015.11 -> docs/specs/modbus.md : THE SYSTEM SHALL publish each Modbus RTU read and write request with a deadline of the moment the handler publishes it plus the request's operation timeout, the instant at which the handler itself expires the request.
+- ADDED AC-MODB-015.11 -> docs/specs/modbus.md : THE SYSTEM SHALL publish each Modbus RTU read and write request with a deadline of the moment the handler publishes it plus the request's operation timeout.
 
 ---
 

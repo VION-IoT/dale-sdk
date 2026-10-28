@@ -488,6 +488,8 @@ contract type and `AC-BIND-*` states what binds it and what the handler base doe
   the actor it names, and SHALL treat a contract the map does not name as having no mapping.
 - `AC-MODB-015.10` (Ubiquitous): THE SYSTEM SHALL publish each request as its payload record's JSON
   document, labelled with that record's schema name and the JSON content type.
+- `AC-MODB-015.11` (Ubiquitous): THE SYSTEM SHALL publish each Modbus RTU read and write request with
+  a deadline of the moment the handler publishes it plus the request's operation timeout.
 
 `AC-MODB-015.10`'s document shape — the function code by its member name, register data as base64 —
 belongs to the `Vion.Contracts` record and is carried, not specified here.
@@ -499,6 +501,12 @@ that contract gave, so a block recreated under another actor name does not recei
 map has named has no block to answer, and its request is dropped. One
 provider per binding is the configuration's rule, declared by the binding's multiplicity: a single map
 that names one contract under several providers leaves which of them is used unspecified.
+
+`AC-MODB-015.11`'s deadline is the instant from which the handler's own sweep times the request out
+(`AC-MODB-015.3`, `AC-MODB-015.4`), so a host and a hardware-abstraction layer that honour it stop
+serving the request once the block has stopped waiting for its answer, rather than serving it into a
+response nobody reads (`AC-MODB-015.7`). What a host makes of the deadline is
+[`host-vocabulary.md`](host-vocabulary.md) § Publishing.
 
 `AC-MODB-015.1` is why an outcome of `Dropped` on one binding may have been caused by another block's
 traffic; the zero queue depth is the honest consequence of the same sharing, because there is no
