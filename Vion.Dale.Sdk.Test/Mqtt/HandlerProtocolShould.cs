@@ -19,6 +19,12 @@ namespace Vion.Dale.Sdk.Test.Mqtt
     [TestClass]
     public class HandlerProtocolShould
     {
+        private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
+
+        private static IEnumerable<object?[]> MessageDeadlines => [[Now.AddSeconds(1)], [null]];
+
+        private static IEnumerable<object?[]> RequestDeadlines => [[Now.AddSeconds(2)], [null]];
+
         private static IEnumerable<object[]> ProtocolMessages
         {
             get
@@ -80,6 +86,58 @@ namespace Vion.Dale.Sdk.Test.Mqtt
 
             // Assert
             Assert.AreEqual(message, roundTripped);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HOST-003.4")]
+        public void LeaveMessageWithoutDeadlineByDefault()
+        {
+            // Arrange / Act
+            var message = new PublishMqttMessage("topic", null, null);
+
+            // Assert
+            Assert.IsNull(message.Deadline);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HOST-003.4")]
+        public void LeaveRequestWithoutDeadlineByDefault()
+        {
+            // Arrange / Act
+            var request = new PublishMqttMessageRequest("topic", null, null);
+
+            // Assert
+            Assert.IsNull(request.Deadline);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HOST-003.4")]
+        [DynamicData(nameof(MessageDeadlines))]
+        public void KeepDeadlineWhenMessageConvertsToRequest(DateTimeOffset? deadline)
+        {
+            // Arrange
+            var message = new PublishMqttMessage("topic", null, null) { Deadline = deadline };
+
+            // Act
+            var request = message.ToRequest();
+
+            // Assert
+            Assert.AreEqual(deadline, request.Deadline);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HOST-003.4")]
+        [DynamicData(nameof(RequestDeadlines))]
+        public void KeepDeadlineWhenRequestConvertsToMessage(DateTimeOffset? deadline)
+        {
+            // Arrange
+            var request = new PublishMqttMessageRequest("topic", null, null) { Deadline = deadline };
+
+            // Act
+            var message = request.ToMessage();
+
+            // Assert
+            Assert.AreEqual(deadline, message.Deadline);
         }
 
         [TestMethod]

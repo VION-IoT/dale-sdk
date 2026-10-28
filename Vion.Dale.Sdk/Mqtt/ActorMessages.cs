@@ -108,7 +108,12 @@ namespace Vion.Dale.Sdk.Mqtt
         int AttemptNumber = 1)
     {
         /// <summary>
-        ///     Converts to a request for acknowledgement-based publishing.
+        ///     The instant from which the client makes no further attempt at this message, or <c>null</c> for none.
+        /// </summary>
+        public DateTimeOffset? Deadline { get; init; }
+
+        /// <summary>
+        ///     Converts to a request for acknowledgement-based publishing, keeping the deadline.
         /// </summary>
         public PublishMqttMessageRequest ToRequest()
         {
@@ -118,7 +123,7 @@ namespace Vion.Dale.Sdk.Mqtt
                                                  CorrelationData,
                                                  ResponseTopic,
                                                  UserProperties,
-                                                 Retain);
+                                                 Retain) { Deadline = Deadline };
         }
     }
 
@@ -144,7 +149,12 @@ namespace Vion.Dale.Sdk.Mqtt
         bool Retain = false)
     {
         /// <summary>
-        ///     Converts to a fire-and-forget publish message.
+        ///     The instant from which the client no longer publishes this request, or <c>null</c> for none.
+        /// </summary>
+        public DateTimeOffset? Deadline { get; init; }
+
+        /// <summary>
+        ///     Converts to a fire-and-forget publish message, keeping the deadline.
         /// </summary>
         public PublishMqttMessage ToMessage()
         {
@@ -154,7 +164,7 @@ namespace Vion.Dale.Sdk.Mqtt
                                           CorrelationData,
                                           ResponseTopic,
                                           UserProperties,
-                                          Retain);
+                                          Retain) { Deadline = Deadline };
         }
     }
 
