@@ -23,15 +23,18 @@ namespace Vion.Dale.Sdk.Test.Abstractions
 
         private readonly BindProbeHandler _sut = new();
 
-        private static IEnumerable<object?[]> DeadlineRows =>
-        [
-            [BindProbePublishHelper.Bytes, Now.AddSeconds(1)],
-            [BindProbePublishHelper.Bytes, null],
-            [BindProbePublishHelper.Json, Now.AddSeconds(2)],
-            [BindProbePublishHelper.Json, null],
-            [BindProbePublishHelper.JsonThroughTypeMetadata, Now.AddSeconds(3)],
-            [BindProbePublishHelper.JsonThroughTypeMetadata, null],
-        ];
+        private static IEnumerable<object?[]> DeadlineRows
+        {
+            get =>
+            [
+                [BindProbePublishHelper.Bytes, Now.AddSeconds(1)],
+                [BindProbePublishHelper.Bytes, null],
+                [BindProbePublishHelper.Json, Now.AddSeconds(2)],
+                [BindProbePublishHelper.Json, null],
+                [BindProbePublishHelper.JsonThroughTypeMetadata, Now.AddSeconds(3)],
+                [BindProbePublishHelper.JsonThroughTypeMetadata, null],
+            ];
+        }
 
         [TestInitialize]
         public void Initialize()

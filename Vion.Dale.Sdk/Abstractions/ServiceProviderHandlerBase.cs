@@ -364,28 +364,6 @@ namespace Vion.Dale.Sdk.Abstractions
                                retain);
         }
 
-        private Guid SendPublish(string topic,
-                                 byte[] payload,
-                                 string schemaName,
-                                 string contentType,
-                                 DateTimeOffset? deadline,
-                                 Guid? correlationId,
-                                 string? responseTopic,
-                                 bool retain)
-        {
-            var id = correlationId ?? Guid.NewGuid();
-            var schema = new MqttUserProperty(MqttUserProperties.Schema.Name, schemaName);
-            var mqttMessage = new PublishMqttMessage(topic,
-                                                     payload,
-                                                     contentType,
-                                                     id.ToByteArray(),
-                                                     responseTopic,
-                                                     [schema],
-                                                     retain) { Deadline = deadline };
-            ActorContext.SendTo(ActorContext.LookupByName(MqttConstants.MqttClientName), mqttMessage);
-            return id;
-        }
-
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -422,6 +400,28 @@ namespace Vion.Dale.Sdk.Abstractions
             }
 
             return result;
+        }
+
+        private Guid SendPublish(string topic,
+                                 byte[] payload,
+                                 string schemaName,
+                                 string contentType,
+                                 DateTimeOffset? deadline,
+                                 Guid? correlationId,
+                                 string? responseTopic,
+                                 bool retain)
+        {
+            var id = correlationId ?? Guid.NewGuid();
+            var schema = new MqttUserProperty(MqttUserProperties.Schema.Name, schemaName);
+            var mqttMessage = new PublishMqttMessage(topic,
+                                                     payload,
+                                                     contentType,
+                                                     id.ToByteArray(),
+                                                     responseTopic,
+                                                     [schema],
+                                                     retain) { Deadline = deadline };
+            ActorContext.SendTo(ActorContext.LookupByName(MqttConstants.MqttClientName), mqttMessage);
+            return id;
         }
 
         private readonly record struct InvokeActionMessage(Action Action);

@@ -21,9 +21,15 @@ namespace Vion.Dale.Sdk.Test.Mqtt
     {
         private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
-        private static IEnumerable<object?[]> MessageDeadlines => [[Now.AddSeconds(1)], [null]];
+        private static IEnumerable<object?[]> MessageDeadlines
+        {
+            get => [[Now.AddSeconds(1)], [null]];
+        }
 
-        private static IEnumerable<object?[]> RequestDeadlines => [[Now.AddSeconds(2)], [null]];
+        private static IEnumerable<object?[]> RequestDeadlines
+        {
+            get => [[Now.AddSeconds(2)], [null]];
+        }
 
         private static IEnumerable<object[]> ProtocolMessages
         {
