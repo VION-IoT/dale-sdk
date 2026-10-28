@@ -199,6 +199,28 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.11")]
+        [DataRow(TargetMethod.Read)]
+        [DataRow(TargetMethod.Write)]
+        public async Task PublishRequestWithDeadlineOperationTimeoutAfterPublish(TargetMethod targetMethod)
+        {
+            // Arrange — the hop to the handler takes five seconds, so a deadline counted from the block's call
+            // would read five seconds early.
+            _timeProvider.Advance(TimeSpan.FromSeconds(5));
+
+            // Act
+            await SendRequestAsync(targetMethod);
+
+            // Assert
+            object? capturedMessage = null;
+            _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
+                                                                         It.Is<object>(message => CaptureAndMatch(message, ref capturedMessage, m => m is PublishMqttMessage)),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
+                                     Times.Once);
+            Assert.AreEqual(new DateTimeOffset(Now.AddSeconds(5) + OperationTimeout), ((PublishMqttMessage)capturedMessage!).Deadline);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-MODB-015.6")]
         [DataRow(TargetMethod.Read)]
         [DataRow(TargetMethod.Write)]

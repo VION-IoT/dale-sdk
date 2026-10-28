@@ -63,6 +63,18 @@ The count is `PublishMqttMessage.AttemptNumber`. It rides the message because th
 the same message with the count raised, and a sender that sets it shortens or lengthens that retry. The two forms convert into
 each other (`AC-BIND-016.1`), so a handler chooses per message whether it wants the retry or the answer.
 
+- `AC-HOST-003.4` (Ubiquitous): THE SYSTEM SHALL let a handler give `PublishMqttMessage` and `PublishMqttMessageRequest` an absolute deadline, none by default, and SHALL keep it when either form converts into the other.
+- `AC-HOST-003.5` (Event-driven): WHEN a host makes an attempt at a publish carrying a deadline THE SYSTEM SHALL give it the whole seconds left until the deadline, rounded up, as its MQTT message expiry interval, and SHALL give a publish carrying none no expiry interval. GAP: proven by the private runtime, VION-376
+- `AC-HOST-003.6` (Unwanted): IF a publish's deadline is not later than the moment the host would make an attempt at it THEN THE SYSTEM SHALL drop it without sending it. GAP: proven by the private runtime, VION-376
+
+The deadline is `Deadline` on either form, an instant on the clock the host and its handlers share in
+one process. It rides the message for the same reason the count does. The retry re-sends the same
+message, so the time left is worked out again at each attempt rather than fixed once by the sender.
+The interval is what crosses the wire, not the instant, so a receiver measures what is left on its
+own clock and no two hosts' clocks are compared. Every attempt that goes ahead has time left above
+zero, so its interval is at least one second; an interval of zero would read as no expiry at all. A
+handler sets a deadline through the publish helpers (`AC-BIND-011.6`).
+
 - `AC-HOST-003.3` (Event-driven): WHEN the host's client establishes an operational connection THE SYSTEM SHALL publish every message registered with `RegisterMessageToSendOnConnect`, a message not registered as recurring on the first operational connect only. GAP: proven by the private runtime, dale/AC-REG-004.3
 
 `RegisterMessageToSendOnConnect` registers a message for the host's client

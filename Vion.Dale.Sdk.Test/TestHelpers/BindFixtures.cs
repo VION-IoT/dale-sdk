@@ -170,6 +170,16 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     [JsonSerializable(typeof(BindProbeReading))]
     public partial class BindProbeSnakeCaseContext : JsonSerializerContext;
 
+    /// <summary>Which of the handler base's publish helpers a probe publishes through.</summary>
+    public enum BindProbePublishHelper
+    {
+        Bytes,
+
+        Json,
+
+        JsonThroughTypeMetadata,
+    }
+
     /// <summary>The handler a bind probe addresses, driven directly through its dispatch.</summary>
     public class BindProbeHandler : ServiceProviderHandlerBase
     {
@@ -214,6 +224,26 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         public Guid PublishProbeAsJson(JsonTypeInfo<BindProbeReading> typeInfo)
         {
             return PublishJson("probe/topic", new BindProbeReading(7, BindProbeQuality.Uncertain), typeInfo, "ProbeSchema");
+        }
+
+        /// <summary>
+        ///     Publishes through the helper named: its deadline overload where a deadline is given, and the
+        ///     overload without one where none is.
+        /// </summary>
+        public void PublishProbeThrough(BindProbePublishHelper helper, DateTimeOffset? deadline)
+        {
+            var reading = new BindProbeReading(7, BindProbeQuality.Uncertain);
+            var typeInfo = BindProbeSnakeCaseContext.Default.BindProbeReading;
+            switch (helper, deadline)
+            {
+                case (BindProbePublishHelper.Bytes, { } d): Publish("probe/topic", [1, 2, 3], "ProbeSchema", MessageMimeTypes.Json, d); break;
+                case (BindProbePublishHelper.Bytes, null): Publish("probe/topic", [1, 2, 3], "ProbeSchema", MessageMimeTypes.Json); break;
+                case (BindProbePublishHelper.Json, { } d): PublishJson("probe/topic", reading, "ProbeSchema", d); break;
+                case (BindProbePublishHelper.Json, null): PublishJson("probe/topic", reading, "ProbeSchema"); break;
+                case (BindProbePublishHelper.JsonThroughTypeMetadata, { } d): PublishJson("probe/topic", reading, typeInfo, "ProbeSchema", d); break;
+                case (BindProbePublishHelper.JsonThroughTypeMetadata, null): PublishJson("probe/topic", reading, typeInfo, "ProbeSchema"); break;
+                default: throw new ArgumentOutOfRangeException(nameof(helper), helper, null);
+            }
         }
 
         public void ForwardProbe(ServiceProviderContractId contractId, int amount)

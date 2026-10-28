@@ -229,15 +229,18 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var requestTopic = GetOrAddGetTopic(serviceProviderContractId);
             var responseTopic = GetOrAddGetResponseTopic(serviceProviderContractId);
             var payload = new GetModbusPayload(request.FunctionCode, request.UnitId, request.StartingAddress, request.Quantity);
+
+            // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
+            // Computed before the publish, so the published deadline and this handler's own expiry are one instant.
+            var expiresAt = publishedAt + request.OperationTimeout;
             PublishRequest(requestTopic,
                            responseTopic,
                            request.CorrelationId,
                            nameof(GetModbusPayload),
                            payload,
-                           HwJsonContext.Default.GetModbusPayload);
+                           HwJsonContext.Default.GetModbusPayload,
+                           expiresAt);
 
-            // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
-            var expiresAt = publishedAt + request.OperationTimeout;
             _pendingReadRequests[request.CorrelationId] = new PendingReadRequest(logicBlockContractId, request.Callback, request.CreatedAt, publishedAt, expiresAt);
             LogAddedPendingReadRequest(logicBlockContractId, expiresAt, _pendingReadRequests.Count, request.CorrelationId);
         }
@@ -394,15 +397,18 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var requestTopic = GetOrAddSetTopic(serviceProviderContractId);
             var responseTopic = GetOrAddSetResponseTopic(serviceProviderContractId);
             var payload = new SetModbusPayload(request.FunctionCode, request.UnitId, request.Address, request.Data);
+
+            // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
+            // Computed before the publish, so the published deadline and this handler's own expiry are one instant.
+            var expiresAt = publishedAt + request.OperationTimeout;
             PublishRequest(requestTopic,
                            responseTopic,
                            request.CorrelationId,
                            nameof(SetModbusPayload),
                            payload,
-                           HwJsonContext.Default.SetModbusPayload);
+                           HwJsonContext.Default.SetModbusPayload,
+                           expiresAt);
 
-            // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
-            var expiresAt = publishedAt + request.OperationTimeout;
             _pendingWriteRequests[request.CorrelationId] = new PendingWriteRequest(logicBlockContractId, request.Callback, request.CreatedAt, publishedAt, expiresAt);
             LogAddedPendingWriteRequest(logicBlockContractId, expiresAt, _pendingWriteRequests.Count, request.CorrelationId);
         }
@@ -491,13 +497,15 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                               Guid correlationId,
                                               string schemaName,
                                               TPayload payload,
-                                              JsonTypeInfo<TPayload> typeInfo)
+                                              JsonTypeInfo<TPayload> typeInfo,
+                                              DateTime expiresAt)
         {
             LogPublishingRequest(correlationId, requestTopic, responseTopic);
             PublishJson(requestTopic,
                         payload,
                         typeInfo,
                         schemaName,
+                        new DateTimeOffset(expiresAt),
                         correlationId,
                         responseTopic);
         }
