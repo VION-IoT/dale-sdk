@@ -325,6 +325,8 @@ wildcard receives frames for every endpoint of its kind on the installation, map
   string-named enum values, and declare its content type as JSON.
 - `AC-BIND-011.5` (Ubiquitous): THE SYSTEM SHALL serialize a JSON publish through the type metadata its
   caller supplies, in place of the shared options.
+- `AC-BIND-011.6` (Optional): WHERE a caller passes a deadline to a publish helper THE SYSTEM SHALL
+  carry it on the published message, and SHALL publish with no deadline where the caller passes none.
 
 `AC-BIND-011.3` has no fallback. The publish helper and both publish message records take the content
 type as a required argument, so a publish cannot carry a label its caller did not choose; a message
@@ -334,6 +336,10 @@ with no body passes `null`.
 reading counterpart `AC-BIND-012.8` are what a caller gets with it: that metadata's naming policy and
 converters and nothing of the shared options, which is how the `hw/*` handlers share one serialization
 path with the hardware-abstraction layers.
+
+`AC-BIND-011.6` is opt-in per publish: each helper has an overload that takes a deadline, and the one
+without it publishes as it always has. What a host does with the deadline is stated in
+[`host-vocabulary.md`](host-vocabulary.md) § Publishing.
 
 ## Reading a topic
 

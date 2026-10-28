@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Vion.Contracts.Mqtt;
@@ -16,9 +17,21 @@ namespace Vion.Dale.Sdk.Test.Abstractions
     [TestClass]
     public class ProviderPublishShould
     {
+        private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
+
         private readonly LifecycleHarness.RecordingActorContext _context = new();
 
         private readonly BindProbeHandler _sut = new();
+
+        private static IEnumerable<object?[]> DeadlineRows =>
+        [
+            [BindProbePublishHelper.Bytes, Now.AddSeconds(1)],
+            [BindProbePublishHelper.Bytes, null],
+            [BindProbePublishHelper.Json, Now.AddSeconds(2)],
+            [BindProbePublishHelper.Json, null],
+            [BindProbePublishHelper.JsonThroughTypeMetadata, Now.AddSeconds(3)],
+            [BindProbePublishHelper.JsonThroughTypeMetadata, null],
+        ];
 
         [TestInitialize]
         public void Initialize()
@@ -150,6 +163,18 @@ namespace Vion.Dale.Sdk.Test.Abstractions
 
             // Assert
             Assert.AreEqual("""{"measured_value":7,"quality":1}""", Encoding.UTF8.GetString(Published().Payload!));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-BIND-011.6")]
+        [DynamicData(nameof(DeadlineRows))]
+        public void CarryCallersDeadline(BindProbePublishHelper helper, DateTimeOffset? deadline)
+        {
+            // Arrange / Act
+            _sut.PublishProbeThrough(helper, deadline);
+
+            // Assert
+            Assert.AreEqual(deadline, Published().Deadline);
         }
 
         private PublishMqttMessage Published()

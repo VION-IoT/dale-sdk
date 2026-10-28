@@ -195,17 +195,49 @@ namespace Vion.Dale.Sdk.Abstractions
                                string? responseTopic = null,
                                bool retain = false)
         {
-            var id = correlationId ?? Guid.NewGuid();
-            var schema = new MqttUserProperty(MqttUserProperties.Schema.Name, schemaName);
-            var mqttMessage = new PublishMqttMessage(topic,
-                                                     payload,
-                                                     contentType,
-                                                     id.ToByteArray(),
-                                                     responseTopic,
-                                                     [schema],
-                                                     retain);
-            ActorContext.SendTo(ActorContext.LookupByName(MqttConstants.MqttClientName), mqttMessage);
-            return id;
+            return SendPublish(topic,
+                               payload,
+                               schemaName,
+                               contentType,
+                               null,
+                               correlationId,
+                               responseTopic,
+                               retain);
+        }
+
+        /// <summary>
+        ///     Publishes an MQTT message as <see cref="Publish(string, byte[], string, string, Guid?, string?, bool)" />
+        ///     does, with a deadline from which the MQTT client makes no further attempt at it.
+        /// </summary>
+        /// <param name="topic">The full MQTT topic to publish to.</param>
+        /// <param name="payload">The serialized payload bytes.</param>
+        /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
+        /// <param name="contentType">
+        ///     The MQTT content type, such as <c>MessageMimeTypes.Json</c> or
+        ///     <c>MessageMimeTypes.FlatBuffer</c>.
+        /// </param>
+        /// <param name="deadline">The instant from which the message is of no use to its receiver.</param>
+        /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
+        /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
+        /// <param name="retain">Whether the message should be retained by the broker.</param>
+        /// <returns>The correlation ID used for the published message.</returns>
+        protected Guid Publish(string topic,
+                               byte[] payload,
+                               string schemaName,
+                               string contentType,
+                               DateTimeOffset deadline,
+                               Guid? correlationId = null,
+                               string? responseTopic = null,
+                               bool retain = false)
+        {
+            return SendPublish(topic,
+                               payload,
+                               schemaName,
+                               contentType,
+                               deadline,
+                               correlationId,
+                               responseTopic,
+                               retain);
         }
 
         /// <summary>
@@ -233,6 +265,37 @@ namespace Vion.Dale.Sdk.Abstractions
                            correlationId,
                            responseTopic,
                            retain);
+        }
+
+        /// <summary>
+        ///     Serializes the payload as JSON and publishes it with <c>application/json</c> content type, with a
+        ///     deadline from which the MQTT client makes no further attempt at it.
+        /// </summary>
+        /// <param name="topic">The full MQTT topic to publish to.</param>
+        /// <param name="payload">The value to serialize as the message body.</param>
+        /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
+        /// <param name="deadline">The instant from which the message is of no use to its receiver.</param>
+        /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
+        /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
+        /// <param name="retain">Whether the message should be retained by the broker.</param>
+        /// <returns>The correlation ID used for the published message.</returns>
+        protected Guid PublishJson<T>(string topic,
+                                      T payload,
+                                      string schemaName,
+                                      DateTimeOffset deadline,
+                                      Guid? correlationId = null,
+                                      string? responseTopic = null,
+                                      bool retain = false)
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, JsonSerialization.DefaultOptions);
+            return SendPublish(topic,
+                               bytes,
+                               schemaName,
+                               MessageMimeTypes.Json,
+                               deadline,
+                               correlationId,
+                               responseTopic,
+                               retain);
         }
 
         /// <summary>
@@ -265,6 +328,62 @@ namespace Vion.Dale.Sdk.Abstractions
                            correlationId,
                            responseTopic,
                            retain);
+        }
+
+        /// <summary>
+        ///     Serializes the payload through the supplied source-generated type metadata and publishes it with
+        ///     <c>application/json</c> content type, with a deadline from which the MQTT client makes no further
+        ///     attempt at it.
+        /// </summary>
+        /// <param name="topic">The full MQTT topic to publish to.</param>
+        /// <param name="payload">The value to serialize as the message body.</param>
+        /// <param name="typeInfo">The source-generated metadata <paramref name="payload" /> is serialized through.</param>
+        /// <param name="schemaName">The schema name set as an MQTT user property (identifies the payload type).</param>
+        /// <param name="deadline">The instant from which the message is of no use to its receiver.</param>
+        /// <param name="correlationId">An existing correlation ID to use. If <c>null</c>, a new one is generated.</param>
+        /// <param name="responseTopic">Optional response topic for request-response patterns.</param>
+        /// <param name="retain">Whether the message should be retained by the broker.</param>
+        /// <returns>The correlation ID used for the published message.</returns>
+        protected Guid PublishJson<T>(string topic,
+                                      T payload,
+                                      JsonTypeInfo<T> typeInfo,
+                                      string schemaName,
+                                      DateTimeOffset deadline,
+                                      Guid? correlationId = null,
+                                      string? responseTopic = null,
+                                      bool retain = false)
+        {
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, typeInfo);
+            return SendPublish(topic,
+                               bytes,
+                               schemaName,
+                               MessageMimeTypes.Json,
+                               deadline,
+                               correlationId,
+                               responseTopic,
+                               retain);
+        }
+
+        private Guid SendPublish(string topic,
+                                 byte[] payload,
+                                 string schemaName,
+                                 string contentType,
+                                 DateTimeOffset? deadline,
+                                 Guid? correlationId,
+                                 string? responseTopic,
+                                 bool retain)
+        {
+            var id = correlationId ?? Guid.NewGuid();
+            var schema = new MqttUserProperty(MqttUserProperties.Schema.Name, schemaName);
+            var mqttMessage = new PublishMqttMessage(topic,
+                                                     payload,
+                                                     contentType,
+                                                     id.ToByteArray(),
+                                                     responseTopic,
+                                                     [schema],
+                                                     retain) { Deadline = deadline };
+            ActorContext.SendTo(ActorContext.LookupByName(MqttConstants.MqttClientName), mqttMessage);
+            return id;
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
