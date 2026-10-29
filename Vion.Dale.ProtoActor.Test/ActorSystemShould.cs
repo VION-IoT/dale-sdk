@@ -533,6 +533,24 @@ namespace Vion.Dale.ProtoActor.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-017.1")]
+        public async Task PublishDeadLetterForMessageToNameNeverSpawned()
+        {
+            // Arrange
+            await using var host = new PipelineHost();
+            var deadLetters = new ConcurrentQueue<DeadLetterEvent>();
+            host.Provider.GetRequiredService<Proto.ActorSystem>().EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
+
+            // Act
+            host.System.SendTo(host.System.LookupByName("dead_letter_target"), new StopLogicBlockRequest());
+
+            // Assert
+            Assert.ContainsSingle(deadLetters.Where(deadLetter => deadLetter is { Message: StopLogicBlockRequest, Pid.Id: "dead_letter_target" }),
+                                  "Nobody stopped an actor that was never spawned, so a message to it is still published as the dead letter the warning is raised from.");
+            await Task.CompletedTask;
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-017.2")]
         public async Task ListActorsMatchingNamePattern()
         {
