@@ -24,6 +24,12 @@ namespace Vion.Dale.ProtoActor
 
         private readonly TimeProvider _timeProvider;
 
+        // Set on Stopping and read by every context this actor handed out, from whichever thread holds one —
+        // a client's drain completes its requests on its own consumer, after the actor has gone. Proto.Actor
+        // deregisters the actor before it delivers Stopped, so a flag set there would still let a self-send
+        // made in between become a dead letter.
+        private volatile bool _stopping;
+
         public Actor(TActorReceiver actorReceiver,
                      IDelayedSendGate? delayedSendGate = null,
                      TimeProvider? timeProvider = null,
@@ -42,6 +48,10 @@ namespace Vion.Dale.ProtoActor
         {
             switch (context.Message)
             {
+                case Stopping:
+                    _stopping = true;
+                    break;
+
                 case Stopped:
                     // The actor has terminated. Dispose the per-actor DI scope so its resolved IDisposable
                     // dependencies are reclaimed. The receiver's own teardown (e.g. LogicBlockBase.Stopping(),
@@ -61,7 +71,7 @@ namespace Vion.Dale.ProtoActor
                     break;
 
                 default:
-                    await _actorReceiver.HandleMessageAsync(context.Message, new ActorContext(() => context, _delayedSendGate, _timeProvider, _schedule));
+                    await _actorReceiver.HandleMessageAsync(context.Message, new ActorContext(() => context, _delayedSendGate, _timeProvider, _schedule, () => _stopping));
                     break;
             }
         }

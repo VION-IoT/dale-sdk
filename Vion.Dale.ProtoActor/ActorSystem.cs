@@ -137,6 +137,11 @@ namespace Vion.Dale.ProtoActor
             // exists to catch, defeated by a stray message.
             var answered = new HashSet<PID>();
 
+            // Set once the timeout has failed the caller. From then on the actor only waits out the actors still
+            // owed an answer, which are the ones it is watching.
+            var expired = false;
+            var outstanding = new HashSet<PID>();
+
             // This timeout wait is a delayed send too — register its virtual due-time so next-event stepping
             // can see it (else a stepped run could skip past its due-time). Per-call token; unregistered both
             // in the timeout continuation AND on the normal-completion path (last ack), so a fast ack — the
@@ -164,20 +169,41 @@ namespace Vion.Dale.ProtoActor
                                                                                                                 if (remainingCount > 0)
                                                                                                                 {
                                                                                                                     var elapsed = Stopwatch.GetElapsedTime(startTime);
-                                                                                                                    _logger
-                                                                                                                        .LogWarning("Timeout waiting for {RemainingCount} acknowledgements after {ElapsedMs}ms",
-                                                                                                                            remainingCount,
-                                                                                                                            elapsed.TotalMilliseconds);
                                                                                                                     var unanswered = pidToActorMap
                                                                                                                         .Where(entry => !answered.Contains(entry.Key))
-                                                                                                                        .Select(entry => entry.Value)
                                                                                                                         .ToList();
+                                                                                                                    _logger
+                                                                                                                        .LogWarning("Timeout waiting for {RemainingCount} acknowledgements after {ElapsedMs}ms from {UnansweredActors}",
+                                                                                                                            remainingCount,
+                                                                                                                            elapsed.TotalMilliseconds,
+                                                                                                                            string.Join(", ",
+                                                                                                                                unanswered
+                                                                                                                                    .Select(entry => entry.Key.Id)));
+
+                                                                                                                    /* The actor stays to receive what is still owed, because an answer that reaches it once it
+                                                                                                                       has stopped is a dead letter, and a block that restores late answers all the same. It
+                                                                                                                       watches each actor that has not answered, so one that terminates instead releases it too.
+                                                                                                                       An actor that is already gone is not watched: it can never answer, and the watch would be
+                                                                                                                       a dead letter of its own. The watches go out before the caller is failed, so the caller
+                                                                                                                       resumes behind them. */
+                                                                                                                    expired = true;
+                                                                                                                    foreach (var (pid, _) in unanswered)
+                                                                                                                    {
+                                                                                                                        if (_actorSystem.ProcessRegistry.Get(pid) is not
+                                                                                                                             DeadLetterProcess)
+                                                                                                                        {
+                                                                                                                            ctx.Watch(pid);
+                                                                                                                            outstanding.Add(pid);
+                                                                                                                        }
+                                                                                                                    }
+
                                                                                                                     tcs.TrySetException(new AcknowledgementTimeoutException<
                                                                                                                         TAcknowledgementMessage>(new Dictionary<
                                                                                                                             IActorReference,
                                                                                                                             TAcknowledgementMessage>(responses),
-                                                                                                                        unanswered));
-                                                                                                                    ctx.Stop(ctx.Self);
+                                                                                                                        unanswered.Select(entry => entry.Value)
+                                                                                                                            .ToList()));
+                                                                                                                    StopOnceNothingIsOutstanding();
                                                                                                                 }
 
                                                                                                                 return Task.CompletedTask;
@@ -196,6 +222,19 @@ namespace Vion.Dale.ProtoActor
                                                                                                break;
                                                                                            }
 
+                                                                                           if (expired)
+                                                                                           {
+                                                                                               // An actor that has gone since it answered would dead-letter the unwatch.
+                                                                                               if (_actorSystem.ProcessRegistry.Get(ctx.Sender) is not DeadLetterProcess)
+                                                                                               {
+                                                                                                   ctx.Unwatch(ctx.Sender);
+                                                                                               }
+
+                                                                                               outstanding.Remove(ctx.Sender);
+                                                                                               StopOnceNothingIsOutstanding();
+                                                                                               break;
+                                                                                           }
+
                                                                                            responses[actorRef] = ack;
 
                                                                                            remainingCount--;
@@ -208,9 +247,24 @@ namespace Vion.Dale.ProtoActor
 
                                                                                            break;
                                                                                        }
+                                                                                       case Terminated terminatedMessage
+                                                                                           when expired: // an actor still owed an answer has gone without giving it
+                                                                                       {
+                                                                                           outstanding.Remove(terminatedMessage.Who);
+                                                                                           StopOnceNothingIsOutstanding();
+                                                                                           break;
+                                                                                       }
                                                                                    }
 
                                                                                    return Task.CompletedTask;
+
+                                                                                   void StopOnceNothingIsOutstanding()
+                                                                                   {
+                                                                                       if (outstanding.Count == 0)
+                                                                                       {
+                                                                                           ctx.Stop(ctx.Self);
+                                                                                       }
+                                                                                   }
                                                                                })));
 
             var result = await tcs.Task;
@@ -331,14 +385,20 @@ namespace Vion.Dale.ProtoActor
                                                                                {
                                                                                    switch (ctx.Message)
                                                                                    {
-                                                                                       case Started: // Start watching all actors and set up timeout
+                                                                                       case Started: // Watch and stop all actors and set up timeout
                                                                                        {
-                                                                                           _logger.LogDebug("Watching {ActorCount} actors for termination", pidsToStop.Count);
-
+                                                                                           /* Each actor is watched and then stopped from this one context, so the watch
+                                                                                              reaches its mailbox ahead of the stop and is handled first; a watch that
+                                                                                              reaches an actor already stopping is answered rather than dead-lettered.
+                                                                                              Stopped from the caller's thread instead, an actor could finish stopping
+                                                                                              before this Started ran, and its watch became a dead letter. */
                                                                                            foreach (var pid in pidsToStop)
                                                                                            {
                                                                                                ctx.Watch(pid);
+                                                                                               ctx.Stop(pid);
                                                                                            }
+
+                                                                                           _logger.LogDebug("Watching {ActorCount} actors for termination", pidsToStop.Count);
 
                                                                                            /* A zero delay is an already-completed task, so ReenterAfter would post its
                                                                                               continuation to this actor's system queue at once. A Terminated notification
@@ -370,9 +430,12 @@ namespace Vion.Dale.ProtoActor
                                                                                                if (remainingCount > 0)
                                                                                                {
                                                                                                    _logger
-                                                                                                       .LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms",
+                                                                                                       .LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms: {RunningActors}",
                                                                                                                    remainingCount,
-                                                                                                                   timeout.TotalMilliseconds);
+                                                                                                                   timeout.TotalMilliseconds,
+                                                                                                                   string.Join(", ",
+                                                                                                                       pidsToStop.Where(pid => !terminated.Contains(pid))
+                                                                                                                           .Select(pid => pid.Id)));
                                                                                                    tcs.TrySetException(new
                                                                                                                            TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
                                                                                                    ctx.Stop(ctx.Self);
@@ -401,11 +464,6 @@ namespace Vion.Dale.ProtoActor
 
                                                                                    return Task.CompletedTask;
                                                                                })));
-
-            foreach (var pid in pidsToStop)
-            {
-                _actorSystem.Root.Stop(pid);
-            }
 
             return tcs.Task;
         }

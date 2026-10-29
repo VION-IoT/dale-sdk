@@ -14,6 +14,10 @@ namespace Vion.Dale.ProtoActor
 
         private readonly IDelayedSendGate? _delayedSendGate;
 
+        // Whether the actor has begun to stop. Null for a context built without an owning actor, which then
+        // sends to itself as it always did.
+        private readonly Func<bool>? _isStopping;
+
         // Optional, opt-in virtual schedule (DevHost's next-event stepping). Null when none is registered,
         // so a host without it keeps the original scheduling behaviour.
         private readonly IVirtualSchedule? _schedule;
@@ -25,12 +29,17 @@ namespace Vion.Dale.ProtoActor
 
         private readonly TimeProvider _timeProvider;
 
-        public ActorContext(Func<IContext> context, IDelayedSendGate? delayedSendGate = null, TimeProvider? timeProvider = null, IVirtualSchedule? schedule = null)
+        public ActorContext(Func<IContext> context,
+                            IDelayedSendGate? delayedSendGate = null,
+                            TimeProvider? timeProvider = null,
+                            IVirtualSchedule? schedule = null,
+                            Func<bool>? isStopping = null)
         {
             _context = context;
             _delayedSendGate = delayedSendGate;
             _timeProvider = timeProvider ?? TimeProvider.System;
             _schedule = schedule;
+            _isStopping = isStopping;
             _stepped = IsSteppedClock(_timeProvider);
         }
 
@@ -48,6 +57,16 @@ namespace Vion.Dale.ProtoActor
 
         public void SendToSelf(object message)
         {
+            // An actor that has begun to stop runs no further handler, so the message could only become a dead
+            // letter. A disposed client completes each request still in its queue through InvokeSynchronized,
+            // which would be one dead letter per queued request. SendToSelfAfter's real-clock path needs no such
+            // check: a delay that ends after the stop is followed by no dead letter, whether it was armed before
+            // the stop or after it. The stepper's delivery does end here.
+            if (_isStopping?.Invoke() == true)
+            {
+                return;
+            }
+
             _context().Send(_context().Self, message);
         }
 
