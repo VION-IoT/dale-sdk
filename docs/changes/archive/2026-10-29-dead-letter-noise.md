@@ -52,8 +52,8 @@ once its actor has begun to stop.
 - `D2` **(b)** — **A self-send made once an actor has begun to stop is dropped in the actor layer**,
   not in the client. `Actor<T>` marks itself on `Stopping`, and `ActorContext.SendToSelf` drops what
   it is handed after that. This is the "deliver no callback to a block once it has terminated"
-  direction. It sits below every client, so it covers the Modbus TCP and RTU drains, the HTTP
-  executor's late callback, `InvokeSynchronizedAfter` and a timer due after the stop alike. The flag
+  direction. It sits below every client, so it covers the Modbus TCP and RTU drains and the HTTP
+  executor's late callback alike. The flag
   is set on `Stopping`, not `Stopped`: Proto.Actor removes the actor's registration before it
   delivers `Stopped` (`FinalizeStopAsync`, decompiled from Proto.Actor 1.8.0), so a flag set on
   `Stopped` leaves a window in which a self-send is still a dead letter.
@@ -99,8 +99,8 @@ once its actor has begun to stop.
 ### Reviewer's questions
 
 1. **Is dropping a stopping actor's self-sends right for every self-send, not only the Modbus
-   callbacks?** (b) A timer due after the stop, an `InvokeSynchronizedAfter` and a periodic save are
-   dropped the same way. Each was already a dead letter, and its handler never ran. `AC-LIFE-015.6`
+   callbacks?** (b) Any self-send made once the actor is stopping is dropped the same way. Each was
+   already a dead letter, and its handler never ran. `AC-LIFE-015.6`
    means a receiver cannot observe the `Stopping` message itself, so no block can tell the
    difference. OUTCOME: accepted as decided here (`D2`); `AC-LIFE-014.8` states it for every
    self-send. The operator may overturn it on the pull request.
@@ -131,8 +131,9 @@ once its actor has begun to stop.
 `Actor<T>` holds a `volatile bool` it sets when it receives `Stopping`. That is the first lifecycle
 message of a stop, and `Actor<T>` already sees it and passes it to no receiver (`AC-LIFE-015.6`). It
 hands each `ActorContext` a way to read the flag. `ActorContext.SendToSelf` returns without sending
-once it is set. `SendToSelfAfter`'s three paths all end in `SendToSelf`, so a delayed self-send whose
-delay ends after the stop is dropped there too. The flag is read on whatever thread calls — a Modbus
+once it is set. On the stepped path a delayed self-send ends in `SendToSelf` and is dropped there. On
+the real clock a delay that ends after the stop is followed by no dead letter in the first place
+(Drift checkpoints). The flag is read on whatever thread calls — a Modbus
 consumer, an HTTP continuation — which is why it is volatile.
 
 ### The termination wait
@@ -193,14 +194,21 @@ already been thrown, and it holds a copy of what had answered by then.
   `DropSelfSendMadeAfterActorBeganToStop` green, because the window between deregistration and
   `Stopped` cannot be reached from a test. `Stopping` rests on the decompiled `FinalizeStopAsync`
   (`D2`), not on a test. Sibling sweep: N/A.
+- 2026-10-29: review round 1. `AC-LIFE-016.9` and `AC-LIFE-016.10` were narrowed to what the code
+  keeps: a termination wait that expires stops watching, and the acknowledgement wait's lookup and
+  watch are two steps. The page now names both residues. The real-clock delay was probed rather than
+  guarded. On `ac7ab2a3` with no check in `SendToSelfAfter`, a 50 ms delayed self-send made after
+  the stop was followed by no dead letter within 500 ms, so the earlier claim that every delayed path
+  ends in `SendToSelf` was dropped instead. Sibling sweep: the unwatch after a late answer now skips
+  an actor the registry no longer holds, as the watch does.
 
 ---
 
 ## Spec delta (to distill)
 
 - ADDED AC-LIFE-014.8 -> docs/specs/block-lifecycle.md : WHEN an actor sends itself a message after it has begun to stop THE SYSTEM SHALL drop the message, handing it to no handler and publishing no dead letter.
-- ADDED AC-LIFE-016.9 -> docs/specs/block-lifecycle.md : THE SYSTEM SHALL watch each actor of a termination wait before it stops that actor, so stopping an actor that is running publishes no dead letter however soon it terminates.
-- ADDED AC-LIFE-016.10 -> docs/specs/block-lifecycle.md : WHEN an acknowledgement wait expires THE SYSTEM SHALL keep receiving from each actor that had not answered until it answers or terminates, publishing no dead letter in doing so, whether its acknowledgement arrives late or the actor is already gone.
+- ADDED AC-LIFE-016.9 -> docs/specs/block-lifecycle.md : THE SYSTEM SHALL watch each actor of a termination wait before it stops that actor, so an actor that terminates before the wait expires publishes no dead letter, however soon after its stop that is.
+- ADDED AC-LIFE-016.10 -> docs/specs/block-lifecycle.md : WHEN an acknowledgement wait expires THE SYSTEM SHALL keep receiving from each actor that had not answered until it answers or terminates, so a late acknowledgement publishes no dead letter, and SHALL watch no actor that is already gone.
 - ADDED AC-LIFE-016.11 -> docs/specs/block-lifecycle.md : WHEN a wait expires THE SYSTEM SHALL log one warning naming every actor that had not answered or terminated. GAP: log text, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Warning and recorded under the pull request's Verification (VION-409).
 - MODIFIED AC-LIFE-017.1 -> docs/specs/block-lifecycle.md : THE SYSTEM SHALL mint an actor reference from a name alone, whether or not an actor of that name exists, and SHALL publish a dead letter for each message that reaches no actor.
 - ADDED AC-LIFE-017.5 -> docs/specs/block-lifecycle.md : THE SYSTEM SHALL log each dead letter as a warning, except the actor framework's own timeout continuations. GAP: a log level, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Warning and recorded under the pull request's Verification (VION-409).

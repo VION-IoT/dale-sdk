@@ -59,8 +59,9 @@ namespace Vion.Dale.ProtoActor
         {
             // An actor that has begun to stop runs no further handler, so the message could only become a dead
             // letter. A disposed client completes each request still in its queue through InvokeSynchronized,
-            // which would be one dead letter per queued request. Every delayed path below ends here as well, so
-            // a timer that falls due after the stop is dropped the same way.
+            // which would be one dead letter per queued request. SendToSelfAfter's real-clock path needs no such
+            // check: a delay that ends after the stop is followed by no dead letter, whether it was armed before
+            // the stop or after it. The stepper's delivery does end here.
             if (_isStopping?.Invoke() == true)
             {
                 return;

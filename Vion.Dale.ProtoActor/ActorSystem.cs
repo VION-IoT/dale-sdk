@@ -224,7 +224,12 @@ namespace Vion.Dale.ProtoActor
 
                                                                                            if (expired)
                                                                                            {
-                                                                                               ctx.Unwatch(ctx.Sender);
+                                                                                               // An actor that has gone since it answered would dead-letter the unwatch.
+                                                                                               if (_actorSystem.ProcessRegistry.Get(ctx.Sender) is not DeadLetterProcess)
+                                                                                               {
+                                                                                                   ctx.Unwatch(ctx.Sender);
+                                                                                               }
+
                                                                                                outstanding.Remove(ctx.Sender);
                                                                                                StopOnceNothingIsOutstanding();
                                                                                                break;

@@ -437,9 +437,8 @@ stated rather than changed.
 
 `AC-LIFE-014.8` is what a block's clients reach once the block has stopped. Terminating the actor
 disposes the scope its clients came from, and a disposed client completes each request still in its
-queue through the block's dispatcher (`modbus.md`'s `AC-MODB-010.1`). Those completions, a timer
-that falls due after the stop and a delayed dispatcher action are all self-sends. None of them has a
-handler left to run, so they end here rather than as one dead letter each. "Begun to stop" is exact:
+queue through the block's dispatcher (`modbus.md`'s `AC-MODB-010.1`). Those completions are
+self-sends with no handler left to run, so they end here rather than as one dead letter each. "Begun to stop" is exact:
 the actor framework deregisters an actor before it finishes stopping, so a self-send made in between
 would otherwise still be a dead letter.
 
@@ -491,11 +490,11 @@ the registration is a discovery entry rather than a lifetime, and the block is n
 - `AC-LIFE-016.8` (Ubiquitous): THE SYSTEM SHALL count an actor a caller listed more than once in a
   wait's input once, so neither wait is given a total its answers can never reach.
 - `AC-LIFE-016.9` (Ubiquitous): THE SYSTEM SHALL watch each actor of a termination wait before it
-  stops that actor, so stopping an actor that is running publishes no dead letter however soon it
-  terminates.
+  stops that actor, so an actor that terminates before the wait expires publishes no dead letter,
+  however soon after its stop that is.
 - `AC-LIFE-016.10` (Event-driven): WHEN an acknowledgement wait expires THE SYSTEM SHALL keep
-  receiving from each actor that had not answered until it answers or terminates, publishing no dead
-  letter in doing so, whether its acknowledgement arrives late or the actor is already gone.
+  receiving from each actor that had not answered until it answers or terminates, so a late
+  acknowledgement publishes no dead letter, and SHALL watch no actor that is already gone.
 - `AC-LIFE-016.11` (Event-driven): WHEN a wait expires THE SYSTEM SHALL log one warning naming every actor that had not answered or terminated. GAP: log text, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Warning and recorded under the pull request's Verification (VION-409).
 
 Both waits arm a non-zero timeout through the registered clock and register it in the virtual
@@ -519,6 +518,12 @@ wait expired still answers. An expired acknowledgement wait therefore stays for 
 still owed an answer by, and ends with the last of them. It does not wait on an actor that is
 already gone, which can never answer. An actor that neither answers nor terminates keeps that one
 wait alive for as long as it runs, and that actor is the fault the expiry reported.
+
+Neither criterion makes every dead letter of a wait disappear. A termination wait that expires stops
+watching, so an actor that terminates after the expiry — every actor of a zero wait among them — still
+dead-letters its termination notification. And an actor that terminates in the instant an
+acknowledgement wait looks it up, or just after answering it late, can still cost the watch or the
+unwatch that follows: the actor framework offers no lookup and watch in one step.
 
 `AC-LIFE-016.4`, `AC-LIFE-016.5` and `AC-LIFE-016.8` are guards over the three ways a wait used to lie.
 A negative timeout armed no clock at all and the caller's wait never returned — a hang, where a host's
