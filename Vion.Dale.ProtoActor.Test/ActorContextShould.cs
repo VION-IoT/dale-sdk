@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Proto;
 using Vion.Dale.ProtoActor.Extensions;
 using Vion.Dale.Sdk;
 using Vion.Dale.Sdk.Abstractions;
@@ -84,6 +85,30 @@ namespace Vion.Dale.ProtoActor.Test
                            "A message an actor sends itself is a bare send, so a correlation header does not survive a dispatcher action, a timer tick or a periodic save.");
             Assert.IsInstanceOfType<InvalidOperationException>(receiver.Failure, "And it carries no sender either, so a handler reached that way cannot answer.");
             Assert.AreEqual("abc", receiver.HeadersOnArrival!["correlation"], "Pre-condition: the message the handler was handling did carry one.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-014.8")]
+        public async Task DropSelfSendMadeAfterActorBeganToStop()
+        {
+            // Arrange — the shape a Modbus client's drain takes: the actor's scope disposes a dependency, and
+            // that dependency completes its queued work through the block's own context, on the terminating
+            // actor's thread while it disposes and on another thread once it has gone.
+            await using var host = new PipelineHost();
+            var deadLetters = new ConcurrentQueue<DeadLetterEvent>();
+            host.Provider.GetRequiredService<Proto.ActorSystem>().EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
+            var actor = host.System.CreateRootActorFromDi<ContextCapturingReceiver>("context_stopping_self_send");
+            host.System.SendTo(actor, new StartLogicBlockRequest());
+            await host.Holder.Captured.WaitAsync(Generous);
+
+            // Act
+            await host.System.StopActorsAndWaitAsync([actor], Generous);
+            host.Holder.Context!.SendToSelf(new StopLogicBlockRequest());
+
+            // Assert
+            Assert.AreEqual(1, Volatile.Read(ref host.Holder.DisposalSends), "Pre-condition: the dependency did send while its scope was disposed.");
+            Assert.IsEmpty(deadLetters.Where(deadLetter => deadLetter.Pid.Id == "context_stopping_self_send").ToList(),
+                           "An actor that has begun to stop has no handler left to run a callback, so a self-send it makes then is dropped rather than published as a dead letter.");
         }
 
         [TestMethod]
@@ -341,11 +366,62 @@ namespace Vion.Dale.ProtoActor.Test
             }
         }
 
+        /// <summary>What the receiver's context is, once it has handled a message, and how often its dependency sent through it.</summary>
+        private sealed class ContextHolder
+        {
+            public int DisposalSends;
+
+            public SemaphoreSlim Captured { get; } = new(0);
+
+            public IActorContext? Context { get; set; }
+        }
+
+        /// <summary>A scoped dependency that completes its work through the block's context as it is disposed — the stand-in for a client's drain.</summary>
+        private sealed class SelfSendingOnDisposal : IDisposable
+        {
+            private readonly ContextHolder _holder;
+
+            public SelfSendingOnDisposal(ContextHolder holder)
+            {
+                _holder = holder;
+            }
+
+            public void Dispose()
+            {
+                _holder.Context?.SendToSelf(new StopLogicBlockRequest());
+                Interlocked.Increment(ref _holder.DisposalSends);
+            }
+        }
+
+        private sealed class ContextCapturingReceiver : IActorReceiver
+        {
+            private readonly ContextHolder _holder;
+
+            public ContextCapturingReceiver(ContextHolder holder, SelfSendingOnDisposal dependency)
+            {
+                _holder = holder;
+                _ = dependency;
+            }
+
+            public Task HandleMessageAsync(object message, IActorContext actorContext)
+            {
+                if (message is StartLogicBlockRequest)
+                {
+                    _holder.Context = actorContext;
+                    _holder.Captured.Release();
+                }
+
+                return Task.CompletedTask;
+            }
+        }
+
         private sealed class PipelineHost : IAsyncDisposable
         {
             public ServiceProvider Provider { get; }
 
             public IActorSystem System { get; }
+
+            public ContextHolder Holder { get; } = new();
 
             public PipelineHost()
             {
@@ -353,6 +429,8 @@ namespace Vion.Dale.ProtoActor.Test
                 services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.None));
                 services.AddDaleSdk();
                 services.AddProtoActorSystem();
+                services.AddSingleton(Holder);
+                services.AddTransient<SelfSendingOnDisposal>();
                 Provider = services.BuildServiceProvider();
                 System = Provider.GetRequiredService<IActorSystem>();
             }

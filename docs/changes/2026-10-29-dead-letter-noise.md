@@ -1,6 +1,6 @@
 ---
 slug: dead-letter-noise
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: LIFE
 author: jonasbertsch
