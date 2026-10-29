@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Proto;
+using Proto.Mailbox;
 using Vion.Dale.ProtoActor.Extensions;
 using Vion.Dale.ProtoActor.Test.TestHelpers;
 using Vion.Dale.Sdk;
@@ -363,6 +364,108 @@ namespace Vion.Dale.ProtoActor.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.10")]
+        public async Task PublishNoDeadLetterForAcknowledgementArrivingAfterExpiry()
+        {
+            // Arrange
+            /* An answer is a dead letter only once the wait's actor has finished stopping: one that reaches it
+               while it is still stopping is dropped in silence. So the answer is held until the wait has either
+               gone — what a wait that stops on expiry does — or is watching the straggler, which only the
+               straggler's own process can see. Each shape reaches its own condition, and neither needs a bound. */
+            await using var host = new PipelineHost();
+            var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
+            var deadLetters = new ConcurrentQueue<DeadLetterEvent>();
+            proto.EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
+            var straggler = new StragglerProcess(proto);
+            var (stragglerPid, _) = proto.ProcessRegistry.TryAdd("late_ack", straggler);
+            await Assert.ThrowsAsync<TimeoutException>(async () =>
+                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                   stragglerPid.ToActorReference(),
+                                                               ],
+                                                               new StopLogicBlockRequest(),
+                                                               Short));
+            var waiter = await straggler.Waiter.Task;
+            var waitGone = await WatchFromProbeAsync(proto, waiter);
+            await Task.WhenAny(straggler.Watched.Task, waitGone.WaitAsync(Generous));
+
+            // Act
+            proto.Root.Request(waiter, new StopLogicBlockResponse(), stragglerPid);
+
+            // Assert
+            Assert.IsEmpty(deadLetters.Where(deadLetter => deadLetter.Message is StopLogicBlockResponse).ToList(),
+                           "A block that restores late still answers, and the expired wait is still there to receive it rather than leaving it to a dead letter.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.10")]
+        public async Task StopExpiredAcknowledgementWaitOnceStragglerAnswers()
+        {
+            // Arrange
+            await using var host = new PipelineHost();
+            var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
+            var straggler = new Straggler(proto, "late_ack_then_gone", true);
+            await Assert.ThrowsAsync<TimeoutException>(async () =>
+                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                   straggler.Reference,
+                                                               ],
+                                                               new StopLogicBlockRequest(),
+                                                               Short));
+            var waitGone = await WatchFromProbeAsync(proto, await straggler.Waiter.Task);
+
+            // Act
+            straggler.Answer.Release();
+
+            // Assert
+            Assert.IsTrue(await waitGone.WaitAsync(Generous), "The expired wait lives on only for the actors it still waits on, so the last late answer ends it.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.10")]
+        public async Task StopExpiredAcknowledgementWaitOnceStragglerTerminates()
+        {
+            // Arrange
+            await using var host = new PipelineHost();
+            var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
+            var straggler = new Straggler(proto, "silent_then_gone", false);
+            await Assert.ThrowsAsync<TimeoutException>(async () =>
+                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                   straggler.Reference,
+                                                               ],
+                                                               new StopLogicBlockRequest(),
+                                                               Short));
+            var waitGone = await WatchFromProbeAsync(proto, await straggler.Waiter.Task);
+
+            // Act
+            proto.Root.Stop(((ActorReference)straggler.Reference).Pid);
+
+            // Assert
+            Assert.IsTrue(await waitGone.WaitAsync(Generous), "An actor that terminates without answering never will, so the expired wait stops waiting on it.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.10")]
+        public async Task PublishNoDeadLetterWatchingActorNeverSpawnedAfterExpiry()
+        {
+            // Arrange
+            await using var host = new PipelineHost();
+            var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
+            var deadLetters = new ConcurrentQueue<DeadLetterEvent>();
+            proto.EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
+
+            // Act — the wait watches what it still waits on before it fails the caller, so the failure is the sync point.
+            await Assert.ThrowsAsync<TimeoutException>(async () =>
+                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                   host.System.LookupByName("ack_never_spawned"),
+                                                               ],
+                                                               new StopLogicBlockRequest(),
+                                                               Short));
+
+            // Assert
+            Assert.IsEmpty(deadLetters.Where(deadLetter => deadLetter is { Message: Watch, Pid.Id: "ack_never_spawned" }).ToList(),
+                           "An actor that is not there can never answer, so the expired wait does not watch it — the watch itself would be a dead letter.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-016.9")]
         public async Task PublishNoDeadLetterStoppingActorThatTerminatesAtOnce()
         {
@@ -379,24 +482,7 @@ namespace Vion.Dale.ProtoActor.Test
             var deadLetters = new ConcurrentQueue<DeadLetterEvent>();
             proto.EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
             var actor = host.System.CreateRootActorFromDi<SilentReceiver>("watch_before_stop");
-            var probeWatching = new SemaphoreSlim(0);
-            var terminated = new SemaphoreSlim(0);
-            proto.Root.Spawn(Props.FromFunc(ctx =>
-                                            {
-                                                switch (ctx.Message)
-                                                {
-                                                    case Started:
-                                                        ctx.Watch(((ActorReference)actor).Pid);
-                                                        probeWatching.Release();
-                                                        break;
-                                                    case Terminated:
-                                                        terminated.Release();
-                                                        break;
-                                                }
-
-                                                return Task.CompletedTask;
-                                            }));
-            await probeWatching.WaitAsync(Generous);
+            var terminated = await WatchFromProbeAsync(proto, ((ActorReference)actor).Pid);
             logger.Parked = message =>
                             {
                                 if (message.StartsWith("Watching", StringComparison.Ordinal))
@@ -526,6 +612,105 @@ namespace Vion.Dale.ProtoActor.Test
             Assert.AreEqual(ActorCategory.LogicBlock, block.Identity!.Category, "An actor whose name carries the logic-block prefix is a logic block.");
             Assert.AreEqual(ActorCategory.Runtime, runtime.Identity!.Category, "Every other actor belongs to the runtime.");
             await Task.CompletedTask;
+        }
+
+        /// <summary>
+        ///     Watches an actor from a probe of its own and returns once the watch is sent, so a stop issued afterwards
+        ///     reaches the actor behind it. The returned semaphore is released when the actor has terminated.
+        /// </summary>
+        private static async Task<SemaphoreSlim> WatchFromProbeAsync(Proto.ActorSystem proto, PID watched)
+        {
+            var watching = new SemaphoreSlim(0);
+            var terminated = new SemaphoreSlim(0);
+            proto.Root.Spawn(Props.FromFunc(ctx =>
+                                            {
+                                                switch (ctx.Message)
+                                                {
+                                                    case Started:
+                                                        ctx.Watch(watched);
+                                                        watching.Release();
+                                                        break;
+                                                    case Terminated:
+                                                        terminated.Release();
+                                                        break;
+                                                }
+
+                                                return Task.CompletedTask;
+                                            }));
+            await watching.WaitAsync(Generous);
+            return terminated;
+        }
+
+        /// <summary>
+        ///     An actor asked for an acknowledgement that hands the test the asking wait's own reference — which no
+        ///     receiver can see — and answers only when the test releases it, or never.
+        /// </summary>
+        private sealed class Straggler
+        {
+            public IActorReference Reference { get; }
+
+            public TaskCompletionSource<PID> Waiter { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public SemaphoreSlim Answer { get; } = new(0);
+
+            public SemaphoreSlim Answered { get; } = new(0);
+
+            public Straggler(Proto.ActorSystem proto, string name, bool answers)
+            {
+                var pid = proto.Root.SpawnNamed(Props.FromFunc(async ctx =>
+                                                               {
+                                                                   if (ctx is not { Message: StopLogicBlockRequest, Sender: { } waiter })
+                                                                   {
+                                                                       return;
+                                                                   }
+
+                                                                   Waiter.TrySetResult(waiter);
+                                                                   if (!answers)
+                                                                   {
+                                                                       return;
+                                                                   }
+
+                                                                   await Answer.WaitAsync(Generous);
+
+                                                                   // A request, not a respond: an answer has to carry its sender for the wait to count it.
+                                                                   ctx.Request(waiter, new StopLogicBlockResponse());
+                                                                   Answered.Release();
+                                                               }),
+                                                name);
+                Reference = pid.ToActorReference();
+            }
+        }
+
+        /// <summary>
+        ///     An actor's process registered in place of an actor, so a test sees the system messages a wait sends
+        ///     it — a watch, which no actor's handler is ever shown — and the reference of the wait that asked.
+        /// </summary>
+        private sealed class StragglerProcess : Process
+        {
+            public StragglerProcess(Proto.ActorSystem system)
+                : base(system)
+            {
+            }
+
+            public TaskCompletionSource<PID> Waiter { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public TaskCompletionSource Watched { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            protected override void SendUserMessage(PID pid, object message)
+            {
+                if (MessageEnvelope.Unwrap(message) is (StopLogicBlockRequest, { } sender, _))
+                {
+                    Waiter.TrySetResult(sender);
+                }
+            }
+
+            protected override void SendSystemMessage(PID pid, SystemMessage message)
+            {
+                if (message is Watch)
+                {
+                    Watched.TrySetResult();
+                }
+            }
         }
 
         private sealed class DisposalTracker

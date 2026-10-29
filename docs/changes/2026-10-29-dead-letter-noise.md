@@ -73,9 +73,8 @@ once its actor has begun to stop.
   `dale/LogicSystemTeardown.cs:125`).
 - `D5` **(b)** — **An expired acknowledgement wait stays alive for its stragglers.** On expiry it
   fails the caller's task as before, then watches each actor that has not answered and stops once
-  every one has answered or terminated. It never watches an actor whose request was itself
-  dead-lettered — the framework tells the sender so with a `DeadLetterResponse` — because watching it
-  would publish a dead letter of its own. So the wait actor lives no longer than its slowest
+  every one has answered or terminated. It never watches an actor that is no longer registered,
+  because watching it would publish a dead letter of its own. So the wait actor lives no longer than its slowest
   outstanding actor. The termination wait's counterpart, a late termination notification reaching an
   expired wait, is not in the issue's list. It is proposed under the pull request's Draft items, not
   produced.
@@ -143,11 +142,11 @@ watch moves after the loop.
 
 ### The acknowledgement wait after expiry
 
-On expiry the wait fails the caller's task with the same exception and names the outstanding actors
-in its warning. Then, for each one not known to be absent, it watches it, and it stops once that set
-is empty. While the wait is live, a `DeadLetterResponse` marks its target absent. After expiry, an
-acknowledgement from an outstanding actor removes it and unwatches it, and so does a termination
-notification. An actor that answers after expiry changes nothing for the caller: the exception has
+On expiry the wait names the outstanding actors in its warning. It watches each one the actor
+registry still holds, and only then fails the caller's task with the same exception, so a caller
+resumes behind the watches. It stops once nothing it watches is outstanding. After expiry, an
+acknowledgement from an outstanding actor removes it and unwatches it, and a termination
+notification removes it too. An actor that answers after expiry changes nothing for the caller: the exception has
 already been thrown, and it holds a copy of what had answered by then.
 
 ### Alternatives considered
@@ -169,7 +168,18 @@ already been thrown, and it holds a copy of what had answered by then.
 > `YYYY-MM-DD: <what changed and why>`. Never inline in a spec page. A checkpoint that fixes a
 > CLASS bug states the sibling sweep (done / N/A / handed off).
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-10-29: the expired acknowledgement wait skips an actor the registry no longer holds
+  (`ProcessRegistry.Get` returns the dead-letter process), not one a `DeadLetterResponse` named. A
+  zero timeout's expiry is a system message, and it is handled before that response, which is a user
+  message. The registry also covers an actor that terminated during the wait. Sibling sweep: N/A.
+- 2026-10-29: the brief's inferred last step for the late acknowledgement holds, with a timing
+  condition. A late answer is a dead letter only once the expired wait's actor has finished
+  stopping; one that reaches it while it is still stopping is dropped with no event. The test
+  therefore holds its answer until the old shape has gone or the new one is watching, and is red on
+  `87897368` three runs in three. Sibling sweep: N/A.
+- 2026-10-29: a late termination notification reaching an expired termination wait is a dead letter
+  too: observed in the evidence probe as `DeadLetter: message Terminated … to nonhost/$2`. As `D5`
+  says, it is a Draft item, not this change.
 
 ---
 
