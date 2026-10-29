@@ -64,8 +64,8 @@ the same message with the count raised, and a sender that sets it shortens or le
 each other (`AC-BIND-016.1`), so a handler chooses per message whether it wants the retry or the answer.
 
 - `AC-HOST-003.4` (Ubiquitous): THE SYSTEM SHALL let a handler give `PublishMqttMessage` and `PublishMqttMessageRequest` an absolute deadline, none by default, and SHALL keep it when either form converts into the other.
-- `AC-HOST-003.5` (Event-driven): WHEN a host makes an attempt at a publish carrying a deadline THE SYSTEM SHALL give it the whole seconds left until the deadline, rounded up, as its MQTT message expiry interval, and SHALL give a publish carrying none no expiry interval. GAP: proven by the private runtime, VION-376
-- `AC-HOST-003.6` (Unwanted): IF a publish's deadline is not later than the moment the host would make an attempt at it THEN THE SYSTEM SHALL drop it without sending it. GAP: proven by the private runtime, VION-376
+- `AC-HOST-003.5` (Event-driven): WHEN a host makes an attempt at a publish carrying a deadline THE SYSTEM SHALL give it the whole seconds left until the deadline, rounded up, as its MQTT message expiry interval, and SHALL give a publish carrying none no expiry interval. GAP: proven by the private runtime, dale/AC-PROP-001.5
+- `AC-HOST-003.6` (Unwanted): IF a publish's deadline is not later than the moment the host would make an attempt at it THEN THE SYSTEM SHALL drop it without sending it. GAP: proven by the private runtime, dale/AC-PROP-001.6
 
 The deadline is `Deadline` on either form, an instant on the clock the host and its handlers share in
 one process. It rides the message for the same reason the count does. The retry re-sends the same
