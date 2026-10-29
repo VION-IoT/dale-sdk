@@ -1,6 +1,6 @@
 ---
 slug: dead-letter-noise
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: LIFE
 author: jonasbertsch
@@ -102,13 +102,16 @@ once its actor has begun to stop.
    callbacks?** (b) A timer due after the stop, an `InvokeSynchronizedAfter` and a periodic save are
    dropped the same way. Each was already a dead letter, and its handler never ran. `AC-LIFE-015.6`
    means a receiver cannot observe the `Stopping` message itself, so no block can tell the
-   difference.
+   difference. OUTCOME: accepted as decided here (`D2`); `AC-LIFE-014.8` states it for every
+   self-send. The operator may overturn it on the pull request.
 2. **Is an expired acknowledgement wait living on acceptable?** (b) It ends when every outstanding
    actor has answered or terminated. An actor that never answers and never terminates keeps one wait
-   actor alive for as long as it runs. That actor is itself the fault the expiry reports.
+   actor alive for as long as it runs. That actor is itself the fault the expiry reports. OUTCOME:
+   accepted as decided here (`D5`); the page states the bound.
 3. **The stop now leaves from the wait actor, one hop later.** (b) On a stepped host that actor runs
    on the deterministic dispatcher (`ActorSystem.cs:330`), so the stop joins the same serial
    timeline as the rest of the cascade. How the stepped path was checked is under Drift checkpoints.
+   OUTCOME: accepted (`D4`); checked as the stepped-path checkpoint records.
 
 ---
 
@@ -180,6 +183,16 @@ already been thrown, and it holds a copy of what had answered by then.
 - 2026-10-29: a late termination notification reaching an expired termination wait is a dead letter
   too: observed in the evidence probe as `DeadLetter: message Terminated … to nonhost/$2`. As `D5`
   says, it is a Draft item, not this change.
+- 2026-10-29: the stepped path. No new test steps the clock. The new tests run on the real clock,
+  like the `AC-LIFE-016.*` tests before them. The stepped termination wait is exercised by
+  `RecycleOnRunShould.RecycleDirtySteppedGenerationThenRunOnReapply` and
+  `RecycleBetweenTwoScenariosOnOneSteppedGeneration`, which recycle a stepped generation through
+  `DevLogicSystemInitializer.StopAsync`, the termination wait included. The whole
+  `Vion.Dale.DevHost.Test` run passed (526 of 526). Sibling sweep: N/A.
+- 2026-10-29: a surviving mutation. Setting the stop flag on `Stopped` instead of `Stopping` keeps
+  `DropSelfSendMadeAfterActorBeganToStop` green, because the window between deregistration and
+  `Stopped` cannot be reached from a test. `Stopping` rests on the decompiled `FinalizeStopAsync`
+  (`D2`), not on a test. Sibling sweep: N/A.
 
 ---
 
@@ -187,7 +200,7 @@ already been thrown, and it holds a copy of what had answered by then.
 
 - ADDED AC-LIFE-014.8 -> docs/specs/block-lifecycle.md : WHEN an actor sends itself a message after it has begun to stop THE SYSTEM SHALL drop the message, handing it to no handler and publishing no dead letter.
 - ADDED AC-LIFE-016.9 -> docs/specs/block-lifecycle.md : THE SYSTEM SHALL watch each actor of a termination wait before it stops that actor, so stopping an actor that is running publishes no dead letter however soon it terminates.
-- ADDED AC-LIFE-016.10 -> docs/specs/block-lifecycle.md : WHEN an acknowledgement wait expires THE SYSTEM SHALL keep receiving from each actor that had not answered until it answers or terminates, so a late acknowledgement publishes no dead letter.
+- ADDED AC-LIFE-016.10 -> docs/specs/block-lifecycle.md : WHEN an acknowledgement wait expires THE SYSTEM SHALL keep receiving from each actor that had not answered until it answers or terminates, publishing no dead letter in doing so, whether its acknowledgement arrives late or the actor is already gone.
 - ADDED AC-LIFE-016.11 -> docs/specs/block-lifecycle.md : WHEN a wait expires THE SYSTEM SHALL log one warning naming every actor that had not answered or terminated. GAP: log text, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Warning and recorded under the pull request's Verification (VION-409).
 - MODIFIED AC-LIFE-017.1 -> docs/specs/block-lifecycle.md : THE SYSTEM SHALL mint an actor reference from a name alone, whether or not an actor of that name exists, and SHALL publish a dead letter for each message that reaches no actor.
 - ADDED AC-LIFE-017.5 -> docs/specs/block-lifecycle.md : THE SYSTEM SHALL log each dead letter as a warning, except the actor framework's own timeout continuations. GAP: a log level, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Warning and recorded under the pull request's Verification (VION-409).

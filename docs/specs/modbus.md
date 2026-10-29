@@ -338,7 +338,11 @@ to work around.
 - `AC-MODB-010.6` (Event-driven): WHEN the underlying client library throws while the socket is
   released THE SYSTEM SHALL swallow and log it, never throwing out of disposal.
 
-`AC-MODB-010.1` is what a block's teardown write now gets. Before it, a request still queued when the
+`AC-MODB-010.1` is the client's half of a block's teardown: each queued request is completed, and its
+callback and receipt are handed to the block's dispatcher. The pipeline disposes the client when the
+block's actor terminates, and by then the actor has begun to stop, so that completion reaches no
+handler and publishes no dead letter (`block-lifecycle.md`, `AC-LIFE-014.8`). A block hears nothing
+about a request its own termination cancelled. Before it, a request still queued when the
 scope disposed the client was abandoned in silence — no callback, no receipt, no link record — while
 the surface documented it as cancelled; the consumer's device blocks carry comments naming that
 behaviour. The drain runs on the queue's own consumer rather than on the disposing thread, because

@@ -427,11 +427,21 @@ into its parts, which is why the construction can be a concatenation.
 - `AC-LIFE-014.7` (Ubiquitous): THE SYSTEM SHALL send a message an actor sends itself with neither a
   sender nor headers, so a handler reached that way carries none of the correlation of the message
   that scheduled it and cannot answer.
+- `AC-LIFE-014.8` (Event-driven): WHEN an actor sends itself a message after it has begun to stop THE
+  SYSTEM SHALL drop the message, handing it to no handler and publishing no dead letter.
 
 `AC-LIFE-014.7` is what a block author reaches through every dispatcher action, every `[Timer]` tick
 and every periodic save, since each is a self-send: the trail a correlation header leaves ends at the
 hop that scheduled the work. Nothing in this repository reads a self-send's headers, so the shape is
 stated rather than changed.
+
+`AC-LIFE-014.8` is what a block's clients reach once the block has stopped. Terminating the actor
+disposes the scope its clients came from, and a disposed client completes each request still in its
+queue through the block's dispatcher (`modbus.md`'s `AC-MODB-010.1`). Those completions, a timer
+that falls due after the stop and a delayed dispatcher action are all self-sends. None of them has a
+handler left to run, so they end here rather than as one dead letter each. "Begun to stop" is exact:
+the actor framework deregisters an actor before it finishes stopping, so a self-send made in between
+would otherwise still be a dead letter.
 
 `AC-LIFE-014.2` is why one bad block cannot take a network down, and the cost is that a block which
 failed to configure, to bind or to start leaves no trace on its own state. `AC-LIFE-014.1`'s second
@@ -480,6 +490,13 @@ the registration is a discovery entry rather than a lifetime, and the block is n
   already terminated and for a name nothing was ever spawned under.
 - `AC-LIFE-016.8` (Ubiquitous): THE SYSTEM SHALL count an actor a caller listed more than once in a
   wait's input once, so neither wait is given a total its answers can never reach.
+- `AC-LIFE-016.9` (Ubiquitous): THE SYSTEM SHALL watch each actor of a termination wait before it
+  stops that actor, so stopping an actor that is running publishes no dead letter however soon it
+  terminates.
+- `AC-LIFE-016.10` (Event-driven): WHEN an acknowledgement wait expires THE SYSTEM SHALL keep
+  receiving from each actor that had not answered until it answers or terminates, publishing no dead
+  letter in doing so, whether its acknowledgement arrives late or the actor is already gone.
+- `AC-LIFE-016.11` (Event-driven): WHEN a wait expires THE SYSTEM SHALL log one warning naming every actor that had not answered or terminated. GAP: log text, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Warning and recorded under the pull request's Verification (VION-409).
 
 Both waits arm a non-zero timeout through the registered clock and register it in the virtual
 schedule, which is what makes them virtual on a stepped host — `AC-SCEN-012.*` states that seam's
@@ -491,6 +508,17 @@ otherwise have its notification handled ahead of the expiry and complete the wai
 references the caller passed and the references that stayed silent, so a host can name the block that
 did not answer and keep what the others answered. A caller that only needs to know the wait failed
 catches `TimeoutException`. The termination wait collects no answers and fails naming the count alone.
+The expiry's warning is where every caller finds the names, whatever it logs itself: a host that
+catches neither exception, or catches the termination wait's, still has a record of which actors
+were outstanding.
+
+`AC-LIFE-016.9` and `AC-LIFE-016.10` keep a stop and a slow boot off the dead-letter warning. An
+actor that finishes stopping before its watch arrives turns the watch into a dead letter, and an
+answer that reaches a wait that has gone becomes one too — a block that restores after its host's
+wait expired still answers. An expired acknowledgement wait therefore stays for the actors it was
+still owed an answer by, and ends with the last of them. It does not wait on an actor that is
+already gone, which can never answer. An actor that neither answers nor terminates keeps that one
+wait alive for as long as it runs, and that actor is the fault the expiry reported.
 
 `AC-LIFE-016.4`, `AC-LIFE-016.5` and `AC-LIFE-016.8` are guards over the three ways a wait used to lie.
 A negative timeout armed no clock at all and the caller's wait never returned — a hang, where a host's
@@ -513,16 +541,21 @@ configuration (`AC-CTRL-004.5`) without risking a wait on a name that is already
 ## The optional seams
 
 - `AC-LIFE-017.1` (Ubiquitous): THE SYSTEM SHALL mint an actor reference from a name alone, whether or
-  not an actor of that name exists, and SHALL warn on each message that reaches no actor.
+  not an actor of that name exists, and SHALL publish a dead letter for each message that reaches no
+  actor.
 - `AC-LIFE-017.2` (Ubiquitous): THE SYSTEM SHALL list the actors whose names match a caller's pattern.
 - `AC-LIFE-017.3` (Optional): WHERE a message observer, an activity monitor, a delayed-send gate, a
   virtual schedule, a clock or a vitals collector is registered THE SYSTEM SHALL use it, and SHALL
   otherwise behave as though the seam did not exist.
 - `AC-LIFE-017.4` (Ubiquitous): THE SYSTEM SHALL combine every registered message observer into the one
   slot the pipeline notifies, using a lone observer as it is.
+- `AC-LIFE-017.5` (Ubiquitous): THE SYSTEM SHALL log each dead letter as a warning, except the actor framework's own timeout continuations. GAP: a log level, which no test asserts on (testing-conventions.md §15); evidenced by a run observed at Warning and recorded under the pull request's Verification (VION-409).
 
 `AC-LIFE-017.1` is the shape a block's contract link takes: a handler that was never spawned is
 addressed all the same, and every message to it becomes a dead letter with a warning and no error.
+The warning stays meaningful because the runtime causes none on purpose: `AC-LIFE-014.8`,
+`AC-LIFE-016.9` and `AC-LIFE-016.10` keep the messages its own stops and waits would lose from being
+sent to nobody. A message another actor sends to a block that has already terminated still warns.
 
 `AC-LIFE-017.3` is why the production runtime is unaffected by the development host's features: the
 tap, the pause and the stepping are opt-in by registration, and a runtime that registers none of them
