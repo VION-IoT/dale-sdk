@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -362,6 +363,57 @@ namespace Vion.Dale.ProtoActor.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.9")]
+        public async Task PublishNoDeadLetterStoppingActorThatTerminatesAtOnce()
+        {
+            // Arrange
+            /* The losing interleaving, forced. The wait's own actor is spawned anonymously and without the
+               receiver middleware, so the one call it makes outward around its watch is its debug line. A wait
+               that stops each actor from the caller's thread reaches that line before it watches, and parking
+               there until the actor has terminated makes it watch an actor that is gone — the dead letter a
+               loaded gateway logs. A wait that watches each actor before stopping it logs after both, so the
+               same park returns as soon as the actor terminates and nothing is dead-lettered. */
+            var logger = new ParkingLoggerProvider();
+            await using var host = new PipelineHost(loggerProvider: logger);
+            var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
+            var deadLetters = new ConcurrentQueue<DeadLetterEvent>();
+            proto.EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
+            var actor = host.System.CreateRootActorFromDi<SilentReceiver>("watch_before_stop");
+            var probeWatching = new SemaphoreSlim(0);
+            var terminated = new SemaphoreSlim(0);
+            proto.Root.Spawn(Props.FromFunc(ctx =>
+                                            {
+                                                switch (ctx.Message)
+                                                {
+                                                    case Started:
+                                                        ctx.Watch(((ActorReference)actor).Pid);
+                                                        probeWatching.Release();
+                                                        break;
+                                                    case Terminated:
+                                                        terminated.Release();
+                                                        break;
+                                                }
+
+                                                return Task.CompletedTask;
+                                            }));
+            await probeWatching.WaitAsync(Generous);
+            logger.Parked = message =>
+                            {
+                                if (message.StartsWith("Watching", StringComparison.Ordinal))
+                                {
+                                    terminated.Wait(Generous);
+                                }
+                            };
+
+            // Act
+            await host.System.StopActorsAndWaitAsync([actor], Generous);
+
+            // Assert
+            Assert.IsEmpty(deadLetters.Where(deadLetter => deadLetter.Pid.Id == "watch_before_stop").ToList(),
+                           "The wait watches an actor before it stops it, so however soon the actor terminates its watch is registered and nothing reaches a dead letter.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-016.7")]
         public async Task CompleteTerminationWaitForAbsentActor()
         {
@@ -535,6 +587,37 @@ namespace Vion.Dale.ProtoActor.Test
             }
         }
 
+        /// <summary>A logger that runs a test's action on each line, holding the logging actor until it returns.</summary>
+        private sealed class ParkingLoggerProvider : ILoggerProvider, ILogger
+        {
+            public Action<string>? Parked { get; set; }
+
+            public ILogger CreateLogger(string categoryName)
+            {
+                return this;
+            }
+
+            public IDisposable? BeginScope<TState>(TState state)
+                where TState : notnull
+            {
+                return null;
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return true;
+            }
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                Parked?.Invoke(formatter(state, exception));
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
         private sealed class DependentReceiver : IActorReceiver
         {
             public DependentReceiver(ScopedResource resource)
@@ -593,7 +676,7 @@ namespace Vion.Dale.ProtoActor.Test
 
             public SemaphoreSlim Disposals { get; } = new(0);
 
-            public PipelineHost(IVirtualSchedule? schedule = null)
+            public PipelineHost(IVirtualSchedule? schedule = null, ILoggerProvider? loggerProvider = null)
             {
                 var services = new ServiceCollection();
                 if (schedule is not null)
@@ -601,7 +684,16 @@ namespace Vion.Dale.ProtoActor.Test
                     services.AddSingleton(schedule);
                 }
 
-                services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.None));
+                services.AddLogging(builder =>
+                                    {
+                                        if (loggerProvider is null)
+                                        {
+                                            builder.SetMinimumLevel(LogLevel.None);
+                                            return;
+                                        }
+
+                                        builder.AddProvider(loggerProvider).SetMinimumLevel(LogLevel.Debug);
+                                    });
                 services.AddDaleSdk();
                 services.AddProtoActorSystem();
                 services.AddSingleton(Tracker);

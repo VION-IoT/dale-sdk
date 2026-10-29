@@ -331,14 +331,20 @@ namespace Vion.Dale.ProtoActor
                                                                                {
                                                                                    switch (ctx.Message)
                                                                                    {
-                                                                                       case Started: // Start watching all actors and set up timeout
+                                                                                       case Started: // Watch and stop all actors and set up timeout
                                                                                        {
-                                                                                           _logger.LogDebug("Watching {ActorCount} actors for termination", pidsToStop.Count);
-
+                                                                                           /* Each actor is watched and then stopped from this one context, so the watch
+                                                                                              reaches its mailbox ahead of the stop and is handled first; a watch that
+                                                                                              reaches an actor already stopping is answered rather than dead-lettered.
+                                                                                              Stopped from the caller's thread instead, an actor could finish stopping
+                                                                                              before this Started ran, and its watch became a dead letter. */
                                                                                            foreach (var pid in pidsToStop)
                                                                                            {
                                                                                                ctx.Watch(pid);
+                                                                                               ctx.Stop(pid);
                                                                                            }
+
+                                                                                           _logger.LogDebug("Watching {ActorCount} actors for termination", pidsToStop.Count);
 
                                                                                            /* A zero delay is an already-completed task, so ReenterAfter would post its
                                                                                               continuation to this actor's system queue at once. A Terminated notification
@@ -401,11 +407,6 @@ namespace Vion.Dale.ProtoActor
 
                                                                                    return Task.CompletedTask;
                                                                                })));
-
-            foreach (var pid in pidsToStop)
-            {
-                _actorSystem.Root.Stop(pid);
-            }
 
             return tcs.Task;
         }
