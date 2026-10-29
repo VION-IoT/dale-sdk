@@ -1,0 +1,1 @@
+2026-10-29 · brief · VION-409 · The brief inferred that a late acknowledgement reaches an expired wait as a dead letter. It does only once the wait's actor has finished stopping; one arriving while it stops is dropped with no event. The first regression test was green on the unfixed code, and was rebuilt to hold the answer until the old wait had gone. (self)
