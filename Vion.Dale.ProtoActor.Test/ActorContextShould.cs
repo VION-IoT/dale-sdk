@@ -106,7 +106,7 @@ namespace Vion.Dale.ProtoActor.Test
             host.Holder.Context!.SendToSelf(new StopLogicBlockRequest());
 
             // Assert
-            Assert.AreEqual(1, Volatile.Read(ref host.Holder.DisposalSends), "Pre-condition: the dependency did send while its scope was disposed.");
+            Assert.AreEqual(1, host.Holder.DisposalSends, "Pre-condition: the dependency did send while its scope was disposed.");
             Assert.IsEmpty(deadLetters.Where(deadLetter => deadLetter.Pid.Id == "context_stopping_self_send").ToList(),
                            "An actor that has begun to stop has no handler left to run a callback, so a self-send it makes then is dropped rather than published as a dead letter.");
         }
@@ -392,7 +392,7 @@ namespace Vion.Dale.ProtoActor.Test
             public void Dispose()
             {
                 _holder.Context?.SendToSelf(new StopLogicBlockRequest());
-                Interlocked.Increment(ref _holder.DisposalSends);
+                _holder.DisposalSends++;
             }
         }
 

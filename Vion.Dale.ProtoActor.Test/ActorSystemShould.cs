@@ -667,8 +667,6 @@ namespace Vion.Dale.ProtoActor.Test
 
             public SemaphoreSlim Answer { get; } = new(0);
 
-            public SemaphoreSlim Answered { get; } = new(0);
-
             public Straggler(Proto.ActorSystem proto, string name, bool answers)
             {
                 var pid = proto.Root.SpawnNamed(Props.FromFunc(async ctx =>
@@ -688,7 +686,6 @@ namespace Vion.Dale.ProtoActor.Test
 
                                                                    // A request, not a respond: an answer has to carry its sender for the wait to count it.
                                                                    ctx.Request(waiter, new StopLogicBlockResponse());
-                                                                   Answered.Release();
                                                                }),
                                                 name);
                 Reference = pid.ToActorReference();
