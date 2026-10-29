@@ -169,12 +169,16 @@ namespace Vion.Dale.ProtoActor
                                                                                                                 if (remainingCount > 0)
                                                                                                                 {
                                                                                                                     var elapsed = Stopwatch.GetElapsedTime(startTime);
-                                                                                                                    var unanswered = pidToActorMap.Where(entry => !answered.Contains(entry.Key)).ToList();
+                                                                                                                    var unanswered = pidToActorMap
+                                                                                                                        .Where(entry => !answered.Contains(entry.Key))
+                                                                                                                        .ToList();
                                                                                                                     _logger
                                                                                                                         .LogWarning("Timeout waiting for {RemainingCount} acknowledgements after {ElapsedMs}ms from {UnansweredActors}",
                                                                                                                             remainingCount,
                                                                                                                             elapsed.TotalMilliseconds,
-                                                                                                                            string.Join(", ", unanswered.Select(entry => entry.Key.Id)));
+                                                                                                                            string.Join(", ",
+                                                                                                                                unanswered
+                                                                                                                                    .Select(entry => entry.Key.Id)));
 
                                                                                                                     /* The actor stays to receive what is still owed, because an answer that reaches it once it
                                                                                                                        has stopped is a dead letter, and a block that restores late answers all the same. It
@@ -185,7 +189,8 @@ namespace Vion.Dale.ProtoActor
                                                                                                                     expired = true;
                                                                                                                     foreach (var (pid, _) in unanswered)
                                                                                                                     {
-                                                                                                                        if (_actorSystem.ProcessRegistry.Get(pid) is not DeadLetterProcess)
+                                                                                                                        if (_actorSystem.ProcessRegistry.Get(pid) is not
+                                                                                                                             DeadLetterProcess)
                                                                                                                         {
                                                                                                                             ctx.Watch(pid);
                                                                                                                             outstanding.Add(pid);
@@ -196,7 +201,8 @@ namespace Vion.Dale.ProtoActor
                                                                                                                         TAcknowledgementMessage>(new Dictionary<
                                                                                                                             IActorReference,
                                                                                                                             TAcknowledgementMessage>(responses),
-                                                                                                                        unanswered.Select(entry => entry.Value).ToList()));
+                                                                                                                        unanswered.Select(entry => entry.Value)
+                                                                                                                            .ToList()));
                                                                                                                     StopOnceNothingIsOutstanding();
                                                                                                                 }
 
@@ -422,7 +428,9 @@ namespace Vion.Dale.ProtoActor
                                                                                                        .LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms: {RunningActors}",
                                                                                                                    remainingCount,
                                                                                                                    timeout.TotalMilliseconds,
-                                                                                                                   string.Join(", ", pidsToStop.Where(pid => !terminated.Contains(pid)).Select(pid => pid.Id)));
+                                                                                                                   string.Join(", ",
+                                                                                                                       pidsToStop.Where(pid => !terminated.Contains(pid))
+                                                                                                                           .Select(pid => pid.Id)));
                                                                                                    tcs.TrySetException(new
                                                                                                                            TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
                                                                                                    ctx.Stop(ctx.Self);

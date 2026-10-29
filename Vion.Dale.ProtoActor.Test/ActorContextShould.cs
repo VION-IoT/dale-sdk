@@ -376,7 +376,10 @@ namespace Vion.Dale.ProtoActor.Test
             public IActorContext? Context { get; set; }
         }
 
-        /// <summary>A scoped dependency that completes its work through the block's context as it is disposed — the stand-in for a client's drain.</summary>
+        /// <summary>
+        ///     A scoped dependency that completes its work through the block's context as it is disposed — the stand-in for a
+        ///     client's drain.
+        /// </summary>
         private sealed class SelfSendingOnDisposal : IDisposable
         {
             private readonly ContextHolder _holder;

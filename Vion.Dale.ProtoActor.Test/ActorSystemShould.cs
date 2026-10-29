@@ -378,12 +378,11 @@ namespace Vion.Dale.ProtoActor.Test
             proto.EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
             var straggler = new StragglerProcess(proto);
             var (stragglerPid, _) = proto.ProcessRegistry.TryAdd("late_ack", straggler);
-            await Assert.ThrowsAsync<TimeoutException>(async () =>
-                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
-                                                                   stragglerPid.ToActorReference(),
-                                                               ],
-                                                               new StopLogicBlockRequest(),
-                                                               Short));
+            await Assert.ThrowsAsync<TimeoutException>(async () => await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                           stragglerPid.ToActorReference(),
+                                                                       ],
+                                                                       new StopLogicBlockRequest(),
+                                                                       Short));
             var waiter = await straggler.Waiter.Task;
             var waitGone = await WatchFromProbeAsync(proto, waiter);
             await Task.WhenAny(straggler.Watched.Task, waitGone.WaitAsync(Generous));
@@ -404,12 +403,11 @@ namespace Vion.Dale.ProtoActor.Test
             await using var host = new PipelineHost();
             var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
             var straggler = new Straggler(proto, "late_ack_then_gone", true);
-            await Assert.ThrowsAsync<TimeoutException>(async () =>
-                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
-                                                                   straggler.Reference,
-                                                               ],
-                                                               new StopLogicBlockRequest(),
-                                                               Short));
+            await Assert.ThrowsAsync<TimeoutException>(async () => await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                           straggler.Reference,
+                                                                       ],
+                                                                       new StopLogicBlockRequest(),
+                                                                       Short));
             var waitGone = await WatchFromProbeAsync(proto, await straggler.Waiter.Task);
 
             // Act
@@ -427,12 +425,11 @@ namespace Vion.Dale.ProtoActor.Test
             await using var host = new PipelineHost();
             var proto = host.Provider.GetRequiredService<Proto.ActorSystem>();
             var straggler = new Straggler(proto, "silent_then_gone", false);
-            await Assert.ThrowsAsync<TimeoutException>(async () =>
-                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
-                                                                   straggler.Reference,
-                                                               ],
-                                                               new StopLogicBlockRequest(),
-                                                               Short));
+            await Assert.ThrowsAsync<TimeoutException>(async () => await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                           straggler.Reference,
+                                                                       ],
+                                                                       new StopLogicBlockRequest(),
+                                                                       Short));
             var waitGone = await WatchFromProbeAsync(proto, await straggler.Waiter.Task);
 
             // Act
@@ -453,12 +450,11 @@ namespace Vion.Dale.ProtoActor.Test
             proto.EventStream.Subscribe<DeadLetterEvent>(deadLetters.Enqueue);
 
             // Act — the wait watches what it still waits on before it fails the caller, so the failure is the sync point.
-            await Assert.ThrowsAsync<TimeoutException>(async () =>
-                                                           await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
-                                                                   host.System.LookupByName("ack_never_spawned"),
-                                                               ],
-                                                               new StopLogicBlockRequest(),
-                                                               Short));
+            await Assert.ThrowsAsync<TimeoutException>(async () => await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                           host.System.LookupByName("ack_never_spawned"),
+                                                                       ],
+                                                                       new StopLogicBlockRequest(),
+                                                                       Short));
 
             // Assert
             Assert.IsEmpty(deadLetters.Where(deadLetter => deadLetter is { Message: Watch, Pid.Id: "ack_never_spawned" }).ToList(),
@@ -705,14 +701,13 @@ namespace Vion.Dale.ProtoActor.Test
         /// </summary>
         private sealed class StragglerProcess : Process
         {
-            public StragglerProcess(Proto.ActorSystem system)
-                : base(system)
-            {
-            }
-
             public TaskCompletionSource<PID> Waiter { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public TaskCompletionSource Watched { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public StragglerProcess(Proto.ActorSystem system) : base(system)
+            {
+            }
 
             protected override void SendUserMessage(PID pid, object message)
             {
@@ -795,11 +790,6 @@ namespace Vion.Dale.ProtoActor.Test
         {
             public Action<string>? Parked { get; set; }
 
-            public ILogger CreateLogger(string categoryName)
-            {
-                return this;
-            }
-
             public IDisposable? BeginScope<TState>(TState state)
                 where TState : notnull
             {
@@ -814,6 +804,11 @@ namespace Vion.Dale.ProtoActor.Test
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
             {
                 Parked?.Invoke(formatter(state, exception));
+            }
+
+            public ILogger CreateLogger(string categoryName)
+            {
+                return this;
             }
 
             public void Dispose()
