@@ -1,1 +1,0 @@
-2026-09-17 · review · modbus-smoke · the stepped-clock prose sweep covered the draft item's sites, the examples and the skill, but left scripts/smoke-modbus.ps1's help and refusal message saying a virtual clock never lets a backoff elapse; fixed there (self)
