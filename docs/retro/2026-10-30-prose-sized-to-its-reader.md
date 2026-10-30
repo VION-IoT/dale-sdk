@@ -54,8 +54,8 @@ once each; distinct events are given where they differ.
 
 ## Pruned
 
-- **CHK-12, the reverse question** — nothing supported it: no body, no journal line, zero in the
-  2026-09-10 record, no count in 2026-09-15's. Its slot holds the 15-check budget for CHK-16.
+- **CHK-12, the reverse question** — nothing supported it: no body, no journal line, zero as `P2` in
+  the 2026-09-10 record, no count in 2026-09-15's. Its slot holds the 15-check budget for CHK-16.
 - **Kept, though their clusters recurred:** CHK-15's red-source clause, CHK-13's text clause, CHK-10's
   split from D10, CHK-02, and `spec-process.md`'s brief-count rule. Each recurrence that cites one was
   found by it, by the agent, before merge.
@@ -67,8 +67,8 @@ once each; distinct events are given where they differ.
   implementer before code. The briefs come from the architecture repo, whose `brief-reader` agent was
   added on 2026-09-17; five entries postdate it.
 - **Token, `-LocalSource`**: fixed in tooling inside the window, with no recurrence after.
-- **The devhost-smoke `SKILL.md` over its 6 kB budget** (a singleton): the next retro cuts it, or a
-  fix-sized branch does.
+- **Singletons**, one each: `AR` 19, 23, 31, 68, 78, 93, 103, 122, 124, 128, 140. `AR` 140, the
+  devhost-smoke `SKILL.md` over its 6 kB budget, is the next retro's to cut, or a fix-sized branch's.
 
 ## For the next round
 
