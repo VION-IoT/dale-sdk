@@ -1,1 +1,0 @@
-2026-10-28 · brief · modbus-smoke · #260's Verification routed modbus-smoke to a human as unable to show the summaries' new 30 s interval before the examples' pin bump; `smoke-modbus.ps1 -LocalSource` builds the examples against the working tree for exactly that case, and it fails both scenarios on that change. (self)

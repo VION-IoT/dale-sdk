@@ -1,3 +1,0 @@
-2026-10-27 · gate · vion-sdd job · On the push of the vion-sdd adoption's merge to main, all three of the plugin checkout's fetches with a freshly minted App token answered "Repository not found" over 27 s and the job went red; of the four runs before it, two fetched at once and two after one retry.
-
-2026-10-27 · gate · vion-sdd job · A bounded git ls-remote wait did not help: across seven runs every freshly minted App token was refused by git for two minutes with "Repository not found", while the REST API, with the same token, served architecture (200), its tarball (302) and the installation's one repository; git last accepted a token at 08:55Z.

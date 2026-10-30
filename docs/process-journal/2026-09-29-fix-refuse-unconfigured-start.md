@@ -1,1 +1,0 @@
-2026-09-29 · review · LogicBlockBase · The unconfigured-start refusal shipped with a six-line code comment, a three-sentence exception message and long test assertion messages; the operator called the commenting and the message far too verbose and asked for them shortened.
