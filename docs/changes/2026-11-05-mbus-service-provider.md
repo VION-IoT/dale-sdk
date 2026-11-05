@@ -24,8 +24,9 @@ A new package, `Vion.Dale.Sdk.MBus`, gives a logic block a wired M-Bus (EN 13757
 service provider that owns the master, shaped like `IModbusRtu`. The provider sends the telegrams
 exactly as received (ecocoach's option A); the SDK decodes them and a block picks values **by meaning**,
 not by record position. v1 has reads only, primary addressing only, and one read in flight per binding.
-It is driven by ecocoach's legacy fleet (84 lines, 1 317 meters) and the AVM project's five meters
-(VION-436/438). It answers [ecocoach's proposal](#where-this-comes-from) from the SDK's side.
+A provider may serve the first telegram only, and reading more later is a provider upgrade, not a
+contract change. It is driven by ecocoach's legacy fleet (84 lines, 1 317 meters) and the AVM project's
+five meters (VION-436/438). It answers [ecocoach's proposal](#where-this-comes-from) from the SDK's side.
 
 ### Spec implications
 
@@ -43,9 +44,11 @@ changed: binding, the handler base, link maps and publishing are `AC-BIND-*` as 
 
 **(a) Ratified by the operator, 2026-11-05**, in the session that drafted this doc:
 
-- `D1` — **Wire option A: the provider sends raw telegrams and the SDK decodes them**, conditional on
-  ST being able to read multi-telegram meters raw (§ ST feasibility). A failed bench reopens the
-  choice (question 1).
+- `D1` — **Wire option A: the provider sends raw telegrams and the SDK decodes them.** A provider may
+  return fewer telegrams than asked when it can't read further. The readout then reports itself
+  incomplete, so a first-telegram-only provider on `FB_MBUS_RawData` is a valid v1 (§ First telegram
+  only). Whether ST can read telegrams 2…n raw (§ ST feasibility) decides when full reads arrive, not
+  whether A holds.
 - `D2` — **Unused features stay out of v1.** No writes, no secondary addressing or scan, no rewind
   options, no per-request baud (§ Deferred).
 - `D3` — **One read in flight per binding.** This keeps an oversubscribed 2400 Bd line from filling
@@ -71,8 +74,15 @@ changed: binding, the handler base, link maps and publishing are `AC-BIND-*` as 
   conversion.
 - `D8` — **The block surface copies `IModbusClient`'s settings.** These are `IsEnabled` (default
   false), `DefaultOperationTimeout`, `MaxQueuedAge` and `Link` (`IModbusClient.cs:60-87`). The
-  callbacks are `(result, receipt)` and `(exception, receipt)`, per decision 0119. The address is an
-  `int` refused outside its range, as `unitIdentifier` is (`IModbusClient.cs:605`, `AC-MODB-004.1`).
+  callbacks are `(result, receipt)` and `(exception, receipt)`, per decision 0119.
+- `D14` — **`Read` takes an `MBusAddress` and an `MBusReadOptions` from v1.** This deliberately departs
+  from Modbus's trailing optional parameters (`IModbusClient.cs:605-613`). Adding an optional parameter
+  changes a method's signature, and an already-built plugin calling the old one fails with
+  `MissingMethodException` against a newer shared assembly. With these two types, secondary addressing,
+  rewind and baud arrive as a new factory and new init-only properties, and the call sites stay
+  binary-compatible (§ Forward view). `MBusAddress` has only `Primary(int)` in v1, refused outside
+  0–250 as `unitIdentifier` is refused outside its range (`AC-MODB-004.1`). `MBusReadOptions` has only
+  `MaxTelegrams`.
 - `D9` — **One shared handler per runtime, with RTU's pending limit, expiry sweep and link-map
   routing.** The handler is a copy of `ModbusRtuHandler`, the named precedent, not a generic base
   lifted into `Vion.Dale.Sdk`. A base in core would land in the host-shared SDK
@@ -96,10 +106,17 @@ changed: binding, the handler base, link maps and publishing are `AC-BIND-*` as 
 
 ### Reviewer's questions
 
-1. **(c) Can ST read multi-telegram meters raw?** This is a STOP: the doc stays `proposed` until the
-   bench in § ST feasibility answers. If it can't, the options are (i) ST drives the KL6781 link layer
-   itself, or (ii) fall back to `B′`, records with string units (§ Alternatives). The recommendation is
-   (i) if the bench shows the process-image handshake is tractable, else (ii).
+1. **(c) Is a first-telegram v1 enough for AVM?** At AVM the shortcut loses the EM5XX's export and
+   T1/T2 billing points, which sit in telegrams 3 and 5 (§ First telegram only). The options:
+   - bill on import only until a provider reads further;
+   - move the values into telegram 1 with the meter's data selection, at commissioning, with the
+     vendor's tool;
+   - wait for full raw reads.
+
+   This is a STOP on the operator, with ecocoach. Separately, F1 (§ ST feasibility) must confirm that
+   `FB_MBUS_RawData` yields a frame the provider can hand over whole. F2 and F3 then decide when full
+   reads arrive. If both fail, the choice is ST driving the KL6781 itself or `B′`, records with string
+   units (§ Alternatives).
 2. **(c) Is this the decoding experience to build?** § The decoding experience proposes it: three
    layers, a selector a block declares once, values converted into the unit the block publishes, and
    `Describe()` for authoring. The operator asked for this to be defined, so it waits for the operator.
@@ -135,7 +152,7 @@ changed: binding, the handler base, link maps and publishing are `AC-BIND-*` as 
 |---|---|
 | **Block-author DX** | One call reads a meter (`Read`). Values are picked by meaning with a selector declared once and arrive in the unit the block publishes. `Describe()` turns a captured telegram into ready-to-paste selectors. The TestKit replays captured telegrams through the production decoder. |
 | **SDK consistency** | Settings, callbacks, receipt, link summary, enablement, timeouts, refusal-as-`Invalid`, the shared handler and the wire all mirror RTU's (`D6`–`D9`). Helpers follow `IModbusDataConverter` (`D11`). Surface marks, the analyzer wiring, `[DaleSharedAssembly]`, an example and a kit come as with every protocol package. |
-| **Provider DX** | The wire is flat: two fields in, an array of base64 strings out. There is no vocabulary to map and nothing to decode, and the provider returns frames as they came off the line. It is testable with any MQTT 5 client (§ The wire). Line configuration stays the provider's own. |
+| **Provider DX** | The wire is flat: two fields in, an array of base64 strings out. There is no vocabulary to map and nothing to decode, and the provider returns frames as they came off the line. It may start with the first telegram only (§ First telegram only), and it answers anything newer than itself with `NotSupported` (§ Forward view). It is testable with any MQTT 5 client (§ The wire). Line configuration stays the provider's own. |
 
 ### The wire — what a provider implements
 
@@ -169,9 +186,12 @@ The JSON follows the `Hw` rules (decision 0227): camelCase, enums by member name
 | `Garbled` | Checksum, framing, length or collision fault |
 | `LineUnavailable` | Terminal or port not ready |
 | `QueueFull` | The provider's queue is full |
-| `InvalidRequest` | Address outside 0–250, or more telegrams than the provider supports |
+| `InvalidRequest` | Address outside 0–250, or `maxTelegrams` below 1 |
+| `NotSupported` | An action, or a request member, this provider doesn't implement (§ Forward view) |
 
-A failure may still carry the telegrams read before it, which is how a partial read reaches `D12`.
+A failure may still carry the telegrams read before it, which is how a partial read reaches `D12`. A
+provider that can't read as many telegrams as asked answers `Ok` with the ones it read. That is not a
+failure: the last telegram still announces more records, and the SDK reports the readout incomplete.
 
 **What a provider must do** (carried on the page as provider obligations, not as SDK criteria):
 
@@ -186,7 +206,10 @@ A failure may still carry the telegrams read before it, which is how a partial r
 4. **Drop a request whose deadline passed before its turn** (the MQTT message expiry, or
    `expiresInMs` if question 5 adds it). A dropped request gets no answer: dale has already timed it
    out.
-5. **Answer every other request exactly once.**
+5. **Answer every other request exactly once.** That includes a request on an action under
+   `/hw/mbus/` it doesn't implement, or one carrying a member it doesn't know: answer those
+   `NotSupported` instead of ignoring the member. This is what lets a later contract version meet a v1
+   provider with a clear refusal rather than a timeout (§ Forward view).
 6. **Keep line settings as its own service properties** (baud, repetitions, limits). The contract
    carries none, as RTU's carries no serial settings.
 7. **Report line health through the platform's component health**, with one sub-component per line.
@@ -211,13 +234,16 @@ public interface IMBus
     TimeSpan? MaxQueuedAge { get; set; }             // default 30 s; null = no limit
     MBusLinkSummary Link { get; }
 
-    void Read(int primaryAddress,                    // 0–250
-              int maxTelegrams,                      // ≥ 1: what this meter sends
+    void Read(MBusAddress address,                   // v1: MBusAddress.Primary(0–250)
+              MBusReadOptions options,               // v1: MaxTelegrams (≥ 1, default 1)
               IActorDispatcher dispatcher,
               Action<MBusReadout, MBusReceipt> successCallback,
               Action<Exception, MBusReceipt>? errorCallback = null,
               TimeSpan? operationTimeout = null);
 }
+
+public readonly record struct MBusAddress { public static MBusAddress Primary(int address); }
+public sealed record MBusReadOptions { public int MaxTelegrams { get; init; } = 1; public static MBusReadOptions Default { get; } }
 ```
 
 A heat-meter block, read against the Modbus RTU example (`Em122ElectricityMeter.cs:200-227`):
@@ -234,7 +260,7 @@ private static readonly MBusSelector DueDayValue = MBusSelector.Of(MBusQuantity.
 [Timer(900)]
 public void Poll()
 {
-    MBus.Read(PrimaryAddress, maxTelegrams: 2, this,
+    MBus.Read(MBusAddress.Primary(PrimaryAddress), new MBusReadOptions { MaxTelegrams = 2 }, this,
               (readout, receipt) =>
               {
                   HeatEnergy      = readout.Value(Energy, MBusUnit.KilowattHour);
@@ -386,7 +412,7 @@ The layout follows `Vion.Dale.Sdk.Modbus.Rtu`:
 - **`examples/Vion.Examples.MBus`**: one meter block and a test replaying a captured telegram, like
   `examples/Vion.Examples.ModbusRtu`. A DevHost stand-in is deferred.
 
-### ST feasibility — the bench that decides `D1`
+### ST feasibility — the bench that decides when full reads arrive
 
 **What it has to establish.** Can an ST provider on `Tc2_MBus` return telegrams 2…n raw? The library
 returns raw bytes only from `FB_MBUS_RawData`, which documents "only the first telegram"; its
@@ -436,26 +462,177 @@ around it:
 
 Half a day once the rig stands.
 
-**How the results decide `D1`:**
+**What the results mean:**
 
-| Result | Decision |
+| Result | What follows |
 |---|---|
-| F2 holds | A, on a documented FB. Done. |
-| F2 fails, F3 holds | A, on a documented-but-internal member. Pin the library version in the provider and re-run E3 on every library update. |
-| Both fail | Question 1: ST drives the KL6781 itself, or `B′`. |
+| F1: the whole frame, or user data the provider can frame itself (L, checksum, stop byte) | A first-telegram provider on a documented FB (§ First telegram only) |
+| F2 holds | Full reads on a documented FB |
+| F2 fails, F3 holds | Full reads on a documented-but-internal member. Pin the library version in the provider and re-run E3 on every library update |
+| F2 and F3 fail | Full reads need ST to drive the KL6781 itself, and until then the provider stays first-telegram. `B′` only if that is too costly *and* the first-telegram limit can't be lived with (question 1) |
 
-### Deferred — not in v1, each with what brings it back
+The ST feasibility session (started 2026-11-05) works through steps 0–1. Its findings land here as Drift
+checkpoints.
 
-| Item | Comes back when |
-|---|---|
-| Writes (`SND_UD`, CI 51h) | Hager ECM381D and K'Electric KEPx write a data-set selection (`EM/…HagerECM381D.TcPOU:256-279`, `EM/…KElectricKEPx.TcPOU:232-253`); either is ported |
-| Secondary addressing, scan, commissioning | a site needs it; the legacy fleet is primary-only (0–213 on eco-prod) and has no scan code |
-| Rewind options (application reset, none) | a meter needs other than SND_NKE; every legacy meter sends SND_NKE |
-| Per-request baud | a line mixes rates; all 84 surveyed lines run 2400 Bd |
-| A telegram builder in the kit | a test can't get a capture |
-| A DevHost stand-in for request/response contracts | its own change; it would serve RTU too (decision 0139 tiers) |
-| Moving wire records and helpers to `Vion.Contracts` | a C# provider is built (`D4`) |
-| Wireless M-Bus | a project needs it; the decoder is kept free of the wired transport so the record layer carries over |
+### First telegram only — a v1 shortcut for the provider
+
+**The fleet says it covers most meters.** ecocoach's telegram map records what each legacy read takes
+from which telegram (`logic-block-libraries` `97f84c3a`, investigation hub § 2.9):
+
+- **1 099 of 1 317 meters** (1 040 of 1 252 enabled) read telegram 1 only. EMU Professional II asks for
+  every telegram and uses only the first.
+- **218 meters (17 %)** read later telegrams: the EM5XX, the Supercal 531, the Celsa ECMxxMM (98; every
+  energy counter is in telegram 2) and the Schneider iEM3135 (18). Celsa and Schneider are not
+  near-term ports.
+
+**At AVM:**
+
+| Meter | Lost with telegram 1 only | Who consumes it |
+|---|---|---|
+| Supercal 5, Superstatic 749/789, EF/MOF | nothing; the legacy reads telegram 1 only | — |
+| Supercal 531 Radio | power, flow, flow and return temperature (t2) | nothing at AVM; monitoring only |
+| EM5XX (46) | per-phase power (t2); per-phase voltage, export total, frequency (t3); import T1/T2 (t5) | **export, T1 and T2 are configured billing points.** The E-Mob energy manager's grid input uses currents and total power, which are in t1 |
+
+The hub names three ways through the EM5XX billing gap (question 1):
+
+- **Bill on import only** until a provider reads further. In the snapshot, T2 is 0.0 on all 46 meters
+  and T1 tracks import on the 7 with live values. That is an inference from a snapshot, not a rule.
+- **Move the values into telegram 1** with the meter's data selection, set at commissioning with the
+  vendor's tool. `UNVERIFIED`: selection is by VIF, holds at most 16 values per frame, and is cleared
+  by an application reset; whether it survives a power loss is unknown.
+- **Full raw reads**, once § ST feasibility allows them.
+
+**What it costs the contract: nothing.**
+
+- The block asks for what the meter sends (`MaxTelegrams = 5` for an EM5XX). A first-telegram provider
+  answers `Ok` with telegram 1. The readout is `IsComplete == false`, and `Value()` for a record in a
+  later telegram returns `null`.
+- The block therefore publishes "not valid", never a zero. Boot zeros are on ecocoach's must-not-port
+  list (hub § 2.7).
+- A block can tell the two kinds of incomplete read apart: fewer telegrams than it asked for means the
+  provider stopped; as many as it asked for with more announced means the meter has more.
+- When the provider learns to read further, the same block, unchanged, gets every value: no contract
+  version, no block release.
+- The provider declares its ceiling as a read-only service property (e.g. `MBusMaxTelegrams = 1`), so
+  commissioning can see why values are missing. The SDK doesn't read it.
+
+**What it saves.** The ST v1 is `FB_MBUS_RawData` plus framing at most, and F2/F3 leave the critical
+path. It also gives the smallest JSON of any option.
+
+### Forward view — the deferred features, and how each arrives without breaking v1
+
+**The rules every addition follows**, so that v1 blocks and v1 providers keep working:
+
+1. **The wire only grows.**
+   - A new operation is a new action under `/hw/mbus/`; writes take `/set`, as RTU's
+     `/hw/modbus/set` does.
+   - A new capability of an existing operation is a new optional request member, whose absence means
+     v1 behaviour.
+   - Response codes and outcomes are appended, never renamed. They travel by name (decision 0227), and
+     vion-contracts' own rule is that topics are append-only (hub § 2.7, vion-contracts
+     `CLAUDE.md:108-133`).
+2. **A v1 provider answers a newer request with a refusal, not silence.** Provider obligation 5 makes
+   it answer `NotSupported` to an action or member it doesn't know. The SDK reports that as an
+   `MBusException` with an `Invalid` outcome, which leaves the link state alone, because a deployment
+   mismatch says nothing about the meter. A block learns at its first call that its provider is too
+   old, instead of waiting out a timeout.
+3. **The block surface only grows.**
+   - New members on `IMBus`, which consumers never implement (only the SDK and its kit do).
+   - New factories on `MBusAddress`, and new init-only properties on `MBusReadOptions` (`D14`).
+   - No existing member's signature changes within a major version.
+   - A library that uses a newer member needs the gateway's loaded `Vion.Dale.Sdk.MBus` to be at least
+     that version. That is the first-loaded-wins rule for shared assemblies
+     (`architecture/systems/dale.md`, plugin sandboxing), which `Vion.Dale.Sdk.Modbus.Rtu` lives with
+     today.
+4. **The contract-type token stays `MBus`.** Nothing below needs a new one; only a breaking change
+   would, which is why rules 1–3 exist.
+5. **Work on the line, rather than on one meter, stays with the provider.** A scan, a line-wide baud
+   change or an address sweep occupies the line far longer than one read and acts on every meter. It
+   is a provider operation, driven through the provider's own service properties, never a block call.
+
+**Each deferred feature:**
+
+| Feature | Block API | Wire | Provider | Comes back when |
+|---|---|---|---|---|
+| **Writes** (SND_UD) | `IMBus.Send(address, ciField, data, dispatcher, success, error, timeout)`, shaped like RTU's writes (a write may omit its success callback, `AC-MODB-001.5`). It shares the binding's single-flight slot. Typed helpers come later as extension methods building the data: data-set selection, set primary address, application reset | `/hw/mbus/set`: `SetMBusPayload { primaryAddress, ciField, data }` → `SetMBusResponsePayload { responseCode, errorMessage }`; `Ok` = E5h received | frames it (68h L L 68h C A CI data CS 16h). The legacy's caller-built checksum and stop byte are must-not-port (hub § 2.7) | Hager ECM381D or K'Electric KEPx is ported (`EM/…HagerECM381D.TcPOU:256-279`, `EM/…KElectricKEPx.TcPOU:232-253`), or the EM5XX's data selection is wanted from the block |
+| **Secondary addressing** | `MBusAddress.Secondary(identification, manufacturer?, version?, medium?)`, no wildcards | optional `secondaryAddress { identification, manufacturer, version, medium }` in place of `primaryAddress` | selects (SND_UD, CI 52h, to address 253, E5h) and reads as one queue item, so nothing interleaves | a site with duplicate or unset primaries; eco-prod has three duplicate-address clusters live (hub § 2.6) |
+| **Scan, commissioning** | none: not a block call (rule 5) | none in the contract | a provider operation, triggered through its own service properties, results as its own read-only properties. An empty primary scan takes ≈ 2.7 min at 2400 Bd (ecocoach proposal § 11) | commissioning tooling is planned |
+| **Rewind, telegram selection** | `MBusReadOptions.Rewind`: `LinkReset` (the default, SND_NKE), `ApplicationReset(subcode?)` or `None` | optional `rewind`; absent = SND_NKE | sends it before REQ_UD2 | a meter needs it. The Supercal 531's selectable telegrams would also let a first-telegram provider serve chosen values |
+| **Per-request baud** | `MBusReadOptions.Baud` | optional `baud` | switches the terminal per request, as `Tc2_MBus`'s `eBaudrate` does | a line mixes rates; all 84 surveyed lines run 2400 Bd |
+| **Full multi-telegram on ST** | none | none | a provider upgrade | § ST feasibility, F2/F3 |
+| **Wire records in `Vion.Contracts`** | none | none: same names and shape (`D4`) | a C# provider references them | a C# provider is built |
+| **Wireless M-Bus** | a separate contract type, not `IMBus`: receive-only, push-shaped, with keys | its own | its own | a project needs it. The decoder's record layer is shared, so v1 keeps it free of the wired transport |
+| **A telegram builder in the kit** | `MBusTelegramBuilder` | — | — | a test can't get a capture |
+| **A simulation tier** | § Simulation | — | — | its own change |
+
+### Simulation — a path for request/response contracts (not v1)
+
+Modbus RTU has the same gap today, so this section is written for both contracts. Facts are from a read
+of this repository at `ec62d764`.
+
+**What happens now.** A block that binds `IModbusRtu` in the DevHost, stepped or real-time:
+
+- **No handler runs.** The DevHost spawns handler actors only as stand-ins for `[ScenarioWire]`
+  handlers (`Vion.Dale.DevHost/Mocking/ServiceProviderContractHandlerScan.cs:20-33`,
+  `DevLogicSystemInitializer.cs:441-466`), and the DevHost has no MQTT at all.
+- **Every request is a dead letter.** The send succeeds because a name always resolves
+  (`AC-LIFE-017.1`). It is dead-lettered with one warning per request, and no callback ever fires, not
+  even a timeout: the expiry sweep lives in the handler (`ModbusRtuHandler.cs:610-660`).
+- **Pairing and the scenario steps are refused.** Pairing an RTU endpoint is refused (`AC-SCEN-014.6`),
+  and so are `serviceProviderSet` and `serviceProviderExpect` on it (`AC-SCEN-007.2`, `007.4`).
+- **An M-Bus binding would behave the same way.**
+
+**Why the push-shaped mechanism can't carry it:**
+
+- The pairing hop re-serialises to JSON (`ScenarioWireCodec.cs:101-149`).
+- DALE046 rejects a delegate member, and arrays and reference types besides
+  (`ScenarioWireTypeAnalyzer.cs:10-14, 119-142`), so the request's callback, its `byte[]` and its
+  `Exception?` all fail.
+- Pairing fans out to every block mapped to the endpoint, so it has no correlation back to the one
+  block that asked.
+- A stand-in never originates a message (`AC-SCEN-014.10`), but a timeout has to come from somewhere.
+
+dale-sdk RFC 0020 § 6, "Phase 2", already sketched a request/response face (`IModbusRtuProvider`, with
+expiry on the virtual clock). The area pass that absorbed the RFC dropped it, and no spec mentions it
+(`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
+
+**The options:**
+
+| | Mechanism | Fidelity | Stepped | Serves both contracts | Against |
+|---|---|---|---|---|---|
+| **a1** | A development-only provider face per contract (`IModbusRtuProvider`, `IMBusProvider`). A DevHost stand-in keeps the callback, a correlation map and the expiry, and routes the simulator's answer back | block-side decoding and callbacks | yes | one mechanism, one face each | re-implements the handler's rules, which can drift; the stand-in originates the timeout, against `AC-SCEN-014.10` |
+| **a2** | The same faces, but the **real handler runs**. The DevHost adds a development-only MQTT loopback actor: it serves the handler's registration and publishes, hands each request's payload to the paired simulator block, and returns the simulator's response record as the handler's incoming message | real handler, wire records, correlation, outcomes and timeouts; only the broker is bypassed | yes; the handler's sweep runs on the virtual clock | yes, for any handler on the service-provider base | it runs production handler code in a host that isn't a runtime |
+| **b** | A stand-in answering from fixtures or a new scenario step | decoding only | stepped only | partly | puts device behaviour in the host, against `scenarios.md:459-462`; a new step touches four definition sites (`devhost-conventions.md` § 7) |
+| **c** | Decision 0139's transport tier: a fake service provider on real MQTT beside a real dale | highest | no | yes | not a DevHost tier; possible today with no SDK change |
+| **d** | Bridge RTU requests to a hosted Modbus TCP simulator | decoding only | yes | Modbus only | doesn't model the HAL's error codes |
+
+**The path forward: a2, with a1 as the fallback.**
+
+- **Why a2.** It is one mechanism for every request/response contract and stays deterministic under
+  stepping. The behaviour stays in a simulator block, and every hop is an actor message
+  (`AC-SCEN-014.12`). The real handler originates the timeout, as it does in production.
+- **What a simulator author writes.** A block binding `IMBusProvider` receives `GetMBusPayload` with
+  its correlation id and answers with `GetMBusResponsePayload`, exactly what a real provider does. For
+  M-Bus that means serving captured telegrams per address, so a bench exercises the production decoder
+  on field bytes.
+- **The constraints it keeps.** The face is development-only twice over: `DevelopmentOnly = true` on
+  the contract type, and `[DevelopmentOnlyHandler]` with an empty routing key on its handler
+  (`AC-BIND-015.1`–`.3`, the `DigitalOutputProviderHandler.cs:18-38` precedent). `dale pack` excludes
+  a block that binds it, and the runtime refuses one. There is no production pairing (0139).
+- **What has to be solved first:**
+  - `InstallationTopic` is process-wide and can be set only once (`MqttConfiguration.cs:17-19`);
+  - the real handler and a stand-in can collide on an actor name;
+  - the registration acknowledgement has to be served.
+- **What it decides.** It moves 0139's fidelity line, "pairing bypasses the MQTT hop", so it needs
+  **an amendment to decision 0139 and a change doc of its own** before any code. RTU goes first: its
+  handler exists, and the ABB port asked for it (ecocoach's RTU feedback, point 1).
+
+**What v1 does to keep this open, at no cost:**
+
+- The handler has no DevHost-specific branches.
+- The wire records are the only thing a simulator needs to speak.
+- Decoding runs block-side (`D7`), so any tier that delivers telegrams exercises it.
+- The TestKit's `SimulateReadResponse` is the unit-test tier until then.
 
 ### Alternatives considered
 
@@ -521,7 +698,7 @@ Half a day once the rig stands.
 - ADDED AC-MBUS-006.6 -> docs/specs/mbus.md : THE SYSTEM SHALL select a record by quantity, storage number, tariff, subunit and function, defaulting to the instantaneous value of storage 0, tariff 0 and subunit 0, or by its exact information-block bytes, and SHALL return the first match in telegram order.
 - ADDED AC-MBUS-006.7 -> docs/specs/mbus.md : THE SYSTEM SHALL convert a selected value into a unit the caller names when both measure the same dimension, and SHALL refuse a unit of another dimension.
 - ADDED AC-MBUS-007.1 -> docs/specs/mbus.md : THE SYSTEM SHALL accumulate every completed read of one contract into a link summary readable at any time without blocking the read updating it.
-- ADDED AC-MBUS-007.2 -> docs/specs/mbus.md : THE SYSTEM SHALL set the link state to `Online` on a success, to `Faulted` on no response, a garbled answer, an unavailable line, a timeout or a protocol error, and SHALL leave it unchanged on every locally decided outcome and on a full provider queue.
+- ADDED AC-MBUS-007.2 -> docs/specs/mbus.md : THE SYSTEM SHALL set the link state to `Online` on a success, to `Faulted` on no response, a garbled answer, an unavailable line, a timeout or a protocol error, and SHALL leave it unchanged on every locally decided outcome, on a full provider queue and on a request the provider does not support.
 - ADDED AC-MBUS-008.1 -> docs/specs/mbus.md : THE SYSTEM SHALL mark the M-Bus assembly a shared assembly and SHALL route every M-Bus binding in a runtime through one shared handler.
 - ADDED AC-MBUS-008.2 -> docs/specs/mbus.md : THE SYSTEM SHALL classify every public type the M-Bus packages ship as published surface or internal plumbing, and SHALL judge their declarations with the Dale analyzers.
 - ADDED AC-TKIT-016.1 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test answer a pending M-Bus read with telegrams given as bytes or as hexadecimal text, delivering them through the production callback chain and decoder and stamping the receipt from the virtual clock.
