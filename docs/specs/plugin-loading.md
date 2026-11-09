@@ -58,6 +58,11 @@ pre-1.0, every released major is `0`, so the gate is dormant today; it arms itse
 
 A plugin's assembly binding is answered by the first rule below that applies.
 
+Two of the rules turn on what the host **can supply**: an assembly the host has loaded, or one among
+its trusted platform assemblies — the list the .NET host hands the runtime at start, which the
+host's default load context binds by simple name. Deciding it loads nothing into the plugin's
+context.
+
 ### 1. Assemblies shared with the host
 
 `Vion.Dale.Sdk` and everything it references cross the host/plugin boundary in signatures, so the
@@ -74,28 +79,37 @@ same rule at the build file).
   directory contains its own copy of that assembly.
 - `AC-PLUG-003.3` (Event-driven): WHEN a plugin binds to an assembly shared with the host that the
   host has not loaded, THE SYSTEM SHALL resolve it through the host's default load context rather
-  than loading a copy into the plugin's context.
+  than loading a copy into the plugin's context, resolving the host's own version wherever the host
+  can supply it, whatever version the plugin requested.
 
 Membership in the set is what decides, not whether the host got there first: an assembly the host
 has never touched still lands in the host's context, so the plugin that binds it next sees the same
-instance.
+instance. Nor does the version the plugin asked for decide: a plugin built against a later version
+of a shared assembly than the host carries binds the host's, as it would had the host loaded it
+first.
 
 ### 2. Framework assemblies
 
 - `AC-PLUG-004.1` (Ubiquitous): THE SYSTEM SHALL treat an assembly as a framework assembly when its
   simple name begins with `System.` or `Microsoft.`, or equals `System`, `netstandard` or
   `mscorlib`.
-- `AC-PLUG-004.2` (Event-driven): WHEN a plugin binds to a framework assembly the host has loaded,
-  THE SYSTEM SHALL resolve the host's instance.
-- `AC-PLUG-004.3` (Event-driven): WHEN a plugin binds to a framework assembly the host has not
-  loaded and the plugin directory contains it, THE SYSTEM SHALL load it from the plugin directory
-  into that plugin's context.
+- `AC-PLUG-004.2` (Event-driven): WHEN a plugin binds to a framework assembly the host can supply,
+  THE SYSTEM SHALL resolve the host's instance, whether or not the host has loaded it yet and
+  whatever version the plugin requested.
+- `AC-PLUG-004.3` (Event-driven): WHEN a plugin binds to a framework assembly the host cannot supply
+  and the plugin directory contains it, THE SYSTEM SHALL load it from the plugin directory into that
+  plugin's context.
+
+What the host can supply decides, not whether the host got there first, so a plugin shipping its own
+copy of a framework assembly the host carries still binds the host's. That keeps one identity for a
+type crossing between it and an assembly shared with the host — a `JsonSerializerOptions` the host
+shares and the `JavaScriptEncoder` it takes, for one.
 
 The prefix rule is the contract, not a heuristic: an assembly a plugin author names `Microsoft.*` or
 `System.*` is resolved by these rules, whoever wrote it.
 
-A framework assembly present in neither the host nor the plugin directory is not a separate rule: it
-converges on the same delegation as every other unresolved bind, stated once as `AC-PLUG-006.2`.
+A framework assembly the host cannot supply and the plugin directory lacks is not a separate rule:
+it converges on the same delegation as every other unresolved bind, stated once as `AC-PLUG-006.2`.
 
 ### 3. Shared extension assemblies — `[DaleSharedAssembly]`
 
