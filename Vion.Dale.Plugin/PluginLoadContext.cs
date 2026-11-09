@@ -39,6 +39,13 @@ namespace Vion.Dale.Plugin
         /// </summary>
         private static readonly object SharedExtensionLoadLock = new();
 
+        /// <summary>
+        ///     Simple names of the host's trusted platform assemblies: every assembly the host's default
+        ///     context binds by name, whether or not anything has loaded it yet. Read once, because the
+        ///     host fixes the list at process start.
+        /// </summary>
+        private static readonly Lazy<IReadOnlySet<string>> HostTrustedPlatformAssemblyNames = new(ReadTrustedPlatformAssemblyNames);
+
         private readonly ILogger _logger;
 
         private readonly string _packageId;
@@ -129,27 +136,27 @@ namespace Vion.Dale.Plugin
             // Strategy 1: Always load explicitly shared assemblies from default context
             if (_sharedAssemblyNames.Contains(assemblyName.Name))
             {
-                var defaultAssembly = Default.Assemblies.FirstOrDefault(a => a.GetName().Name == assemblyName.Name);
-                if (defaultAssembly != null)
+                var hostAssembly = ResolveFromHost(assemblyName.Name);
+                if (hostAssembly != null)
                 {
-                    LogDefaultContextLoad(assemblyName, defaultAssembly);
-                    return defaultAssembly;
+                    LogDefaultContextLoad(assemblyName, hostAssembly);
+                    return hostAssembly;
                 }
 
-                // If explicitly shared but not loaded yet, delegate to default context to load it there
-                _logger.LogInformation("Assembly {AssemblyNameName} is explicitly shared but not yet loaded, delegating to default context", assemblyName.Name);
+                // Explicitly shared but the host cannot supply it: the default binder gets the last word.
+                _logger.LogInformation("Assembly {AssemblyNameName} is explicitly shared but the host cannot supply it, delegating to default context", assemblyName.Name);
                 return null;
             }
 
-            // Strategy 2: Share all BCL and Microsoft framework assemblies from default context if available
+            // Strategy 2: Share all BCL and Microsoft framework assemblies the host can supply.
             // This prevents type mismatches for common framework types
             if (ShouldLoadFromDefaultContext(assemblyName.Name))
             {
-                var defaultAssembly = Default.Assemblies.FirstOrDefault(a => a.GetName().Name == assemblyName.Name);
-                if (defaultAssembly != null)
+                var hostAssembly = ResolveFromHost(assemblyName.Name);
+                if (hostAssembly != null)
                 {
-                    LogDefaultContextLoad(assemblyName, defaultAssembly);
-                    return defaultAssembly;
+                    LogDefaultContextLoad(assemblyName, hostAssembly);
+                    return hostAssembly;
                 }
 
                 // Check if the assembly exists in the plugin folder before delegating
@@ -157,15 +164,14 @@ namespace Vion.Dale.Plugin
                 var assemblyPath = Path.Combine(_pluginPath, $"{assemblyName.Name}.dll");
                 if (File.Exists(assemblyPath))
                 {
-                    _logger.LogInformation("Loading assembly {AssemblyName} {Version} from plugin path (framework assembly not in default context)",
+                    _logger.LogInformation("Loading assembly {AssemblyName} {Version} from plugin path (framework assembly the host cannot supply)",
                                            assemblyName.Name,
                                            assemblyName.Version);
                     return LoadFromAssemblyPath(assemblyPath);
                 }
 
-                // If not in default context and not in plugin folder, delegate to default load
-                // This will load it into the default context if it can be resolved
-                _logger.LogInformation("Assembly {AssemblyName} not in default context or plugin folder, delegating to default load", assemblyName.Name);
+                // If the host cannot supply it and the plugin folder lacks it, delegate to default load
+                _logger.LogInformation("Assembly {AssemblyName} neither suppliable by the host nor in the plugin folder, delegating to default load", assemblyName.Name);
                 return null;
             }
 
@@ -427,6 +433,44 @@ namespace Vion.Dale.Plugin
             }
 
             return sharedNames;
+        }
+
+        /// <summary>
+        ///     The host's instance of <paramref name="simpleName" />, or <c>null</c> when the host cannot
+        ///     supply one: it has not loaded the assembly and it is not among its trusted platform
+        ///     assemblies.
+        /// </summary>
+        private static Assembly? ResolveFromHost(string simpleName)
+        {
+            var loaded = Default.Assemblies.FirstOrDefault(a => a.GetName().Name == simpleName);
+            if (loaded != null)
+            {
+                return loaded;
+            }
+
+            if (!HostTrustedPlatformAssemblyNames.Value.Contains(simpleName))
+            {
+                return null;
+            }
+
+            /* Bound by simple name, so the host's version answers whatever version the plugin asked
+               for. Handing the plugin's versioned name to the default binder instead fails whenever the
+               host's copy is older, and the plugin then binds its own copy or nothing: the same bind
+               that a host which happened to load the assembly first answers with its instance. */
+            return Default.LoadFromAssemblyName(new AssemblyName(simpleName));
+        }
+
+        /// <summary>
+        ///     Reads the trusted platform assembly list the .NET host hands the runtime. A host that sets
+        ///     none yields an empty set, and then only the assemblies it has loaded count as suppliable.
+        /// </summary>
+        private static IReadOnlySet<string> ReadTrustedPlatformAssemblyNames()
+        {
+            var paths = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? string.Empty;
+            return paths.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(Path.GetFileNameWithoutExtension)
+                        .OfType<string>()
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>

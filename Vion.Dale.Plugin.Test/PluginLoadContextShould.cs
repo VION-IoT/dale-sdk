@@ -22,6 +22,12 @@ namespace Vion.Dale.Plugin.Test
     ///     decide sharing and to read a plugin's SDK reference, so nothing short of a real assembly
     ///     exercises it. Every fixture takes a name unique to its test — the shared-extension
     ///     registry is keyed by simple name and outlives the test that filled it.
+    ///     A cold-host test binds a real assembly the host can supply but has not loaded, and the host's
+    ///     context is one per process, so each one asserts that precondition before it binds. Two of them
+    ///     touch <c>System.Text.Json</c>: the newer-version shared-set test needs it cold, and the
+    ///     encoder test loads it, so the former sits above the latter. The suite has run them in declaration
+    ///     order (observed, not a documented guarantee); a reordering fails the precondition, never
+    ///     passes vacuously.
     /// </remarks>
     [TestClass]
     public class PluginLoadContextShould
@@ -300,6 +306,31 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-PLUG-003.3")]
+        public void ResolveUnloadedSharedAssemblyThroughHostWhenPluginRequestsNewerVersion()
+        {
+            // The shape of a library built over SignalR's netstandard2.1 graph, which binds a later
+            // revision of Microsoft.Bcl.TimeProvider than the SDK — and so the host — carries. That
+            // assembly cannot carry the test: the test host's own resolver probes this test's output
+            // directory, where its file sits, and answers a failed bind at any version. The shared-set
+            // member below lives only in the shared framework, out of that resolver's reach.
+            // Arrange
+            const string simpleName = "System.Text.Json";
+            AssertHostHasNotLoaded(simpleName);
+            var requested = AssemblyName.GetAssemblyName(Path.Combine(Path.GetDirectoryName(typeof(object).Assembly.Location)!, $"{simpleName}.dll"));
+            var hostVersion = requested.Version!;
+            requested.Version = new Version(hostVersion.Major, hostVersion.Minor, hostVersion.Build, hostVersion.Revision + 14);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act
+            var resolved = sut.LoadFromAssemblyName(requested);
+
+            // Assert
+            Assert.AreSame(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(resolved));
+            Assert.AreEqual(hostVersion, resolved.GetName().Version, "The host's own version answers the newer request.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-PLUG-004.1")]
         [TestProperty("spec", "AC-PLUG-004.2")]
         [DataRow("System.")]
@@ -321,9 +352,66 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-PLUG-004.3")]
-        public void LoadFrameworkAssemblyFromPluginDirectoryWhenHostLacksIt()
+        [TestProperty("spec", "AC-PLUG-004.2")]
+        public void ResolveHostInstanceForFrameworkAssemblyHostHasNotLoaded()
         {
+            // The reporter's shape: System.Text.Json is shared with the host through the SDK's own
+            // references, System.Text.Encodings.Web is a framework assembly the host can supply but has
+            // not touched, and the plugin ships a copy of it. A plugin-directory copy of the encoder
+            // gives JsonSerializerOptions.Encoder two identities, and building the options throws
+            // MissingMethodException. Nothing in this method may name an encoder type: compiling it
+            // would load the assembly into the host and turn the cold bind into a warm one.
+            // Arrange
+            const string encoderAssemblyName = "System.Text.Encodings.Web";
+            AssertHostHasNotLoaded(encoderAssemblyName);
+            var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+            File.Copy(Path.Combine(runtimeDirectory, $"{encoderAssemblyName}.dll"), Path.Combine(_pluginDirectory, $"{encoderAssemblyName}.dll"));
+            var fixtureName = FixtureAssembly.UniqueName("Encoding");
+            var fixturePath = FixtureAssembly.Emit(_pluginDirectory,
+                                                   fixtureName,
+                                                   new[] { Path.Combine(runtimeDirectory, "System.Text.Json.dll"), Path.Combine(runtimeDirectory, $"{encoderAssemblyName}.dll") },
+                                                   body: """
+                                                         public static class EncoderProbe
+                                                         {
+                                                             public static object Build()
+                                                             {
+                                                                 return new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Default }.Encoder!;
+                                                             }
+                                                         }
+                                                         """);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+            var build = sut.LoadFromAssemblyPath(fixturePath).GetType("EncoderProbe")!.GetMethod("Build")!.CreateDelegate<Func<object>>();
+
+            // Act
+            var encoder = build();
+
+            // Assert
+            Assert.AreSame(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(encoder.GetType().Assembly));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-004.2")]
+        public void ResolveHostInstanceForFrameworkAssemblyWhenPluginRequestsNewerVersion()
+        {
+            // Arrange
+            const string simpleName = "System.Formats.Tar";
+            AssertHostHasNotLoaded(simpleName);
+            var requested = new AssemblyName($"{simpleName}, Version=999.0.0.0");
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act
+            var resolved = sut.LoadFromAssemblyName(requested);
+
+            // Assert
+            Assert.AreSame(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(resolved));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-004.3")]
+        public void LoadFrameworkAssemblyFromPluginDirectoryWhenHostCannotSupplyIt()
+        {
+            // A framework-prefixed name nothing in the host can resolve: the host neither loaded it
+            // nor carries it among the assemblies its default context binds by name.
             // Arrange
             var fixtureName = "System." + FixtureAssembly.UniqueName("Fixture");
             FixtureAssembly.Emit(_pluginDirectory, fixtureName);
@@ -779,6 +867,17 @@ namespace Vion.Dale.Plugin.Test
                                         new[] { Path.Combine(AppContext.BaseDirectory, $"{SdkAssemblyName}.dll") },
                                         new[] { "[assembly: Vion.Dale.Sdk.Core.DaleSharedAssembly]" },
                                         fileName: fileName);
+        }
+
+        /// <summary>
+        ///     The precondition of every cold-host test. The host's context is one per process, so an
+        ///     assembly an earlier test or the test framework loaded makes the bind warm, and the test
+        ///     would pass without the rule it exists to pin.
+        /// </summary>
+        private static void AssertHostHasNotLoaded(string simpleName)
+        {
+            Assert.IsFalse(AssemblyLoadContext.Default.Assemblies.Any(assembly => assembly.GetName().Name == simpleName),
+                           $"{simpleName} is already in the host's context, so this bind is warm and proves nothing about a cold host — something earlier in this process loaded it.");
         }
 
         private static Assembly LoadIntoHost(string assemblyPath)
