@@ -51,7 +51,8 @@ $exampleMainProjectsWithVersion = @(
     "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj",
     "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj",
     "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj",
-    "examples\Vion.Examples.Gating\Vion.Examples.Gating\Vion.Examples.Gating.csproj"
+    "examples\Vion.Examples.Gating\Vion.Examples.Gating\Vion.Examples.Gating.csproj",
+    "examples\Vion.Examples.MBus\Vion.Examples.MBus\Vion.Examples.MBus.csproj"
 )
 
 # Example projects that reference Vion.Dale.* packages.
@@ -194,6 +195,15 @@ $exampleProjects = @(
     @{
         Path              = "examples\Vion.Examples.Gating\Vion.Examples.Gating.Test\Vion.Examples.Gating.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.DigitalIo.TestKit")
+    },
+    # MBus example (no DevHost project)
+    @{
+        Path              = "examples\Vion.Examples.MBus\Vion.Examples.MBus\Vion.Examples.MBus.csproj"
+        PackageReferences = @("Vion.Dale.Sdk", "Vion.Dale.Sdk.MBus")
+    },
+    @{
+        Path              = "examples\Vion.Examples.MBus\Vion.Examples.MBus.Test\Vion.Examples.MBus.Test.csproj"
+        PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.MBus.TestKit")
     }
 )
 
