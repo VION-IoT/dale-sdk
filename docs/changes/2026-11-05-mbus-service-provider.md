@@ -70,7 +70,8 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
   - `MBusSelector.ByCode(...)` names it by its DIF/VIF bytes, for records whose extension bytes change
     their meaning and for records outside the table;
   - `readout.Value(selector, unit)` converts within a quantity's units;
-  - `Describe()` prints every record with a selector that finds it.
+  - `Describe()` prints every record with a selector that finds it, or with the record that shadows
+    it.
 
   There are no decoding helpers in v1 (§ The decoding experience).
 - `D7` — **The default operation timeout is 300 s** (2026-11-10). It includes the provider's line
@@ -480,13 +481,19 @@ the plain value.
 
 **The readout** joins the records of every telegram in order. It offers `Find(selector)` and
 `Value(selector, unit)`, plus `Header`, `Telegrams`, `Records`, `IsComplete`, `Describe()` and
-`SelectorFor(record)`. The last gives the selector that finds that record in this readout: `Of(...)`
+`SelectorFor(record)`. The last gives, for a record a selector can reach, the selector that finds it in
+this readout: `Of(...)`
 where meaning picks it out unambiguously, `ByCode(...)` otherwise.
 
-- **A shadowed record has no selector.** Its bytes repeat an earlier record's (the same date/time
-  record in two telegrams, for example), so `Find` always returns the earlier one. `SelectorFor` then
-  returns `null`, and `Describe()` and the debug client mark the row "shadowed by" the record that
-  wins. They never offer a selector that silently reads something else.
+- **A shadowed record has no selector.** A record is shadowed when its DIB and VIB repeat an earlier
+  record's in the readout, whatever its data. An example is the same date/time record in two
+  telegrams, even when the minute rolls over between them.
+  - The DIB and VIB are `ByCode`'s key, and they fix the record's meaning, which is `Of`'s. So
+    "shadowed" and "no selector reaches it" are the same set, and `Find` always returns the earlier
+    record.
+  - `SelectorFor` returns `null` for a shadowed record, and `Describe()` and the debug client mark the
+    row "shadowed by" the record that wins.
+  - They never offer a selector that silently reads something else.
 - **A selector prints as the C# that constructs it**, so the debug client's table and `Describe()` hand
   an author code to paste.
 
@@ -533,7 +540,8 @@ hatch, not the expected path; no v1 consumer needs it beyond logging a capture.
    - its value and unit;
    - storage, tariff, subunit and function;
    - its DIB and VIB bytes;
-   - a selector that finds that record: `Of(...)` where that is unambiguous, `ByCode(...)` otherwise.
+   - a selector that finds that record: `Of(...)` where that is unambiguous, `ByCode(...)` otherwise;
+     for a shadowed record, the record that shadows it instead.
 3. **Write the block with those selectors**, and test it by replaying the capture through the kit.
 
 **Frame checks (`D15`).** Each of these completes the read through the error callback with a
@@ -607,7 +615,7 @@ and sees what the meter really sends. It is the first step of the authoring loop
 | in | `Read now` | a trigger, as the Modbus client's `ReadOnce` is (`UiHints.Trigger`, `ModbusTcpDebugClient.cs:190-201`) |
 | in | `Polling enabled` (default **off**), `Poll interval` (s, at least 300) | off by default because the line is shared: every debug read takes line time from the production meters |
 | out | `Header` | identification, manufacturer, version, medium, access number, status |
-| out | `Records` | one row per record: telegram, quantity, value and unit, storage, tariff, subunit, function, DIB, VIB, and the selector from `SelectorFor`, as struct rows like the Modbus client's `Registers` |
+| out | `Records` | one row per record: telegram, quantity, value and unit, storage, tariff, subunit, function, DIB, VIB, and the selector from `SelectorFor` or "shadowed by" the winning record, as struct rows like the Modbus client's `Registers` |
 | out | `Telegrams` | each telegram as hex, ready for a test's `SimulateReadResponse` |
 | out | `Complete`, `Last read`, `Last read error`, `Link` | completeness; round trip, queued wait and telegram count; the failure; the binding's link summary |
 
@@ -914,6 +922,13 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
   Sibling sweep: § The decoding experience, § The debug client and `D19`, in the same commit.
 - 2026-11-10: the operator answered question 7: the example is handled as the Modbus TCP example is.
   `D19` updated in the same commit.
+- 2026-11-10: the blockers-only review at `79e2220e` found two points, both fixed:
+  - "shadowed" now keys on DIB and VIB, whatever the data, which is the same set no selector reaches
+    (`AC-MBUS-007.5`);
+  - `D6`, authoring-loop step 2 and the debug client's `Records` row now name the shadowed case.
+
+  Sibling sweep: every mention of `SelectorFor`, `Describe()` and "a selector that finds", in the same
+  commit.
 
 ---
 
@@ -958,7 +973,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-007.2 -> docs/specs/mbus.md : WHEN no record matches a selector THE SYSTEM SHALL return no value.
 - ADDED AC-MBUS-007.3 -> docs/specs/mbus.md : THE SYSTEM SHALL convert a selected value into a unit the caller names among its quantity's units, and SHALL throw an `ArgumentException` naming the selector, the record and the unit when the record cannot be expressed in it.
 - ADDED AC-MBUS-007.4 -> docs/specs/mbus.md : WHEN a selector matches nothing on a complete readout THE SYSTEM SHALL log it once per selector and contract. GAP: a log call, which `../testing-conventions.md` § 15 forbids asserting on.
-- ADDED AC-MBUS-007.5 -> docs/specs/mbus.md : THE SYSTEM SHALL give, for any record of a readout that a selector can reach, a selector that finds that record in it, SHALL give none for a record whose bytes an earlier record's shadow, and SHALL describe a telegram or readout one line per record, each with its selector or the record that shadows it.
+- ADDED AC-MBUS-007.5 -> docs/specs/mbus.md : THE SYSTEM SHALL give, for any record of a readout that a selector can reach, a selector that finds that record in it, SHALL give none for a record whose data and value information blocks repeat an earlier record's, whatever its data, and SHALL describe a telegram or readout one line per record, each with its selector or the record that shadows it.
 - ADDED AC-MBUS-008.1 -> docs/specs/mbus.md : THE SYSTEM SHALL accumulate every completed read of one contract into a link summary readable at any time without blocking the read updating it.
 - ADDED AC-MBUS-008.2 -> docs/specs/mbus.md : THE SYSTEM SHALL set the link state to `Online` on a success, to `Faulted` on no response, a garbled answer, an unavailable line, a timeout or a protocol error, and SHALL leave it unchanged on every other outcome.
 - ADDED AC-MBUS-008.3 -> docs/specs/mbus.md : THE SYSTEM SHALL keep a lifetime counter for every outcome but success and for busy reads, SHALL feed round-trip figures only from reads that were published and answered, and SHALL feed queued-wait figures only from reads that reached the handler.
