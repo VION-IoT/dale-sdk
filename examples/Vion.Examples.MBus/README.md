@@ -16,10 +16,8 @@ There is no DevHost: an M-Bus binding needs a service provider that owns the M-B
 example runs on a gateway, and its tests replay a captured read through the SDK's frame checks and decoder
 with `Vion.Dale.Sdk.MBus.TestKit`.
 
-Until a release ships `Vion.Dale.Sdk.MBus`, the example compiles only against the working tree:
-
 ```bash
-dotnet test Vion.Examples.MBus.Test -p:DaleLocalSource=true
+dotnet test examples/Vion.Examples.MBus/Vion.Examples.MBus.Test
 ```
 
 ## Three things worth knowing
