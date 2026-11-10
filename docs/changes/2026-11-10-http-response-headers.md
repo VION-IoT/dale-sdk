@@ -1,6 +1,6 @@
 ---
 slug: http-response-headers
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: HTTP, TKIT          # area codes from docs/specs/_corpus.yml's `owns:`
 author: jonasbertsch
@@ -101,10 +101,15 @@ breaking is acceptable. The shape below is this session's, each a lane-2 (b):
    understood (recommended: the date it yields is the one the server meant, and nothing else moves);
    **(2)** read raw values off `HttpHeaders.ToString()`, which on .NET 10 renders unparsed values — an
    undocumented behaviour, and still canonical wherever a handler read the header first; **(3)** reach
-   .NET 6's `NonValidated` view by reflection from the `netstandard2.1` build. OUTCOME: _pending_.
+   .NET 6's `NonValidated` view by reflection from the `netstandard2.1` build. OUTCOME: accepted, (1) — the
+   operator, 2026-11-10 (amendment 1 to the brief). Stated in `http.md` beside `AC-HTTP-019.6` and `.7`;
+   (2) and (3) not taken. The per-request cost of D1's copy was raised and judged negligible at the
+   consumer's request rates; no measurement asked for.
 2. (b) D5 — resolving an HTTP-date against the response's `Date` rather than the gateway's clock.
+   OUTCOME: accepted as recorded — the coordinator, amendment 1.
 3. (b) D3 — the optional sixth parameter rather than a required one: the consumer's test double keeps
-   compiling, at the cost of a hand-built receipt carrying a status and no headers.
+   compiling, at the cost of a hand-built receipt carrying a status and no headers. OUTCOME: accepted as
+   recorded — the coordinator, amendment 1.
 
 ---
 
