@@ -208,6 +208,23 @@ namespace Vion.Dale.Sdk.MBus.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MBUS-007.1")]
+        [DataRow("84 80 80 40 FD", DisplayName = "the record's code cut short")]
+        [DataRow("84 80 80 40 FD 48 00", DisplayName = "the record's code with a byte more")]
+        public void MatchOnlyExactCode(string code)
+        {
+            // Arrange
+            // Telegram 1's voltage at subunit 4 is 84 80 80 40 FD 48; no record's code is either of these.
+            var readout = Em530Readout();
+
+            // Act
+            var record = readout.Find(MBusSelector.ByCode(code));
+
+            // Assert
+            Assert.IsNull(record);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-MBUS-007.2")]
         public void ReturnNoValueWhenNothingMatches()
         {

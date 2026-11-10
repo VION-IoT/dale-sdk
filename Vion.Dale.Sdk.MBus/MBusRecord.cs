@@ -57,6 +57,12 @@ namespace Vion.Dale.Sdk.MBus
         /// </summary>
         internal bool HasMeaningChangingExtension { get; }
 
+        /// <summary>
+        ///     The data and value information blocks together: what a selector by code names, and what makes one record
+        ///     shadow another.
+        /// </summary>
+        internal byte[] Code { get; }
+
         internal MBusRecord(MBusQuantity? quantity,
                             MBusFunction function,
                             long storage,
@@ -82,6 +88,9 @@ namespace Vion.Dale.Sdk.MBus
             Vib = Array.AsReadOnly(vib);
             Data = Array.AsReadOnly(data);
             HasMeaningChangingExtension = hasMeaningChangingExtension;
+            Code = new byte[dib.Length + vib.Length];
+            Buffer.BlockCopy(dib, 0, Code, 0, dib.Length);
+            Buffer.BlockCopy(vib, 0, Code, dib.Length, vib.Length);
         }
     }
 }

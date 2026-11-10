@@ -179,7 +179,7 @@ namespace Vion.Dale.Sdk.MBus
         {
             if (_code != null)
             {
-                return Concatenated(record).SequenceEqual(_code);
+                return ((ReadOnlySpan<byte>)record.Code).SequenceEqual(_code);
             }
 
             return record.Quantity == _quantity && !record.HasMeaningChangingExtension && record.Storage == _storage && record.Tariff == _tariff && record.Subunit == _subunit &&
@@ -188,12 +188,7 @@ namespace Vion.Dale.Sdk.MBus
 
         internal static MBusSelector CodeOf(MBusRecord record)
         {
-            return new MBusSelector(Concatenated(record).ToArray());
-        }
-
-        internal static IEnumerable<byte> Concatenated(MBusRecord record)
-        {
-            return record.Dib.Concat(record.Vib);
+            return new MBusSelector(record.Code);
         }
     }
 }

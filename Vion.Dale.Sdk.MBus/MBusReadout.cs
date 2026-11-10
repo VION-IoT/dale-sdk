@@ -19,6 +19,8 @@ namespace Vion.Dale.Sdk.MBus
     [PublicApi]
     public sealed class MBusReadout
     {
+        private readonly int[] _shadows;
+
         /// <summary>The header of the first telegram.</summary>
         public MBusHeader Header
         {
@@ -44,6 +46,23 @@ namespace Vion.Dale.Sdk.MBus
         {
             Telegrams = telegrams;
             Records = telegrams.SelectMany(telegram => telegram.Records).ToList().AsReadOnly();
+
+            // One pass finds every shadow: the first record with a given code wins, every later one points at it.
+            _shadows = new int[Records.Count];
+            var firstByCode = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var index = 0; index < Records.Count; index++)
+            {
+                var key = Convert.ToBase64String(Records[index].Code);
+                if (firstByCode.TryGetValue(key, out var first))
+                {
+                    _shadows[index] = first;
+                }
+                else
+                {
+                    firstByCode[key] = index;
+                    _shadows[index] = -1;
+                }
+            }
         }
 
         /// <summary>
@@ -261,16 +280,7 @@ namespace Vion.Dale.Sdk.MBus
         /// <summary>The index of the earliest record with the same data and value information bytes, or -1 when there is none.</summary>
         private int ShadowOf(int index)
         {
-            var code = MBusSelector.Concatenated(Records[index]).ToArray();
-            for (var earlier = 0; earlier < index; earlier++)
-            {
-                if (MBusSelector.Concatenated(Records[earlier]).SequenceEqual(code))
-                {
-                    return earlier;
-                }
-            }
-
-            return -1;
+            return _shadows[index];
         }
     }
 }
