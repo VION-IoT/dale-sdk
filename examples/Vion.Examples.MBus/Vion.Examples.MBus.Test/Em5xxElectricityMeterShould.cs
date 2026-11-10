@@ -13,14 +13,50 @@ namespace Vion.Examples.MBus.Test
     /// </summary>
     public class Em5xxElectricityMeterShould
     {
-        private readonly LogicBlockTestContext<Em5xxElectricityMeter> _context;
-
-        private readonly Em5xxElectricityMeter _sut;
-
         public Em5xxElectricityMeterShould()
         {
             _sut = LogicBlockTestHelper.Create<Em5xxElectricityMeter>();
             _context = _sut.InitializeForTest();
+        }
+
+        private readonly LogicBlockTestContext<Em5xxElectricityMeter> _context;
+
+        private readonly Em5xxElectricityMeter _sut;
+
+        [Fact]
+        public void EmptyValuesWhenReadFails()
+        {
+            // Arrange
+            _sut.Poll();
+            _sut.MBus.SimulateReadResponse(_context, Em530Capture.Telegrams);
+            _context.FlushPendingActions();
+            _sut.Poll();
+
+            // Act
+            _sut.MBus.SimulateReadError(_context, MBusOutcome.NoResponse);
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.Null(_sut.ImportEnergy);
+            Assert.Null(_sut.Frequency);
+            Assert.StartsWith("NoResponse", _sut.LastError);
+            Assert.Equal(MBusLinkState.Faulted, _sut.Link.State);
+        }
+
+        [Fact]
+        public void LeaveLaterTelegramsValuesEmptyWhenProviderReadsFirstOnly()
+        {
+            // Arrange
+            _sut.Poll();
+
+            // Act
+            _sut.MBus.SimulateReadResponse(_context, Em530Capture.Telegrams[0]);
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.Equal(0.0, _sut.ImportEnergy);
+            Assert.Null(_sut.Frequency);
+            Assert.Null(_sut.ImportT1);
         }
 
         [Fact]
@@ -42,42 +78,6 @@ namespace Vion.Examples.MBus.Test
             Assert.Equal(0.0, _sut.ImportT1);
             Assert.False(_sut.MeterError);
             Assert.Equal(MBusLinkState.Online, _sut.Link.State);
-        }
-
-        [Fact]
-        public void LeaveLaterTelegramsValuesEmptyWhenProviderReadsFirstOnly()
-        {
-            // Arrange
-            _sut.Poll();
-
-            // Act
-            _sut.MBus.SimulateReadResponse(_context, Em530Capture.Telegrams[0]);
-            _context.FlushPendingActions();
-
-            // Assert
-            Assert.Equal(0.0, _sut.ImportEnergy);
-            Assert.Null(_sut.Frequency);
-            Assert.Null(_sut.ImportT1);
-        }
-
-        [Fact]
-        public void EmptyValuesWhenReadFails()
-        {
-            // Arrange
-            _sut.Poll();
-            _sut.MBus.SimulateReadResponse(_context, Em530Capture.Telegrams);
-            _context.FlushPendingActions();
-            _sut.Poll();
-
-            // Act
-            _sut.MBus.SimulateReadError(_context, MBusOutcome.NoResponse);
-            _context.FlushPendingActions();
-
-            // Assert
-            Assert.Null(_sut.ImportEnergy);
-            Assert.Null(_sut.Frequency);
-            Assert.StartsWith("NoResponse", _sut.LastError);
-            Assert.Equal(MBusLinkState.Faulted, _sut.Link.State);
         }
 
         [Fact]

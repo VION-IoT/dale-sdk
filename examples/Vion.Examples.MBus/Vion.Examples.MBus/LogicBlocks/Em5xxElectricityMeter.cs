@@ -77,11 +77,6 @@ namespace Vion.Examples.MBus.LogicBlocks
         {
         }
 
-        protected override void Ready()
-        {
-            MBus.IsEnabled = true;
-        }
-
         [Timer(60)]
         public void Poll()
         {
@@ -102,6 +97,11 @@ namespace Vion.Examples.MBus.LogicBlocks
                           Link = MBus.Link;
                       },
                       OnError);
+        }
+
+        protected override void Ready()
+        {
+            MBus.IsEnabled = true;
         }
 
         private void OnError(Exception error, MBusReceipt receipt)
