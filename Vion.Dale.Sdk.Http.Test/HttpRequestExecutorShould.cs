@@ -529,7 +529,7 @@ namespace Vion.Dale.Sdk.Http.Test
         [DataRow(Overload.ResponseMessage, HttpStatusCode.BadGateway)]
         public async Task CarryHeadersOfJudgedResponse(Overload overload, HttpStatusCode statusCode)
         {
-            // Arrange — a refusal's response is disposed before its callback runs, so its content header is read off a copy
+            // Arrange — the 429 and 502 rows are refusals, whose response is disposed before their callback runs
             var sut = Executor(AnsweringWithHeaders(statusCode, ("x-amzn-RequestId", "req-1"), ("X-Probe", "a"), ("X-Probe", "b")));
             HttpReceipt? received = null;
 
