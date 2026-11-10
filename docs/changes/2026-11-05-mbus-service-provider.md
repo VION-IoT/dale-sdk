@@ -1,6 +1,6 @@
 ---
 slug: mbus-service-provider
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: MBUS, TKIT, EMIT
 author: Jonas Bertsch (drafted in a Claude session)
@@ -928,6 +928,8 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 
   Sibling sweep: every mention of `SelectorFor`, `Describe()` and "a selector that finds", in the same
   commit.
+- 2026-11-10: ratified by the operator on #281. Implementation runs on `feat/mbus-service-provider-2`,
+  because the doc's own branch is merged.
 
 ---
 

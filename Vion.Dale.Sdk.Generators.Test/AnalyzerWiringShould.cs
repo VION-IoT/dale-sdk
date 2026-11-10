@@ -50,11 +50,16 @@ namespace Vion.Dale.Sdk.Generators.Test
         /// <summary>The HTTP package, whose project name and declared published namespace are the same string.</summary>
         private const string HttpPackage = "Vion.Dale.Sdk.Http";
 
+        /// <summary>The M-Bus package, whose project name and declared published namespace are the same string.</summary>
+        private const string MBusPackage = "Vion.Dale.Sdk.MBus";
+
         private const string IoProbeProperty = "DaleAnalyzerWiringProbe";
 
         private const string HttpProbeProperty = "DaleHttpAnalyzerWiringProbe";
 
         private const string ModbusProbeProperty = "DaleModbusAnalyzerWiringProbe";
+
+        private const string MBusProbeProperty = "DaleMBusAnalyzerWiringProbe";
 
         private const string TestKitProbeProperty = "DaleTestKitAnalyzerWiringProbe";
 
@@ -111,11 +116,13 @@ namespace Vion.Dale.Sdk.Generators.Test
 
         private static readonly BuildSet HttpProbe = new(nameof(HttpProbe), HttpProbeProperty, null, [HttpPackage]);
 
+        private static readonly BuildSet MBusProbe = new(nameof(MBusProbe), MBusProbeProperty, null, [MBusPackage]);
+
         /// <summary>Every probed project with no probe property set: the build a consumer of the SDK gets.</summary>
         private static readonly BuildSet Ordinary = new(nameof(Ordinary),
                                                         null,
                                                         null,
-                                                        ProbedProjects.Concat(TestKitProbe.Projects).Concat(ModbusProbe.Projects).Append(HttpPackage).ToArray());
+                                                        ProbedProjects.Concat(TestKitProbe.Projects).Concat(ModbusProbe.Projects).Append(HttpPackage).Append(MBusPackage).ToArray());
 
         /// <summary>
         ///     The probe half of the builds <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> runs, stamped with a
@@ -140,7 +147,7 @@ namespace Vion.Dale.Sdk.Generators.Test
             // lands under here and is thrown away after the last test.
             _scratch = Path.Combine(Path.GetTempPath(), "dale-analyzer-wiring", Guid.NewGuid().ToString("N"));
 
-            foreach (var set in new[] { IoProbe, TestKitProbe, ModbusProbe, HttpProbe, Ordinary })
+            foreach (var set in new[] { IoProbe, TestKitProbe, ModbusProbe, HttpProbe, MBusProbe, Ordinary })
             {
                 Results[set.Name] = Build(set);
             }
@@ -238,6 +245,29 @@ namespace Vion.Dale.Sdk.Generators.Test
         {
             // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time
             AssertOrdinaryBuildOf(HttpPackage, "DALE014");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-009.1")]
+        public void RunDaleAnalyzersOverMBusPackage()
+        {
+            // Arrange
+            // Like the HTTP package, DALE014 is a warning, so this build SUCCEEDS and the proof is the diagnostic
+            // it emitted in the package's own declared namespace.
+
+            // Act
+            var build = Results[MBusProbe.Name];
+
+            // Assert
+            AssertDale014InOwnNamespace(build, MBusPackage, MBusPackage);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-009.1")]
+        public void KeepMBusProbeOutOfOrdinaryBuild()
+        {
+            // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time
+            AssertOrdinaryBuildOf(MBusPackage, "DALE014");
         }
 
         [TestMethod]

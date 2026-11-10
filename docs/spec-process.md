@@ -48,6 +48,7 @@ change that adds its code to `owns:` and its row here.
 | [`io.md`](specs/io.md) | `IO` | the DigitalIo and AnalogIo contracts |
 | [`testkit.md`](specs/testkit.md) | `TKIT` | the six test kits' public surface |
 | [`http.md`](specs/http.md) | `HTTP` | the Http contract |
+| [`mbus.md`](specs/mbus.md) | `MBUS` | the MBus contract and the captured telegrams its decoder is tested against |
 
 Exempt: examples, templates, the `Vion.Dale.DevHost.Web` SPA's internals, the SmokeHost fixture, and
 the first-party libraries under `libraries/` — consumers of the SDK shipping from this repo, not SDK
