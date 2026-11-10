@@ -930,6 +930,37 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
   commit.
 - 2026-11-10: ratified by the operator on #281. Implementation runs on `feat/mbus-service-provider-2`,
   because the doc's own branch is merged.
+- 2026-11-10, `T-002`: the decoder's table and test vectors, decided in implementation:
+  - **The FBh entries are the four codes the targets send, and only those:** 02h reactive energy, 17h
+    reactive power, 2Eh frequency and 37h apparent power. EN 13757-3:2018 was not available at the desk.
+    libmbus (`mbus-protocol.c`, master) labels all four "Reserved", as `Tc2_MBus` does, and wmbusmeters'
+    `dvparser.h` lists none of them. Their meaning and unit are taken from Carlo Gavazzi's EM530/EM540
+    frame table (`vendor-target-meters.md` § 6.4), and each is pinned to an EM530 bench value: 50.0 Hz,
+    and kvar, kVA and kvarh scaled by their correction extensions. A neighbouring code in the same family
+    (FBh 03h, 14h–16h, 2Ch–2Dh, 2Fh, 34h–36h) decodes with no quantity rather than by an unverified rule.
+    The FDh voltage, current and dimensionless entries are whole families, from the M-Bus documentation's
+    FDh table. **The reviewer should check these four against the standard's text.**
+  - **`MBusQuantity` holds what the captures carry:** energy, reactive energy, volume, power, reactive and
+    apparent power, volume flow, flow and return temperature, voltage, current, frequency, operating time,
+    dimensionless and date/time. It adds temperature difference, because the doc's unit list names K for
+    it. Every primary VIF whose quantity is not in the enum (mass, on time, pressure, …) decodes with no
+    quantity. Each member's XML doc names the unit `Number` is reported in, so the record needs no unit
+    member of its own.
+  - **VIFE E111 1101 (×10³) is a multiplicative correction**, beside E111 0nnn: the Supercal 531's
+    datasheet codes energy as `85 7D` (0.1 MWh). The additive correction (E111 10nn) is an offset in the
+    VIF's own unit, applied after the multiplicative one; no target sends it.
+  - **Values:** a record with no quantity carries its raw number, unscaled. Date/time types F, G and I
+    follow libmbus's year rules. Type J (a time of day) has no date, so it decodes with no value. A
+    manufacturer-specific VIF's extensions are not read as record error codes.
+  - **Vectors:** the EM530's five telegrams were rebuilt from `logs/2026-11-10-all.txt` with
+    `tools/analyse_bench_log.py`, and match the brief's hex byte for byte, checksums included. The
+    Supercal 531 and TMP-A vectors are libmbus's test frames (BSD-3, notice committed beside them). The
+    EM111 vector is **not** copied: it comes from a forum post (`vendor-target-meters.md` § 6.8, W3), not
+    from libmbus, and its licence is unknown. The EM530 covers the same record types.
+  - `MBusTelegram.ToString()` renders the frame as hex that `Parse` reads back, so "the telegram as hex"
+    needs no member of its own.
+  - `AC-MBUS-006.7` (the header comes from the first telegram) is tested in `T-003`, which introduces the
+    readout.
 
 ---
 
