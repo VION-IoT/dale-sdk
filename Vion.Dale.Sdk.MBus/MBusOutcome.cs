@@ -14,7 +14,7 @@ namespace Vion.Dale.Sdk.MBus
     ///     </para>
     ///     <para>
     ///         A read refused because the binding's previous read is still pending has no outcome: it invokes neither
-    ///         callback and is counted in the link summary's <c>BusyCount</c>.
+    ///         callback and is counted in <see cref="MBusLinkSummary.BusyCount" />.
     ///     </para>
     /// </remarks>
     [PublicApi]

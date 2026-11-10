@@ -354,6 +354,45 @@ namespace Vion.Dale.Sdk.MBus.Test
             Assert.HasCount(1, SentRequests());
             Assert.AreEqual(0, receiptsOfBusyRead);
             Assert.HasCount(1, _readouts);
+            Assert.AreEqual(1L, _sut.Link.BusyCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-008.1")]
+        public void AccumulateEveryCompletedReadIntoLink()
+        {
+            // Arrange
+            Read();
+            Respond(SentRequests().Single(), MBusOutcome.Success, MBusVectors.Em530);
+            Read();
+            Respond(SentRequests()[1], MBusOutcome.Success, [MBusVectors.Em530Telegram1.Replace("D1 16", "D2 16")]);
+            Read(primaryAddress: 251);
+
+            // Act
+            var link = _sut.Link;
+
+            // Assert
+            Assert.AreEqual(1L, link.SuccessCount);
+            Assert.AreEqual(1L, link.ProtocolErrorCount);
+            Assert.AreEqual(1L, link.InvalidCount);
+            Assert.AreEqual(MBusLinkState.Faulted, link.State);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-005.8")]
+        public void LeaveLinkStateWhenProviderAnswersCodeOfNewerVersion()
+        {
+            // Arrange
+            Read();
+            Respond(SentRequests().Single(), MBusOutcome.Success, MBusVectors.Em530);
+            Read();
+
+            // Act
+            Respond(SentRequests()[1], MBusOutcome.Invalid);
+
+            // Assert
+            Assert.AreEqual(MBusLinkState.Online, _sut.Link.State);
+            Assert.AreEqual(1L, _sut.Link.InvalidCount);
         }
 
         [TestMethod]

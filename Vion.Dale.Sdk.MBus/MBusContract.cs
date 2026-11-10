@@ -22,6 +22,8 @@ namespace Vion.Dale.Sdk.MBus
 
         private static readonly TimeSpan MaxTimeout = TimeSpan.FromMilliseconds(int.MaxValue);
 
+        private readonly MBusLinkAccumulator _linkAccumulator;
+
         private readonly ILogger<MBusContract> _logger;
 
         private readonly HashSet<MBusSelector> _loggedMisses = [];
@@ -43,6 +45,7 @@ namespace Vion.Dale.Sdk.MBus
         public MBusContract(string identifier, IActorContext actorContext, TimeProvider timeProvider, ILogger<MBusContract> logger) : base(identifier, actorContext)
         {
             _timeProvider = timeProvider;
+            _linkAccumulator = new MBusLinkAccumulator(timeProvider);
             _logger = logger;
         }
 
@@ -94,6 +97,12 @@ namespace Vion.Dale.Sdk.MBus
         } = TimeSpan.FromSeconds(30);
 
         /// <inheritdoc />
+        public MBusLinkSummary Link
+        {
+            get => _linkAccumulator.Snapshot();
+        }
+
+        /// <inheritdoc />
         public void Read(int primaryAddress,
                          int maxTelegrams,
                          IActorDispatcher dispatcher,
@@ -110,6 +119,7 @@ namespace Vion.Dale.Sdk.MBus
             // Checked before anything else, the arguments included: a busy read does nothing at all.
             if (_pendingCorrelationId != null)
             {
+                _linkAccumulator.RecordBusy();
                 LogReadBusy(LogicBlockContractId, primaryAddress);
                 return;
             }
@@ -215,6 +225,7 @@ namespace Vion.Dale.Sdk.MBus
                 return;
             }
 
+            _linkAccumulator.Record(receipt);
             readout.OnMiss = selector => LogMissOnce(selector, readout, primaryAddress);
             LogReadSucceeded(LogicBlockContractId, primaryAddress, readout.Telegrams.Count, readout.IsComplete);
             dispatcher.InvokeSynchronized(() => successCallback(readout, receipt));
@@ -229,6 +240,7 @@ namespace Vion.Dale.Sdk.MBus
 
         private void Fail(MBusException exception, MBusReceipt receipt, int primaryAddress, IActorDispatcher dispatcher, Action<Exception, MBusReceipt>? errorCallback)
         {
+            _linkAccumulator.Record(receipt);
             LogReadFailed(LogicBlockContractId, primaryAddress, receipt.Outcome, exception);
             if (errorCallback != null)
             {

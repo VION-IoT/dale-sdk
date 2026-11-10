@@ -989,6 +989,18 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     `ProtocolError` its message ends with the telegrams as hex, so the Error log line carries the capture.
   - `BusyCount` and `Link` land in `T-006` with the accumulator. `AC-MBUS-003.1`'s count and
     `AC-MBUS-005.8`'s untouched link state are asserted there.
+- 2026-11-10, `T-006`: the link summary, decided in implementation:
+  - **`AC-MBUS-008.3` is `MODIFIED` to "a lifetime counter for every outcome"**, success included. The
+    ADDED text, "every outcome but success", contradicted § The link summary ("a counter per outcome, plus
+    `BusyCount`") and `D8`'s field-for-field mirror, which has `SuccessCount`.
+  - **`QueueDepth` is not mirrored.** It is always zero on RTU, which has no local queue, and M-Bus has none
+    either.
+  - **Which reads feed which figure.** A round trip comes from an outcome the provider answered:
+    `Success`, `NoResponse`, `Garbled`, `LineUnavailable`, `ProtocolError`. A `Timeout` was published but
+    never answered, so it does not feed one. Queued wait comes from every outcome but `Invalid`, as
+    Modbus's does. The receipt cannot tell an `Invalid` that reached the provider (`NotSupported`) from one
+    refused in the block, so `Invalid` feeds neither figure. `LastContactAt` moves on `Success` only.
+  - `MBusLinkAccumulator` is `internal`: unlike Modbus's, no other assembly records into it.
 
 ---
 
@@ -1038,6 +1050,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-008.1 -> docs/specs/mbus.md : THE SYSTEM SHALL accumulate every completed read of one contract into a link summary readable at any time without blocking the read updating it.
 - ADDED AC-MBUS-008.2 -> docs/specs/mbus.md : THE SYSTEM SHALL set the link state to `Online` on a success, to `Faulted` on no response, a garbled answer, an unavailable line, a timeout or a protocol error, and SHALL leave it unchanged on every other outcome.
 - ADDED AC-MBUS-008.3 -> docs/specs/mbus.md : THE SYSTEM SHALL keep a lifetime counter for every outcome but success and for busy reads, SHALL feed round-trip figures only from reads that were published and answered, and SHALL feed queued-wait figures only from reads that reached the handler.
+- MODIFIED AC-MBUS-008.3 -> docs/specs/mbus.md : THE SYSTEM SHALL keep a lifetime counter for every outcome and for busy reads, SHALL feed round-trip figures only from reads that were published and answered, and SHALL feed queued-wait figures only from reads that reached the handler.
 - ADDED AC-MBUS-008.4 -> docs/specs/mbus.md : THE SYSTEM SHALL report, for round trip and for queued wait separately, the mean, the maximum and the number of reads over at least the last 15 minutes and less than the last 16 on the contract's clock, or over its whole life where that is shorter.
 - ADDED AC-MBUS-009.1 -> docs/specs/mbus.md : THE SYSTEM SHALL classify every public type the M-Bus packages ship as published surface or internal plumbing, and SHALL judge their declarations with the Dale analyzers.
 - ADDED AC-TKIT-016.1 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test answer a pending M-Bus read with telegrams given as hexadecimal text, delivering them through the production callback chain, frame checks and decoder and stamping the receipt from the virtual clock.

@@ -31,6 +31,8 @@
         <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Rtu.TestKit\Vion.Dale.Sdk.Modbus.Rtu.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Tcp.TestKit\Vion.Dale.Sdk.Modbus.Tcp.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Http.TestKit\Vion.Dale.Sdk.Http.TestKit.csproj"/>
+        <!-- For DiagnosticsSummaryDefaultsShould, which reads MBusLinkSummary's declared default interval. -->
+        <ProjectReference Include="..\Vion.Dale.Sdk.MBus\Vion.Dale.Sdk.MBus.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

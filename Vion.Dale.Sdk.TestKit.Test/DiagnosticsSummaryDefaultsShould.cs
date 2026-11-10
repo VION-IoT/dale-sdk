@@ -3,6 +3,7 @@ using System.Reflection;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Http;
 using Vion.Dale.Sdk.Http.Server;
+using Vion.Dale.Sdk.MBus;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
 
@@ -20,6 +21,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-EMIT-002.8")]
         [DataRow(typeof(ModbusLinkSummary))]
         [DataRow(typeof(ModbusTcpConnectionSummary))]
+        [DataRow(typeof(MBusLinkSummary))]
         [DataRow(typeof(HttpClientSummary))]
         [DataRow(typeof(HttpServerSummary))]
         public void DeclareThirtySecondDefaultInterval(Type summary)

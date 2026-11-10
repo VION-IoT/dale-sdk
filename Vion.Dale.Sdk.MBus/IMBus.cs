@@ -47,6 +47,9 @@ namespace Vion.Dale.Sdk.MBus
         /// <exception cref="ArgumentOutOfRangeException">The value is zero, negative, or longer than <c>int.MaxValue</c> milliseconds.</exception>
         TimeSpan? MaxQueuedAge { get; set; }
 
+        /// <summary>The link to the meter: its state, counts per outcome and of busy reads, and recent latencies.</summary>
+        MBusLinkSummary Link { get; }
+
         /// <summary>
         ///     Reads every telegram of the meter at <paramref name="primaryAddress" />, up to
         ///     <paramref name="maxTelegrams" />, and returns at once; the readout or the failure arrives later through
