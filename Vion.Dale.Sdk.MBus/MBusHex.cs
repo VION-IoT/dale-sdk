@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 
 namespace Vion.Dale.Sdk.MBus
 {
@@ -52,18 +52,7 @@ namespace Vion.Dale.Sdk.MBus
 
         public static string Format(IReadOnlyList<byte> bytes)
         {
-            var builder = new StringBuilder(bytes.Count * 3);
-            for (var index = 0; index < bytes.Count; index++)
-            {
-                if (index > 0)
-                {
-                    builder.Append(' ');
-                }
-
-                builder.Append(bytes[index].ToString("X2"));
-            }
-
-            return builder.ToString();
+            return BitConverter.ToString(bytes as byte[] ?? bytes.ToArray()).Replace('-', ' ');
         }
 
         private static int NibbleOf(char character)
