@@ -45,6 +45,8 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         private readonly List<MBusReceipt> _receipts = [];
 
+        private readonly List<(Action Action, TimeSpan Delay)> _scheduled = [];
+
         private readonly FakeTimeProvider _timeProvider = new(Now);
 
         private MBusContract _sut = null!;
@@ -53,6 +55,8 @@ namespace Vion.Dale.Sdk.MBus.Test
         public void Initialize()
         {
             _dispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Callback<Action>(_pendingActions.Add);
+            _dispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronizedAfter(It.IsAny<Action>(), It.IsAny<TimeSpan>()))
+                           .Callback<Action, TimeSpan>((action, delay) => _scheduled.Add((action, delay)));
             _sut = new MBusContract(ContractIdentifier, _actorContextMock.Object, _timeProvider, new Mock<ILogger<MBusContract>>().Object);
             _sut.SetLogicBlockContractId(new LogicBlockContractId(new LogicBlockId("lb0"), ContractIdentifier));
             _sut.SetLinkedContractHandler(_handlerRefMock.Object);
@@ -458,6 +462,80 @@ namespace Vion.Dale.Sdk.MBus.Test
 
             // Assert
             Assert.HasCount(1, SentRequests());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-004.7")]
+        public void AbandonReadWhoseAnswerNeverArrives()
+        {
+            // Arrange
+            // The answer is lost on the way back, as it is for a contract the link map never named.
+            Read(operationTimeout: TimeSpan.FromSeconds(60));
+            var backstop = _scheduled.Single();
+
+            // Act
+            backstop.Action();
+            Flush();
+            Read();
+
+            // Assert
+            Assert.AreEqual(TimeSpan.FromSeconds(60 + 30 + 10), backstop.Delay);
+            Assert.AreEqual(MBusOutcome.Timeout, _receipts.Single().Outcome);
+            Assert.AreEqual(MBusOutcome.Timeout, _errors.Single().Outcome);
+            Assert.HasCount(2, SentRequests());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-004.7")]
+        public void IgnoreAnswerArrivingAfterReadAbandoned()
+        {
+            // Arrange
+            Read();
+            var first = SentRequests().Single();
+            _scheduled.Single().Action();
+            Flush();
+
+            // Act
+            Respond(first, MBusOutcome.Success, MBusVectors.Em530);
+            Flush();
+
+            // Assert
+            Assert.HasCount(1, _receipts);
+            Assert.IsEmpty(_readouts);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-004.7")]
+        public void LeaveAnsweredReadToItsAnswer()
+        {
+            // Arrange
+            Read();
+            Respond(SentRequests().Single(), MBusOutcome.Success, MBusVectors.Em530);
+            Flush();
+
+            // Act
+            _scheduled.Single().Action();
+            Flush();
+
+            // Assert
+            Assert.AreEqual(MBusOutcome.Success, _receipts.Single().Outcome);
+            Assert.AreEqual(0L, _sut.Link.TimeoutCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-008.3")]
+        public void FeedNoFigureFromAbandonedRead()
+        {
+            // Arrange
+            Read();
+
+            // Act
+            _scheduled.Single().Action();
+
+            // Assert
+            Assert.AreEqual(1L, _sut.Link.TimeoutCount);
+            Assert.AreEqual(0L, _sut.Link.RecentQueuedWaitCount);
+            Assert.AreEqual(0L, _sut.Link.RecentRoundTripCount);
         }
 
         private void Read(int primaryAddress = PrimaryAddress, int maxTelegrams = 5, TimeSpan? operationTimeout = null)

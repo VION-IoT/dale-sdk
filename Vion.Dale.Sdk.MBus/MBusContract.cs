@@ -22,6 +22,8 @@ namespace Vion.Dale.Sdk.MBus
 
         private static readonly TimeSpan MaxTimeout = TimeSpan.FromMilliseconds(int.MaxValue);
 
+        private static readonly TimeSpan BackstopMargin = TimeSpan.FromSeconds(10);
+
         private readonly MBusLinkAccumulator _linkAccumulator;
 
         private readonly HashSet<MBusSelector> _loggedMisses = [];
@@ -156,21 +158,19 @@ namespace Vion.Dale.Sdk.MBus
             }
 
             var correlationId = Guid.NewGuid();
+            var read = new PendingRead(correlationId,
+                                       primaryAddress,
+                                       maxTelegrams,
+                                       dispatcher,
+                                       successCallback,
+                                       errorCallback);
             var request = new ReadMBusRequest((byte)primaryAddress,
                                               maxTelegrams,
                                               _timeProvider.GetUtcNow().UtcDateTime,
                                               timeout,
                                               MaxQueuedAge,
                                               correlationId,
-                                              (telegrams, exception, receipt) => Complete(correlationId,
-                                                                                          primaryAddress,
-                                                                                          maxTelegrams,
-                                                                                          telegrams,
-                                                                                          exception,
-                                                                                          receipt,
-                                                                                          dispatcher,
-                                                                                          successCallback,
-                                                                                          errorCallback));
+                                              (telegrams, exception, receipt) => Complete(read, telegrams, exception, receipt));
             PendingCorrelationId = correlationId;
             try
             {
@@ -181,7 +181,18 @@ namespace Vion.Dale.Sdk.MBus
             {
                 PendingCorrelationId = null;
                 Refuse(new MBusException(MBusOutcome.Invalid, exception.Message), primaryAddress, dispatcher, errorCallback);
+                return;
             }
+
+            /*
+             * The handler answers every read it receives, but an answer can still be lost: a contract the link map
+             * never named has no actor the handler can reach, and an unbound contract's send goes nowhere. Without
+             * this backstop such a read would hold the slot for good, and every later read would be dropped as busy.
+             * It fires only after the handler's own timeout has had its chance: the hop's limit, the timeout, and
+             * the margin of the handler's sweep.
+             */
+            var backstop = timeout + (MaxQueuedAge ?? TimeSpan.Zero) + BackstopMargin;
+            dispatcher.InvokeSynchronizedAfter(() => Abandon(read, timeout), backstop > MaxTimeout ? MaxTimeout : backstop);
         }
 
         /// <inheritdoc />
@@ -193,46 +204,81 @@ namespace Vion.Dale.Sdk.MBus
             }
         }
 
-        private void Complete(Guid correlationId,
-                              int primaryAddress,
-                              int maxTelegrams,
-                              byte[][]? telegrams,
-                              MBusException? exception,
-                              MBusReceipt receipt,
-                              IActorDispatcher dispatcher,
-                              Action<MBusReadout, MBusReceipt> successCallback,
-                              Action<Exception, MBusReceipt>? errorCallback)
+        private void Complete(PendingRead read, byte[][]? telegrams, MBusException? exception, MBusReceipt receipt)
         {
-            // Only the read holding the slot frees it.
-            if (PendingCorrelationId == correlationId)
+            // A read completes once: an answer arriving after the backstop gave up on it is ignored.
+            if (!TryFinish(read))
             {
-                PendingCorrelationId = null;
+                LogLateAnswerIgnored(LogicBlockContractId, read.CorrelationId);
+                return;
             }
 
             if (exception != null)
             {
-                Fail(exception, receipt, primaryAddress, dispatcher, errorCallback);
+                Fail(exception, receipt, read.PrimaryAddress, read.Dispatcher, read.ErrorCallback);
                 return;
             }
 
             MBusReadout readout;
             try
             {
-                readout = MBusReadout.Create(telegrams ?? [], maxTelegrams, primaryAddress);
+                readout = MBusReadout.Create(telegrams ?? [], read.MaxTelegrams, read.PrimaryAddress);
             }
             catch (MBusDecodeException decodeException)
             {
                 // The provider answered Ok, but the telegrams are not this meter's valid answer: the handler's Success
                 // is corrected before it reaches the logic block.
                 var protocolError = new MBusException(MBusOutcome.ProtocolError, decodeException.Message, "Ok", telegrams);
-                Fail(protocolError, receipt with { Outcome = MBusOutcome.ProtocolError }, primaryAddress, dispatcher, errorCallback);
+                Fail(protocolError, receipt with { Outcome = MBusOutcome.ProtocolError }, read.PrimaryAddress, read.Dispatcher, read.ErrorCallback);
                 return;
             }
 
             _linkAccumulator.Record(receipt);
-            readout.OnMiss = selector => LogMissOnce(selector, readout, primaryAddress);
-            LogReadSucceeded(LogicBlockContractId, primaryAddress, readout.Telegrams.Count, readout.IsComplete);
-            dispatcher.InvokeSynchronized(() => successCallback(readout, receipt));
+            readout.OnMiss = selector => LogMissOnce(selector, readout, read.PrimaryAddress);
+            LogReadSucceeded(LogicBlockContractId, read.PrimaryAddress, readout.Telegrams.Count, readout.IsComplete);
+            read.Dispatcher.InvokeSynchronized(() => read.SuccessCallback(readout, receipt));
+        }
+
+        private void Abandon(PendingRead read, TimeSpan timeout)
+        {
+            if (!TryFinish(read))
+            {
+                return;
+            }
+
+            var exception = new MBusException(MBusOutcome.Timeout,
+                                              string.Format(CultureInfo.InvariantCulture,
+                                                            "No answer to the read reached the contract within its operation timeout of {0:0.###} s and the time " +
+                                                            "it may take to reach the shared handler, so the read was abandoned.",
+                                                            timeout.TotalSeconds));
+            var receipt = new MBusReceipt(_timeProvider.GetUtcNow().UtcDateTime, _timeProvider.GetTimestamp(), TimeSpan.Zero, TimeSpan.Zero, MBusOutcome.Timeout);
+
+            // Whether the read ever reached the handler is unknown, so its zero latencies feed no figure.
+            Fail(exception,
+                 receipt,
+                 read.PrimaryAddress,
+                 read.Dispatcher,
+                 read.ErrorCallback,
+                 false);
+        }
+
+        /// <summary>Marks the read finished and frees the slot it holds; <c>false</c> when it was already finished.</summary>
+        private bool TryFinish(PendingRead read)
+        {
+            if (read.Finished)
+            {
+                return false;
+            }
+
+            read.Finished = true;
+
+            // Only the read holding the slot frees it.
+            if (PendingCorrelationId == read.CorrelationId)
+            {
+                PendingCorrelationId = null;
+            }
+
+            return true;
         }
 
         /// <summary>Completes a read that never left the block, through the path a response takes.</summary>
@@ -242,9 +288,14 @@ namespace Vion.Dale.Sdk.MBus
             Fail(exception, receipt, primaryAddress, dispatcher, errorCallback);
         }
 
-        private void Fail(MBusException exception, MBusReceipt receipt, int primaryAddress, IActorDispatcher dispatcher, Action<Exception, MBusReceipt>? errorCallback)
+        private void Fail(MBusException exception,
+                          MBusReceipt receipt,
+                          int primaryAddress,
+                          IActorDispatcher dispatcher,
+                          Action<Exception, MBusReceipt>? errorCallback,
+                          bool feedsFigures = true)
         {
-            _linkAccumulator.Record(receipt);
+            _linkAccumulator.Record(receipt, feedsFigures);
             LogReadFailed(LogicBlockContractId, primaryAddress, receipt.Outcome, exception);
             if (errorCallback != null)
             {
@@ -301,5 +352,42 @@ namespace Vion.Dale.Sdk.MBus
                        Message = "A selector found no record in a complete readout; its value stays empty until the meter sends it " +
                                  "(LogicBlockContractId={LogicBlockContractId}, Selector={Selector}, Manufacturer={Manufacturer}, Identification={Identification}, PrimaryAddress={PrimaryAddress})")]
         private partial void LogSelectorMissed(LogicBlockContractId logicBlockContractId, string selector, string manufacturer, string identification, int primaryAddress);
+
+        [LoggerMessage(Level = LogLevel.Debug,
+                       Message = "Answer ignored: the read was already abandoned (LogicBlockContractId={LogicBlockContractId}, CorrelationId={CorrelationId})")]
+        private partial void LogLateAnswerIgnored(LogicBlockContractId logicBlockContractId, Guid correlationId);
+
+        /// <summary>One read's completion state, captured by its callback and its backstop.</summary>
+        private sealed class PendingRead
+        {
+            public Guid CorrelationId { get; }
+
+            public int PrimaryAddress { get; }
+
+            public int MaxTelegrams { get; }
+
+            public IActorDispatcher Dispatcher { get; }
+
+            public Action<MBusReadout, MBusReceipt> SuccessCallback { get; }
+
+            public Action<Exception, MBusReceipt>? ErrorCallback { get; }
+
+            public bool Finished { get; set; }
+
+            public PendingRead(Guid correlationId,
+                               int primaryAddress,
+                               int maxTelegrams,
+                               IActorDispatcher dispatcher,
+                               Action<MBusReadout, MBusReceipt> successCallback,
+                               Action<Exception, MBusReceipt>? errorCallback)
+            {
+                CorrelationId = correlationId;
+                PrimaryAddress = primaryAddress;
+                MaxTelegrams = maxTelegrams;
+                Dispatcher = dispatcher;
+                SuccessCallback = successCallback;
+                ErrorCallback = errorCallback;
+            }
+        }
     }
 }

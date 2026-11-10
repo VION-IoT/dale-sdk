@@ -186,6 +186,7 @@ namespace Vion.Dale.Sdk.MBus.Test
         [DataRow("""{"errorMessage":null}""", DisplayName = "no response code")]
         [DataRow("""{"responseCode":"Ok","telegrams":["not base64!"]}""", DisplayName = "telegram not base64")]
         [DataRow("not json", DisplayName = "not JSON")]
+        [DataRow("""{"responseCode":"Ok","telegrams":[null]}""", DisplayName = "telegram null")]
         public async Task CompleteUnreadableAnswerAsProtocolError(string document)
         {
             // Arrange

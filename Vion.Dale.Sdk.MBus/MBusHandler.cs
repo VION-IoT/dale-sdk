@@ -139,6 +139,10 @@ namespace Vion.Dale.Sdk.MBus
                 if (responseCode == "Ok")
                 {
                     telegrams = root.Deserialize(MBusJsonContext.Default.GetMBusResponsePayload)!.Telegrams ?? [];
+                    if (Array.IndexOf(telegrams, null) >= 0)
+                    {
+                        throw new JsonException("The answer carries a telegram that is null.");
+                    }
                 }
             }
             catch (Exception exception)

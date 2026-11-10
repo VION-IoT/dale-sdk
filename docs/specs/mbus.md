@@ -78,6 +78,10 @@ one read per interval never meets it: one read returns the whole meter.
   within about a second.
 - `AC-MBUS-004.6` (Ubiquitous): THE SYSTEM SHALL publish each read with a deadline of the moment the
   handler publishes it plus the read's operation timeout.
+- `AC-MBUS-004.7` (Event-driven): WHEN no answer to a read has reached its contract by its operation
+  timeout, plus its maximum queued age where it has one, plus ten seconds THE SYSTEM SHALL complete the
+  read through its error callback with a `Timeout` receipt, SHALL accept the contract's next read, and
+  SHALL ignore an answer to it that arrives later.
 
 Because the timeout starts at the publish, it covers the read's wait in the provider's line queue behind
 other meters, which is why its default is minutes rather than seconds.

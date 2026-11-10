@@ -102,8 +102,13 @@ namespace Vion.Dale.Sdk.MBus
         ///     The long-frame checks of EN 13757-2 — start bytes, the repeated length, checksum and stop byte — and the
         ///     one control information this decoder reads, a variable data response with its long header.
         /// </summary>
-        private static void Check(byte[] frame)
+        private static void Check(byte[]? frame)
         {
+            if (frame == null)
+            {
+                throw new MBusDecodeException("A telegram is missing.");
+            }
+
             if (frame.Length < 6 || frame[0] != LongStart || frame[3] != LongStart)
             {
                 throw new MBusDecodeException("The frame does not start with the long-frame start bytes 68h L L 68h.");

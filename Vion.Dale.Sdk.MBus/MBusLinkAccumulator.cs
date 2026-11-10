@@ -54,7 +54,12 @@ namespace Vion.Dale.Sdk.MBus
         }
 
         /// <summary>Records one completed read, with its outcome as the logic block receives it.</summary>
-        public void Record(MBusReceipt receipt)
+        /// <param name="receipt">The read's receipt.</param>
+        /// <param name="feedsFigures">
+        ///     <c>false</c> for a read whose latencies are unknown, which counts its outcome and moves the state but
+        ///     feeds neither the round-trip nor the queued-wait figures.
+        /// </param>
+        public void Record(MBusReceipt receipt, bool feedsFigures = true)
         {
             lock (_gate)
             {
@@ -78,6 +83,11 @@ namespace Vion.Dale.Sdk.MBus
                 {
                     _lastFailureAt = receipt.ReceivedAt;
                     _lastFailureOutcome = receipt.Outcome;
+                }
+
+                if (!feedsFigures)
+                {
+                    return;
                 }
 
                 // The clock is read inside the lock so that a slot is never reset to an older minute by a writer that

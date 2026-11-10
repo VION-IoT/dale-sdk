@@ -1041,6 +1041,22 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     example's own test data so the example reads as consumer code. The debug client keeps its own
     quantity-to-unit symbols, from `MBusQuantity`'s documented reported units. Its primary address
     defaults to 0.
+- 2026-11-10, after the archive: the branch review found two blockers, both fixed in one commit with
+  their criterion, delta line and page edit:
+  - **A read whose answer is lost held the slot for good.** A contract the link map never named has no
+    actor the handler can answer, and an unbound contract's send goes nowhere. Under `D3` every later
+    read was then dropped as busy, with no error.
+
+    Each read now carries a backstop on its own dispatcher. After the operation timeout, plus the
+    maximum queued age where there is one, plus ten seconds, the read completes as `Timeout` and frees
+    the slot. Each read completes exactly once, so a later answer is ignored. The abandoned read counts
+    as a timeout but feeds no latency figure, since whether it reached the handler is unknown.
+
+    New criterion `AC-MBUS-004.7`. The handler's drop is the RTU copy (`D12`) and stays.
+  - **An `Ok` answer carrying a `null` telegram escaped both callbacks.** The handler now reads it as an
+    unreadable answer, a `ProtocolError`. A null frame is also a decode failure, as defence in depth.
+
+  Sibling sweep: every path that completes a read now goes through the one exactly-once guard.
 
 ---
 
@@ -1065,6 +1081,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-004.4 -> docs/specs/mbus.md : WHEN a read has waited strictly longer than the maximum queued age when the handler takes it THE SYSTEM SHALL complete it through its error callback with an `Expired` receipt, without publishing it.
 - ADDED AC-MBUS-004.5 -> docs/specs/mbus.md : WHEN no response to a published read has arrived when its operation timeout has passed THE SYSTEM SHALL complete it through its error callback with a `Timeout` receipt within about a second.
 - ADDED AC-MBUS-004.6 -> docs/specs/mbus.md : THE SYSTEM SHALL publish each read with a deadline of the moment the handler publishes it plus the read's operation timeout.
+- ADDED AC-MBUS-004.7 -> docs/specs/mbus.md : WHEN no answer to a read has reached its contract by its operation timeout, plus its maximum queued age where it has one, plus ten seconds THE SYSTEM SHALL complete the read through its error callback with a `Timeout` receipt, SHALL accept the contract's next read, and SHALL ignore an answer to it that arrives later.
 - ADDED AC-MBUS-005.1 -> docs/specs/mbus.md : THE SYSTEM SHALL publish a read as a `GetMBusPayload` JSON document carrying the primary address and the telegram count, labelled with the record's name as its schema and with the JSON content type.
 - ADDED AC-MBUS-005.2 -> docs/specs/mbus.md : WHEN a response with the code `Ok` arrives and every telegram it carries passes the frame checks THE SYSTEM SHALL decode the telegrams in order and SHALL deliver the readout to the success callback.
 - ADDED AC-MBUS-005.3 -> docs/specs/mbus.md : WHEN a response with the code `NoResponse`, `Garbled`, `LineUnavailable` or `NotSupported` arrives THE SYSTEM SHALL complete the read through its error callback with the outcome `NoResponse`, `Garbled`, `LineUnavailable` or `Invalid` respectively, and SHALL carry the provider's code on the exception.
