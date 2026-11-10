@@ -24,7 +24,7 @@
         <ProjectReference Include="..\Vion.Dale.Sdk.AnalogIo\Vion.Dale.Sdk.AnalogIo.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo\Vion.Dale.Sdk.DigitalIo.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
-        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.31"/>
     </ItemGroup>
 
 </Project>

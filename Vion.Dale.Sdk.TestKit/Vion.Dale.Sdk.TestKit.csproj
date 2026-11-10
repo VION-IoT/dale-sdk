@@ -23,8 +23,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14"/>
         <!-- FakeTimeProvider drives virtual time inside LogicBlockTestContext (clock reads + scheduled actions). -->
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.0.0"/>
         <PackageReference Include="Moq" Version="4.20.72"/>

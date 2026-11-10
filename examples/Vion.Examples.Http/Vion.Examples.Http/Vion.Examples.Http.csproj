@@ -29,7 +29,7 @@
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
-        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.31"/>
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Http\Vion.Dale.Sdk.Http.csproj"/>
     </ItemGroup>
 

@@ -16,7 +16,7 @@ namespace Vion.Dale.Sdk.Test.Core
     ///         The companion <c>DALE031</c> analyzer prevents the antipattern at edit time; this test exists so
     ///         a future Metalama upgrade can be verified end-to-end — remove the <c>[Ignore]</c>s and watch them
     ///         go green when the upstream aspect learns to track struct-member reads. Verified still broken in
-    ///         Metalama.Patterns.Observability <b>2026.1.18 and 2026.1.25</b>, with no LAMA51xx warning emitted
+    ///         Metalama.Patterns.Observability <b>2026.1.18, 2026.1.25 and 2026.1.31</b>, with no LAMA51xx warning emitted
     ///         for any of these shapes at build time.
     ///     </para>
     ///     <para>
@@ -114,7 +114,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [Ignore("Documents the Metalama [Observable] struct-member-read gap as filed on VION-81. Verified still broken in Metalama.Patterns.Observability 2026.1.18 and 2026.1.25. DALE031 guards against the antipattern in user code; re-enable this test after a future Metalama upgrade to verify the upstream fix.")]
+        [Ignore("Documents the Metalama [Observable] struct-member-read gap as filed on VION-81. Verified still broken in Metalama.Patterns.Observability 2026.1.18, 2026.1.25 and 2026.1.31. DALE031 guards against the antipattern in user code; re-enable this test after a future Metalama upgrade to verify the upstream fix.")]
         public void ComputedFromNullableStructField_RaisesPropertyChanged()
         {
             var sut = new StructMemberDependencyRepro();
@@ -131,7 +131,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [Ignore("Same gap as ComputedFromNullableStructField_RaisesPropertyChanged, without the null-conditional operator — establishing that '?.' is not the operative factor. Verified still broken in 2026.1.18 and 2026.1.25.")]
+        [Ignore("Same gap as ComputedFromNullableStructField_RaisesPropertyChanged, without the null-conditional operator — establishing that '?.' is not the operative factor. Verified still broken in 2026.1.18, 2026.1.25 and 2026.1.31.")]
         public void ComputedFromNonNullableStructField_RaisesPropertyChanged()
         {
             var sut = new StructMemberDependencyRepro();
@@ -148,7 +148,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [Ignore("The same gap rooted in an observable struct property rather than a field — the original DALE031 shape. Verified still broken in 2026.1.18 and 2026.1.25.")]
+        [Ignore("The same gap rooted in an observable struct property rather than a field — the original DALE031 shape. Verified still broken in 2026.1.18, 2026.1.25 and 2026.1.31.")]
         public void ComputedFromObservableStructPropertyMember_RaisesPropertyChanged()
         {
             var sut = new StructMemberDependencyRepro();
@@ -161,7 +161,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [Ignore("The same gap rooted in an UNMARKED struct property. The aspect weaves every auto-property of the type, not only the [ServiceProperty] ones, so this shape is broken identically — which is why DALE031 no longer exempts it. Verified still broken in 2026.1.18 and 2026.1.25.")]
+        [Ignore("The same gap rooted in an UNMARKED struct property. The aspect weaves every auto-property of the type, not only the [ServiceProperty] ones, so this shape is broken identically — which is why DALE031 no longer exempts it. Verified still broken in 2026.1.18, 2026.1.25 and 2026.1.31.")]
         public void ComputedFromPlainStructPropertyMember_RaisesPropertyChanged()
         {
             var sut = new StructMemberDependencyRepro();
