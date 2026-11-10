@@ -123,21 +123,49 @@ namespace Vion.Dale.Sdk.Http.TestKit
         }
 
         /// <summary>
-        ///     Answers the oldest outstanding request with <paramref name="statusCode" /> and an optional body.
+        ///     Answers the oldest outstanding request with <paramref name="statusCode" />, an optional body and optional headers.
         /// </summary>
         /// <param name="statusCode">The response status.</param>
         /// <param name="body">The response body, or <c>null</c> for an empty one.</param>
         /// <param name="contentType">The content type of <paramref name="body" />.</param>
-        public void Respond(HttpStatusCode statusCode, string? body = null, string contentType = "application/json")
+        /// <param name="headers">
+        ///     The response headers, added as the wire would carry them, a name given twice sent twice — a content header such as
+        ///     <c>Content-Language</c> goes onto the body — or <c>null</c> for none.
+        /// </param>
+        /// <exception cref="ArgumentException">Thrown when a header is one neither the response nor its body can carry.</exception>
+        public void Respond(HttpStatusCode statusCode, string? body = null, string contentType = "application/json", IEnumerable<KeyValuePair<string, string>>? headers = null)
         {
-            var exchange = _exchanges.TakeOldest(nameof(Respond));
             var content = new ByteArrayContent(body == null ? Array.Empty<byte>() : Encoding.UTF8.GetBytes(body));
             if (body != null)
             {
                 content.Headers.TryAddWithoutValidation("Content-Type", contentType);
             }
 
-            exchange.Completion.TrySetResult(new HttpResponseMessage(statusCode) { Content = content });
+            var response = new HttpResponseMessage(statusCode) { Content = content };
+            foreach (var header in headers ?? Array.Empty<KeyValuePair<string, string>>())
+            {
+                // Refused before the oldest request is taken, so a misscripted answer leaves the request outstanding.
+                if (!response.Headers.TryAddWithoutValidation(header.Key, header.Value) && !content.Headers.TryAddWithoutValidation(header.Key, header.Value))
+                {
+                    response.Dispose();
+
+                    throw new ArgumentException($"'{header.Key}' is a header neither a response nor its body can carry.", nameof(headers));
+                }
+            }
+
+            HeldExchanges.HeldExchange exchange;
+            try
+            {
+                exchange = _exchanges.TakeOldest(nameof(Respond));
+            }
+            catch
+            {
+                response.Dispose();
+
+                throw;
+            }
+
+            exchange.Completion.TrySetResult(response);
             exchange.Settle();
         }
 

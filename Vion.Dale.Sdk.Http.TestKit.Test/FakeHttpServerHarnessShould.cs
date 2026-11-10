@@ -40,6 +40,30 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-015.2")]
+        public void ReturnHeadersBlockAddedJoiningRepeatedName()
+        {
+            // Arrange — the throttled answer built the way a simulator builds it, with the delay a client is to wait
+            using var harness = new FakeHttpServerHarness();
+            harness.Server.IsEnabled = true;
+            var throttled = HttpServerResponse.Json("{\"title\":\"Too Many Requests\"}", HttpStatusCode.TooManyRequests)
+                                              .WithHeader("Retry-After", "120")
+                                              .WithHeader("X-Probe", "a")
+                                              .WithHeader("x-probe", "b");
+            harness.Server.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/api/sites", throttled));
+
+            // Act
+            var response = harness.Client.Send(HttpMethod.Get, "/api/sites");
+
+            // Assert
+            Assert.AreEqual(HttpStatusCode.TooManyRequests, response.StatusCode);
+            Assert.AreEqual("application/json", response.ContentType);
+            Assert.AreEqual("120", response.Headers["retry-after"]);
+            Assert.AreEqual("a, b", response.Headers["X-PROBE"]);
+            Assert.AreEqual(2, response.Headers.Count);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-TKIT-015.1")]
         public void HandOutSameServerThroughFactory()
         {
