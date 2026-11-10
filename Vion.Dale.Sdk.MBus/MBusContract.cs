@@ -296,7 +296,15 @@ namespace Vion.Dale.Sdk.MBus
                           bool feedsFigures = true)
         {
             _linkAccumulator.Record(receipt, feedsFigures);
-            LogReadFailed(LogicBlockContractId, primaryAddress, receipt.Outcome, exception);
+            if (receipt.Outcome is MBusOutcome.Expired or MBusOutcome.Dropped)
+            {
+                LogReadNotExecuted(LogicBlockContractId, primaryAddress, receipt.Outcome, exception);
+            }
+            else
+            {
+                LogReadFailed(LogicBlockContractId, primaryAddress, receipt.Outcome, exception);
+            }
+
             if (errorCallback != null)
             {
                 dispatcher.InvokeSynchronized(() => errorCallback(exception, receipt));
@@ -347,6 +355,11 @@ namespace Vion.Dale.Sdk.MBus
 
         [LoggerMessage(Level = LogLevel.Error, Message = "Read failed (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress}, Outcome={Outcome})")]
         private partial void LogReadFailed(LogicBlockContractId logicBlockContractId, int primaryAddress, MBusOutcome outcome, Exception exception);
+
+        // Congestion is expected under load, and at Error one overload becomes a flood in the gateway's log
+        // pipeline. The outcome on the receipt is what a logic block reacts to.
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Read was not executed (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress}, Outcome={Outcome})")]
+        private partial void LogReadNotExecuted(LogicBlockContractId logicBlockContractId, int primaryAddress, MBusOutcome outcome, Exception exception);
 
         [LoggerMessage(Level = LogLevel.Warning,
                        Message = "A selector found no record in a complete readout; its value stays empty until the meter sends it " +

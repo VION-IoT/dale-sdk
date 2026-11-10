@@ -38,7 +38,8 @@ the link summary's default interval (`AC-EMIT-002.8`); [`testkit.md`](testkit.md
 
 A timeout outside its limits is the one argument refused inline (`AC-MBUS-004.2`); an address or count
 out of range reaches the error callback, so a caller handles a refusal in one place. Every failure is
-logged at error level once per read.
+logged once per read: at error level, but at debug level for a read that expired or was dropped, which a
+congested runtime produces in bursts.
 
 ## Enablement
 
