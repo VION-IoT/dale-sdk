@@ -573,7 +573,7 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         private sealed class RequestTrace
         {
-            /// <summary>The headers of that response and of its content, copied when its status was recorded.</summary>
+            /// <summary>The headers of the response the client returned and of its content, copied when its status was recorded.</summary>
             public IReadOnlyDictionary<string, string>? Headers;
 
             /// <summary>Whether the client took the request and handed it to its handlers.</summary>
