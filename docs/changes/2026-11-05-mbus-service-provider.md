@@ -971,6 +971,24 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     a complete readout to the contract, and the contract logs it once per selector (`T-005`).
   - `Describe()` prints `#n | tN | quantity | value unit | storage, tariff, subunit, function | DIB | VIB |
     selector`, joined with `\n`. A shadowed record prints `shadowed by #n`.
+- 2026-11-10, `T-005`: the contract and the handler, decided in implementation:
+  - **No `DependencyInjection`.** The package has nothing to register: `Vion.Dale.Sdk` registers the clock,
+    and the runtime and the kit both find the contract by its type. An empty `IConfigureServices` would be
+    surface with no job (`sdk-surface-conventions.md` § 1).
+  - The contract class is `MBusContract`, `[InternalApi]`. `MBus` would share its name with the namespace's
+    last segment.
+  - `AC-MBUS-006.1` is `MODIFIED` to name an undecodable telegram, which `D10` already makes a
+    `ProtocolError`.
+  - **Arguments:** a timeout outside its limits throws inline (`AC-MBUS-004.2`), as RTU's does. An address
+    or telegram count out of range goes through the error callback (`AC-MBUS-001.3`). A null dispatcher or
+    success callback throws `ArgumentNullException` after the busy check.
+  - **Failures:** each is logged at Error once per read, `Expired` and `Dropped` included, as § The block
+    API states. RTU logs those two at Debug. An answer whose payload cannot be read is a `ProtocolError`, as
+    RTU's handler treats one.
+  - **`MBusException`:** the constructor is internal, and the kit reaches it through `InternalsVisibleTo`. On a
+    `ProtocolError` its message ends with the telegrams as hex, so the Error log line carries the capture.
+  - `BusyCount` and `Link` land in `T-006` with the accumulator. `AC-MBUS-003.1`'s count and
+    `AC-MBUS-005.8`'s untouched link state are asserted there.
 
 ---
 
@@ -1004,6 +1022,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-005.7 -> docs/specs/mbus.md : THE SYSTEM SHALL route every M-Bus binding in a runtime through one shared handler, and SHALL mark the M-Bus assembly a shared assembly.
 - ADDED AC-MBUS-005.8 -> docs/specs/mbus.md : WHEN a response carries a response code the system does not know THE SYSTEM SHALL complete the read through its error callback with an `Invalid` outcome and SHALL leave the link state unchanged.
 - ADDED AC-MBUS-006.1 -> docs/specs/mbus.md : WHEN an `Ok` response carries no telegram or more telegrams than asked, or a telegram with a wrong start, length, checksum or stop byte, a CI other than 72h, an address other than the one asked, or an identification other than the first telegram's THE SYSTEM SHALL complete the read through its error callback with a `ProtocolError` receipt and the telegrams as received.
+- MODIFIED AC-MBUS-006.1 -> docs/specs/mbus.md : WHEN an `Ok` response carries no telegram or more telegrams than asked, or a telegram with a wrong start, length, checksum or stop byte, a CI other than 72h, an address other than the one asked, an identification other than the first telegram's, or records that cannot be decoded THE SYSTEM SHALL complete the read through its error callback with a `ProtocolError` receipt and the telegrams as received.
 - ADDED AC-MBUS-006.2 -> docs/specs/mbus.md : THE SYSTEM SHALL decode a telegram into its fixed header and its data records, and SHALL keep each record's data information block, value information block and data bytes as received.
 - ADDED AC-MBUS-006.3 -> docs/specs/mbus.md : THE SYSTEM SHALL scale a record's value by its value information's exponent and by its multiplicative and additive correction extensions into the unit its quantity is reported in.
 - ADDED AC-MBUS-006.4 -> docs/specs/mbus.md : WHEN a record's value information is not in the decoder's table THE SYSTEM SHALL keep the record with no quantity and its bytes, and SHALL decode the rest of the telegram.
