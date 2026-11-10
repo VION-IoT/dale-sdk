@@ -350,7 +350,7 @@ namespace Vion.Dale.Sdk.MBus.Test
         [TestProperty("spec", "AC-MBUS-003.1")]
         [DataRow(1, 5, DisplayName = "valid arguments")]
         [DataRow(251, 0, DisplayName = "invalid arguments")]
-        public void DropReadWhilePreviousIsPending(int primaryAddress, int maxTelegrams)
+        public void DropReadWhilePreviousPending(int primaryAddress, int maxTelegrams)
         {
             // Arrange
             Read();
@@ -429,7 +429,7 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-003.2")]
-        public void KeepSlotWhenEarlierReadIsAnsweredAgain()
+        public void KeepSlotWhenEarlierReadAnsweredAgain()
         {
             // Arrange
             // The first read's answer frees the slot, the second read takes it, then the first answer arrives a second time.

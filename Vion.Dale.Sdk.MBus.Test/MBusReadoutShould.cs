@@ -369,7 +369,7 @@ namespace Vion.Dale.Sdk.MBus.Test
         [DataRow("04 83 3B 05 00 00 00", 0, "MBusSelector.ByCode(\"04 83 3B\")", DisplayName = "meaning-changing extension")]
         [DataRow("04 FF 2C 05 00 00 00", 0, "MBusSelector.ByCode(\"04 FF 2C\")", DisplayName = "no quantity")]
         [DataRow("84 80 C0 40 05 05 00 00 00", 0, "MBusSelector.Of(MBusQuantity.Energy, subunit: 6)", DisplayName = "unambiguous meaning")]
-        public void PreferSelectorByMeaningWhereItIsUnambiguous(string recordsHex, int index, string expected)
+        public void PreferSelectorByMeaningWhereUnambiguous(string recordsHex, int index, string expected)
         {
             // Arrange
             var readout = Single(MBusFrames.Telegram(recordsHex));
