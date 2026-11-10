@@ -56,7 +56,9 @@ breaking is acceptable. The shape below is this session's, each a lane-2 (b):
   compatible: every positional construction compiles unchanged (three in this repo's tests,
   `HttpClientSummaryAccumulatorShould.cs:39`, `:42`, `:181`, and the consumer's
   `CloudRequestGateShould.cs:69`); the break is binary, and a positional deconstruction into five
-  variables, of which neither repo has one.
+  variables, of which neither repo has one. The record's equality compares `Headers` by reference, so
+  two receipts of identical responses no longer compare equal; nothing in either repo compares
+  receipts, and a receipt is a fact of one request rather than a value to match.
 - `D4` — `RetryAfter` is a `TimeSpan?` computed from `Headers` and `ReceivedAt`, not stored: the
   consumer's gate takes a `TimeSpan?` (`CloudRequestGate.Completed(HttpReceipt, TimeSpan?)`), and a
   derived member cannot disagree with the header it reads, whoever built the receipt.
@@ -80,7 +82,8 @@ breaking is acceptable. The shape below is this session's, each a lane-2 (b):
 - `D9` — `FakeHttpHarness.Respond` takes a trailing optional
   `IEnumerable<KeyValuePair<string, string>>? headers`, so a dictionary initializer and repeated names
   both work; a header the response refuses goes onto the content, and one neither takes is refused
-  before the request is taken. `FakeHttpServerResponse.Headers` keeps its type, now joining a repeated
+  before the request is taken, as are a `Content-Type` (the `contentType` argument's) and a value with a
+  line break, which the platform would otherwise carry through to the block. `FakeHttpServerResponse.Headers` keeps its type, now joining a repeated
   name rather than throwing, and is documented as every header but the content type.
 
 ### Reviewer's questions
@@ -130,8 +133,10 @@ culture, no whitespace allowance — the platform has already rendered the two o
 IMF-fixdate (question 1), so a parse of the obsolete forms here would be unreachable. Anything else,
 including a header repeated (joined with a comma, so neither form), is `null`.
 
-**Hosted server.** `WithHeader` validates and returns `new HttpServerResponse(status, contentType, body,
-headers + (name, value))` through the existing private constructor. The transport already writes
+**Hosted server.** `WithHeader` validates and returns a new response copying the original's status,
+content type and body with the header appended, through a second private constructor that skips the
+checks the original already passed and the body clone. The name is checked by the transport's own
+`IsToken`, made internal for it, so the names the server writes and the names it reads cannot drift. The transport already writes
 `response.Headers` between `Content-Length` and `Connection: close`, so no transport change is needed;
 the 405's `Allow` keeps going through the same list.
 
@@ -163,6 +168,11 @@ block would meet the same parsing without the case-insensitive string view.
 - 2026-11-10: the `TcpHttpServerTransportShould` loopback precedent paired the server with the
   platform's `HttpClient` only; the end-to-end test composes the package's own client with
   `AddDaleHttpSdk()` and calls the typed `GetJson`, through the production primary handler.
+- 2026-11-10: review round 1 — `FakeHttpHarness.Respond` accepted a scripted `Content-Type` beside the
+  body's (the receipt then read `application/json, text/plain`) and a value with a line break (which
+  reaches the block inside the value; both measured on .NET 10). Both are refused now, and
+  `AC-TKIT-014.4` says so (a `MODIFIED` line already in the delta, reworded). Sibling sweep: the server
+  kit's `Send` takes request headers, whose line breaks the server's own route table never parses — N/A.
 
 ---
 
