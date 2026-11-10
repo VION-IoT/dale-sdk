@@ -103,7 +103,7 @@ run goes green (PR #134 saw ~5 min, with the last package ~40 s behind the rest;
 check is one loop over the referenced ids:
 
 ```bash
-for p in vion.dale.sdk vion.dale.sdk.http vion.dale.sdk.digitalio vion.dale.sdk.digitalio.testkit          vion.dale.sdk.analogio vion.dale.sdk.analogio.testkit vion.dale.sdk.modbus.core          vion.dale.sdk.modbus.tcp vion.dale.sdk.modbus.tcp.testkit vion.dale.sdk.modbus.rtu          vion.dale.sdk.modbus.rtu.testkit vion.dale.sdk.testkit vion.dale.sdk.http.testkit vion.dale.devhost vion.dale.devhost.web; do
+for p in vion.dale.sdk vion.dale.sdk.http vion.dale.sdk.digitalio vion.dale.sdk.digitalio.testkit          vion.dale.sdk.analogio vion.dale.sdk.analogio.testkit vion.dale.sdk.modbus.core          vion.dale.sdk.modbus.tcp vion.dale.sdk.modbus.tcp.testkit vion.dale.sdk.modbus.rtu          vion.dale.sdk.modbus.rtu.testkit vion.dale.sdk.testkit vion.dale.sdk.http.testkit vion.dale.devhost vion.dale.devhost.web          vion.dale.sdk.mbus vion.dale.sdk.mbus.testkit; do
   curl -s "https://api.nuget.org/v3-flatcontainer/$p/index.json" | grep -q '"X.Y.Z"' || echo "missing: $p"
 done
 ```
