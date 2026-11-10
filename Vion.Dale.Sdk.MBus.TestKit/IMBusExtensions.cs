@@ -39,7 +39,12 @@ namespace Vion.Dale.Sdk.MBus.TestKit
             var contract = CastToImplementation(mBus);
             var request = FindPendingRead(testContext, contract, nameof(SimulateReadResponse));
             var telegrams = telegramsHex.Select(MBusHex.Parse).ToArray();
-            Answer(testContext, contract, request, telegrams, null, MBusOutcome.Success);
+            Answer(testContext,
+                   contract,
+                   request,
+                   telegrams,
+                   null,
+                   MBusOutcome.Success);
         }
 
         /// <summary>
@@ -61,7 +66,12 @@ namespace Vion.Dale.Sdk.MBus.TestKit
             var contract = CastToImplementation(mBus);
             var request = FindPendingRead(testContext, contract, nameof(SimulateReadError));
             var exception = new MBusException(outcome, $"The read failed with {outcome}, as the test simulated.");
-            Answer(testContext, contract, request, null, exception, outcome);
+            Answer(testContext,
+                   contract,
+                   request,
+                   null,
+                   exception,
+                   outcome);
         }
 
         private static void Answer<T>(LogicBlockTestContext<T> testContext,

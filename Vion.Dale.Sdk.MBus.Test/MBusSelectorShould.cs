@@ -6,9 +6,24 @@ namespace Vion.Dale.Sdk.MBus.Test
     public class MBusSelectorShould
     {
         [TestMethod]
-        [DataRow(MBusQuantity.Energy, 0L, 0, 0, MBusFunction.Instantaneous, "MBusSelector.Of(MBusQuantity.Energy)")]
-        [DataRow(MBusQuantity.Energy, 20L, 1, 6, MBusFunction.Maximum, "MBusSelector.Of(MBusQuantity.Energy, storage: 20, tariff: 1, subunit: 6, function: MBusFunction.Maximum)")]
-        public void PrintAsCodeThatConstructsIt(MBusQuantity quantity, long storage, int tariff, int subunit, MBusFunction function, string expected)
+        [DataRow(MBusQuantity.Energy,
+                 0L,
+                 0,
+                 0,
+                 MBusFunction.Instantaneous,
+                 "MBusSelector.Of(MBusQuantity.Energy)")]
+        [DataRow(MBusQuantity.Energy,
+                 20L,
+                 1,
+                 6,
+                 MBusFunction.Maximum,
+                 "MBusSelector.Of(MBusQuantity.Energy, storage: 20, tariff: 1, subunit: 6, function: MBusFunction.Maximum)")]
+        public void PrintAsCodeThatConstructsIt(MBusQuantity quantity,
+                                                long storage,
+                                                int tariff,
+                                                int subunit,
+                                                MBusFunction function,
+                                                string expected)
         {
             // Arrange
             var selector = MBusSelector.Of(quantity, storage, tariff, subunit, function);

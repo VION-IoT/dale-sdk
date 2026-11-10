@@ -34,7 +34,10 @@ namespace Vion.Dale.Sdk.MBus
     /// <param name="PublishedAt">The UTC time the handler published the read, or <c>null</c> if it never did.</param>
     /// <param name="ReceivedAt">The UTC time the handler observed the answer or failure.</param>
     /// <param name="ReceivedTimestamp">The same instant on the monotonic timestamp scale.</param>
-    /// <param name="Outcome">The handler's classification; the contract corrects <c>Success</c> when a telegram fails its checks.</param>
+    /// <param name="Outcome">
+    ///     The handler's classification; the contract corrects <c>Success</c> when a telegram fails its
+    ///     checks.
+    /// </param>
     [InternalApi]
     public readonly record struct ReadMBusResponse(
         byte[][]? Telegrams,

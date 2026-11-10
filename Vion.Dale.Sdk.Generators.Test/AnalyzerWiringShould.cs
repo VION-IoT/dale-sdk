@@ -123,7 +123,11 @@ namespace Vion.Dale.Sdk.Generators.Test
         private static readonly BuildSet Ordinary = new(nameof(Ordinary),
                                                         null,
                                                         null,
-                                                        ProbedProjects.Concat(TestKitProbe.Projects).Concat(ModbusProbe.Projects).Append(HttpPackage).Append(MBusPackage).ToArray());
+                                                        ProbedProjects.Concat(TestKitProbe.Projects)
+                                                                      .Concat(ModbusProbe.Projects)
+                                                                      .Append(HttpPackage)
+                                                                      .Append(MBusPackage)
+                                                                      .ToArray());
 
         /// <summary>
         ///     The probe half of the builds <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> runs, stamped with a

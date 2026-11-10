@@ -19,12 +19,6 @@ namespace Vion.Dale.Sdk.MBus
     [PublicApi]
     public sealed class MBusReadout
     {
-        internal MBusReadout(IReadOnlyList<MBusTelegram> telegrams)
-        {
-            Telegrams = telegrams;
-            Records = telegrams.SelectMany(telegram => telegram.Records).ToList().AsReadOnly();
-        }
-
         /// <summary>The header of the first telegram.</summary>
         public MBusHeader Header
         {
@@ -45,6 +39,12 @@ namespace Vion.Dale.Sdk.MBus
 
         /// <summary>Called with each selector that finds nothing on a complete readout; the contract logs it.</summary>
         internal Action<MBusSelector>? OnMiss { get; set; }
+
+        internal MBusReadout(IReadOnlyList<MBusTelegram> telegrams)
+        {
+            Telegrams = telegrams;
+            Records = telegrams.SelectMany(telegram => telegram.Records).ToList().AsReadOnly();
+        }
 
         /// <summary>
         ///     The first record, in telegram order, that <paramref name="selector" /> names, or <c>null</c> when none does.
@@ -166,6 +166,47 @@ namespace Vion.Dale.Sdk.MBus
             return string.Join("\n", lines);
         }
 
+        /// <summary>
+        ///     Checks and decodes the frames one read returned from the meter at <paramref name="primaryAddress" />.
+        /// </summary>
+        /// <exception cref="MBusDecodeException">
+        ///     There is no frame or more than <paramref name="maxTelegrams" />, a frame fails its checks or cannot be
+        ///     decoded, a frame comes from another address, or the identification changes between frames.
+        /// </exception>
+        internal static MBusReadout Create(IReadOnlyList<byte[]> frames, int maxTelegrams, int primaryAddress)
+        {
+            if (frames.Count == 0)
+            {
+                throw new MBusDecodeException("The provider answered Ok with no telegram.");
+            }
+
+            if (frames.Count > maxTelegrams)
+            {
+                throw new MBusDecodeException($"The provider answered with {frames.Count} telegrams to a read of at most {maxTelegrams}.");
+            }
+
+            var telegrams = new List<MBusTelegram>(frames.Count);
+            foreach (var frame in frames)
+            {
+                var telegram = MBusTelegram.Decode(frame);
+                if (telegram.Address != primaryAddress)
+                {
+                    throw new MBusDecodeException($"Telegram {telegrams.Count + 1} comes from primary address {telegram.Address}, not from {primaryAddress}.");
+                }
+
+                // A second meter answering on the same primary address must not read as this meter's data.
+                if (telegrams.Count > 0 && telegram.Header.Identification != telegrams[0].Header.Identification)
+                {
+                    throw new MBusDecodeException($"Telegram {telegrams.Count + 1} carries identification {telegram.Header.Identification}, " +
+                                                  $"but telegram 1 carries {telegrams[0].Header.Identification}.");
+                }
+
+                telegrams.Add(telegram);
+            }
+
+            return new MBusReadout(telegrams.AsReadOnly());
+        }
+
         private static string ValueOf(MBusRecord record)
         {
             if (record.Number is { } number)
@@ -185,9 +226,8 @@ namespace Vion.Dale.Sdk.MBus
 
         private static ArgumentException UnitMismatch(MBusSelector selector, MBusRecord? record, MBusUnit unit)
         {
-            var found = record == null
-                            ? string.Empty
-                            : $" found the record DIB {MBusHex.Format(record.Dib)} VIB {MBusHex.Format(record.Vib)} ({record.Quantity?.ToString() ?? "no quantity"}), which";
+            var found = record == null ? string.Empty :
+                            $" found the record DIB {MBusHex.Format(record.Dib)} VIB {MBusHex.Format(record.Vib)} ({record.Quantity?.ToString() ?? "no quantity"}), which";
             var subject = record == null ? $" names {selector.Quantity}, which" : string.Empty;
             return new ArgumentException($"{selector}{found}{subject} cannot be expressed in {unit}.", nameof(unit));
         }
@@ -231,47 +271,6 @@ namespace Vion.Dale.Sdk.MBus
             }
 
             return -1;
-        }
-
-        /// <summary>
-        ///     Checks and decodes the frames one read returned from the meter at <paramref name="primaryAddress" />.
-        /// </summary>
-        /// <exception cref="MBusDecodeException">
-        ///     There is no frame or more than <paramref name="maxTelegrams" />, a frame fails its checks or cannot be
-        ///     decoded, a frame comes from another address, or the identification changes between frames.
-        /// </exception>
-        internal static MBusReadout Create(IReadOnlyList<byte[]> frames, int maxTelegrams, int primaryAddress)
-        {
-            if (frames.Count == 0)
-            {
-                throw new MBusDecodeException("The provider answered Ok with no telegram.");
-            }
-
-            if (frames.Count > maxTelegrams)
-            {
-                throw new MBusDecodeException($"The provider answered with {frames.Count} telegrams to a read of at most {maxTelegrams}.");
-            }
-
-            var telegrams = new List<MBusTelegram>(frames.Count);
-            foreach (var frame in frames)
-            {
-                var telegram = MBusTelegram.Decode(frame);
-                if (telegram.Address != primaryAddress)
-                {
-                    throw new MBusDecodeException($"Telegram {telegrams.Count + 1} comes from primary address {telegram.Address}, not from {primaryAddress}.");
-                }
-
-                // A second meter answering on the same primary address must not read as this meter's data.
-                if (telegrams.Count > 0 && telegram.Header.Identification != telegrams[0].Header.Identification)
-                {
-                    throw new MBusDecodeException($"Telegram {telegrams.Count + 1} carries identification {telegram.Header.Identification}, " +
-                                                  $"but telegram 1 carries {telegrams[0].Header.Identification}.");
-                }
-
-                telegrams.Add(telegram);
-            }
-
-            return new MBusReadout(telegrams.AsReadOnly());
         }
     }
 }

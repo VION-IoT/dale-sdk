@@ -95,7 +95,8 @@ namespace Vion.Dale.Sdk.MBus
         TimeSpan? MaxRoundTrip,
         [StructField(Title = "Round trip (max since start) at", Description = "When the longest round trip since the contract started was observed (UTC).")]
         DateTime? MaxRoundTripAt,
-        [StructField(Title = "Queued waits (15 min)", Description = "Reads that reached the shared handler in the last 15 minutes, which the two queued-wait figures beside it rest on.")]
+        [StructField(Title = "Queued waits (15 min)",
+                     Description = "Reads that reached the shared handler in the last 15 minutes, which the two queued-wait figures beside it rest on.")]
         long RecentQueuedWaitCount,
         [StructField(Title = "Queued wait (mean, 15 min)", Description = "Mean hop to the shared handler over the last 15 minutes.")]
         TimeSpan? RecentMeanQueuedWait,

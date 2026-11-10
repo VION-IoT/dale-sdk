@@ -23,7 +23,13 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         private const int PrimaryAddress = 1;
 
-        private static readonly DateTime Now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime Now = new(2026,
+                                                   1,
+                                                   1,
+                                                   0,
+                                                   0,
+                                                   0,
+                                                   DateTimeKind.Utc);
 
         private readonly Mock<IActorContext> _actorContextMock = new();
 
@@ -35,9 +41,9 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         private readonly List<Action> _pendingActions = [];
 
-        private readonly List<MBusReceipt> _receipts = [];
-
         private readonly List<MBusReadout> _readouts = [];
+
+        private readonly List<MBusReceipt> _receipts = [];
 
         private readonly FakeTimeProvider _timeProvider = new(Now);
 
@@ -239,7 +245,7 @@ namespace Vion.Dale.Sdk.MBus.Test
             // Arrange
             if (outcome == MBusOutcome.Invalid)
             {
-                Read(primaryAddress: 251);
+                Read(251);
             }
             else
             {
@@ -266,8 +272,12 @@ namespace Vion.Dale.Sdk.MBus.Test
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-006.1")]
         [DataRow(new string[0], DisplayName = "no telegram")]
-        [DataRow(new[] { MBusVectors.Em530Telegram1, MBusVectors.Em530Telegram2, MBusVectors.Em530Telegram3, MBusVectors.Em530Telegram4, MBusVectors.Em530Telegram5,
-                         MBusVectors.Em530Telegram5 }, DisplayName = "more telegrams than asked")]
+        [DataRow(new[]
+                 {
+                     MBusVectors.Em530Telegram1, MBusVectors.Em530Telegram2, MBusVectors.Em530Telegram3, MBusVectors.Em530Telegram4, MBusVectors.Em530Telegram5,
+                     MBusVectors.Em530Telegram5,
+                 },
+                 DisplayName = "more telegrams than asked")]
         [DataRow(new[] { "10 2C 2C 68 08 01 72 13 66 00 00 36 1C DD 02 DB 20 00 00 84 80 C0 40 05 00 00 00 00 84 C0 C0 40 05 00 00 00 00 84 80 80 40 FD 59 E8 03 00 00 0F 86 16" },
                  DisplayName = "wrong start byte")]
         [DataRow(new[] { "68 2C 2C 68 08 01 72 13 66 00 00 36 1C DD 02 DB 20 00 00 84 80 C0 40 05 00 00 00 00 84 C0 C0 40 05 00 00 00 00 84 80 80 40 FD 59 E8 03 00 00 0F 86" },
@@ -280,8 +290,11 @@ namespace Vion.Dale.Sdk.MBus.Test
                  DisplayName = "CI other than 72h")]
         [DataRow(new[] { "68 2C 2C 68 08 02 72 13 66 00 00 36 1C DD 02 DB 20 00 00 84 80 C0 40 05 00 00 00 00 84 C0 C0 40 05 00 00 00 00 84 80 80 40 FD 59 E8 03 00 00 0F 87 16" },
                  DisplayName = "another address")]
-        [DataRow(new[] { MBusVectors.Em530Telegram1,
-                         "68 2C 2C 68 08 01 72 14 66 00 00 36 1C DD 02 DB 20 00 00 84 80 C0 40 05 00 00 00 00 84 C0 C0 40 05 00 00 00 00 84 80 80 40 FD 59 E8 03 00 00 0F 87 16" },
+        [DataRow(new[]
+                 {
+                     MBusVectors.Em530Telegram1,
+                     "68 2C 2C 68 08 01 72 14 66 00 00 36 1C DD 02 DB 20 00 00 84 80 C0 40 05 00 00 00 00 84 C0 C0 40 05 00 00 00 00 84 80 80 40 FD 59 E8 03 00 00 0F 87 16",
+                 },
                  DisplayName = "identification changes")]
         [DataRow(new[] { "68 1A 1A 68 08 01 72 13 66 00 00 36 1C DD 02 DB 20 00 00 84 80 C0 40 05 00 00 00 FC 16" }, DisplayName = "record runs past the end")]
         public void FailCheckedFramesAsProtocolErrorWithTelegramsAsReceived(string[] telegrams)
@@ -308,7 +321,7 @@ namespace Vion.Dale.Sdk.MBus.Test
             _sut.IsEnabled = false;
 
             // Act
-            Read(primaryAddress: 251);
+            Read(251);
             Flush();
 
             // Assert
@@ -366,7 +379,7 @@ namespace Vion.Dale.Sdk.MBus.Test
             Respond(SentRequests().Single(), MBusOutcome.Success, MBusVectors.Em530);
             Read();
             Respond(SentRequests()[1], MBusOutcome.Success, [MBusVectors.Em530Telegram1.Replace("D1 16", "D2 16")]);
-            Read(primaryAddress: 251);
+            Read(251);
 
             // Act
             var link = _sut.Link;
@@ -438,7 +451,7 @@ namespace Vion.Dale.Sdk.MBus.Test
         public void LeaveSlotFreeAfterRefusedRead()
         {
             // Arrange
-            Read(primaryAddress: 251);
+            Read(251);
 
             // Act
             Read();

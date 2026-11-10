@@ -75,7 +75,14 @@ namespace Vion.Dale.Sdk.MBus
             if (vib[0] is 0x7F or 0xFF)
             {
                 // A manufacturer-specific VIF: its extensions are the manufacturer's too, so none is read as an error code.
-                return new MBusValueInformation(null, 0, 0, 1.0, null, false, false, TimePointKind.None);
+                return new MBusValueInformation(null,
+                                                0,
+                                                0,
+                                                1.0,
+                                                null,
+                                                false,
+                                                false,
+                                                TimePointKind.None);
             }
 
             var correction = 0;
@@ -101,14 +108,28 @@ namespace Vion.Dale.Sdk.MBus
                         break;
                     case 0x7F:
                         // Every extension after this one, and the data, are the manufacturer's.
-                        return new MBusValueInformation(quantity, exponent, correction, factor, additive, true, errorCode, timePoint);
+                        return new MBusValueInformation(quantity,
+                                                        exponent,
+                                                        correction,
+                                                        factor,
+                                                        additive,
+                                                        true,
+                                                        errorCode,
+                                                        timePoint);
                     default:
                         meaningChanging = true;
                         break;
                 }
             }
 
-            return new MBusValueInformation(quantity, exponent, correction, factor, additive, meaningChanging, errorCode, timePoint);
+            return new MBusValueInformation(quantity,
+                                            exponent,
+                                            correction,
+                                            factor,
+                                            additive,
+                                            meaningChanging,
+                                            errorCode,
+                                            timePoint);
         }
 
         private static (MBusQuantity?, int, double, TimePointKind) Primary(int vif)

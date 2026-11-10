@@ -9,7 +9,13 @@ namespace Vion.Dale.Sdk.MBus.Test
     [TestClass]
     public class MBusLinkAccumulatorShould
     {
-        private static readonly DateTime ObservedAt = new(2026, 11, 10, 8, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime ObservedAt = new(2026,
+                                                          11,
+                                                          10,
+                                                          8,
+                                                          0,
+                                                          0,
+                                                          DateTimeKind.Utc);
 
         private readonly NanosecondClock _clock = new();
 

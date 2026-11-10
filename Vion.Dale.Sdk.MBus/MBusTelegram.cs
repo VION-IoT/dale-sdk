@@ -26,15 +26,6 @@ namespace Vion.Dale.Sdk.MBus
 
         private readonly byte[] _frame;
 
-        private MBusTelegram(byte[] frame, MBusHeader header, List<MBusRecord> records, bool announcesMoreRecords)
-        {
-            _frame = frame;
-            Raw = Array.AsReadOnly(frame);
-            Header = header;
-            Records = records.AsReadOnly();
-            AnnouncesMoreRecords = announcesMoreRecords;
-        }
-
         /// <summary>The whole frame as received, from its start byte to its stop byte.</summary>
         public IReadOnlyList<byte> Raw { get; }
 
@@ -52,6 +43,15 @@ namespace Vion.Dale.Sdk.MBus
 
         /// <summary>Whether the telegram ends on the marker that announces more records in a further telegram.</summary>
         internal bool AnnouncesMoreRecords { get; }
+
+        private MBusTelegram(byte[] frame, MBusHeader header, List<MBusRecord> records, bool announcesMoreRecords)
+        {
+            _frame = frame;
+            Raw = Array.AsReadOnly(frame);
+            Header = header;
+            Records = records.AsReadOnly();
+            AnnouncesMoreRecords = announcesMoreRecords;
+        }
 
         /// <summary>
         ///     Decodes one telegram from hexadecimal text, such as a capture from a log or a datasheet.
@@ -160,7 +160,12 @@ namespace Vion.Dale.Sdk.MBus
             var code = frame[11] | (frame[12] << 8);
             var manufacturer = new string([(char)(((code >> 10) & 0x1F) + 64), (char)(((code >> 5) & 0x1F) + 64), (char)((code & 0x1F) + 64)]);
 
-            return new MBusHeader(new string(identification), manufacturer, frame[13], frame[14], frame[15], new MBusStatus(frame[16]));
+            return new MBusHeader(new string(identification),
+                                  manufacturer,
+                                  frame[13],
+                                  frame[14],
+                                  frame[15],
+                                  new MBusStatus(frame[16]));
         }
 
         private static char HexDigit(int nibble)

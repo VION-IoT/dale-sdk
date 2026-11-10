@@ -75,12 +75,47 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-007.1")]
-        [DataRow(MBusQuantity.Energy, 0L, 0, 0, MBusFunction.Instantaneous, "07|03", DisplayName = "import energy, defaults")]
-        [DataRow(MBusQuantity.Current, 0L, 0, 1, MBusFunction.Instantaneous, "84 40|FD 59", DisplayName = "current L1, subunit 1")]
-        [DataRow(MBusQuantity.Energy, 0L, 0, 6, MBusFunction.Instantaneous, "84 80 C0 40|05", DisplayName = "import T1, subunit 6 in telegram 5")]
-        [DataRow(MBusQuantity.Frequency, 0L, 0, 0, MBusFunction.Instantaneous, "02|FB 2E", DisplayName = "frequency in telegram 3")]
-        [DataRow(MBusQuantity.Voltage, 0L, 0, 5, MBusFunction.Instantaneous, "84 C0 80 40|FD 48", DisplayName = "voltage L1-L2, subunit 5")]
-        public void FindRecordByMeaning(MBusQuantity quantity, long storage, int tariff, int subunit, MBusFunction function, string expectedCode)
+        [DataRow(MBusQuantity.Energy,
+                 0L,
+                 0,
+                 0,
+                 MBusFunction.Instantaneous,
+                 "07|03",
+                 DisplayName = "import energy, defaults")]
+        [DataRow(MBusQuantity.Current,
+                 0L,
+                 0,
+                 1,
+                 MBusFunction.Instantaneous,
+                 "84 40|FD 59",
+                 DisplayName = "current L1, subunit 1")]
+        [DataRow(MBusQuantity.Energy,
+                 0L,
+                 0,
+                 6,
+                 MBusFunction.Instantaneous,
+                 "84 80 C0 40|05",
+                 DisplayName = "import T1, subunit 6 in telegram 5")]
+        [DataRow(MBusQuantity.Frequency,
+                 0L,
+                 0,
+                 0,
+                 MBusFunction.Instantaneous,
+                 "02|FB 2E",
+                 DisplayName = "frequency in telegram 3")]
+        [DataRow(MBusQuantity.Voltage,
+                 0L,
+                 0,
+                 5,
+                 MBusFunction.Instantaneous,
+                 "84 C0 80 40|FD 48",
+                 DisplayName = "voltage L1-L2, subunit 5")]
+        public void FindRecordByMeaning(MBusQuantity quantity,
+                                        long storage,
+                                        int tariff,
+                                        int subunit,
+                                        MBusFunction function,
+                                        string expectedCode)
         {
             // Arrange
             var readout = Em530Readout();
@@ -95,9 +130,24 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-007.1")]
-        [DataRow("84 10 03 01 00 00 00", 0L, 1, 0, MBusFunction.Instantaneous, DisplayName = "tariff 1")]
-        [DataRow("C4 00 03 01 00 00 00", 1L, 0, 0, MBusFunction.Instantaneous, DisplayName = "storage 1")]
-        [DataRow("14 03 01 00 00 00", 0L, 0, 0, MBusFunction.Maximum, DisplayName = "maximum")]
+        [DataRow("84 10 03 01 00 00 00",
+                 0L,
+                 1,
+                 0,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "tariff 1")]
+        [DataRow("C4 00 03 01 00 00 00",
+                 1L,
+                 0,
+                 0,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "storage 1")]
+        [DataRow("14 03 01 00 00 00",
+                 0L,
+                 0,
+                 0,
+                 MBusFunction.Maximum,
+                 DisplayName = "maximum")]
         public void TellRecordsApartByEveryQualifier(string qualifiedRecord, long storage, int tariff, int subunit, MBusFunction function)
         {
             // Arrange
@@ -292,7 +342,11 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-007.5")]
-        [DataRow(MBusVectors.Em530Telegram1, MBusVectors.Em530Telegram2, MBusVectors.Em530Telegram3, MBusVectors.Em530Telegram4, MBusVectors.Em530Telegram5,
+        [DataRow(MBusVectors.Em530Telegram1,
+                 MBusVectors.Em530Telegram2,
+                 MBusVectors.Em530Telegram3,
+                 MBusVectors.Em530Telegram4,
+                 MBusVectors.Em530Telegram5,
                  DisplayName = "EM530")]
         [DataRow(MBusVectors.ElsterTmpATelegram1, DisplayName = "TMP-A")]
         [DataRow(MBusVectors.Supercal531Telegram1, DisplayName = "Supercal 531")]

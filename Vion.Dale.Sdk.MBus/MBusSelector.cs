@@ -38,6 +38,12 @@ namespace Vion.Dale.Sdk.MBus
 
         private readonly int _tariff;
 
+        /// <summary>The quantity a selector by meaning names, or <c>null</c> for a selector by code.</summary>
+        internal MBusQuantity? Quantity
+        {
+            get => _code == null ? _quantity : null;
+        }
+
         private MBusSelector(MBusQuantity quantity, long storage, int tariff, int subunit, MBusFunction function)
         {
             _quantity = quantity;
@@ -52,10 +58,20 @@ namespace Vion.Dale.Sdk.MBus
             _code = code;
         }
 
-        /// <summary>The quantity a selector by meaning names, or <c>null</c> for a selector by code.</summary>
-        internal MBusQuantity? Quantity
+        /// <inheritdoc />
+        public bool Equals(MBusSelector? other)
         {
-            get => _code == null ? _quantity : null;
+            if (other is null)
+            {
+                return false;
+            }
+
+            if (_code != null || other._code != null)
+            {
+                return _code != null && other._code != null && _code.SequenceEqual(other._code);
+            }
+
+            return _quantity == other._quantity && _storage == other._storage && _tariff == other._tariff && _subunit == other._subunit && _function == other._function;
         }
 
         /// <summary>
@@ -67,9 +83,15 @@ namespace Vion.Dale.Sdk.MBus
         /// <param name="storage">The storage number: 0 for the current value, higher for stored ones.</param>
         /// <param name="tariff">The tariff number, 0 for none.</param>
         /// <param name="subunit">The subunit number, which a meter uses for phases, channels or registers.</param>
-        /// <param name="function">Which value of the quantity: the current one, a maximum, a minimum, or the value during an error.</param>
+        /// <param name="function">
+        ///     Which value of the quantity: the current one, a maximum, a minimum, or the value during an
+        ///     error.
+        /// </param>
         /// <returns>The selector.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="storage" />, <paramref name="tariff" /> or <paramref name="subunit" /> is negative.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     <paramref name="storage" />, <paramref name="tariff" /> or
+        ///     <paramref name="subunit" /> is negative.
+        /// </exception>
         public static MBusSelector Of(MBusQuantity quantity, long storage = 0, int tariff = 0, int subunit = 0, MBusFunction function = MBusFunction.Instantaneous)
         {
             if (storage < 0)
@@ -142,22 +164,6 @@ namespace Vion.Dale.Sdk.MBus
         }
 
         /// <inheritdoc />
-        public bool Equals(MBusSelector? other)
-        {
-            if (other is null)
-            {
-                return false;
-            }
-
-            if (_code != null || other._code != null)
-            {
-                return _code != null && other._code != null && _code.SequenceEqual(other._code);
-            }
-
-            return _quantity == other._quantity && _storage == other._storage && _tariff == other._tariff && _subunit == other._subunit && _function == other._function;
-        }
-
-        /// <inheritdoc />
         public override bool Equals(object? obj)
         {
             return Equals(obj as MBusSelector);
@@ -176,8 +182,8 @@ namespace Vion.Dale.Sdk.MBus
                 return Concatenated(record).SequenceEqual(_code);
             }
 
-            return record.Quantity == _quantity && !record.HasMeaningChangingExtension && record.Storage == _storage && record.Tariff == _tariff &&
-                   record.Subunit == _subunit && record.Function == _function;
+            return record.Quantity == _quantity && !record.HasMeaningChangingExtension && record.Storage == _storage && record.Tariff == _tariff && record.Subunit == _subunit &&
+                   record.Function == _function;
         }
 
         internal static MBusSelector CodeOf(MBusRecord record)

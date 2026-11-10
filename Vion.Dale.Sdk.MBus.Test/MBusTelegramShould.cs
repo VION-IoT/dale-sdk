@@ -13,10 +13,37 @@ namespace Vion.Dale.Sdk.MBus.Test
     {
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-006.2")]
-        [DataRow(MBusVectors.Em530Telegram1, "00006613", "GAV", (byte)0xDD, (byte)0x02, (byte)0xD7, (byte)0x20, DisplayName = "EM530")]
-        [DataRow(MBusVectors.ElsterTmpATelegram1, "70112345", "ELS", (byte)0x02, (byte)0x07, (byte)0x02, (byte)0x00, DisplayName = "TMP-A")]
-        [DataRow(MBusVectors.Supercal531Telegram1, "08420624", "SON", (byte)0x0D, (byte)0x04, (byte)0x2C, (byte)0x30, DisplayName = "Supercal 531")]
-        public void DecodeHeader(string hex, string identification, string manufacturer, byte version, byte medium, byte accessNumber, byte status)
+        [DataRow(MBusVectors.Em530Telegram1,
+                 "00006613",
+                 "GAV",
+                 (byte)0xDD,
+                 (byte)0x02,
+                 (byte)0xD7,
+                 (byte)0x20,
+                 DisplayName = "EM530")]
+        [DataRow(MBusVectors.ElsterTmpATelegram1,
+                 "70112345",
+                 "ELS",
+                 (byte)0x02,
+                 (byte)0x07,
+                 (byte)0x02,
+                 (byte)0x00,
+                 DisplayName = "TMP-A")]
+        [DataRow(MBusVectors.Supercal531Telegram1,
+                 "08420624",
+                 "SON",
+                 (byte)0x0D,
+                 (byte)0x04,
+                 (byte)0x2C,
+                 (byte)0x30,
+                 DisplayName = "Supercal 531")]
+        public void DecodeHeader(string hex,
+                                 string identification,
+                                 string manufacturer,
+                                 byte version,
+                                 byte medium,
+                                 byte accessNumber,
+                                 byte status)
         {
             // Arrange
 
@@ -49,11 +76,40 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-006.2")]
-        [DataRow(MBusVectors.Em530Telegram3, "84 C0 80 40", 0L, 0, 5, MBusFunction.Instantaneous, DisplayName = "EM530 subunit 5")]
-        [DataRow(MBusVectors.Em530Telegram5, "84 80 C0 40", 0L, 0, 6, MBusFunction.Instantaneous, DisplayName = "EM530 subunit 6")]
-        [DataRow(MBusVectors.Supercal531Telegram1, "C4 80 40", 1L, 0, 2, MBusFunction.Instantaneous, DisplayName = "Supercal storage 1 subunit 2")]
-        [DataRow(MBusVectors.ElsterTmpATelegram1, "4C", 1L, 0, 0, MBusFunction.Instantaneous, DisplayName = "TMP-A storage 1")]
-        public void DecodeDataInformationBlock(string hex, string dib, long storage, int tariff, int subunit, MBusFunction function)
+        [DataRow(MBusVectors.Em530Telegram3,
+                 "84 C0 80 40",
+                 0L,
+                 0,
+                 5,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "EM530 subunit 5")]
+        [DataRow(MBusVectors.Em530Telegram5,
+                 "84 80 C0 40",
+                 0L,
+                 0,
+                 6,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "EM530 subunit 6")]
+        [DataRow(MBusVectors.Supercal531Telegram1,
+                 "C4 80 40",
+                 1L,
+                 0,
+                 2,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "Supercal storage 1 subunit 2")]
+        [DataRow(MBusVectors.ElsterTmpATelegram1,
+                 "4C",
+                 1L,
+                 0,
+                 0,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "TMP-A storage 1")]
+        public void DecodeDataInformationBlock(string hex,
+                                               string dib,
+                                               long storage,
+                                               int tariff,
+                                               int subunit,
+                                               MBusFunction function)
         {
             // Arrange
 
@@ -69,12 +125,42 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-006.2")]
-        [DataRow("C2 84 01 03 00 00", 41L, 0, 0, MBusFunction.Instantaneous, DisplayName = "storage across two extensions")]
-        [DataRow("84 10 03 00 00 00 00", 0L, 1, 0, MBusFunction.Instantaneous, DisplayName = "tariff 1")]
-        [DataRow("84 A0 30 03 00 00 00 00", 0L, 14, 0, MBusFunction.Instantaneous, DisplayName = "tariff across two extensions")]
-        [DataRow("14 03 00 00 00 00", 0L, 0, 0, MBusFunction.Maximum, DisplayName = "maximum")]
-        [DataRow("24 03 00 00 00 00", 0L, 0, 0, MBusFunction.Minimum, DisplayName = "minimum")]
-        [DataRow("34 03 00 00 00 00", 0L, 0, 0, MBusFunction.ValueDuringError, DisplayName = "value during error")]
+        [DataRow("C2 84 01 03 00 00",
+                 41L,
+                 0,
+                 0,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "storage across two extensions")]
+        [DataRow("84 10 03 00 00 00 00",
+                 0L,
+                 1,
+                 0,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "tariff 1")]
+        [DataRow("84 A0 30 03 00 00 00 00",
+                 0L,
+                 14,
+                 0,
+                 MBusFunction.Instantaneous,
+                 DisplayName = "tariff across two extensions")]
+        [DataRow("14 03 00 00 00 00",
+                 0L,
+                 0,
+                 0,
+                 MBusFunction.Maximum,
+                 DisplayName = "maximum")]
+        [DataRow("24 03 00 00 00 00",
+                 0L,
+                 0,
+                 0,
+                 MBusFunction.Minimum,
+                 DisplayName = "minimum")]
+        [DataRow("34 03 00 00 00 00",
+                 0L,
+                 0,
+                 0,
+                 MBusFunction.ValueDuringError,
+                 DisplayName = "value during error")]
         public void DecodeDataInformationCodingsNoCaptureSends(string recordHex, long storage, int tariff, int subunit, MBusFunction function)
         {
             // Arrange

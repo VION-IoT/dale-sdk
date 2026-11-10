@@ -18,7 +18,10 @@ namespace Vion.Dale.Sdk.MBus
         [Severity(StatusSeverity.Success)]
         Online,
 
-        /// <summary>The last read got no answer, a garbled one, an unavailable line, a timeout or telegrams that failed their checks.</summary>
+        /// <summary>
+        ///     The last read got no answer, a garbled one, an unavailable line, a timeout or telegrams that failed their
+        ///     checks.
+        /// </summary>
         [EnumLabel("Faulted")]
         [Severity(StatusSeverity.Error)]
         Faulted,

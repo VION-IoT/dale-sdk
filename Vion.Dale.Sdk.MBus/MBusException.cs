@@ -12,14 +12,6 @@ namespace Vion.Dale.Sdk.MBus
     [PublicApi]
     public sealed class MBusException : Exception
     {
-        internal MBusException(MBusOutcome outcome, string message, string? responseCode = null, IReadOnlyList<byte[]>? telegrams = null) :
-            base(telegrams is { Count: > 0 } ? $"{message} Telegrams as received: {string.Join(" / ", telegrams.Select(MBusHex.Format))}" : message)
-        {
-            Outcome = outcome;
-            ResponseCode = responseCode;
-            Telegrams = (telegrams ?? []).Select(telegram => (IReadOnlyList<byte>)Array.AsReadOnly(telegram)).ToList().AsReadOnly();
-        }
-
         /// <summary>How the read ended; the same as the receipt's outcome.</summary>
         public MBusOutcome Outcome { get; }
 
@@ -31,5 +23,13 @@ namespace Vion.Dale.Sdk.MBus
         ///     capture; empty otherwise.
         /// </summary>
         public IReadOnlyList<IReadOnlyList<byte>> Telegrams { get; }
+
+        internal MBusException(MBusOutcome outcome, string message, string? responseCode = null, IReadOnlyList<byte[]>? telegrams = null) : base(telegrams is { Count: > 0 } ?
+            $"{message} Telegrams as received: {string.Join(" / ", telegrams.Select(MBusHex.Format))}" : message)
+        {
+            Outcome = outcome;
+            ResponseCode = responseCode;
+            Telegrams = (telegrams ?? []).Select(telegram => (IReadOnlyList<byte>)Array.AsReadOnly(telegram)).ToList().AsReadOnly();
+        }
     }
 }

@@ -30,7 +30,10 @@ namespace Vion.Dale.Sdk.MBus
     ///     version may append others, which this SDK reads as a version mismatch.
     /// </param>
     /// <param name="ErrorMessage">A human-readable diagnostic, or <c>null</c>.</param>
-    /// <param name="Telegrams">Every RSP_UD long frame as received, from 68h to 16h inclusive, each in base64; only with <c>Ok</c>.</param>
+    /// <param name="Telegrams">
+    ///     Every RSP_UD long frame as received, from 68h to 16h inclusive, each in base64; only with
+    ///     <c>Ok</c>.
+    /// </param>
     internal sealed record GetMBusResponsePayload(string ResponseCode, string? ErrorMessage, byte[][]? Telegrams);
 
     /// <summary>

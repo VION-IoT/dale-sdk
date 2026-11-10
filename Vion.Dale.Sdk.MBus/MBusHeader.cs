@@ -8,16 +8,6 @@ namespace Vion.Dale.Sdk.MBus
     [PublicApi]
     public sealed class MBusHeader
     {
-        internal MBusHeader(string identification, string manufacturer, byte version, byte medium, byte accessNumber, MBusStatus status)
-        {
-            Identification = identification;
-            Manufacturer = manufacturer;
-            Version = version;
-            Medium = medium;
-            AccessNumber = accessNumber;
-            Status = status;
-        }
-
         /// <summary>The identification number, as its eight digits with leading zeros kept.</summary>
         public string Identification { get; }
 
@@ -35,5 +25,20 @@ namespace Vion.Dale.Sdk.MBus
 
         /// <summary>The status byte.</summary>
         public MBusStatus Status { get; }
+
+        internal MBusHeader(string identification,
+                            string manufacturer,
+                            byte version,
+                            byte medium,
+                            byte accessNumber,
+                            MBusStatus status)
+        {
+            Identification = identification;
+            Manufacturer = manufacturer;
+            Version = version;
+            Medium = medium;
+            AccessNumber = accessNumber;
+            Status = status;
+        }
     }
 }

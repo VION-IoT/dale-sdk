@@ -45,7 +45,13 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         private static readonly ServiceProviderContractId SpContractId = new(ServiceProviderIdentifier, ServiceIdentifier, ContractIdentifier);
 
-        private static readonly DateTime Now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime Now = new(2026,
+                                                   1,
+                                                   1,
+                                                   0,
+                                                   0,
+                                                   0,
+                                                   DateTimeKind.Utc);
 
         private static readonly TimeSpan OperationTimeout = TimeSpan.FromMinutes(5);
 
@@ -312,7 +318,7 @@ namespace Vion.Dale.Sdk.MBus.Test
 
             // Assert
             var sent = _actorContextMock.Invocations.Count(invocation => invocation.Method.Name == nameof(IActorContext.SendTo) &&
-                                                                          ReferenceEquals(invocation.Arguments[0], _logicBlockActorRefMock.Object));
+                                                                         ReferenceEquals(invocation.Arguments[0], _logicBlockActorRefMock.Object));
             Assert.AreEqual(timedOut ? 1 : 0, sent);
         }
 

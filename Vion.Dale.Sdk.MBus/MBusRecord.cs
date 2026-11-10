@@ -15,33 +15,6 @@ namespace Vion.Dale.Sdk.MBus
     [PublicApi]
     public sealed class MBusRecord
     {
-        internal MBusRecord(MBusQuantity? quantity,
-                            MBusFunction function,
-                            long storage,
-                            int tariff,
-                            int subunit,
-                            double? number,
-                            DateTime? timestamp,
-                            string? text,
-                            byte[] dib,
-                            byte[] vib,
-                            byte[] data,
-                            bool hasMeaningChangingExtension)
-        {
-            Quantity = quantity;
-            Function = function;
-            Storage = storage;
-            Tariff = tariff;
-            Subunit = subunit;
-            Number = number;
-            Timestamp = timestamp;
-            Text = text;
-            Dib = Array.AsReadOnly(dib);
-            Vib = Array.AsReadOnly(vib);
-            Data = Array.AsReadOnly(data);
-            HasMeaningChangingExtension = hasMeaningChangingExtension;
-        }
-
         /// <summary>What the record measures, or <c>null</c> when its value information is outside the decoder's table.</summary>
         public MBusQuantity? Quantity { get; }
 
@@ -83,5 +56,32 @@ namespace Vion.Dale.Sdk.MBus
         ///     of its quantity and is reached only by its code.
         /// </summary>
         internal bool HasMeaningChangingExtension { get; }
+
+        internal MBusRecord(MBusQuantity? quantity,
+                            MBusFunction function,
+                            long storage,
+                            int tariff,
+                            int subunit,
+                            double? number,
+                            DateTime? timestamp,
+                            string? text,
+                            byte[] dib,
+                            byte[] vib,
+                            byte[] data,
+                            bool hasMeaningChangingExtension)
+        {
+            Quantity = quantity;
+            Function = function;
+            Storage = storage;
+            Tariff = tariff;
+            Subunit = subunit;
+            Number = number;
+            Timestamp = timestamp;
+            Text = text;
+            Dib = Array.AsReadOnly(dib);
+            Vib = Array.AsReadOnly(vib);
+            Data = Array.AsReadOnly(data);
+            HasMeaningChangingExtension = hasMeaningChangingExtension;
+        }
     }
 }

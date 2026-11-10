@@ -24,16 +24,20 @@ namespace Vion.Dale.Sdk.MBus
 
         private readonly MBusLinkAccumulator _linkAccumulator;
 
-        private readonly ILogger<MBusContract> _logger;
-
         private readonly HashSet<MBusSelector> _loggedMisses = [];
+
+        private readonly ILogger<MBusContract> _logger;
 
         private readonly TimeProvider _timeProvider;
 
-        private Guid? _pendingCorrelationId;
-
         /// <inheritdoc />
         public override string ContractHandlerActorName { get; protected set; } = nameof(MBusHandler);
+
+        /// <summary>
+        ///     The correlation identifier of the read holding the slot, which the test kit answers; <c>null</c> when none is
+        ///     pending.
+        /// </summary>
+        internal Guid? PendingCorrelationId { get; private set; }
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="MBusContract" /> class.
@@ -102,12 +106,6 @@ namespace Vion.Dale.Sdk.MBus
             get => _linkAccumulator.Snapshot();
         }
 
-        /// <summary>The correlation identifier of the read holding the slot, which the test kit answers; <c>null</c> when none is pending.</summary>
-        internal Guid? PendingCorrelationId
-        {
-            get => _pendingCorrelationId;
-        }
-
         /// <inheritdoc />
         public void Read(int primaryAddress,
                          int maxTelegrams,
@@ -123,7 +121,7 @@ namespace Vion.Dale.Sdk.MBus
             }
 
             // Checked before anything else, the arguments included: a busy read does nothing at all.
-            if (_pendingCorrelationId != null)
+            if (PendingCorrelationId != null)
             {
                 _linkAccumulator.RecordBusy();
                 LogReadBusy(LogicBlockContractId, primaryAddress);
@@ -173,7 +171,7 @@ namespace Vion.Dale.Sdk.MBus
                                                                                           dispatcher,
                                                                                           successCallback,
                                                                                           errorCallback));
-            _pendingCorrelationId = correlationId;
+            PendingCorrelationId = correlationId;
             try
             {
                 LogSendingRead(LogicBlockContractId, primaryAddress, maxTelegrams, correlationId);
@@ -181,7 +179,7 @@ namespace Vion.Dale.Sdk.MBus
             }
             catch (Exception exception)
             {
-                _pendingCorrelationId = null;
+                PendingCorrelationId = null;
                 Refuse(new MBusException(MBusOutcome.Invalid, exception.Message), primaryAddress, dispatcher, errorCallback);
             }
         }
@@ -206,9 +204,9 @@ namespace Vion.Dale.Sdk.MBus
                               Action<Exception, MBusReceipt>? errorCallback)
         {
             // Only the read holding the slot frees it.
-            if (_pendingCorrelationId == correlationId)
+            if (PendingCorrelationId == correlationId)
             {
-                _pendingCorrelationId = null;
+                PendingCorrelationId = null;
             }
 
             if (exception != null)
@@ -268,10 +266,7 @@ namespace Vion.Dale.Sdk.MBus
             {
                 throw new ArgumentOutOfRangeException(subject,
                                                       timeout,
-                                                      string.Format(CultureInfo.InvariantCulture,
-                                                                    "{0} must be greater than zero and at most {1} ms.",
-                                                                    subject,
-                                                                    int.MaxValue));
+                                                      string.Format(CultureInfo.InvariantCulture, "{0} must be greater than zero and at most {1} ms.", subject, int.MaxValue));
             }
         }
 
@@ -281,15 +276,18 @@ namespace Vion.Dale.Sdk.MBus
         [LoggerMessage(Level = LogLevel.Information, Message = "M-Bus contract disabled (LogicBlockContractId={LogicBlockContractId})")]
         private partial void LogDisabled(LogicBlockContractId logicBlockContractId);
 
-        [LoggerMessage(Level = LogLevel.Debug, Message = "Read skipped because the contract is disabled (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress})")]
+        [LoggerMessage(Level = LogLevel.Debug,
+                       Message = "Read skipped because the contract is disabled (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress})")]
         private partial void LogReadSkipped(LogicBlockContractId logicBlockContractId, int primaryAddress);
 
         [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "Read dropped because this binding's previous read is still pending (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress})")]
+                       Message =
+                           "Read dropped because this binding's previous read is still pending (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress})")]
         private partial void LogReadBusy(LogicBlockContractId logicBlockContractId, int primaryAddress);
 
         [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "Sending read (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress}, MaxTelegrams={MaxTelegrams}, CorrelationId={CorrelationId})")]
+                       Message =
+                           "Sending read (LogicBlockContractId={LogicBlockContractId}, PrimaryAddress={PrimaryAddress}, MaxTelegrams={MaxTelegrams}, CorrelationId={CorrelationId})")]
         private partial void LogSendingRead(LogicBlockContractId logicBlockContractId, int primaryAddress, int maxTelegrams, Guid correlationId);
 
         [LoggerMessage(Level = LogLevel.Debug,

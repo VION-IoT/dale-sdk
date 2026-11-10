@@ -37,14 +37,20 @@ namespace Vion.Dale.Sdk.MBus
         ///     How long the service provider has to answer a read once it is published, including the time the read
         ///     waits in the provider's line queue behind other meters; 300 s by default.
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">The value is zero, negative, or longer than <c>int.MaxValue</c> milliseconds.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     The value is zero, negative, or longer than <c>int.MaxValue</c>
+        ///     milliseconds.
+        /// </exception>
         TimeSpan DefaultOperationTimeout { get; set; }
 
         /// <summary>
         ///     How long a read may take to reach the shared handler before it is completed as <c>Expired</c> unpublished;
         ///     30 s by default, <c>null</c> for no limit.
         /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">The value is zero, negative, or longer than <c>int.MaxValue</c> milliseconds.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     The value is zero, negative, or longer than <c>int.MaxValue</c>
+        ///     milliseconds.
+        /// </exception>
         TimeSpan? MaxQueuedAge { get; set; }
 
         /// <summary>The link to the meter: its state, counts per outcome and of busy reads, and recent latencies.</summary>
@@ -57,12 +63,21 @@ namespace Vion.Dale.Sdk.MBus
         ///     argument out of range is refused through the error callback.
         /// </summary>
         /// <param name="primaryAddress">The meter's primary address, 0–250.</param>
-        /// <param name="maxTelegrams">How many telegrams the meter sends, at least 1; a smaller count leaves the readout incomplete.</param>
+        /// <param name="maxTelegrams">
+        ///     How many telegrams the meter sends, at least 1; a smaller count leaves the readout
+        ///     incomplete.
+        /// </param>
         /// <param name="dispatcher">The actor the callbacks run on, normally the logic block itself.</param>
         /// <param name="successCallback">Receives the readout and the receipt.</param>
         /// <param name="errorCallback">Receives the failure, an <see cref="MBusException" />, and the receipt.</param>
-        /// <param name="operationTimeout">This read's operation timeout, or <c>null</c> for <see cref="DefaultOperationTimeout" />.</param>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="operationTimeout" /> is zero, negative, or longer than <c>int.MaxValue</c> milliseconds.</exception>
+        /// <param name="operationTimeout">
+        ///     This read's operation timeout, or <c>null</c> for <see cref="DefaultOperationTimeout" />
+        ///     .
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     <paramref name="operationTimeout" /> is zero, negative, or longer than
+        ///     <c>int.MaxValue</c> milliseconds.
+        /// </exception>
         void Read(int primaryAddress,
                   int maxTelegrams,
                   IActorDispatcher dispatcher,
