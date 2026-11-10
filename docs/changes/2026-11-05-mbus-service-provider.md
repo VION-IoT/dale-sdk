@@ -143,7 +143,10 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
 - `D19` — **A debug client ships as an example, as Modbus TCP's does** (operator's review,
   2026-11-10; § The debug client).
   - `MBusDebugClient` lives in `examples/Vion.Examples.MBus` and goes to Cloud through
-    `examples.yml`'s upload matrix (`.github/workflows/examples.yml:35-45`).
+    `examples.yml`'s upload matrix (`.github/workflows/examples.yml:35-45`). That matrix reaches the
+    `test` environment on every `main` push. Production gets only the three onboarding examples
+    (`examples.yml:66-91`), so the Modbus TCP debug client isn't in production either. Whether this
+    one goes there is question 7.
   - Its precedent is `ModbusTcpDebugClient` in `examples/Vion.Examples.ModbusTcp`.
   - Its consumers exist now: commissioning the AVM meters, and capturing the telegrams that become test
     vectors. The legacy shipped the same tool, `MBusMeterRead`, of which a disabled instance sits on
@@ -181,6 +184,14 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
    - Anything else decodes as a record with no quantity, reachable by code.
    - The quantity and unit enums are pinned against the targets' captures in `T-002`, not against the
      whole standard.
+7. **(c) Does the M-Bus example, with its debug client, go to production?** Its consumer is
+   commissioning at customer sites such as AVM, so it is needed where those gateways run.
+   - **Recommendation:** add it to `examples.yml`'s production upload, both to `detect-prod`'s filters
+     and to the dispatch list.
+   - **Alternative:** keep it test-only, like the Modbus TCP example, and upload it by hand when a site
+     needs it.
+
+   Production uploads stay behind the workflow's required reviewer either way.
 
 ---
 
@@ -466,8 +477,14 @@ the plain value.
 **The readout** joins the records of every telegram in order. It offers `Find(selector)` and
 `Value(selector, unit)`, plus `Header`, `Telegrams`, `Records`, `IsComplete`, `Describe()` and
 `SelectorFor(record)`. The last gives the selector that finds that record in this readout: `Of(...)`
-where meaning picks it out unambiguously, `ByCode(...)` otherwise. An `MBusSelector` prints as the C#
-that constructs it, so the debug client's table and `Describe()` hand an author code to paste.
+where meaning picks it out unambiguously, `ByCode(...)` otherwise.
+
+- **A shadowed record has no selector.** Its bytes repeat an earlier record's (the same date/time
+  record in two telegrams, for example), so `Find` always returns the earlier one. `SelectorFor` then
+  returns `null`, and `Describe()` and the debug client mark the row "shadowed by" the record that
+  wins. They never offer a selector that silently reads something else.
+- **A selector prints as the C# that constructs it**, so the debug client's table and `Describe()` hand
+  an author code to paste.
 
 - **`MBusSelector.Of(quantity, storage = 0, tariff = 0, subunit = 0, function = Instantaneous)`**
   names a record by meaning; the defaults pick "the current value". A block declares its selectors once,
@@ -584,7 +601,7 @@ and sees what the meter really sends. It is the first step of the authoring loop
 |---|---|---|
 | in | `PrimaryAddress` (0–250), `MaxTelegrams` (1–10, default 5) | what to read |
 | in | `Read now` | a trigger, as the Modbus client's `ReadOnce` is (`UiHints.Trigger`, `ModbusTcpDebugClient.cs:190-201`) |
-| in | `Polling enabled` (default **off**), `Poll interval` (s, at least 60) | off by default because the line is shared: every debug read takes line time from the production meters |
+| in | `Polling enabled` (default **off**), `Poll interval` (s, at least 300) | off by default because the line is shared: every debug read takes line time from the production meters |
 | out | `Header` | identification, manufacturer, version, medium, access number, status |
 | out | `Records` | one row per record: telegram, quantity, value and unit, storage, tariff, subunit, function, DIB, VIB, and the selector from `SelectorFor`, as struct rows like the Modbus client's `Registers` |
 | out | `Telegrams` | each telegram as hex, ready for a test's `SimulateReadResponse` |
@@ -592,8 +609,10 @@ and sees what the meter really sends. It is the first step of the authoring loop
 
 **It does not** write, scan, or address by secondary address: those are deferred with the contract
 (§ Forward view), and a scan is a provider operation anyway. It binds its own `IMBus`, so its reads
-queue at the provider like any other binding's (`D3`). That is why polling is off and the interval
-floor sits well above one line pass.
+queue at the provider like any other binding's (`D3`). That is why polling is off by default, and why
+its floor is the default operation timeout, 300 s. That bounds a pass of a full line (about 240 s), so
+a polling debug client adds at most one read per pass. A shorter interval would keep its binding in the
+provider's queue on every pass of a busy line such as HV1 (about 120 s).
 
 ### Documentation
 
@@ -883,6 +902,12 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 
   Sibling sweep: Summary, the objectives table, Package layout, `T-008` and the outside-repository
   list, in the same commit.
+- 2026-11-10: the blockers-only review at `e0f90378` found three points, all fixed:
+  - a shadowed record gets no selector (`AC-MBUS-007.5`);
+  - the debug client's poll floor rises to 300 s;
+  - the example's production upload is stated as question 7.
+
+  Sibling sweep: § The decoding experience, § The debug client and `D19`, in the same commit.
 
 ---
 
@@ -927,7 +952,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-007.2 -> docs/specs/mbus.md : WHEN no record matches a selector THE SYSTEM SHALL return no value.
 - ADDED AC-MBUS-007.3 -> docs/specs/mbus.md : THE SYSTEM SHALL convert a selected value into a unit the caller names among its quantity's units, and SHALL throw an `ArgumentException` naming the selector, the record and the unit when the record cannot be expressed in it.
 - ADDED AC-MBUS-007.4 -> docs/specs/mbus.md : WHEN a selector matches nothing on a complete readout THE SYSTEM SHALL log it once per selector and contract. GAP: a log call, which `../testing-conventions.md` § 15 forbids asserting on.
-- ADDED AC-MBUS-007.5 -> docs/specs/mbus.md : THE SYSTEM SHALL give, for any record of a readout, a selector that finds that record in it, and SHALL describe a telegram or readout one line per record, each with that selector.
+- ADDED AC-MBUS-007.5 -> docs/specs/mbus.md : THE SYSTEM SHALL give, for any record of a readout that a selector can reach, a selector that finds that record in it, SHALL give none for a record whose bytes an earlier record's shadow, and SHALL describe a telegram or readout one line per record, each with its selector or the record that shadows it.
 - ADDED AC-MBUS-008.1 -> docs/specs/mbus.md : THE SYSTEM SHALL accumulate every completed read of one contract into a link summary readable at any time without blocking the read updating it.
 - ADDED AC-MBUS-008.2 -> docs/specs/mbus.md : THE SYSTEM SHALL set the link state to `Online` on a success, to `Faulted` on no response, a garbled answer, an unavailable line, a timeout or a protocol error, and SHALL leave it unchanged on every other outcome.
 - ADDED AC-MBUS-008.3 -> docs/specs/mbus.md : THE SYSTEM SHALL keep a lifetime counter for every outcome but success and for busy reads, SHALL feed round-trip figures only from reads that were published and answered, and SHALL feed queued-wait figures only from reads that reached the handler.
