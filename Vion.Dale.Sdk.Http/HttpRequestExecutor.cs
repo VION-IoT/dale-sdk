@@ -403,6 +403,7 @@ namespace Vion.Dale.Sdk.Http
             // does not declare the status, and which a handler can also construct carrying one for a response that never
             // arrived.
             trace.Status = response.StatusCode;
+            trace.Headers = CopyHeaders(response);
 
             try
             {
@@ -483,10 +484,39 @@ namespace Vion.Dale.Sdk.Http
         {
             var receivedTimestamp = _timeProvider.GetTimestamp();
             var roundTrip = trace.Sent ? _timeProvider.GetElapsedTime(trace.SentAt, receivedTimestamp) : TimeSpan.Zero;
-            var receipt = new HttpReceipt(_timeProvider.GetUtcNow().UtcDateTime, receivedTimestamp, roundTrip, outcome, trace.Status);
+            var receipt = new HttpReceipt(_timeProvider.GetUtcNow().UtcDateTime,
+                                          receivedTimestamp,
+                                          roundTrip,
+                                          outcome,
+                                          trace.Status,
+                                          trace.Headers);
             _summary.Record(receipt);
 
             return receipt;
+        }
+
+        /// <summary>
+        ///     Copies the response's headers and its content's into one case-insensitive view, a repeated header's values joined
+        ///     as the hosted server joins a request's. Taken before the status is judged, so a refusal's copy exists before
+        ///     the response it came from is disposed.
+        /// </summary>
+        private static IReadOnlyDictionary<string, string> CopyHeaders(HttpResponseMessage response)
+        {
+            var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var header in response.Headers)
+            {
+                headers[header.Key] = string.Join(", ", header.Value);
+            }
+
+            if (response.Content != null)
+            {
+                foreach (var header in response.Content.Headers)
+                {
+                    headers[header.Key] = string.Join(", ", header.Value);
+                }
+            }
+
+            return headers;
         }
 
         /// <summary>
@@ -543,6 +573,9 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         private sealed class RequestTrace
         {
+            /// <summary>The headers of the response the client returned and of its content, copied when its status was recorded.</summary>
+            public IReadOnlyDictionary<string, string>? Headers;
+
             /// <summary>Whether the client took the request and handed it to its handlers.</summary>
             public bool Sent;
 
