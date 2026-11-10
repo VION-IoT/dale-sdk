@@ -35,6 +35,25 @@ namespace Vion.Examples.MBus.LogicBlocks
 
         private const int MinPollIntervalSeconds = 300;
 
+        // The unit each quantity's Number is reported in, as MBusQuantity's members document it.
+        private static readonly Dictionary<MBusQuantity, string> Units = new()
+                                                                         {
+                                                                             [MBusQuantity.Energy] = "Wh",
+                                                                             [MBusQuantity.ReactiveEnergy] = "varh",
+                                                                             [MBusQuantity.Volume] = "m³",
+                                                                             [MBusQuantity.Power] = "W",
+                                                                             [MBusQuantity.ReactivePower] = "var",
+                                                                             [MBusQuantity.ApparentPower] = "VA",
+                                                                             [MBusQuantity.VolumeFlow] = "m³/h",
+                                                                             [MBusQuantity.FlowTemperature] = "°C",
+                                                                             [MBusQuantity.ReturnTemperature] = "°C",
+                                                                             [MBusQuantity.TemperatureDifference] = "K",
+                                                                             [MBusQuantity.Voltage] = "V",
+                                                                             [MBusQuantity.Current] = "A",
+                                                                             [MBusQuantity.Frequency] = "Hz",
+                                                                             [MBusQuantity.OperatingTime] = "h",
+                                                                         };
+
         private int _pollIntervalSeconds = MinPollIntervalSeconds;
 
         private bool _readInFlight;
@@ -76,6 +95,7 @@ namespace Vion.Examples.MBus.LogicBlocks
         public int PollIntervalSeconds
         {
             get => _pollIntervalSeconds;
+
             set => _pollIntervalSeconds = Math.Max(MinPollIntervalSeconds, value);
         }
 
@@ -245,25 +265,6 @@ namespace Vion.Examples.MBus.LogicBlocks
         {
             return string.Join(" ", bytes.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)));
         }
-
-        // The unit each quantity's Number is reported in, as MBusQuantity's members document it.
-        private static readonly Dictionary<MBusQuantity, string> Units = new()
-                                                                          {
-                                                                              [MBusQuantity.Energy] = "Wh",
-                                                                              [MBusQuantity.ReactiveEnergy] = "varh",
-                                                                              [MBusQuantity.Volume] = "m³",
-                                                                              [MBusQuantity.Power] = "W",
-                                                                              [MBusQuantity.ReactivePower] = "var",
-                                                                              [MBusQuantity.ApparentPower] = "VA",
-                                                                              [MBusQuantity.VolumeFlow] = "m³/h",
-                                                                              [MBusQuantity.FlowTemperature] = "°C",
-                                                                              [MBusQuantity.ReturnTemperature] = "°C",
-                                                                              [MBusQuantity.TemperatureDifference] = "K",
-                                                                              [MBusQuantity.Voltage] = "V",
-                                                                              [MBusQuantity.Current] = "A",
-                                                                              [MBusQuantity.Frequency] = "Hz",
-                                                                              [MBusQuantity.OperatingTime] = "h",
-                                                                          };
     }
 
     /// <summary>

@@ -14,14 +14,70 @@ namespace Vion.Examples.MBus.Test
     /// </summary>
     public class MBusDebugClientShould
     {
-        private readonly LogicBlockTestContext<MBusDebugClient> _context;
-
-        private readonly MBusDebugClient _sut;
-
         public MBusDebugClientShould()
         {
             _sut = LogicBlockTestHelper.Create<MBusDebugClient>();
             _context = _sut.InitializeForTest();
+        }
+
+        private readonly LogicBlockTestContext<MBusDebugClient> _context;
+
+        private readonly MBusDebugClient _sut;
+
+        [Fact]
+        public void KeepPollIntervalAtLeastDefaultOperationTimeout()
+        {
+            // Arrange
+
+            // Act
+            _sut.PollIntervalSeconds = 10;
+
+            // Assert
+            Assert.Equal((int)_sut.MBus.DefaultOperationTimeout.TotalSeconds, _sut.PollIntervalSeconds);
+        }
+
+        [Fact]
+        public void PollOnlyWhenEnabled()
+        {
+            // Arrange
+            _context.AdvanceTime(TimeSpan.FromSeconds(_sut.PollIntervalSeconds));
+            _context.VerifyMBusReadSent(times: Times.Never());
+            _sut.PollingEnabled = true;
+
+            // Act
+            _context.AdvanceTime(TimeSpan.FromSeconds(_sut.PollIntervalSeconds));
+
+            // Assert
+            _context.VerifyMBusReadSent(times: Times.Once());
+        }
+
+        [Fact]
+        public void ReportFailedReadWithCapture()
+        {
+            // Arrange
+            _sut.ReadNow = true;
+
+            // Act
+            _sut.MBus.SimulateReadResponse(_context, Em530Capture.Telegrams[4].Replace("86 16", "87 16"));
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.StartsWith("ProtocolError", _sut.LastReadError);
+            Assert.Contains("Telegrams as received", _sut.LastReadError);
+        }
+
+        [Fact]
+        public void SayReadIsInFlightWhenReadNowPressedAgain()
+        {
+            // Arrange
+            _sut.ReadNow = true;
+
+            // Act
+            _sut.ReadNow = true;
+
+            // Assert
+            Assert.Equal("A read is already in flight; its answer will replace these results.", _sut.LastReadError);
+            _context.VerifyMBusReadSent(times: Times.Once());
         }
 
         [Fact]
@@ -65,62 +121,6 @@ namespace Vion.Examples.MBus.Test
             Assert.Equal(Em530Capture.Telegrams[0], replayed);
             Assert.Equal(11, _sut.Records.Length);
             Assert.False(_sut.Complete);
-        }
-
-        [Fact]
-        public void ReportFailedReadWithCapture()
-        {
-            // Arrange
-            _sut.ReadNow = true;
-
-            // Act
-            _sut.MBus.SimulateReadResponse(_context, Em530Capture.Telegrams[4].Replace("86 16", "87 16"));
-            _context.FlushPendingActions();
-
-            // Assert
-            Assert.StartsWith("ProtocolError", _sut.LastReadError);
-            Assert.Contains("Telegrams as received", _sut.LastReadError);
-        }
-
-        [Fact]
-        public void SayReadIsInFlightWhenReadNowPressedAgain()
-        {
-            // Arrange
-            _sut.ReadNow = true;
-
-            // Act
-            _sut.ReadNow = true;
-
-            // Assert
-            Assert.Equal("A read is already in flight; its answer will replace these results.", _sut.LastReadError);
-            _context.VerifyMBusReadSent(times: Times.Once());
-        }
-
-        [Fact]
-        public void PollOnlyWhenEnabled()
-        {
-            // Arrange
-            _context.AdvanceTime(TimeSpan.FromSeconds(_sut.PollIntervalSeconds));
-            _context.VerifyMBusReadSent(times: Times.Never());
-            _sut.PollingEnabled = true;
-
-            // Act
-            _context.AdvanceTime(TimeSpan.FromSeconds(_sut.PollIntervalSeconds));
-
-            // Assert
-            _context.VerifyMBusReadSent(times: Times.Once());
-        }
-
-        [Fact]
-        public void KeepPollIntervalAtLeastDefaultOperationTimeout()
-        {
-            // Arrange
-
-            // Act
-            _sut.PollIntervalSeconds = 10;
-
-            // Assert
-            Assert.Equal((int)_sut.MBus.DefaultOperationTimeout.TotalSeconds, _sut.PollIntervalSeconds);
         }
     }
 }
