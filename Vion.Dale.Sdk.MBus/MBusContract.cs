@@ -192,7 +192,9 @@ namespace Vion.Dale.Sdk.MBus
              * the margin of the handler's sweep.
              */
             var backstop = timeout + (MaxQueuedAge ?? TimeSpan.Zero) + BackstopMargin;
-            dispatcher.InvokeSynchronizedAfter(() => Abandon(read, timeout), backstop > MaxTimeout ? MaxTimeout : backstop);
+            var delay = backstop > MaxTimeout ? MaxTimeout : backstop;
+            var startedAt = _timeProvider.GetTimestamp();
+            dispatcher.InvokeSynchronizedAfter(() => Abandon(read, timeout, startedAt, delay), delay);
         }
 
         /// <inheritdoc />
@@ -239,12 +241,23 @@ namespace Vion.Dale.Sdk.MBus
             read.Dispatcher.InvokeSynchronized(() => read.SuccessCallback(readout, receipt));
         }
 
-        private void Abandon(PendingRead read, TimeSpan timeout)
+        private void Abandon(PendingRead read, TimeSpan timeout, long startedAt, TimeSpan delay)
         {
-            if (!TryFinish(read))
+            if (read.Finished)
             {
                 return;
             }
+
+            // A dispatcher may run a delayed action early — a test kit draining its queue does — so the deadline is
+            // read off this contract's own clock, and an early run waits out the rest.
+            var remaining = delay - _timeProvider.GetElapsedTime(startedAt);
+            if (remaining > TimeSpan.Zero)
+            {
+                read.Dispatcher.InvokeSynchronizedAfter(() => Abandon(read, timeout, startedAt, delay), remaining);
+                return;
+            }
+
+            TryFinish(read);
 
             var exception = new MBusException(MBusOutcome.Timeout,
                                               string.Format(CultureInfo.InvariantCulture,

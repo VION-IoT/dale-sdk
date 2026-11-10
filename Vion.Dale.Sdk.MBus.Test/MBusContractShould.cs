@@ -472,6 +472,7 @@ namespace Vion.Dale.Sdk.MBus.Test
             // The answer is lost on the way back, as it is for a contract the link map never named.
             Read(operationTimeout: TimeSpan.FromSeconds(60));
             var backstop = _scheduled.Single();
+            _timeProvider.Advance(backstop.Delay);
 
             // Act
             backstop.Action();
@@ -492,7 +493,7 @@ namespace Vion.Dale.Sdk.MBus.Test
             // Arrange
             Read();
             var first = SentRequests().Single();
-            _scheduled.Single().Action();
+            RunBackstopWhenDue();
             Flush();
 
             // Act
@@ -514,12 +515,33 @@ namespace Vion.Dale.Sdk.MBus.Test
             Flush();
 
             // Act
-            _scheduled.Single().Action();
+            RunBackstopWhenDue();
             Flush();
 
             // Assert
             Assert.AreEqual(MBusOutcome.Success, _receipts.Single().Outcome);
             Assert.AreEqual(0L, _sut.Link.TimeoutCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MBUS-004.7")]
+        public void WaitOutBackstopWhenRunBeforeItIsDue()
+        {
+            // Arrange
+            // A dispatcher that drains its queue early, as a test kit's does, runs the backstop at once.
+            Read();
+            var backstop = _scheduled.Single();
+            _timeProvider.Advance(TimeSpan.FromSeconds(40));
+
+            // Act
+            backstop.Action();
+            Flush();
+            Read();
+
+            // Assert
+            Assert.IsEmpty(_receipts);
+            Assert.HasCount(1, SentRequests());
+            Assert.AreEqual(backstop.Delay - TimeSpan.FromSeconds(40), _scheduled[1].Delay);
         }
 
         [TestMethod]
@@ -530,12 +552,19 @@ namespace Vion.Dale.Sdk.MBus.Test
             Read();
 
             // Act
-            _scheduled.Single().Action();
+            RunBackstopWhenDue();
 
             // Assert
             Assert.AreEqual(1L, _sut.Link.TimeoutCount);
             Assert.AreEqual(0L, _sut.Link.RecentQueuedWaitCount);
             Assert.AreEqual(0L, _sut.Link.RecentRoundTripCount);
+        }
+
+        private void RunBackstopWhenDue()
+        {
+            var backstop = _scheduled.Single();
+            _timeProvider.Advance(backstop.Delay);
+            backstop.Action();
         }
 
         private void Read(int primaryAddress = PrimaryAddress, int maxTelegrams = 5, TimeSpan? operationTimeout = null)

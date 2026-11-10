@@ -45,6 +45,24 @@ namespace Vion.Dale.Sdk.MBus.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-016.1")]
+        public void AnswerReadAfterQueueDrainedEarly()
+        {
+            // Arrange
+            // The drain runs the contract's backstop long before it is due; the read must still be pending.
+            _sut.Poll();
+            _context.FlushPendingActions();
+
+            // Act
+            _sut.MBus.SimulateReadResponse(_context, MBusVectors.Em530);
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.AreEqual(50.0, _sut.Frequency);
+            Assert.AreEqual(MBusOutcome.Success, _sut.LastReceipt!.Value.Outcome);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-016.1")]
         public void CheckSimulatedTelegramsAsProductionDoes()
         {
             // Arrange

@@ -1080,6 +1080,11 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     - the wire records stay internal (`D4`).
   - The example's switch to the released packages, and its upload-matrix entry, are a follow-up pull
     request after the first release.
+  - **The blockers-only review of this round found one blocker, fixed.** The kit's
+    `FlushPendingActions` runs a delayed action whatever its deadline, so a drain between `Read` and
+    `SimulateReadResponse` abandoned the read. The backstop now reads its deadline off the contract's own
+    clock and re-arms for the time left when it runs early. A production timer fires only when due, so
+    production is unchanged.
 
 ---
 
