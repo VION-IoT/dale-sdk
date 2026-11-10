@@ -58,9 +58,7 @@ namespace Vion.Dale.Sdk.Http
         private const string HttpDateFormat = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
 
         /// <summary>
-        ///     Gets the delay the response's <c>Retry-After</c> asks for — its seconds, or its date less the response's own
-        ///     <c>Date</c> (<c>ReceivedAt</c> without one), a past date reading as zero — or <c>null</c> when there is none in
-        ///     either form.
+        ///     Gets the delay the response's <c>Retry-After</c> asks for, or <c>null</c> when it sends none in either form.
         /// </summary>
         public TimeSpan? RetryAfter
         {

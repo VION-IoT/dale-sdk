@@ -175,9 +175,7 @@ namespace Vion.Dale.Sdk.Http.TestKit
         public string? ContentType { get; }
 
         /// <summary>
-        ///     Gets every header the response carries besides its content type — the block's and the server's own, such as the
-        ///     <c>Allow</c> of a 405 — by case-insensitive name, a name sent more than once carrying its values joined by
-        ///     <c>", "</c>.
+        ///     Gets every other header the response carries by case-insensitive name, a repeated one joined by <c>", "</c>.
         /// </summary>
         public IReadOnlyDictionary<string, string> Headers { get; }
 
