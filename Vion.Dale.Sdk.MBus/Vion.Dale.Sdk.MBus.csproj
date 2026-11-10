@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+        <!-- NuGet package metadata -->
+        <PackageId>Vion.Dale.Sdk.MBus</PackageId>
+        <Description>Wired M-Bus (EN 13757-2/-3) meter reading for logic blocks</Description>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--shim to be able to use readonly record structs in netstandard2.1-->
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!--shim to be able to use required members in netstandard2.1-->
+        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <!-- The Dale analyzers, run over this project's own declarations. Compile-time only: without it the
+             [assembly: PublicApiNamespace] in PublicApiConfig.cs has no reader at all, so DALE014 never asks
+             this package for a surface mark. -->
+        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+    </ItemGroup>
+
+    <!-- The analyzer-wiring probe: a public type carrying neither surface mark, which DALE014 must reject.
+         It is NOT a source file of this project - it lives with the test that owns it and is linked in only
+         under `dotnet build -p:DaleMBusAnalyzerWiringProbe=true`, where the build MUST report the
+         diagnostic. That is the standing proof the analyzer reference above is live and not merely present;
+         nothing about it reaches an ordinary build, the compiled assembly or the package. AnalyzerWiringShould
+         runs it. -->
+    <ItemGroup Condition="'$(DaleMBusAnalyzerWiringProbe)' == 'true'">
+        <Compile Include="..\Vion.Dale.Sdk.Generators.Test\AnalyzerWiring\MBusPublicApiWiringProbe.cs"
+                 Link="AnalyzerWiring\MBusPublicApiWiringProbe.cs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.MBus.Test"/>
+        <!-- The kit answers the read holding the slot and builds the exception a simulated failure carries. -->
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.MBus.TestKit"/>
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
+    </ItemGroup>
+
+</Project>

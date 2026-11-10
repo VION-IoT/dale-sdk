@@ -70,7 +70,7 @@ property the member is bound through, then the knob's default.
 - `AC-EMIT-002.7` (Ubiquitous): THE SYSTEM SHALL treat a knob as assigned whenever an attribute
   assigns it, whatever the value, so neither an interface's knob nor a type's default replaces it.
 - `AC-EMIT-002.8` (Ubiquitous): THE SYSTEM SHALL declare a `[DefaultMinInterval]` of 30 s on each
-  diagnostics summary it ships: `ModbusLinkSummary`, `ModbusTcpConnectionSummary`,
+  diagnostics summary it ships: `ModbusLinkSummary`, `ModbusTcpConnectionSummary`, `MBusLinkSummary`,
   `HttpClientSummary` and `HttpServerSummary`.
 
 `AC-EMIT-002.2` is why a dual-annotated member needs its measuring point's interval written out when

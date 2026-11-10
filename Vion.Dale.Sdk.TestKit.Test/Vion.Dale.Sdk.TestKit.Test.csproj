@@ -24,13 +24,14 @@
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
-        <!-- The other five kits, so TestKitSurfaceShould can read the surface all six ship rather than
+        <!-- The other kits, so TestKitSurfaceShould can read the surface every kit ships rather than
              this one's alone. Nothing else in this project uses them. -->
         <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo.TestKit\Vion.Dale.Sdk.DigitalIo.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.AnalogIo.TestKit\Vion.Dale.Sdk.AnalogIo.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Rtu.TestKit\Vion.Dale.Sdk.Modbus.Rtu.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Tcp.TestKit\Vion.Dale.Sdk.Modbus.Tcp.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Http.TestKit\Vion.Dale.Sdk.Http.TestKit.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.MBus.TestKit\Vion.Dale.Sdk.MBus.TestKit.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

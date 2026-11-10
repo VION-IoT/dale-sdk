@@ -1,6 +1,6 @@
 ---
 slug: mbus-service-provider
-status: proposed           # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: MBUS, TKIT, EMIT
 author: Jonas Bertsch (drafted in a Claude session)
@@ -185,6 +185,11 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
    - Anything else decodes as a record with no quantity, reachable by code.
    - The quantity and unit enums are pinned against the targets' captures in `T-002`, not against the
      whole standard.
+
+   **OUTCOME (2026-11-10, implementation):** the table as built is the primary VIF table, the FDh
+   voltage, current and dimensionless families, and four FBh codes, each pinned to an EM530 value (Drift
+   checkpoint `T-002`). Those four come from the vendor's frame table, because neither open-source decoder
+   carries them, so the pull request asks its reviewer to confirm them against EN 13757-3:2018.
 7. **(c) Does the M-Bus example, with its debug client, go to production?** Its consumer is
    commissioning at customer sites such as AVM, so it is needed where those gateways run.
    - **Recommendation:** add it to `examples.yml`'s production upload, both to `detect-prod`'s filters
@@ -928,6 +933,158 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 
   Sibling sweep: every mention of `SelectorFor`, `Describe()` and "a selector that finds", in the same
   commit.
+- 2026-11-10: ratified by the operator on #281. Implementation runs on `feat/mbus-service-provider-2`,
+  because the doc's own branch is merged.
+- 2026-11-10, `T-002`: the decoder's table and test vectors, decided in implementation:
+  - **The FBh entries are the four codes the targets send, and only those:** 02h reactive energy, 17h
+    reactive power, 2Eh frequency and 37h apparent power. EN 13757-3:2018 was not available at the desk.
+    libmbus (`mbus-protocol.c`, master) labels all four "Reserved", as `Tc2_MBus` does, and wmbusmeters'
+    `dvparser.h` lists none of them. Their meaning and unit are taken from Carlo Gavazzi's EM530/EM540
+    frame table (`vendor-target-meters.md` § 6.4), and each is pinned to an EM530 bench value: 50.0 Hz,
+    and kvar, kVA and kvarh scaled by their correction extensions. A neighbouring code in the same family
+    (FBh 03h, 14h–16h, 2Ch–2Dh, 2Fh, 34h–36h) decodes with no quantity rather than by an unverified rule.
+    The FDh voltage, current and dimensionless entries are whole families, from the M-Bus documentation's
+    FDh table. **The reviewer should check these four against the standard's text.**
+  - **`MBusQuantity` holds what the captures carry:** energy, reactive energy, volume, power, reactive and
+    apparent power, volume flow, flow and return temperature, voltage, current, frequency, operating time,
+    dimensionless and date/time. It adds temperature difference, because the doc's unit list names K for
+    it. Every primary VIF whose quantity is not in the enum (mass, on time, pressure, …) decodes with no
+    quantity. Each member's XML doc names the unit `Number` is reported in, so the record needs no unit
+    member of its own.
+  - **VIFE E111 1101 (×10³) is a multiplicative correction**, beside E111 0nnn: the Supercal 531's
+    datasheet codes energy as `85 7D` (0.1 MWh). The additive correction (E111 10nn) is an offset in the
+    VIF's own unit, applied after the multiplicative one; no target sends it.
+  - **Values:** a record with no quantity carries its raw number, unscaled. Date/time types F, G and I
+    follow libmbus's year rules. Type J (a time of day) has no date, so it decodes with no value. A
+    manufacturer-specific VIF's extensions are not read as record error codes.
+  - **Vectors:** the EM530's five telegrams were rebuilt from `logs/2026-11-10-all.txt` with
+    `tools/analyse_bench_log.py`, and match the brief's hex byte for byte, checksums included. The
+    Supercal 531 and TMP-A vectors are libmbus's test frames (BSD-3, notice committed beside them). The
+    EM111 vector is **not** copied: it comes from a forum post (`vendor-target-meters.md` § 6.8, W3), not
+    from libmbus, and its licence is unknown. The EM530 covers the same record types.
+  - `MBusTelegram.ToString()` renders the frame as hex that `Parse` reads back, so "the telegram as hex"
+    needs no member of its own.
+  - `AC-MBUS-006.7` (the header comes from the first telegram) is tested in `T-003`, which introduces the
+    readout.
+- 2026-11-10, `T-004`: the readout's surface, decided in implementation:
+  - `MBusUnit` takes .NET's spelling (`CubicMeter`, `Liter`, `CubicMeterPerHour`, `LiterPerHour`); the
+    doc's examples name only units spelled the same either way.
+  - `Value` refuses a unit outside a selector-by-meaning's quantity before looking for the record, so the
+    mistake shows on the first replay of any capture, even one that lacks the record. A selector by code
+    can only be judged against the record it finds.
+  - `Find` reports a miss as well as `Value`, since both take a selector. The readout hands each miss on
+    a complete readout to the contract, and the contract logs it once per selector (`T-005`).
+  - `Describe()` prints `#n | tN | quantity | value unit | storage, tariff, subunit, function | DIB | VIB |
+    selector`, joined with `\n`. A shadowed record prints `shadowed by #n`.
+- 2026-11-10, `T-005`: the contract and the handler, decided in implementation:
+  - **No `DependencyInjection`.** The package has nothing to register: `Vion.Dale.Sdk` registers the clock,
+    and the runtime and the kit both find the contract by its type. An empty `IConfigureServices` would be
+    surface with no job (`sdk-surface-conventions.md` § 1).
+  - The contract class is `MBusContract`, `[InternalApi]`. `MBus` would share its name with the namespace's
+    last segment.
+  - `AC-MBUS-006.1` is `MODIFIED` to name an undecodable telegram, which `D10` already makes a
+    `ProtocolError`.
+  - **Arguments:** a timeout outside its limits throws inline (`AC-MBUS-004.2`), as RTU's does. An address
+    or telegram count out of range goes through the error callback (`AC-MBUS-001.3`). A null dispatcher or
+    success callback throws `ArgumentNullException` after the busy check.
+  - **Failures:** each is logged at Error once per read, `Expired` and `Dropped` included, as § The block
+    API states. RTU logs those two at Debug. An answer whose payload cannot be read is a `ProtocolError`, as
+    RTU's handler treats one.
+  - **`MBusException`:** the constructor is internal, and the kit reaches it through `InternalsVisibleTo`. On a
+    `ProtocolError` its message ends with the telegrams as hex, so the Error log line carries the capture.
+  - `BusyCount` and `Link` land in `T-006` with the accumulator. `AC-MBUS-003.1`'s count and
+    `AC-MBUS-005.8`'s untouched link state are asserted there.
+- 2026-11-10, `T-006`: the link summary, decided in implementation:
+  - **`AC-MBUS-008.3` is `MODIFIED` to "a lifetime counter for every outcome"**, success included. The
+    ADDED text, "every outcome but success", contradicted § The link summary ("a counter per outcome, plus
+    `BusyCount`") and `D8`'s field-for-field mirror, which has `SuccessCount`.
+  - **`QueueDepth` is not mirrored.** It is always zero on RTU, which has no local queue, and M-Bus has none
+    either.
+  - **Which reads feed which figure.** A round trip comes from an outcome the provider answered:
+    `Success`, `NoResponse`, `Garbled`, `LineUnavailable`, `ProtocolError`. A `Timeout` was published but
+    never answered, so it does not feed one. Queued wait comes from every outcome but `Invalid`, as
+    Modbus's does. The receipt cannot tell an `Invalid` that reached the provider (`NotSupported`) from one
+    refused in the block, so `Invalid` feeds neither figure. `LastContactAt` moves on `Success` only.
+  - `MBusLinkAccumulator` is `internal`: unlike Modbus's, no other assembly records into it.
+- 2026-11-10, `T-007`: the kit, decided in implementation:
+  - **The release roster moves here from `T-008`.** Both packages became packable in `T-001` and `T-007`,
+    and `TestKitSurfaceShould`'s `SYS-REL-001` test fails until `scripts/set-version.ps1` names them.
+  - **The manifest snapshot is committed with the kit,** regenerated by `generate-api-reference.cjs` from
+    a Release build. It adds 19 lines and changes no other line. `CarryEveryPublishedKitTypeInApiManifest`
+    reads the committed snapshot, so the kit's types have to be in it before the CI bot runs.
+  - The kit answers the read that holds the contract's slot through an internal `PendingCorrelationId`,
+    and builds a simulated failure's `MBusException` through `InternalsVisibleTo`. A simulated
+    `Expired`, `Dropped` or `Invalid` carries no publish instant, as the handler stamps them. A mutation
+    found the first lookup's flaw: `LastOrDefault` over the request structs returns a default struct, never
+    `null`, so a missing pending read would have been answered with an empty request rather than refused.
+    The lookup now runs over nullable requests.
+  - **Counts:** "six kits" became seven in `spec-process.md` § The roster, `testkit.md` (twice) and
+    `analyzers.md`'s `AC-ANLZ-018.2`. The last is a `MODIFIED` delta line, because its `GAP` tail names the
+    probes and now counts fourteen, `AC-MBUS-009.1` among them. `sdk-surface-conventions.md`'s counts were
+    re-derived:
+    - fifteen assemblies declare a published namespace, where the doc read twelve (thirteen did before
+      this change);
+    - twenty-one projects reference the analyzers unconditionally.
+- 2026-11-10, `T-008`: the example, decided in implementation:
+  - **It compiles only against the working tree until the packages' first release.** Examples build
+    against the published SDK packages, and neither M-Bus package is published. So
+    `docs/releasing.md`'s first-release rule applies: every source is excluded unless
+    `-p:DaleLocalSource=true`, and the test project is no test project until then. With nothing compiled,
+    xunit v3 fails a run with "Could not launch test process".
+  - **`examples.yml`'s upload matrix gains the example in that same first-release bump, not here.**
+    Today's `main` push would upload an empty `Vion.Examples.MBus 0.15.0` to Cloud test: `dale upload`
+    does not refuse a library with no logic block, and `--skip-duplicate` keeps that empty upload once its
+    version exists. `D19`'s destination is unchanged: the example goes to Cloud through the matrix, as the
+    Modbus TCP example does. **This is the one point the reviewer should confirm**, since `D19` is on the
+    brief's STOP list. Adding the line now is the one-line alternative.
+  - The example has no DevHost, as § Package layout says. Its tests replay the EM530 capture, kept in the
+    example's own test data so the example reads as consumer code. The debug client keeps its own
+    quantity-to-unit symbols, from `MBusQuantity`'s documented reported units. Its primary address
+    defaults to 0.
+- 2026-11-10, after the archive: the branch review found two blockers, both fixed in one commit with
+  their criterion, delta line and page edit:
+  - **A read whose answer is lost held the slot for good.** A contract the link map never named has no
+    actor the handler can answer, and an unbound contract's send goes nowhere. Under `D3` every later
+    read was then dropped as busy, with no error.
+
+    Each read now carries a backstop on its own dispatcher. After the operation timeout, plus the
+    maximum queued age where there is one, plus ten seconds, the read completes as `Timeout` and frees
+    the slot. Each read completes exactly once, so a later answer is ignored. The abandoned read counts
+    as a timeout but feeds no latency figure, since whether it reached the handler is unknown.
+
+    New criterion `AC-MBUS-004.7`. The handler's drop is the RTU copy (`D12`) and stays.
+  - **An `Ok` answer carrying a `null` telegram escaped both callbacks.** The handler now reads it as an
+    unreadable answer, a `ProtocolError`. A null frame is also a decode failure, as defence in depth.
+
+  Sibling sweep: every path that completes a read now goes through the one exactly-once guard.
+- 2026-11-10, the operator's review of #282:
+  - **Counts in prose go stale.** The counts this change wrote ("seven kits", "fourteen probes",
+    "fifteen assemblies", "twenty-one projects", "sixteen areas") are rewritten without numbers.
+    `AC-ANLZ-018.2`'s GAP tail changes with them, by editing its unpublished `MODIFIED` line. Counts
+    this change did not write stay.
+  - **`Expired` and `Dropped` are logged at Debug**, as RTU logs them. At Error, a congested runtime's
+    burst floods the gateway's log. This overrides § The block API's "every failure at Error".
+  - **Simpler and cheaper:**
+    - `MBusHex.Format` is `BitConverter.ToString`;
+    - each record keeps its DIB and VIB bytes once, so matching by code compares spans without
+      allocating;
+    - the readout finds every shadow in one pass.
+
+    A mutation of the new matching found that no test held a code to exact length, so
+    `MatchOnlyExactCode` now does.
+  - Answered without a change:
+    - the contract class keeps its name: `MBus` would share it with its namespace's last segment;
+    - the decoder stays hand-written: the one C# library found is unmaintained since 2019;
+    - the link summary stays as it is (`D8`);
+    - the enums stay as they are: Tc2_MBus carries units as strings and its function enum matches;
+    - the wire records stay internal (`D4`).
+  - The example's switch to the released packages, and its upload-matrix entry, are a follow-up pull
+    request after the first release.
+  - **The blockers-only review of this round found one blocker, fixed.** The kit's
+    `FlushPendingActions` runs a delayed action whatever its deadline, so a drain between `Read` and
+    `SimulateReadResponse` abandoned the read. The backstop now reads its deadline off the contract's own
+    clock and re-arms for the time left when it runs early. A production timer fires only when due, so
+    production is unchanged.
 
 ---
 
@@ -952,6 +1109,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-004.4 -> docs/specs/mbus.md : WHEN a read has waited strictly longer than the maximum queued age when the handler takes it THE SYSTEM SHALL complete it through its error callback with an `Expired` receipt, without publishing it.
 - ADDED AC-MBUS-004.5 -> docs/specs/mbus.md : WHEN no response to a published read has arrived when its operation timeout has passed THE SYSTEM SHALL complete it through its error callback with a `Timeout` receipt within about a second.
 - ADDED AC-MBUS-004.6 -> docs/specs/mbus.md : THE SYSTEM SHALL publish each read with a deadline of the moment the handler publishes it plus the read's operation timeout.
+- ADDED AC-MBUS-004.7 -> docs/specs/mbus.md : WHEN no answer to a read has reached its contract by its operation timeout, plus its maximum queued age where it has one, plus ten seconds THE SYSTEM SHALL complete the read through its error callback with a `Timeout` receipt, SHALL accept the contract's next read, and SHALL ignore an answer to it that arrives later.
 - ADDED AC-MBUS-005.1 -> docs/specs/mbus.md : THE SYSTEM SHALL publish a read as a `GetMBusPayload` JSON document carrying the primary address and the telegram count, labelled with the record's name as its schema and with the JSON content type.
 - ADDED AC-MBUS-005.2 -> docs/specs/mbus.md : WHEN a response with the code `Ok` arrives and every telegram it carries passes the frame checks THE SYSTEM SHALL decode the telegrams in order and SHALL deliver the readout to the success callback.
 - ADDED AC-MBUS-005.3 -> docs/specs/mbus.md : WHEN a response with the code `NoResponse`, `Garbled`, `LineUnavailable` or `NotSupported` arrives THE SYSTEM SHALL complete the read through its error callback with the outcome `NoResponse`, `Garbled`, `LineUnavailable` or `Invalid` respectively, and SHALL carry the provider's code on the exception.
@@ -961,6 +1119,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-005.7 -> docs/specs/mbus.md : THE SYSTEM SHALL route every M-Bus binding in a runtime through one shared handler, and SHALL mark the M-Bus assembly a shared assembly.
 - ADDED AC-MBUS-005.8 -> docs/specs/mbus.md : WHEN a response carries a response code the system does not know THE SYSTEM SHALL complete the read through its error callback with an `Invalid` outcome and SHALL leave the link state unchanged.
 - ADDED AC-MBUS-006.1 -> docs/specs/mbus.md : WHEN an `Ok` response carries no telegram or more telegrams than asked, or a telegram with a wrong start, length, checksum or stop byte, a CI other than 72h, an address other than the one asked, or an identification other than the first telegram's THE SYSTEM SHALL complete the read through its error callback with a `ProtocolError` receipt and the telegrams as received.
+- MODIFIED AC-MBUS-006.1 -> docs/specs/mbus.md : WHEN an `Ok` response carries no telegram or more telegrams than asked, or a telegram with a wrong start, length, checksum or stop byte, a CI other than 72h, an address other than the one asked, an identification other than the first telegram's, or records that cannot be decoded THE SYSTEM SHALL complete the read through its error callback with a `ProtocolError` receipt and the telegrams as received.
 - ADDED AC-MBUS-006.2 -> docs/specs/mbus.md : THE SYSTEM SHALL decode a telegram into its fixed header and its data records, and SHALL keep each record's data information block, value information block and data bytes as received.
 - ADDED AC-MBUS-006.3 -> docs/specs/mbus.md : THE SYSTEM SHALL scale a record's value by its value information's exponent and by its multiplicative and additive correction extensions into the unit its quantity is reported in.
 - ADDED AC-MBUS-006.4 -> docs/specs/mbus.md : WHEN a record's value information is not in the decoder's table THE SYSTEM SHALL keep the record with no quantity and its bytes, and SHALL decode the rest of the telegram.
@@ -976,12 +1135,14 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-008.1 -> docs/specs/mbus.md : THE SYSTEM SHALL accumulate every completed read of one contract into a link summary readable at any time without blocking the read updating it.
 - ADDED AC-MBUS-008.2 -> docs/specs/mbus.md : THE SYSTEM SHALL set the link state to `Online` on a success, to `Faulted` on no response, a garbled answer, an unavailable line, a timeout or a protocol error, and SHALL leave it unchanged on every other outcome.
 - ADDED AC-MBUS-008.3 -> docs/specs/mbus.md : THE SYSTEM SHALL keep a lifetime counter for every outcome but success and for busy reads, SHALL feed round-trip figures only from reads that were published and answered, and SHALL feed queued-wait figures only from reads that reached the handler.
+- MODIFIED AC-MBUS-008.3 -> docs/specs/mbus.md : THE SYSTEM SHALL keep a lifetime counter for every outcome and for busy reads, SHALL feed round-trip figures only from reads that were published and answered, and SHALL feed queued-wait figures only from reads that reached the handler.
 - ADDED AC-MBUS-008.4 -> docs/specs/mbus.md : THE SYSTEM SHALL report, for round trip and for queued wait separately, the mean, the maximum and the number of reads over at least the last 15 minutes and less than the last 16 on the contract's clock, or over its whole life where that is shorter.
 - ADDED AC-MBUS-009.1 -> docs/specs/mbus.md : THE SYSTEM SHALL classify every public type the M-Bus packages ship as published surface or internal plumbing, and SHALL judge their declarations with the Dale analyzers.
 - ADDED AC-TKIT-016.1 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test answer a pending M-Bus read with telegrams given as hexadecimal text, delivering them through the production callback chain, frame checks and decoder and stamping the receipt from the virtual clock.
 - ADDED AC-TKIT-016.2 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test complete a pending M-Bus read through its error callback with an outcome other than success that the test names, and SHALL refuse success, naming the response simulation.
 - ADDED AC-TKIT-016.3 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test verify that a block sent an M-Bus read, optionally to a primary address, for a telegram count and a number of times.
 - ADDED AC-TKIT-016.4 -> docs/specs/testkit.md : WHEN a simulation finds no pending M-Bus read THE SYSTEM SHALL refuse it, naming what the block must do first.
+- MODIFIED AC-ANLZ-018.2 -> docs/specs/analyzers.md : THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; the packages named here each carry a committed wiring probe that proves the mechanism, under the id of whichever page owns the package — `AC-INTRO-017.4` for the I/O packages, `AC-TKIT-013.2` for the kits, `AC-HTTP-013.2` for HTTP, `AC-MODB-019.2` for the Modbus packages, `AC-MBUS-009.1` for M-Bus; `AC-ANLZ-018.4` is the rule that the probe stays out of an ordinary build.
 - MODIFIED AC-EMIT-002.8 -> docs/specs/emission.md : THE SYSTEM SHALL declare a `[DefaultMinInterval]` of 30 s on each diagnostics summary it ships: `ModbusLinkSummary`, `ModbusTcpConnectionSummary`, `MBusLinkSummary`, `HttpClientSummary` and `HttpServerSummary`.
 
 ---

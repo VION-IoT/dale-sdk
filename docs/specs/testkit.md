@@ -5,10 +5,11 @@ trace: enforced
 # The test kits: what the SDK ships so a block can be tested without a runtime
 
 What the SDK guarantees a logic-block author who wants to test a block on their own machine, with no
-runtime, no broker, no device and no development host. Six packable packages ship it — the core kit
-`Vion.Dale.Sdk.TestKit`, the two I/O kits `Vion.Dale.Sdk.DigitalIo.TestKit` and
-`Vion.Dale.Sdk.AnalogIo.TestKit`, the two Modbus kits `Vion.Dale.Sdk.Modbus.Rtu.TestKit` and
-`Vion.Dale.Sdk.Modbus.Tcp.TestKit`, and the HTTP kit `Vion.Dale.Sdk.Http.TestKit`. Area code `TKIT`.
+runtime, no broker, no device and no development host. Packable packages ship it — the core kit
+`Vion.Dale.Sdk.TestKit`, the I/O kits `Vion.Dale.Sdk.DigitalIo.TestKit` and
+`Vion.Dale.Sdk.AnalogIo.TestKit`, the Modbus kits `Vion.Dale.Sdk.Modbus.Rtu.TestKit` and
+`Vion.Dale.Sdk.Modbus.Tcp.TestKit`, the HTTP kit `Vion.Dale.Sdk.Http.TestKit` and the M-Bus kit
+`Vion.Dale.Sdk.MBus.TestKit`. Area code `TKIT`.
 Process: [`../spec-process.md`](../spec-process.md).
 
 The core kit is the substrate and the other five extend it. `LogicBlockTestContext<TLogicBlock>` is
@@ -288,7 +289,7 @@ not for "not finite".
   expression, refusing an unregistered identifier from either query with the registered identifiers
   named.
 
-**No kit waits on wall time.** There is no timeout anywhere in the six packages: a delay is virtual
+**No kit waits on wall time.** There is no timeout anywhere in the kits: a delay is virtual
 time a driver consumes, and a test that wants to wait advances the clock.
 
 `AC-TKIT-008.1`'s last clause is a trap worth stating plainly. `WithTimeProvider` binds one clock to
@@ -567,6 +568,24 @@ caps, a malformed request, closing the connection, the read bound, the connectio
 cut short all belong to the socket transport the fake replaces, and `http.md` proves them over real
 sockets. Every request the view sends is therefore answered and recorded.
 
+## The M-Bus kit
+
+- `AC-TKIT-016.1` (Ubiquitous): THE SYSTEM SHALL let a test answer a pending M-Bus read with telegrams
+  given as hexadecimal text, delivering them through the production callback chain, frame checks and
+  decoder and stamping the receipt from the virtual clock.
+- `AC-TKIT-016.2` (Ubiquitous): THE SYSTEM SHALL let a test complete a pending M-Bus read through its
+  error callback with an outcome other than success that the test names, and SHALL refuse success,
+  naming the response simulation.
+- `AC-TKIT-016.3` (Ubiquitous): THE SYSTEM SHALL let a test verify that a block sent an M-Bus read,
+  optionally to a primary address, for a telegram count and a number of times.
+- `AC-TKIT-016.4` (Event-driven): WHEN a simulation finds no pending M-Bus read THE SYSTEM SHALL refuse
+  it, naming what the block must do first.
+
+Unlike `AC-TKIT-009.3`, a simulation answers the read that holds the binding's slot and completes it, so a
+second simulation of the same read is refused: an M-Bus binding has one read in flight
+([`mbus.md`](mbus.md)'s `AC-MBUS-003.*`). A capture replays as hex, which is how a meter's telegrams reach a
+test from a log or a datasheet; the kit offers no telegram builder.
+
 ## The published surface
 
 - `AC-TKIT-013.1` (Ubiquitous): THE SYSTEM SHALL ship the test kits as packable packages targeting
@@ -579,8 +598,8 @@ sockets. Every request the view sends is therefore answered and recorded.
   provider in the published signature of the core kit.
 
 The release roster is not this page's rule and is no longer stated here: it is `SYS-REL-001`
-([`_invariants.md`](_invariants.md)), a repository-wide release rule of which the six kits are six
-named packages.
+([`_invariants.md`](_invariants.md)), a repository-wide release rule of which each kit is one
+named package.
 
 `AC-TKIT-013.2` is what makes `AC-TKIT-013.1` enforceable rather than aspirational. Each kit declares
 its own namespace as published surface, and until the analyzer reference landed beside that

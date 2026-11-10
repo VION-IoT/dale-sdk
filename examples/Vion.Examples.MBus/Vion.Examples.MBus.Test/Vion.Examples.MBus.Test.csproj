@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+    <!-- TestKit refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
+         local project refs so you can test working-tree SDK changes against this example without editing the csproj. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
+        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.15.0"/>
+    </ItemGroup>
+    <!-- Every test here drives the M-Bus TestKit, which no published version carries yet, so they compile only
+         against the working tree. The release that first ships Vion.Dale.Sdk.MBus.TestKit adds its
+         PackageReference above and removes this group. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
+        <Compile Remove="*.cs"/>
+    </ItemGroup>
+    <!-- With no test compiled, the xunit runner cannot launch the assembly and fails the run, so the project is no
+         test project until it has tests to run. Removed with the group above. -->
+    <PropertyGroup Condition="'$(DaleLocalSource)' != 'true'">
+        <IsTestProject>false</IsTestProject>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.MBus.TestKit\Vion.Dale.Sdk.MBus.TestKit.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
+        <PackageReference Include="xunit.v3" Version="3.2.0"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Examples.MBus\Vion.Examples.MBus.csproj"/>
+    </ItemGroup>
+</Project>

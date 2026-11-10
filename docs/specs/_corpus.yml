@@ -26,9 +26,9 @@
 # an unlisted area fails the lint. List the invariant codes too — `_invariants.md` declares its
 # `SYS-` rules the same way and they are owned the same way.
 #
-# dale-sdk's fifteen areas and the two invariant families `_invariants.md` declares: the roster in
+# dale-sdk's areas and the invariant families `_invariants.md` declares: the roster in
 # `docs/spec-process.md`.
-owns: [ANLZ, EMIT, BIND, GATE, INTRO, SCEN, CTRL, PLUG, HOST, CLI, LIFE, MODB, IO, TKIT, HTTP, API, REL]
+owns: [ANLZ, EMIT, BIND, GATE, INTRO, SCEN, CTRL, PLUG, HOST, CLI, LIFE, MODB, IO, TKIT, HTTP, MBUS, API, REL]
 
 # ---------------------------------------------------------------------------------------------
 # tests  (required) — where coverage is counted, as repo-root-relative globs over FILES.
