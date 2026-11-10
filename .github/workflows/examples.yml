@@ -42,6 +42,7 @@ jobs:
           - Vion.Examples.RichTypes
           - Vion.Examples.Emission
           - Vion.Examples.Gating
+          - Vion.Examples.MBus
     steps:
       - uses: actions/checkout@v4
 
