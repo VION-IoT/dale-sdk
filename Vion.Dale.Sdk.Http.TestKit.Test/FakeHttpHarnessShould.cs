@@ -278,9 +278,13 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-014.4")]
-        public void RefuseRespondWithHeaderResponseCannotCarry()
+        [DataRow("Retry After", "120", DisplayName = "a name neither the response nor its body takes")]
+        [DataRow("content-type", "text/plain", DisplayName = "a content type, which the content type argument sets")]
+        [DataRow("Retry-After", "120\r\nX-Injected: y", DisplayName = "a value carrying a carriage return and line feed")]
+        [DataRow("X-Request-Id", "a\nb", DisplayName = "a value carrying a bare line feed")]
+        public void RefuseRespondWithHeaderNoWireDelivers(string name, string value)
         {
-            // Arrange — a space makes the name no token, so neither the response nor its body takes it
+            // Arrange
             using var harness = new FakeHttpHarness();
             var sut = new SampleHttpBlock(harness.Client, LogicBlockTestHelper.CreateLoggerMock().Object);
             sut.CreateTestContext().Build();
@@ -289,7 +293,8 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
             // Act / Assert
             Assert.AreEqual("headers",
                             Assert.ThrowsExactly<ArgumentException>(() => harness.Respond(HttpStatusCode.TooManyRequests,
-                                                                                          headers: new Dictionary<string, string> { ["Retry After"] = "120" }))
+                                                                                          "{}",
+                                                                                          headers: new Dictionary<string, string> { [name] = value }))
                                   .ParamName);
             Assert.AreEqual(1, harness.PendingCount);
         }

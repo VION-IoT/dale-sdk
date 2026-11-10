@@ -476,7 +476,7 @@ since the view only forwards to them. The fake offers no way to set a unit's las
   SHALL record its method, URI, headers as sent, body, content type and per-request timeout before the
   member returns, and hold it outstanding.
 - `AC-TKIT-014.3` (Ubiquitous): THE SYSTEM SHALL answer outstanding requests oldest first, delivering a scripted status, headers, content type and body as the response the SDK handles and a scripted exception unchanged, as the SDK delivers a transport failure.
-- `AC-TKIT-014.4` (Unwanted): IF a test answers or fails a request while none is outstanding THEN THE SYSTEM SHALL throw an `InvalidOperationException`, IF it fails one with no exception THEN THE SYSTEM SHALL throw an `ArgumentNullException`, and IF it answers one with a header neither the response nor its content can carry THEN THE SYSTEM SHALL throw an `ArgumentException`, leaving the request outstanding.
+- `AC-TKIT-014.4` (Unwanted): IF a test answers or fails a request while none is outstanding THEN THE SYSTEM SHALL throw an `InvalidOperationException`, IF it fails one with no exception THEN THE SYSTEM SHALL throw an `ArgumentNullException`, and IF it answers one with a `Content-Type` header, a header value carrying a line break, or a header neither the response nor its content can carry THEN THE SYSTEM SHALL throw an `ArgumentException`, leaving the request outstanding.
 - `AC-TKIT-014.5` (Event-driven): WHEN a test answers or fails a request THE SYSTEM SHALL return only
   once the exchange has handed its callback to the block's dispatcher, running no callback itself, and
   SHALL return so on a thread that owns the test's synchronization context.
@@ -500,8 +500,11 @@ carries the SDK's own `User-Agent`, because each of those is the SDK's code runn
 `AC-TKIT-014.3`'s headers are added unvalidated, as the platform's socket handler adds what the wire
 carried — onto the response, or onto its content for a content header such as `Content-Language` — so
 a scripted `Retry-After` reaches the receipt read and rendered exactly as `http.md`'s `AC-HTTP-019.6`
-reads one from a server, on a 429 as on a 2xx. `AC-TKIT-014.4` refuses only a header neither half
-takes, a name with a space in it for one, before the request is answered.
+reads one from a server, on a 429 as on a 2xx. `AC-TKIT-014.4` refuses, before the request is
+answered, what no wire delivers: a header neither half takes, such as a name with a space in it; a
+value with a line break, which the platform would hand the block inside the value; and a
+`Content-Type`, which the content type argument already sets and which would arrive as a second value
+beside it.
 
 `AC-TKIT-014.5` is what makes the next drive discriminating. Releasing a held response runs the SDK's
 exchange on the test's thread up to the point it hands the callback to the block's dispatcher, and an

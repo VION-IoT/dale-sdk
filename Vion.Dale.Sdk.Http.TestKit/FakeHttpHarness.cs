@@ -130,9 +130,13 @@ namespace Vion.Dale.Sdk.Http.TestKit
         /// <param name="contentType">The content type of <paramref name="body" />.</param>
         /// <param name="headers">
         ///     The response headers, added as the wire would carry them, a name given twice sent twice — a content header such as
-        ///     <c>Content-Language</c> goes onto the body — or <c>null</c> for none.
+        ///     <c>Content-Language</c> goes onto the body — or <c>null</c> for none. <c>Content-Type</c> is
+        ///     <paramref name="contentType" />'s, and is refused here.
         /// </param>
-        /// <exception cref="ArgumentException">Thrown when a header is one neither the response nor its body can carry.</exception>
+        /// <exception cref="ArgumentException">
+        ///     Thrown when a header is <c>Content-Type</c>, carries a line break, or is one neither the response nor its body
+        ///     can carry.
+        /// </exception>
         public void Respond(HttpStatusCode statusCode, string? body = null, string contentType = "application/json", IEnumerable<KeyValuePair<string, string>>? headers = null)
         {
             var content = new ByteArrayContent(body == null ? Array.Empty<byte>() : Encoding.UTF8.GetBytes(body));
@@ -144,8 +148,11 @@ namespace Vion.Dale.Sdk.Http.TestKit
             var response = new HttpResponseMessage(statusCode) { Content = content };
             foreach (var header in headers ?? Array.Empty<KeyValuePair<string, string>>())
             {
-                // Refused before the oldest request is taken, so a misscripted answer leaves the request outstanding.
-                if (!response.Headers.TryAddWithoutValidation(header.Key, header.Value) && !content.Headers.TryAddWithoutValidation(header.Key, header.Value))
+                // Refused before the oldest request is taken, so a misscripted answer leaves the request outstanding. The
+                // platform adds both of these unvalidated: a second Content-Type becomes a second value beside the one the
+                // body has, and a line break reaches the block inside the value. No wire delivers either.
+                if (string.Equals(header.Key, "Content-Type", StringComparison.OrdinalIgnoreCase) || header.Value == null || header.Value.IndexOfAny(new[] { '\r', '\n' }) >= 0 ||
+                    (!response.Headers.TryAddWithoutValidation(header.Key, header.Value) && !content.Headers.TryAddWithoutValidation(header.Key, header.Value)))
                 {
                     response.Dispose();
 
