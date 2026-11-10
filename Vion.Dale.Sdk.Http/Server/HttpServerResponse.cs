@@ -20,8 +20,6 @@ namespace Vion.Dale.Sdk.Http.Server
     [PublicApi]
     public sealed class HttpServerResponse
     {
-        private const string TokenSeparators = "()<>@,;:\\\"/[]?={}";
-
         private static readonly IReadOnlyList<KeyValuePair<string, string>> NoHeaders = Array.Empty<KeyValuePair<string, string>>();
 
         private static readonly string[] FramingHeaders = { "Content-Type", "Content-Length", "Connection", "Transfer-Encoding" };
@@ -108,7 +106,7 @@ namespace Vion.Dale.Sdk.Http.Server
             // The name is written into the header block verbatim, so a space or a colon in it writes a line no client parses
             // as the header meant, and a line break lets a block deriving it from a client's request add headers of the
             // client's choosing. A token is what the server itself accepts as a request header's name.
-            if (name == null || name.Length == 0 || !name.All(character => character > ' ' && character <= '~' && TokenSeparators.IndexOf(character) < 0))
+            if (name == null || !TcpHttpServerTransport.IsToken(name))
             {
                 throw new ArgumentException($"'{name}' is not a header name: a name is printable ASCII with no separator.", nameof(name));
             }
