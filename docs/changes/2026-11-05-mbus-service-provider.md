@@ -301,9 +301,15 @@ public void Poll()
 }
 ```
 
-A heat meter's due-day pair reads the same way: `readout.Value(MBusSelector.Of(MBusQuantity.Energy,
-storage: 1), MBusUnit.KilowattHour)` for the value, and `readout.Find(MBusSelector.Of(
-MBusQuantity.DateTime, storage: 1))?.Timestamp` for its date.
+A heat meter's due-day pair reads the same way, the value and its date:
+
+```csharp
+private static readonly MBusSelector DueDayEnergySel = MBusSelector.Of(MBusQuantity.Energy, storage: 1);
+private static readonly MBusSelector DueDaySel       = MBusSelector.Of(MBusQuantity.DateTime, storage: 1);
+
+DueDayEnergy = readout.Value(DueDayEnergySel, MBusUnit.KilowattHour);
+DueDay       = readout.Find(DueDaySel)?.Timestamp;
+```
 
 **Outcomes.** `MBusOutcome` takes Modbus's names where the meaning is the same and adds M-Bus's own:
 
