@@ -155,6 +155,14 @@ block would meet the same parsing without the case-insensitive string view.
   `Retry-After = HTTP-date / delay-seconds`, `delay-seconds = 1*DIGIT`; HTTP-date (§5.6.7) is
   IMF-fixdate or one of two obsolete forms a recipient MUST accept, and is case-sensitive. §10.2.3 states
   no overflow rule (D6).
+- 2026-11-10: `RetryAfter`'s ordinal round trip, which refuses a date in the wrong case, is unreachable
+  through the client: the platform renders every date it parses canonical, and leaves raw only one its
+  own parse refused, which the exact parse refuses too. It is kept for a receipt a block builds itself,
+  and `HttpReceiptShould` proves it there; a mutation dropping it reddens that test's wrong-case row
+  and no executor test. Sibling sweep: N/A.
+- 2026-11-10: the `TcpHttpServerTransportShould` loopback precedent paired the server with the
+  platform's `HttpClient` only; the end-to-end test composes the package's own client with
+  `AddDaleHttpSdk()` and calls the typed `GetJson`, through the production primary handler.
 
 ---
 

@@ -475,12 +475,8 @@ since the view only forwards to them. The fake offers no way to set a unit's las
 - `AC-TKIT-014.2` (Event-driven): WHEN a block issues a request through the harness's client THE SYSTEM
   SHALL record its method, URI, headers as sent, body, content type and per-request timeout before the
   member returns, and hold it outstanding.
-- `AC-TKIT-014.3` (Ubiquitous): THE SYSTEM SHALL answer outstanding requests oldest first, delivering a
-  scripted status, content type and body as the response the SDK handles and a scripted exception
-  unchanged, as the SDK delivers a transport failure.
-- `AC-TKIT-014.4` (Unwanted): IF a test answers or fails a request while none is outstanding THEN THE
-  SYSTEM SHALL throw an `InvalidOperationException`, and IF it fails one with no exception THEN THE
-  SYSTEM SHALL throw an `ArgumentNullException`, leaving the request outstanding.
+- `AC-TKIT-014.3` (Ubiquitous): THE SYSTEM SHALL answer outstanding requests oldest first, delivering a scripted status, headers, content type and body as the response the SDK handles and a scripted exception unchanged, as the SDK delivers a transport failure.
+- `AC-TKIT-014.4` (Unwanted): IF a test answers or fails a request while none is outstanding THEN THE SYSTEM SHALL throw an `InvalidOperationException`, IF it fails one with no exception THEN THE SYSTEM SHALL throw an `ArgumentNullException`, and IF it answers one with a header neither the response nor its content can carry THEN THE SYSTEM SHALL throw an `ArgumentException`, leaving the request outstanding.
 - `AC-TKIT-014.5` (Event-driven): WHEN a test answers or fails a request THE SYSTEM SHALL return only
   once the exchange has handed its callback to the block's dispatcher, running no callback itself, and
   SHALL return so on a thread that owns the test's synchronization context.
@@ -500,6 +496,12 @@ tested against a mock never meets the SDK's serializer, its status mapping or it
 mock has to reproduce them — and a reproduction drifts. Here a 404 reaches the block as the SDK's own
 `HttpRequestException`, a body deserializes with the SDK's case-sensitive defaults, and the request
 carries the SDK's own `User-Agent`, because each of those is the SDK's code running.
+
+`AC-TKIT-014.3`'s headers are added unvalidated, as the platform's socket handler adds what the wire
+carried — onto the response, or onto its content for a content header such as `Content-Language` — so
+a scripted `Retry-After` reaches the receipt read and rendered exactly as `http.md`'s `AC-HTTP-019.6`
+reads one from a server, on a 429 as on a 2xx. `AC-TKIT-014.4` refuses only a header neither half
+takes, a name with a space in it for one, before the request is answered.
 
 `AC-TKIT-014.5` is what makes the next drive discriminating. Releasing a held response runs the SDK's
 exchange on the test's thread up to the point it hands the callback to the block's dispatcher, and an
@@ -544,9 +546,7 @@ untouched by any of this — the kit replaces the primary handler in its own con
 - `AC-TKIT-015.1` (Ubiquitous): THE SYSTEM SHALL wire an in-memory transport into the SDK's real hosted
   HTTP server, hand that server out directly and through a factory, dispose it with its container, stamp
   requests on the clock the caller supplies, and refuse a null clock.
-- `AC-TKIT-015.2` (Ubiquitous): THE SYSTEM SHALL offer a client-side view that sends a method, a path
-  with its query, headers and a body to the server and returns the server's status, content type,
-  headers and body, the server recording the request as it records one from a socket.
+- `AC-TKIT-015.2` (Ubiquitous): THE SYSTEM SHALL offer a client-side view that sends a method, a path with its query, headers and a body to the server and returns the server's status, content type, body and every other header the response carries by case-insensitive name, a repeated one joined by `", "`, the server recording the request as it records one from a socket.
 - `AC-TKIT-015.3` (Event-driven): WHEN the client-side view sends while the server is not listening THE
   SYSTEM SHALL throw an `InvalidOperationException`.
 - `AC-TKIT-015.4` (Unwanted): IF the client-side view is asked to send with no method THEN THE SYSTEM
