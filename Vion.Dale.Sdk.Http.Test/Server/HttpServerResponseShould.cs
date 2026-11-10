@@ -79,7 +79,7 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             Assert.AreEqual("application/json", response.ContentType);
             CollectionAssert.AreEqual(original.Body.ToArray(), response.Body.ToArray());
             Assert.AreEqual("Retry-After: 120|X-Probe: a|x-probe: b", string.Join("|", response.Headers.Select(header => header.Key + ": " + header.Value)));
-            Assert.AreEqual(0, original.Headers.Count);
+            Assert.IsEmpty(original.Headers);
         }
 
         [TestMethod]

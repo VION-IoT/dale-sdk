@@ -60,7 +60,7 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
             Assert.AreEqual("application/json", response.ContentType);
             Assert.AreEqual("120", response.Headers["retry-after"]);
             Assert.AreEqual("a, b", response.Headers["X-PROBE"]);
-            Assert.AreEqual(2, response.Headers.Count);
+            Assert.HasCount(2, response.Headers);
         }
 
         [TestMethod]
