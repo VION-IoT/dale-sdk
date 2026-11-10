@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -179,6 +180,62 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-014.3")]
+        [DataRow("120", 120, DisplayName = "delay-seconds")]
+        [DataRow("Thu, 01 Jan 2026 00:02:00 GMT", 120, DisplayName = "an HTTP-date, against the harness's clock")]
+        [DataRow("1.5", null, DisplayName = "neither form")]
+        public void DeliverScriptedHeadersWithNonSuccessStatus(string retryAfter, int? expectedSeconds)
+        {
+            // Arrange — a typed member, as a cloud block polls with, answered 429: the headers arrive on the error callback
+            using var harness = new FakeHttpHarness(new FakeTimeProvider(Anchor));
+            var sut = new SampleHttpBlock(harness.Client, LogicBlockTestHelper.CreateLoggerMock().Object);
+            var ctx = sut.CreateTestContext().Build();
+            sut.FetchDescription(DescriptionUrl);
+
+            // Act
+            harness.Respond(HttpStatusCode.TooManyRequests,
+                            "{\"title\":\"Too Many Requests\"}",
+                            headers: new Dictionary<string, string> { ["Retry-After"] = retryAfter, ["x-amzn-RequestId"] = "req-1" });
+            ctx.FlushPendingActions();
+
+            // Assert
+            Assert.IsInstanceOfType<HttpRequestException>(sut.Settled.Single().Outcome);
+            var receipt = sut.Receipts.Single();
+            Assert.IsNotNull(receipt.Headers);
+            Assert.AreEqual(retryAfter, receipt.Headers["retry-after"]);
+            Assert.AreEqual("req-1", receipt.Headers["X-Amzn-RequestId"]);
+            Assert.AreEqual(expectedSeconds == null ? null : TimeSpan.FromSeconds(expectedSeconds.Value), receipt.RetryAfter);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-014.3")]
+        public void DeliverScriptedHeadersWithSuccess()
+        {
+            // Arrange — Content-Language is a content header, so it reaches the block from the body rather than the response
+            using var harness = new FakeHttpHarness();
+            var sut = new SampleHttpBlock(harness.Client, LogicBlockTestHelper.CreateLoggerMock().Object);
+            var ctx = sut.CreateTestContext().Build();
+            sut.FetchDescription(DescriptionUrl);
+
+            // Act
+            harness.Respond(HttpStatusCode.OK,
+                            "{\"Serial\":\"MTR-0000-4711\",\"Value\":42}",
+                            headers: new[]
+                                     {
+                                         new KeyValuePair<string, string>("X-Probe", "a"), new KeyValuePair<string, string>("X-Probe", "b"),
+                                         new KeyValuePair<string, string>("Content-Language", "de-CH"),
+                                     });
+            ctx.FlushPendingActions();
+
+            // Assert
+            Assert.IsInstanceOfType<DeviceDescription>(sut.Settled.Single().Outcome);
+            var receipt = sut.Receipts.Single();
+            Assert.IsNotNull(receipt.Headers);
+            Assert.AreEqual("a, b", receipt.Headers["x-probe"]);
+            Assert.AreEqual("de-CH", receipt.Headers["Content-Language"]);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-TKIT-014.4")]
         public void RefuseRespondWhenNoneOutstanding()
         {
@@ -216,6 +273,29 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
 
             // Act / Assert
             Assert.AreEqual("exception", Assert.ThrowsExactly<ArgumentNullException>(() => harness.Fail(null!)).ParamName);
+            Assert.AreEqual(1, harness.PendingCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-014.4")]
+        [DataRow("Retry After", "120", DisplayName = "a name neither the response nor its body takes")]
+        [DataRow("content-type", "text/plain", DisplayName = "a content type, which the content type argument sets")]
+        [DataRow("Retry-After", "120\r\nX-Injected: y", DisplayName = "a value carrying a carriage return and line feed")]
+        [DataRow("X-Request-Id", "a\nb", DisplayName = "a value carrying a bare line feed")]
+        public void RefuseRespondWithHeaderNoWireDelivers(string name, string value)
+        {
+            // Arrange
+            using var harness = new FakeHttpHarness();
+            var sut = new SampleHttpBlock(harness.Client, LogicBlockTestHelper.CreateLoggerMock().Object);
+            sut.CreateTestContext().Build();
+            sut.FetchDescription(DescriptionUrl);
+
+            // Act / Assert
+            Assert.AreEqual("headers",
+                            Assert.ThrowsExactly<ArgumentException>(() => harness.Respond(HttpStatusCode.TooManyRequests,
+                                                                                          "{}",
+                                                                                          headers: new Dictionary<string, string> { [name] = value }))
+                                  .ParamName);
             Assert.AreEqual(1, harness.PendingCount);
         }
 

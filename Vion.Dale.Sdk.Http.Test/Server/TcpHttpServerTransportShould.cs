@@ -8,8 +8,10 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Http.Server;
+using Vion.Dale.Sdk.Http.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Http.Test.Server
 {
@@ -17,7 +19,9 @@ namespace Vion.Dale.Sdk.Http.Test.Server
     ///     What the socket decides before a request reaches the server's route table — framing, the size caps, malformed
     ///     requests, one request per connection, the read bound — driven over real loopback sockets against the real server,
     ///     so "records nothing" is read from the server's own request log. Each wait is bounded by a class-level timeout
-    ///     that only a hung server can reach; the read-bound row makes the bound's expiry itself the observable.
+    ///     that only a hung server can reach; the read-bound row makes the bound's expiry itself the observable. One test
+    ///     pairs the server with the package's own client instead of the platform's, which is the path a simulator answers a
+    ///     block on.
     /// </summary>
     [TestClass]
     public class TcpHttpServerTransportShould
@@ -60,6 +64,48 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             Assert.AreEqual("application/json", response.Content.Headers.ContentType?.MediaType);
             Assert.AreEqual("{\"Serial\":\"SIM-0000-0003\"}", await response.Content.ReadAsStringAsync());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-016.5")]
+        [TestProperty("spec", "AC-HTTP-016.13")]
+        public async Task WriteBlockHeadersInOrderAdded()
+        {
+            // Arrange
+            var throttled = HttpServerResponse.Json("{}", HttpStatusCode.TooManyRequests).WithHeader("Retry-After", "120").WithHeader("X-Probe", "a").WithHeader("X-Probe", "b");
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/sites", throttled));
+
+            // Act
+            var response = await ExchangeAsync("GET /sites HTTP/1.1\r\nHost: gateway\r\n\r\n");
+
+            // Assert
+            StringAssert.StartsWith(response, "HTTP/1.1 429 ");
+            StringAssert.Contains(response, "\r\nRetry-After: 120\r\nX-Probe: a\r\nX-Probe: b\r\n");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-016.5")]
+        [TestProperty("spec", "AC-HTTP-019.6")]
+        public async Task DeliverThrottledAnswerWithRetryAfterToSdkClient()
+        {
+            // Arrange — the simulator-to-block path: the package's own client, composed as a plugin composes it, calling a
+            // typed member against the hosted server answering 429 the way a simulator throttles
+            var throttled = HttpServerResponse.Json("{\"title\":\"Too Many Requests\"}", HttpStatusCode.TooManyRequests).WithHeader("Retry-After", "120");
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/api/sites", throttled));
+            using var provider = new ServiceCollection().AddLogging().AddDaleHttpSdk().BuildServiceProvider();
+            var client = provider.GetRequiredService<ILogicBlockHttpClient>();
+            var received = new TaskCompletionSource<HttpReceipt>();
+
+            // Act
+            client.GetJson<object>(new InlineDispatcher(),
+                                   $"http://127.0.0.1:{_port}/api/sites",
+                                   (_, receipt) => received.TrySetResult(receipt),
+                                   (_, receipt) => received.TrySetResult(receipt));
+            var throttledReceipt = await received.Task.WaitAsync(Timeout);
+
+            // Assert
+            Assert.AreEqual(HttpStatusCode.TooManyRequests, throttledReceipt.StatusCode);
+            Assert.AreEqual(TimeSpan.FromSeconds(120), throttledReceipt.RetryAfter);
         }
 
         [TestMethod]

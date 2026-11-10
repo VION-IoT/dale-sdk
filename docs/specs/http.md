@@ -253,6 +253,9 @@ and not the exception's: the exception stays exactly what this table says.
 - `AC-HTTP-019.2` (Ubiquitous): THE SYSTEM SHALL report on the receipt a success for a 2xx response whose content was read, a client error for any other response below 500, a server error for a response of 500 or above, a content error for a 2xx response whose body is absent, malformed or deserializes to null, a timeout where either bound cancelled the exchange, an invalid request where the client or the request could not be built or the client refused the request before any handler saw it, and a transport error for any other failure.
 - `AC-HTTP-019.3` (Ubiquitous): THE SYSTEM SHALL carry on the receipt the status of the response it judged whenever one arrived, and no status when none did, even where the exception a handler threw carries one.
 - `AC-HTTP-019.4` (Ubiquitous): THE SYSTEM SHALL stamp the receipt, on the registered clock, with the instant the outcome was observed on the wall clock and on the monotonic timestamp scale, and with the time from handing the request to the client until that instant.
+- `AC-HTTP-019.5` (Ubiquitous): THE SYSTEM SHALL carry on the receipt, whenever it carries a status, the headers of that response and of its content by case-insensitive name, the values of a header sent more than once joined by `", "`, and no headers when it carries no status.
+- `AC-HTTP-019.6` (Ubiquitous): THE SYSTEM SHALL report on the receipt the delay a response's `Retry-After` asks for, reading delay-seconds as that many seconds up to 2147483647 and an HTTP-date as its distance from the response's own `Date`, or from the receipt's wall-clock instant where the response carries no valid `Date`, a date already past reading as zero.
+- `AC-HTTP-019.7` (Unwanted): IF a response carries no `Retry-After`, or one that is neither delay-seconds nor an HTTP-date, THEN THE SYSTEM SHALL report no delay on the receipt, the header's value staying readable among its headers.
 
 The receipt is how a block tells a server's answer from a failure to reach it. `StatusCode` is set
 exactly when a response arrived, so a block asking whether a server said 404 asks
@@ -282,6 +285,31 @@ a gateway's time is corrected. The round trip runs until the package observed th
 four members that carry a response type, through reading and deserializing the body; for
 `SendRequest`, to the headers, because the body is the callback's (`AC-HTTP-004.2`). A request the
 client refused was never sent, and its round trip is zero.
+
+`AC-HTTP-019.5` is what a block reads of a refusal beyond its status: the request id a service stamps
+on every answer, a rate limit's remaining count, a `Retry-After`. The headers ride the receipt rather
+than the exception so that the eight members and both callbacks hand them over alike, and they are
+copied from the response as it is judged, so a refusal's survive the disposal `AC-HTTP-010.2` states.
+The body of a refusal is not kept. One collection holds the response's headers and its content's, so a
+block does not need to know which of the two the platform files `Content-Type` under; joining a repeated
+header's values is the rule the hosted server applies to a request's (`AC-HTTP-016.8`), lossy only for
+`Set-Cookie`, which this package keeps no cookie for anyway.
+
+`AC-HTTP-019.6` and `AC-HTTP-019.7` are RFC 9110's two forms of `Retry-After` and nothing else: a number
+of seconds, all digits, or an HTTP-date. A fraction, a sign, a word or an ISO 8601 instant reads as no
+delay, and the header is still there for a block that knows what its server means by it. A date is
+measured against the server's own `Date` where the response states one, so a gateway whose clock is off
+waits what the server meant; it is measured against the receipt's instant only where the response has
+no `Date`. A vendor's rate-limit headers, `X-RateLimit-*` and the like, are read as they arrive and
+never parsed. What to do with the delay is the block's decision: the package waits for nothing and
+retries nothing (§ What the package does not do).
+
+The headers are read as the platform's header collection renders them, which is not always what the
+wire carried. A header the platform understands, a date among them, is parsed on its way to the block
+and rendered in its canonical form — so the RFC's two obsolete date forms arrive as IMF-fixdate, as
+they should, and so do a date with no zone and one with a doubled space, which are not HTTP-dates at
+all. For those two the delay is read and the header reads canonical. Every value the platform does not
+understand arrives exactly as sent.
 
 ## The two timeout bounds
 
@@ -539,7 +567,7 @@ block's constructor instead is that block's scope's, as every transient is.
 - `AC-HTTP-016.4` (Event-driven): WHEN a snapshot is used after the callback it was given to has
   returned THE SYSTEM SHALL throw an `InvalidOperationException`.
 - `AC-HTTP-016.5` (Event-driven): WHEN a request arrives for a method and a path with a response set
-  THE SYSTEM SHALL answer with that response's status, content type and body.
+  THE SYSTEM SHALL answer with that response's status, content type, headers and body.
 - `AC-HTTP-016.6` (Event-driven): WHEN a request arrives for a path with no response under any method
   THE SYSTEM SHALL answer 404 with no body, and WHEN the path has responses only under other methods
   THE SYSTEM SHALL answer 405 with an `Allow` header naming them.
@@ -560,6 +588,8 @@ block's constructor instead is that block's scope's, as every transient is.
 - `AC-HTTP-016.12` (Unwanted): IF a response is built with a content type carrying a control character
   other than a tab, or a character outside ASCII, THEN THE SYSTEM SHALL throw an `ArgumentException`
   naming the argument.
+- `AC-HTTP-016.13` (Ubiquitous): THE SYSTEM SHALL let a block add a header to a response, returning a new response carrying the original's status, content type, body and headers followed by the one added, the original unchanged, and SHALL write a response's headers in the order added, a name added twice on two lines.
+- `AC-HTTP-016.14` (Unwanted): IF a header is added to a response with a name that is not a token or that is `Content-Type`, `Content-Length`, `Connection` or `Transfer-Encoding` in any case, or with a value carrying a control character other than a tab or a character outside ASCII, THEN THE SYSTEM SHALL throw an `ArgumentException` naming the argument.
 
 The model is the hosted Modbus server's with register buffers replaced by responses. The block
 publishes what the server serves, on its own cadence, and reads back what was asked the same way; the
@@ -596,6 +626,16 @@ for the final response, which a server that closes after one response never send
 A line break would end that header there and let whatever follows it add headers of its own — which,
 for a block that derives the content type from anything a client sent, is response splitting on a
 published constructor. A character outside ASCII has no single meaning in a header block at all.
+
+`AC-HTTP-016.13` adds a header to a response however the response was built, so a simulator's throttled
+answer is `HttpServerResponse.Json(body, HttpStatusCode.TooManyRequests).WithHeader("Retry-After", "120")`,
+and a response published once serves every route that shares it. `AC-HTTP-016.14` is `AC-HTTP-016.12`'s
+guard for a header's value, and a stricter one for its name: a space, a tab or a colon is printable and
+still writes a line no client parses as the header meant, so a name must be a token, the rule the
+server's own request parser applies (`AC-HTTP-017.4`). The four refused names are the ones that frame
+what the server writes. It writes `Content-Type`, `Content-Length` and `Connection` itself
+(`AC-HTTP-017.1`, `AC-HTTP-017.5`); a second length, or a transfer encoding beside the length it sends,
+leaves a client unable to tell where the body ends.
 
 ## The hosted server: the wire
 
@@ -752,7 +792,8 @@ learn it than reading it here.
 
 - **No retries, no backoff, no circuit breaker.** A failure is one callback; a block that wants
   another attempt schedules it. `Vion.Examples.Energy`'s `OpenMeteoService` answers with a cache with a fifteen-minute life
-  rather than a retry.
+  rather than a retry. A server's `Retry-After` is read onto the receipt (`AC-HTTP-019.6`) and honoured
+  only by a block that schedules by it.
 - **No link verdict and no connection diagnostics on the client.** The client's summary counts
   outcomes and times round trips but calls no server up or down: one client may call many, and the
   block owns the cadence a verdict needs (decision `0200`). The client's connections are the

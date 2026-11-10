@@ -519,6 +519,137 @@ namespace Vion.Dale.Sdk.Http.Test
             Assert.AreEqual(TimeSpan.FromSeconds(3), received.Value.RoundTrip);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-019.5")]
+        [DataRow(Overload.ResponseContent, HttpStatusCode.OK)]
+        [DataRow(Overload.NoResponse, HttpStatusCode.OK)]
+        [DataRow(Overload.ResponseMessage, HttpStatusCode.OK)]
+        [DataRow(Overload.ResponseContent, HttpStatusCode.TooManyRequests)]
+        [DataRow(Overload.NoResponse, HttpStatusCode.TooManyRequests)]
+        [DataRow(Overload.ResponseMessage, HttpStatusCode.BadGateway)]
+        public async Task CarryHeadersOfJudgedResponse(Overload overload, HttpStatusCode statusCode)
+        {
+            // Arrange — the 429 and 502 rows are refusals, whose response is disposed before their callback runs
+            var sut = Executor(AnsweringWithHeaders(statusCode, ("x-amzn-RequestId", "req-1"), ("X-Probe", "a"), ("X-Probe", "b")));
+            HttpReceipt? received = null;
+
+            // Act
+            await Execute(sut, overload, () => { }, _ => { }, onReceipt: receipt => received = receipt);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(received?.Headers);
+            Assert.AreEqual("req-1", received.Value.Headers["X-AMZN-REQUESTID"]);
+            Assert.AreEqual("a, b", received.Value.Headers["x-probe"]);
+            Assert.AreEqual("application/json; charset=utf-8", received.Value.Headers["Content-Type"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-019.5")]
+        [DataRow(Failure.Answered, true)]
+        [DataRow(Failure.ClientErrorStatus, true)]
+        [DataRow(Failure.NonSuccessStatus, true)]
+        [DataRow(Failure.MalformedBody, true)]
+        [DataRow(Failure.BrokenBody, true)]
+        [DataRow(Failure.HandlerStatusException, false)]
+        [DataRow(Failure.TransportRequestFailure, false)]
+        [DataRow(Failure.RelativeUrl, false)]
+        public async Task CarryHeadersExactlyWhenStatusCarried(Failure failure, bool expectedHeaders)
+        {
+            // Arrange
+            var (sut, url) = ArrangeFailure(failure);
+            HttpReceipt? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync(_dispatcher,
+                                          url,
+                                          HttpMethod.Get,
+                                          ReadBody,
+                                          (_, receipt) => received = receipt,
+                                          (_, receipt) => received = receipt);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(received);
+            Assert.AreEqual(expectedHeaders, received.Value.Headers != null);
+            Assert.AreEqual(expectedHeaders, received.Value.StatusCode != null);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-019.6")]
+        [DataRow("120", null, 120, DisplayName = "delay-seconds")]
+        [DataRow("0", null, 0, DisplayName = "delay-seconds of zero")]
+        [DataRow("99999999999", null, int.MaxValue, DisplayName = "delay-seconds past what an int holds")]
+        [DataRow("Tue, 10 Nov 2026 12:02:00 GMT", null, 120, DisplayName = "an IMF-fixdate, against the receipt's instant")]
+        [DataRow("Tue, 10 Nov 2026 12:02:00 GMT", "Tue, 10 Nov 2026 11:00:00 GMT", 3720, DisplayName = "an IMF-fixdate, against the server's Date")]
+        [DataRow("Tue, 10 Nov 2026 12:02:00 GMT", "yesterday", 120, DisplayName = "an IMF-fixdate, beside a Date that is no date")]
+        [DataRow("Tuesday, 10-Nov-26 12:02:00 GMT", null, 120, DisplayName = "an rfc850-date")]
+        [DataRow("Tue Nov 10 12:02:00 2026", null, 120, DisplayName = "an asctime-date")]
+        [DataRow("Tue, 10 Nov 2026 11:59:00 GMT", null, 0, DisplayName = "a date already past")]
+        [DataRow("Tue, 10 Nov 2026 12:02:00", null, 120, DisplayName = "a date with no zone, which the platform renders canonical")]
+        public async Task ReportRetryAfterDelay(string retryAfter, string? date, int expectedSeconds)
+        {
+            // Arrange — the consumer's shape: a typed member answered 429, so the delay arrives on the error callback
+            var clock = new FakeTimeProvider(new DateTimeOffset(2026,
+                                                                11,
+                                                                10,
+                                                                12,
+                                                                0,
+                                                                0,
+                                                                TimeSpan.Zero));
+            var sut = Executor(AnsweringWithHeaders(HttpStatusCode.TooManyRequests, ("Retry-After", retryAfter), ("Date", date)), clock: clock);
+            HttpReceipt? received = null;
+
+            // Act
+            await Execute(sut, Overload.ResponseContent, onError: _ => { }, onReceipt: receipt => received = receipt);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(TimeSpan.FromSeconds(expectedSeconds), received?.RetryAfter);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-019.7")]
+        [DataRow("1.5", DisplayName = "a fraction")]
+        [DataRow("-5", DisplayName = "a negative number")]
+        [DataRow("soon", DisplayName = "a word")]
+        [DataRow("tue, 10 nov 2026 12:02:00 gmt", DisplayName = "a date in the wrong case")]
+        [DataRow("2026-11-10T12:02:00Z", DisplayName = "an ISO 8601 instant")]
+        public async Task ReportNoRetryAfterDelayForOtherValue(string retryAfter)
+        {
+            // Arrange
+            var sut = Executor(AnsweringWithHeaders(HttpStatusCode.TooManyRequests, ("Retry-After", retryAfter)));
+            HttpReceipt? received = null;
+
+            // Act
+            await Execute(sut, Overload.ResponseContent, onError: _ => { }, onReceipt: receipt => received = receipt);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(received?.Headers);
+            Assert.IsNull(received.Value.RetryAfter);
+            Assert.AreEqual(retryAfter, received.Value.Headers["Retry-After"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-019.7")]
+        [DataRow(HttpStatusCode.TooManyRequests)]
+        [DataRow(HttpStatusCode.OK)]
+        public async Task ReportNoRetryAfterDelayWithoutHeader(HttpStatusCode statusCode)
+        {
+            // Arrange
+            var sut = Executor(AnsweringWithHeaders(statusCode));
+            HttpReceipt? received = null;
+
+            // Act
+            await Execute(sut, Overload.NoResponse, () => { }, _ => { }, onReceipt: receipt => received = receipt);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsNotNull(received?.Headers);
+            Assert.IsNull(received.Value.RetryAfter);
+        }
+
         // ---- the summary -------------------------------------------------
 
         [TestMethod]
@@ -1344,6 +1475,24 @@ namespace Vion.Dale.Sdk.Http.Test
             }
 
             return new HttpRequestExecutor(new SingleHttpClientFactory(httpClient), _loggerMock.Object, clock ?? TimeProvider.System);
+        }
+
+        /// <summary>
+        ///     Answers every request with <paramref name="statusCode" />, a JSON body and <paramref name="headers" /> added
+        ///     unvalidated, as the socket handler adds what the wire carried; a header with a <c>null</c> value is not sent.
+        /// </summary>
+        private static StubHttpMessageHandler AnsweringWithHeaders(HttpStatusCode statusCode, params (string Name, string? Value)[] headers)
+        {
+            return StubHttpMessageHandler.Responding((_, _) =>
+                                                     {
+                                                         var response = StubHttpMessageHandler.Respond(statusCode, TestObject.PascalCaseJson);
+                                                         foreach (var (name, value) in headers.Where(header => header.Value != null))
+                                                         {
+                                                             response.Headers.TryAddWithoutValidation(name, value);
+                                                         }
+
+                                                         return Task.FromResult(response);
+                                                     });
         }
 
         private (HttpRequestExecutor Sut, string Url) ArrangeFailure(Failure failure)

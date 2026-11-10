@@ -153,7 +153,11 @@ namespace Vion.Dale.Sdk.Http.TestKit
 
             return new FakeHttpServerResponse(response.StatusCode,
                                               response.ContentType,
-                                              response.Headers.ToDictionary(header => header.Key, header => header.Value, StringComparer.OrdinalIgnoreCase),
+                                              response.Headers
+                                                      .GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+                                                      .ToDictionary(group => group.Key,
+                                                                    group => string.Join(", ", group.Select(header => header.Value)),
+                                                                    StringComparer.OrdinalIgnoreCase),
                                               Encoding.UTF8.GetString(response.Body.ToArray()));
         }
     }
@@ -170,7 +174,9 @@ namespace Vion.Dale.Sdk.Http.TestKit
         /// <summary>Gets the content type of the body, or <c>null</c> when none was set.</summary>
         public string? ContentType { get; }
 
-        /// <summary>Gets the headers the server added itself, such as the <c>Allow</c> of a 405, by case-insensitive name.</summary>
+        /// <summary>
+        ///     Gets every other header the response carries by case-insensitive name, a repeated one joined by <c>", "</c>.
+        /// </summary>
         public IReadOnlyDictionary<string, string> Headers { get; }
 
         /// <summary>Gets the response body as UTF-8 text.</summary>

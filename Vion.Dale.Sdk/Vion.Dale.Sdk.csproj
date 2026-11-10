@@ -60,12 +60,12 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <!-- INotifyPropertyChanged/Observability aspect support (transitive) -->
-        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.31"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.14"/>
         <!-- TimeProvider backport for netstandard2.1. Replaces homegrown IDateTimeProvider. -->
-        <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="10.0.0"/>
+        <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="10.0.14"/>
         <PackageReference Include="Vion.Contracts" Version="11.0.2"/>
-        <PackageReference Include="System.Text.Json" Version="10.0.7"/>
+        <PackageReference Include="System.Text.Json" Version="10.0.14"/>
         <!-- AssemblyLoadContext for resolving a custom IChangeThreshold<T> from a sibling assembly in the
              declaring block's load context (RFC 0004). A netstandard2.1 compile-time facade that
              type-forwards to the in-box runtime implementation on the net10.0 host. -->

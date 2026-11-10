@@ -214,6 +214,15 @@ namespace Vion.Dale.Sdk.Http.Server
             _disposed = true;
         }
 
+        /// <summary>
+        ///     Whether <paramref name="value" /> is a token: printable ASCII with no separator. The rule for a request's method
+        ///     and header names here, and for a header name a block adds to a response.
+        /// </summary>
+        internal static bool IsToken(string value)
+        {
+            return value.Length > 0 && value.All(character => character > 32 && character < 127 && "()<>@,;:\\\"/[]?={}".IndexOf(character) < 0);
+        }
+
         private static void WaitQuietly(Task task)
         {
             try
@@ -540,11 +549,6 @@ namespace Vion.Dale.Sdk.Http.Server
             }
 
             return true;
-        }
-
-        private static bool IsToken(string value)
-        {
-            return value.Length > 0 && value.All(character => character > 32 && character < 127 && "()<>@,;:\\\"/[]?={}".IndexOf(character) < 0);
         }
 
         private static bool HeadExceedsCap(int headLength)

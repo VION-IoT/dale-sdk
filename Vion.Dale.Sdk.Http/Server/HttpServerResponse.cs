@@ -9,12 +9,20 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.Sdk.Http.Server
 {
     /// <summary>
-    ///     A response a hosted HTTP server sends: a status, an optional content type and a body.
+    ///     A response a hosted HTTP server sends: a status, an optional content type, headers and a body.
     /// </summary>
+    /// <remarks>
+    ///     A response is immutable: <see cref="WithHeader" /> returns a new one, so a header reaches a response however it was
+    ///     built — <c>HttpServerResponse.Json(body, HttpStatusCode.TooManyRequests).WithHeader("Retry-After", "120")</c>. The
+    ///     server writes <c>Content-Type</c>, <c>Content-Length</c> and <c>Connection</c> itself, and refuses each of them
+    ///     and <c>Transfer-Encoding</c> as a header.
+    /// </remarks>
     [PublicApi]
     public sealed class HttpServerResponse
     {
         private static readonly IReadOnlyList<KeyValuePair<string, string>> NoHeaders = Array.Empty<KeyValuePair<string, string>>();
+
+        private static readonly string[] FramingHeaders = { "Content-Type", "Content-Length", "Connection", "Transfer-Encoding" };
 
         /// <summary>
         ///     Gets the status code sent.
@@ -32,9 +40,9 @@ namespace Vion.Dale.Sdk.Http.Server
         public ReadOnlyMemory<byte> Body { get; }
 
         /// <summary>
-        ///     The headers the server adds itself, such as the <c>Allow</c> of a 405. Never set by a block.
+        ///     Gets the headers sent besides the content type, in the order added; a name added twice is sent twice.
         /// </summary>
-        internal IReadOnlyList<KeyValuePair<string, string>> Headers { get; }
+        public IReadOnlyList<KeyValuePair<string, string>> Headers { get; }
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="HttpServerResponse" /> class.
@@ -62,7 +70,7 @@ namespace Vion.Dale.Sdk.Http.Server
 
             // The content type is written into the header block verbatim, so a line break would end the header there and
             // let whatever follows it — a block deriving the value from a client's request — add headers of its choosing.
-            if (contentType != null && contentType.Any(character => (character < ' ' && character != '\t') || character > '~'))
+            if (contentType != null && !IsHeaderText(contentType))
             {
                 throw new ArgumentException($"'{contentType}' is not a content type the header block can carry: it holds only printable ASCII and tabs.", nameof(contentType));
             }
@@ -71,6 +79,52 @@ namespace Vion.Dale.Sdk.Http.Server
             ContentType = contentType;
             Body = body == null ? ReadOnlyMemory<byte>.Empty : (byte[])body.Clone();
             Headers = headers;
+        }
+
+        private HttpServerResponse(HttpServerResponse original, IReadOnlyList<KeyValuePair<string, string>> headers)
+        {
+            StatusCode = original.StatusCode;
+            ContentType = original.ContentType;
+            Body = original.Body;
+            Headers = headers;
+        }
+
+        /// <summary>
+        ///     Returns a copy of this response that also sends the header <paramref name="name" /> with <paramref name="value" />.
+        /// </summary>
+        /// <param name="name">
+        ///     The header name: a token, and none of <c>Content-Type</c>, <c>Content-Length</c>, <c>Connection</c> and
+        ///     <c>Transfer-Encoding</c> in any case.
+        /// </param>
+        /// <param name="value">
+        ///     The header value: printable ASCII and tabs only, since it is written into the response's header block as given.
+        /// </param>
+        /// <returns>The new response; this one is unchanged.</returns>
+        /// <exception cref="ArgumentException">Thrown when the header block cannot carry the name or the value.</exception>
+        public HttpServerResponse WithHeader(string name, string value)
+        {
+            // The name is written into the header block verbatim, so a space or a colon in it writes a line no client parses
+            // as the header meant, and a line break lets a block deriving it from a client's request add headers of the
+            // client's choosing. A token is what the server itself accepts as a request header's name.
+            if (name == null || !TcpHttpServerTransport.IsToken(name))
+            {
+                throw new ArgumentException($"'{name}' is not a header name: a name is printable ASCII with no separator.", nameof(name));
+            }
+
+            // These frame what the server writes: a second Content-Length, or a Transfer-Encoding beside the one it sends,
+            // leaves a client unable to tell where the body ends, and the server closes the connection whatever a block's
+            // Connection says.
+            if (FramingHeaders.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException($"'{name}' frames the response, and the server sets it itself.", nameof(name));
+            }
+
+            if (value == null || !IsHeaderText(value))
+            {
+                throw new ArgumentException($"'{value}' is not a header value the header block can carry: it holds only printable ASCII and tabs.", nameof(value));
+            }
+
+            return new HttpServerResponse(this, Headers.Append(new KeyValuePair<string, string>(name, value)).ToArray());
         }
 
         /// <summary>
@@ -111,6 +165,11 @@ namespace Vion.Dale.Sdk.Http.Server
         internal static HttpServerResponse Refusal(HttpStatusCode statusCode)
         {
             return new HttpServerResponse(statusCode);
+        }
+
+        private static bool IsHeaderText(string value)
+        {
+            return value.All(character => (character >= ' ' || character == '\t') && character <= '~');
         }
     }
 }
