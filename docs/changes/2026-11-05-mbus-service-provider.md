@@ -125,6 +125,11 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
 
   A failure is a `ProtocolError`. eco-prod has three duplicate-primary-address clusters live
   (investigation hub § 2.6), where a reply from the wrong meter must not read as data.
+
+  v1 decodes CI 72h only. That is what the EM530 answered on the bench, and `T-002` confirms the other
+  four targets from their vectors. A meter answering another CI (78h with no header, 7Ah with a short
+  one) reads as `ProtocolError`, and so `Faulted`, until the decoder learns that CI; it is unsupported
+  in v1, not misread.
 - `D16` — **The status helper reads the standard's error bits only.** `HasError` is application status
   10b/11b, or the permanent or temporary error bit. The EM530 sends status `20h`, a manufacturer bit, in
   every telegram (bench log, `HDR` lines).
@@ -214,11 +219,19 @@ JSON follows the `Hw` rules (decision 0227): camelCase, enums by member name, by
 | `Garbled` | checksum, framing, length or collision fault on the line | `Garbled` | `Faulted` |
 | `LineUnavailable` | terminal or port not ready | `LineUnavailable` | `Faulted` |
 | `NotSupported` | an action, or a request member, this provider doesn't implement | `Invalid` | unchanged |
+| any other name | a code newer than this SDK (§ Forward view, rule 1) | `Invalid` | unchanged |
+
+The handler reads `responseCode` on its own, before the rest of the payload. A code name it doesn't
+know therefore never falls into the deserialisation failure that RTU's handler turns into
+`ProtocolError` (`ModbusRtuHandler.cs:178-195`).
 
 **What a provider must do** (carried on the page as provider obligations, not SDK criteria):
 
-1. **One request at a time per line, first in, first out.** The queue holds at least one request per
-   meter on the line (41 on a KL6781). `D3` keeps it from needing more.
+1. **One request at a time per line, first in, first out.** `D3` bounds the queue at one request per
+   binding mapped to the line. A queue sized for one per meter (41 on a KL6781) is enough while each
+   meter has one block. When the queue is full, the provider answers `LineUnavailable` with an
+   `errorMessage` that says so. That reads as `Faulted`, because the line can't serve the meter, and
+   it only happens when more blocks bind the line than the provider was sized for.
 2. **Run the link layer.**
    - SND_NKE first, expecting E5h.
    - Then REQ_UD2, toggling the frame-count bit (FCB) per EN 13757-2, until a telegram arrives without
@@ -345,8 +358,11 @@ the line-load signal ecocoach's proposal wanted (its § 8).
 
 **One read in flight (`D3`).** A `Read` while the binding's previous read is pending is dropped. It
 publishes nothing, invokes neither callback, adds one to `BusyCount`, and is logged at Debug. The
-pending read's callbacks arrive as they would have. The slot is freed by every completion: success,
-failure, timeout, expiry, or a refusal.
+pending read's callbacks arrive as they would have.
+
+- **The busy check comes first.** A busy call does nothing at all, even if its arguments are invalid.
+- **Only the read holding the slot frees it**, when it succeeds, fails, times out or expires.
+- **A read refused for its arguments never takes the slot**, so it can't free one either.
 
 - **It bounds the queue.** The provider's queue holds at most one entry per binding, and fairness
   between meters emerges as round-robin.
@@ -410,7 +426,7 @@ Three things follow:
   - identification, as its 8 BCD digits in text, keeping leading zeros;
   - manufacturer, three letters;
   - version, medium and access number, as bytes;
-  - `Status`, an `MBusStatus` with `HasError` (`D16`), `PowerLow` and the raw `Value`.
+  - `Status`, an `MBusStatus` with `HasError` (`D16`) and the raw `Value`.
 - **Each record** carries:
   - `Quantity`, an `MBusQuantity?`, which is null when the decoder's table doesn't know the VIF;
   - `Function`, `Storage`, `Tariff` and `Subunit`;
@@ -435,9 +451,10 @@ the plain value.
 - **`MBusSelector.Of(quantity, storage = 0, tariff = 0, subunit = 0, function = Instantaneous)`**
   names a record by meaning; the defaults pick "the current value". A block declares its selectors once,
   as `static readonly` fields, which reads like the meter's datasheet.
-- **`Value(selector, unit)`** returns a `double?`. It is `null` when nothing matches, and it converts
-  within a quantity's units:
-  - Wh, kWh and MWh for energy (a meter reporting in J converts too);
+- **`Value(selector, unit)`** returns a `double?`. It is `null` when nothing matches. It converts
+  within a quantity's units, and every VIF variant of a quantity in the table converts into each of
+  them: energy reported in J, power in J/h, and flow in m³/min or m³/s included. The units are:
+  - Wh, kWh and MWh for energy;
   - varh and kvarh for reactive energy;
   - m³ and L for volume;
   - W and kW for power; var and kvar; VA and kVA;
@@ -496,6 +513,7 @@ The kit's names and shapes follow the RTU kit (`IModbusRtuExtensions.cs:32-112`,
   virtual clock.
 - **`mBus.SimulateReadError(testContext, MBusOutcome outcome)`** completes the pending read through the
   error callback with that outcome. One exception type means the outcome is all a test needs (`D8`).
+  `Success` is refused, naming `SimulateReadResponse` as the way to a successful read.
 - **`testContext.VerifyMBusReadSent(mBus?, primaryAddress?, maxTelegrams?, times?)`** asserts that a
   read was sent.
 
@@ -616,9 +634,12 @@ option, not a necessity: it trades the library pin for those values.
    - Response codes and outcomes are appended, never renamed. They travel by name (decision 0227), and
      vion-contracts' rule is that topics are append-only (hub § 2.7, vion-contracts
      `CLAUDE.md:108-133`).
-2. **A v1 provider answers a newer request with a refusal, not silence** (`D17`). `NotSupported` maps
-   to an `Invalid` outcome, which leaves the link state alone, because a deployment mismatch says
-   nothing about the meter. A block learns at its first call that its provider is too old.
+2. **Each side meets the other's newer vocabulary with a refusal, not silence and not a fault.**
+   - A v1 provider answers a newer request `NotSupported` (`D17`).
+   - A v1 SDK reads a newer response code as an unknown code (`AC-MBUS-005.8`).
+   - Both map to an `Invalid` outcome and leave the link state alone, because a deployment mismatch
+     says nothing about the meter. A block learns at its first call that one side is older than the
+     other.
 3. **The block surface only grows, by overloads and new members.**
    - Consumers never implement `IMBus`; only the SDK and its kit do, so a new member breaks no one.
    - No existing member's signature changes within a major version: an already-built plugin calling
@@ -758,6 +779,18 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     mirror the RTU kit.
 
   Sibling sweep: every section and the whole spec delta, re-cut in the same commit.
+- 2026-11-10: the branch review at `c19278d6` found six more points, and all were fixed:
+  - an unknown response code is `Invalid` and leaves the link alone (`AC-MBUS-005.8`, forward-view
+    rule 2);
+  - a full provider queue answers `LineUnavailable`;
+  - the busy check comes first, and only the slot's own read frees it (`AC-MBUS-003.1`, `003.2`);
+  - the kit refuses `Success` as an error (`AC-TKIT-016.2`);
+  - CI 72h only is stated as a v1 limit;
+  - `PowerLow` is cut (no consumer);
+  - every VIF variant of a quantity converts.
+
+  Sibling sweep: the code table, provider obligation 1, § One read in flight, § TestKit and `D15`, in
+  the same commit.
 
 ---
 
@@ -774,8 +807,8 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-002.1 -> docs/specs/mbus.md : THE SYSTEM SHALL default an M-Bus contract to disabled.
 - ADDED AC-MBUS-002.2 -> docs/specs/mbus.md : WHILE an M-Bus contract is disabled THE SYSTEM SHALL execute no read and SHALL invoke neither callback.
 - ADDED AC-MBUS-002.3 -> docs/specs/mbus.md : THE SYSTEM SHALL complete a read it has already accepted when the contract is disabled afterwards.
-- ADDED AC-MBUS-003.1 -> docs/specs/mbus.md : WHEN a read is requested while the same contract's previous read has not completed THE SYSTEM SHALL publish nothing, SHALL invoke neither of the new read's callbacks and SHALL count it in the link summary as busy.
-- ADDED AC-MBUS-003.2 -> docs/specs/mbus.md : WHEN a read completes, fails, times out, expires or is refused THE SYSTEM SHALL accept the same contract's next read.
+- ADDED AC-MBUS-003.1 -> docs/specs/mbus.md : WHEN a read is requested while the same contract's previous read has not completed THE SYSTEM SHALL publish nothing, SHALL invoke neither of the new read's callbacks, whatever its arguments, and SHALL count it in the link summary as busy.
+- ADDED AC-MBUS-003.2 -> docs/specs/mbus.md : WHEN the read holding a contract's slot succeeds, fails, times out or expires THE SYSTEM SHALL accept the same contract's next read, and SHALL let no read refused for its arguments take or free the slot.
 - ADDED AC-MBUS-004.1 -> docs/specs/mbus.md : THE SYSTEM SHALL default the operation timeout to 300 seconds and the maximum queued age to 30 seconds, and SHALL accept `null` as no queued-age limit.
 - ADDED AC-MBUS-004.2 -> docs/specs/mbus.md : WHEN an operation timeout or a maximum queued age, set on a contract or passed with a single read, is zero, negative, or longer than `int.MaxValue` milliseconds THE SYSTEM SHALL throw `ArgumentOutOfRangeException`.
 - ADDED AC-MBUS-004.3 -> docs/specs/mbus.md : THE SYSTEM SHALL start the operation timeout when the handler publishes the read, and SHALL measure the maximum queued age over the hop from the block to the handler.
@@ -789,6 +822,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-005.5 -> docs/specs/mbus.md : WHEN a response arrives whose correlation identifier matches no pending read THE SYSTEM SHALL ignore it.
 - ADDED AC-MBUS-005.6 -> docs/specs/mbus.md : WHEN the shared pending-request limit is reached THE SYSTEM SHALL complete the arriving read with a `Dropped` receipt, without publishing it.
 - ADDED AC-MBUS-005.7 -> docs/specs/mbus.md : THE SYSTEM SHALL route every M-Bus binding in a runtime through one shared handler, and SHALL mark the M-Bus assembly a shared assembly.
+- ADDED AC-MBUS-005.8 -> docs/specs/mbus.md : WHEN a response carries a response code the system does not know THE SYSTEM SHALL complete the read through its error callback with an `Invalid` outcome and SHALL leave the link state unchanged.
 - ADDED AC-MBUS-006.1 -> docs/specs/mbus.md : WHEN an `Ok` response carries no telegram or more telegrams than asked, or a telegram with a wrong start, length, checksum or stop byte, a CI other than 72h, an address other than the one asked, or an identification other than the first telegram's THE SYSTEM SHALL complete the read through its error callback with a `ProtocolError` receipt and the telegrams as received.
 - ADDED AC-MBUS-006.2 -> docs/specs/mbus.md : THE SYSTEM SHALL decode a telegram into its fixed header and its data records, and SHALL keep each record's data information block, value information block and data bytes as received.
 - ADDED AC-MBUS-006.3 -> docs/specs/mbus.md : THE SYSTEM SHALL scale a record's value by its value information's exponent and by its multiplicative and additive correction extensions into the unit its quantity is reported in.
@@ -808,7 +842,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-008.4 -> docs/specs/mbus.md : THE SYSTEM SHALL report, for round trip and for queued wait separately, the mean, the maximum and the number of reads over at least the last 15 minutes and less than the last 16 on the contract's clock, or over its whole life where that is shorter.
 - ADDED AC-MBUS-009.1 -> docs/specs/mbus.md : THE SYSTEM SHALL classify every public type the M-Bus packages ship as published surface or internal plumbing, and SHALL judge their declarations with the Dale analyzers.
 - ADDED AC-TKIT-016.1 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test answer a pending M-Bus read with telegrams given as hexadecimal text, delivering them through the production callback chain, frame checks and decoder and stamping the receipt from the virtual clock.
-- ADDED AC-TKIT-016.2 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test complete a pending M-Bus read through its error callback with an outcome the test names.
+- ADDED AC-TKIT-016.2 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test complete a pending M-Bus read through its error callback with an outcome other than success that the test names, and SHALL refuse success, naming the response simulation.
 - ADDED AC-TKIT-016.3 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test verify that a block sent an M-Bus read, optionally to a primary address, for a telegram count and a number of times.
 - ADDED AC-TKIT-016.4 -> docs/specs/testkit.md : WHEN a simulation finds no pending M-Bus read THE SYSTEM SHALL refuse it, naming what the block must do first.
 - MODIFIED AC-EMIT-002.8 -> docs/specs/emission.md : THE SYSTEM SHALL declare a `[DefaultMinInterval]` of 30 s on each diagnostics summary it ships: `ModbusLinkSummary`, `ModbusTcpConnectionSummary`, `MBusLinkSummary`, `HttpClientSummary` and `HttpServerSummary`.
@@ -829,7 +863,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - `T-003` (`AC-MBUS-006.1`, `006.6`): frame and identity checks, and completeness.
 - `T-004` (`AC-MBUS-007.1`, `007.2`, `007.3`, `007.4`, `007.5`, `001.5`): the readout, selectors,
   `Value` with unit conversion, the miss log, and `Describe`.
-- `T-005` (`AC-MBUS-001.1`–`001.4`, `002.*`, `003.*`, `004.*`, `005.1`–`005.6`): the contract, the
+- `T-005` (`AC-MBUS-001.1`–`001.4`, `002.*`, `003.*`, `004.*`, `005.1`–`005.6`, `005.8`): the contract, the
   handler, the wire records and their JSON context, and `MBusException`.
 - `T-006` (`AC-MBUS-008.*`, `AC-EMIT-002.8`): the receipt, outcome, link summary and accumulator.
 - `T-007` (`AC-TKIT-016.*`): `Vion.Dale.Sdk.MBus.TestKit` and its test project; "six kits" becomes
