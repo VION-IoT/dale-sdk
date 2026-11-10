@@ -1,6 +1,6 @@
 ---
 slug: http-response-headers
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: HTTP, TKIT          # area codes from docs/specs/_corpus.yml's `owns:`
 author: jonasbertsch
