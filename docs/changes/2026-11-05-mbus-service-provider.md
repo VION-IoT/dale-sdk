@@ -482,8 +482,7 @@ the plain value.
 **The readout** joins the records of every telegram in order. It offers `Find(selector)` and
 `Value(selector, unit)`, plus `Header`, `Telegrams`, `Records`, `IsComplete`, `Describe()` and
 `SelectorFor(record)`. The last gives, for a record a selector can reach, the selector that finds it in
-this readout: `Of(...)`
-where meaning picks it out unambiguously, `ByCode(...)` otherwise.
+this readout: `Of(...)` where meaning picks it out unambiguously, `ByCode(...)` otherwise.
 
 - **A shadowed record has no selector.** A record is shadowed when its DIB and VIB repeat an earlier
   record's in the readout, whatever its data. An example is the same date/time record in two
