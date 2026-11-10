@@ -24,8 +24,9 @@ A new package, `Vion.Dale.Sdk.MBus`, gives a logic block a wired M-Bus (EN 13757
 service provider that owns the master, shaped like `IModbusRtu`. The provider returns the telegrams
 exactly as received, and the SDK checks, decodes and scales them. A block picks values **by meaning**
 (quantity, storage, tariff, subunit), or by code where meaning isn't enough. v1 has reads only, primary
-addressing, one read in flight per binding, and a kit that replays captured telegrams. It is driven by
-ecocoach's legacy fleet (84 lines, 1 317 meters) and the AVM project's five meters (VION-436/438).
+addressing, one read in flight per binding, a kit that replays captured telegrams, and an example with
+a debug client for commissioning. It is driven by ecocoach's legacy fleet (84 lines, 1 317 meters) and
+the AVM project's five meters (VION-436/438).
 
 ### Spec implications
 
@@ -139,6 +140,23 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
 - `D18` — **The contract-type token is `MBus`, chosen once.** It is the one identifier whose rename
   breaks pairing (`docs/identifier-stability.md`). The packages are `Vion.Dale.Sdk.MBus` and
   `Vion.Dale.Sdk.MBus.TestKit`.
+- `D19` — **A debug client ships as an example, as Modbus TCP's does** (operator's review,
+  2026-11-10; § The debug client).
+  - `MBusDebugClient` lives in `examples/Vion.Examples.MBus` and goes to Cloud through
+    `examples.yml`'s upload matrix (`.github/workflows/examples.yml:35-45`).
+  - Its precedent is `ModbusTcpDebugClient` in `examples/Vion.Examples.ModbusTcp`.
+  - Its consumers exist now: commissioning the AVM meters, and capturing the telegrams that become test
+    vectors. The legacy shipped the same tool, `MBusMeterRead`, of which a disabled instance sits on
+    AVM's HV2.
+  - It needs one public member, `readout.SelectorFor(record)`, which `Describe()` uses too.
+- `D20` — **The API reference comes from the XML docs, and the guide gets a section, not a page**
+  (operator's review, 2026-11-10; § Documentation).
+  - `[PublicApi]` types reach the documentation repo's API reference automatically
+    (`docs/releasing.md` § Documentation drift detection).
+  - The guide gains an `## M-Bus` section beside `## Modbus` in the documentation repo's
+    `docs/sdk/services.md`, under its STYLE rule "A new feature is not a new page".
+  - `docs/sdk/service-provider-protocol.md` gains M-Bus wherever it lists the built-in contract types.
+  - Both are a documentation-repo change after the release that ships the packages.
 
 ### Reviewer's questions
 
@@ -185,7 +203,7 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
 
 | Objective | What serves it |
 |---|---|
-| **Block-author DX** | One call reads a meter. Values are picked by meaning with a selector declared once, and arrive scaled in the unit the block publishes. `Describe()` turns a capture into ready-to-paste selectors. A selector that finds nothing on a complete readout says so once, in the log. The kit replays captured telegrams through the production decoder. A busy line never makes a block's values flicker (`D3`). |
+| **Block-author DX** | One call reads a meter. Values are picked by meaning with a selector declared once, and arrive scaled in the unit the block publishes. `Describe()` turns a capture into ready-to-paste selectors. A selector that finds nothing on a complete readout says so once, in the log. The kit replays captured telegrams through the production decoder. A busy line never makes a block's values flicker (`D3`). The example's debug client reads any meter on demand and shows its records with ready-to-paste selectors (`D19`). |
 | **SDK consistency** | The settings, callbacks, receipt, link summary, enablement, refusal rule, shared handler and wire all mirror RTU's (`D9`–`D12`). The kit's names mirror the RTU kit's. Surface marks, the analyzer wiring, `[DaleSharedAssembly]`, an example and a kit come as with every protocol package. |
 | **Provider DX** | The wire is flat: two fields in, an array of base64 strings out. There is no vocabulary to map and nothing to decode. Frames go back as they came off the line. A provider may start with the first telegram only, and it answers anything newer than itself `NotSupported`. It is testable with any MQTT 5 client. Line configuration stays the provider's own. |
 
@@ -446,7 +464,10 @@ matches it. It is reached by code, so a selector by meaning can't silently retur
 the plain value.
 
 **The readout** joins the records of every telegram in order. It offers `Find(selector)` and
-`Value(selector, unit)`, plus `Header`, `Telegrams`, `Records`, `IsComplete` and `Describe()`.
+`Value(selector, unit)`, plus `Header`, `Telegrams`, `Records`, `IsComplete`, `Describe()` and
+`SelectorFor(record)`. The last gives the selector that finds that record in this readout: `Of(...)`
+where meaning picks it out unambiguously, `ByCode(...)` otherwise. An `MBusSelector` prints as the C#
+that constructs it, so the debug client's table and `Describe()` hand an author code to paste.
 
 - **`MBusSelector.Of(quantity, storage = 0, tariff = 0, subunit = 0, function = Instantaneous)`**
   names a record by meaning; the defaults pick "the current value". A block declares its selectors once,
@@ -545,8 +566,72 @@ The layout follows `Vion.Dale.Sdk.Modbus.Rtu`:
   - the manifest snapshot;
   - the release roster (`docs/sdk-surface-conventions.md` §§ 4, 8).
 - **`Vion.Dale.Sdk.MBus.TestKit`**: § TestKit.
-- **`examples/Vion.Examples.MBus`**: the EM5XX block above and a test replaying the bench capture, like
-  `examples/Vion.Examples.ModbusRtu`. A DevHost stand-in is deferred (§ Simulation).
+- **`examples/Vion.Examples.MBus`** contains:
+  - the EM5XX block above;
+  - the debug client (§ The debug client);
+  - a test project replaying the bench capture through both.
+
+  It joins `examples.yml`'s upload matrix. Unlike the Modbus TCP example, its DevHost has nothing to
+  read from until a request/response simulation tier exists (§ Simulation). The example is run on a
+  gateway, and tested with the kit.
+
+### The debug client — `MBusDebugClient`
+
+A commissioning tool, shaped like `ModbusTcpDebugClient`. The engineer points it at an address, reads,
+and sees what the meter really sends. It is the first step of the authoring loop, done on a real line.
+
+| | Property | Notes |
+|---|---|---|
+| in | `PrimaryAddress` (0–250), `MaxTelegrams` (1–10, default 5) | what to read |
+| in | `Read now` | a trigger, as the Modbus client's `ReadOnce` is (`UiHints.Trigger`, `ModbusTcpDebugClient.cs:190-201`) |
+| in | `Polling enabled` (default **off**), `Poll interval` (s, at least 60) | off by default because the line is shared: every debug read takes line time from the production meters |
+| out | `Header` | identification, manufacturer, version, medium, access number, status |
+| out | `Records` | one row per record: telegram, quantity, value and unit, storage, tariff, subunit, function, DIB, VIB, and the selector from `SelectorFor`, as struct rows like the Modbus client's `Registers` |
+| out | `Telegrams` | each telegram as hex, ready for a test's `SimulateReadResponse` |
+| out | `Complete`, `Last read`, `Last read error`, `Link` | completeness; round trip, queued wait and telegram count; the failure; the binding's link summary |
+
+**It does not** write, scan, or address by secondary address: those are deferred with the contract
+(§ Forward view), and a scan is a provider operation anyway. It binds its own `IMBus`, so its reads
+queue at the provider like any other binding's (`D3`). That is why polling is off and the interval
+floor sits well above one line pass.
+
+### Documentation
+
+**The API reference is generated.** Every `[PublicApi]` type's XML docs land in the documentation
+repo's API reference on each `main` push (`docs/releasing.md` § Documentation drift detection). The
+same push's public-API manifest diff opens the architecture issue that prompts the guide work below. So
+the behaviours that would surprise a block author are stated on the members the author calls
+(`docs/sdk-surface-conventions.md` § 2):
+
+- `Read` states:
+  - the busy rule (`D3`);
+  - that the timeout includes the provider's line queue (`D7`);
+  - that bad arguments are refused through the error callback;
+  - that `maxTelegrams` is what the meter sends.
+- `Value` states that it returns null on a miss, that a miss on a complete readout is logged, and that
+  a unit of another quantity throws.
+- `MBusSelector.Of` states that records with a meaning-changing extension are reached by code.
+- `MBusStatus.HasError` states which bits count.
+
+**The guide gets a section, not a page.** The documentation repo's STYLE rule is "A new feature is not a
+new page" (`documentation/docs/STYLE.md` § When to Add a Page). The guide's `docs/sdk/services.md`
+already owns Modbus RTU and Modbus TCP, so M-Bus gets an `## M-Bus` section beside them, holding:
+
+- declaring the binding and enabling it;
+- reading a meter with selectors (the EM5XX snippet), units, and what an incomplete readout means;
+- what will bite a reader: busy reads, the timeout, the required telegram count;
+- the authoring loop with `Describe()` and the debug client;
+- a link to Testing for the kit. The kit's helpers go in Testing, as the HTTP kit's did in the
+  documentation repo's change `2026-10-21-sdk-api-drift`.
+
+**The provider page gains M-Bus where it lists the built-in contract types.**
+`docs/sdk/service-provider-protocol.md` lists them in three places: the `type` field (`:197`), the
+topic table (`:566-573`) and the JSON record table (`:632`). M-Bus joins all three. Its provider
+obligations (§ The wire) go there too, because that page is the integration contract an outside
+provider such as ecocoach's is written against.
+
+**When:** after the release that ships the packages, as a documentation-repo change in that repo's own
+lane. The guide documents released API, as its 2026-10-21 drift change did.
 
 ### ST feasibility — the bench, and what it decided
 
@@ -791,6 +876,13 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 
   Sibling sweep: the code table, provider obligation 1, § One read in flight, § TestKit and `D15`, in
   the same commit.
+- 2026-11-10: the operator's review of #281 added:
+  - the debug client (`D19`), which brings `SelectorFor` onto the readout (`AC-MBUS-007.5`
+    `MODIFIED` in place, still unpublished);
+  - the documentation plan (`D20`).
+
+  Sibling sweep: Summary, the objectives table, Package layout, `T-008` and the outside-repository
+  list, in the same commit.
 
 ---
 
@@ -835,7 +927,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-MBUS-007.2 -> docs/specs/mbus.md : WHEN no record matches a selector THE SYSTEM SHALL return no value.
 - ADDED AC-MBUS-007.3 -> docs/specs/mbus.md : THE SYSTEM SHALL convert a selected value into a unit the caller names among its quantity's units, and SHALL throw an `ArgumentException` naming the selector, the record and the unit when the record cannot be expressed in it.
 - ADDED AC-MBUS-007.4 -> docs/specs/mbus.md : WHEN a selector matches nothing on a complete readout THE SYSTEM SHALL log it once per selector and contract. GAP: a log call, which `../testing-conventions.md` § 15 forbids asserting on.
-- ADDED AC-MBUS-007.5 -> docs/specs/mbus.md : THE SYSTEM SHALL describe a telegram or readout one line per record, each with a selector that finds that record.
+- ADDED AC-MBUS-007.5 -> docs/specs/mbus.md : THE SYSTEM SHALL give, for any record of a readout, a selector that finds that record in it, and SHALL describe a telegram or readout one line per record, each with that selector.
 - ADDED AC-MBUS-008.1 -> docs/specs/mbus.md : THE SYSTEM SHALL accumulate every completed read of one contract into a link summary readable at any time without blocking the read updating it.
 - ADDED AC-MBUS-008.2 -> docs/specs/mbus.md : THE SYSTEM SHALL set the link state to `Online` on a success, to `Faulted` on no response, a garbled answer, an unavailable line, a timeout or a protocol error, and SHALL leave it unchanged on every other outcome.
 - ADDED AC-MBUS-008.3 -> docs/specs/mbus.md : THE SYSTEM SHALL keep a lifetime counter for every outcome but success and for busy reads, SHALL feed round-trip figures only from reads that were published and answered, and SHALL feed queued-wait figures only from reads that reached the handler.
@@ -868,7 +960,13 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - `T-006` (`AC-MBUS-008.*`, `AC-EMIT-002.8`): the receipt, outcome, link summary and accumulator.
 - `T-007` (`AC-TKIT-016.*`): `Vion.Dale.Sdk.MBus.TestKit` and its test project; "six kits" becomes
   seven in the three files that say so.
-- `T-008` (`SYS-REL-001`): `examples/Vion.Examples.MBus` (the EM5XX block, replaying the bench
-  capture), and both packages on the release roster.
+- `T-008` (`SYS-REL-001`): `examples/Vion.Examples.MBus` (the EM5XX block, the debug client and a test
+  project replaying the bench capture), added to `examples.yml`'s upload matrix, and both packages on
+  the release roster.
 - `T-009`: distill every delta line into `docs/specs/mbus.md`, `testkit.md` and `emission.md`, then
   `spec-change.ps1 archive mbus-service-provider`.
+
+**Outside this repository**, not tasks of this doc:
+
+- the documentation repo's `## M-Bus` section and provider rows, after the release (§ Documentation);
+- a home for `mbus-st-bench`, so its commits cited above can be followed.

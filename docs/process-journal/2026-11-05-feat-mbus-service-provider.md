@@ -5,3 +5,5 @@
 2026-11-05 · review · mbus-service-provider · The review read VION-437's minimal TwinCAT HAL as a possible second ST M-Bus master beside the TwinCAT spec's phase 5; the operator said minimal means hard-coded hardware for the first project and it is v1 M-Bus support.
 
 2026-11-10 · decision · mbus-service-provider · Wire option A settled for the M-Bus contract: the ST bench read all five EM530 telegrams raw through Tc2_MBus 3.5.4's frame buffer, so no provider has to decode.
+
+2026-11-10 · review · mbus-service-provider · The M-Bus change doc on #281 planned no commissioning tool and no documentation; the operator asked for a debug client like the Modbus TCP example's and a guide section in the documentation repo.
