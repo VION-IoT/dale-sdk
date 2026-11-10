@@ -961,6 +961,16 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     needs no member of its own.
   - `AC-MBUS-006.7` (the header comes from the first telegram) is tested in `T-003`, which introduces the
     readout.
+- 2026-11-10, `T-004`: the readout's surface, decided in implementation:
+  - `MBusUnit` takes .NET's spelling (`CubicMeter`, `Liter`, `CubicMeterPerHour`, `LiterPerHour`); the
+    doc's examples name only units spelled the same either way.
+  - `Value` refuses a unit outside a selector-by-meaning's quantity before looking for the record, so the
+    mistake shows on the first replay of any capture, even one that lacks the record. A selector by code
+    can only be judged against the record it finds.
+  - `Find` reports a miss as well as `Value`, since both take a selector. The readout hands each miss on
+    a complete readout to the contract, and the contract logs it once per selector (`T-005`).
+  - `Describe()` prints `#n | tN | quantity | value unit | storage, tariff, subunit, function | DIB | VIB |
+    selector`, joined with `\n`. A shadowed record prints `shadowed by #n`.
 
 ---
 

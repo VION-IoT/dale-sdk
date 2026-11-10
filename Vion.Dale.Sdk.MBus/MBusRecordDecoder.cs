@@ -143,24 +143,19 @@ namespace Vion.Dale.Sdk.MBus
         }
 
         /*
-         * A negative power of ten divides rather than multiplies: 795 / 10 is exactly the double nearest 79.5, while
-         * 795 * 0.1 is not. An additive correction is an offset in the VIF's own unit, so it is added before the VIF's
+         * The exponents are summed so the value is scaled in one step, which keeps it the double nearest the decimal
+         * the meter meant. An additive correction is an offset in the VIF's own unit, so it is added before the VIF's
          * scale is applied.
          */
         private static double Scale(double raw, MBusValueInformation information)
         {
             if (information.AdditiveExponent is { } additive)
             {
-                var corrected = Power(raw, information.CorrectionExponent) + Power(1, additive);
-                return Power(corrected, information.VifExponent) * information.Factor;
+                var corrected = MBusScale.Power(raw, information.CorrectionExponent) + MBusScale.Power(1, additive);
+                return MBusScale.Power(corrected, information.VifExponent) * information.Factor;
             }
 
-            return Power(raw, information.VifExponent + information.CorrectionExponent) * information.Factor;
-        }
-
-        private static double Power(double value, int exponent)
-        {
-            return exponent < 0 ? value / Math.Pow(10, -exponent) : value * Math.Pow(10, exponent);
+            return MBusScale.Power(raw, information.VifExponent + information.CorrectionExponent) * information.Factor;
         }
 
         private static (double? Number, string? Text) ReadValue(int dataField, byte[] data)

@@ -72,6 +72,16 @@ namespace Vion.Dale.Sdk.MBus
             }
         }
 
+        /// <summary>
+        ///     One line per record, as <see cref="MBusReadout.Describe" /> prints a readout of this telegram alone: the
+        ///     step from a captured telegram to the selectors a logic block declares.
+        /// </summary>
+        /// <returns>The description, in the invariant culture.</returns>
+        public string Describe()
+        {
+            return new MBusReadout([this]).Describe();
+        }
+
         /// <summary>The whole frame as hexadecimal text, two digits per byte separated by spaces.</summary>
         public override string ToString()
         {
