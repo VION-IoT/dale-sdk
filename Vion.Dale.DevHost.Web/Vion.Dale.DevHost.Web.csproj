@@ -6,9 +6,12 @@
     API controllers and an embedded SPA. Using it pulled in the Razor SDK, which feeds
     Microsoft.CodeAnalysis.Razor.Compiler.dll to the compiler as an analyzer — for a project with
     zero .razor/.cshtml files. On .NET SDK 10.0.400 that analyzer requires Roslyn 5.9, which the
-    Metalama Compiler arriving transitively (Vion.Dale.DevHost -> Vion.Dale.Sdk) does not supply,
-    so every build in the repo failed with LAMA0625. Bumping Metalama does not fix it: the newest
-    release (2026.1.23) still bundles Roslyn 5.6.
+    Metalama Compiler arriving transitively (Vion.Dale.DevHost -> Vion.Dale.Sdk) did not supply
+    while the repo was on Metalama 2026.1.18 (bundles Roslyn 5.5; 2026.1.19-2026.1.23 bundle 5.6),
+    so every build in the repo failed with LAMA0625. From Metalama 2026.1.27 on the bundled Roslyn
+    is 5.9 or later, and the repo is on 2026.1.31: probed on .NET SDK 10.0.403, this project builds
+    on the Web SDK again with no LAMA diagnostic. The plain SDK stays for the reasons below; it is
+    no longer forced by Metalama.
 
     ASP.NET Core types come from the FrameworkReference below — the documented way for a *library*
     to compile against them. Controllers are still discovered normally (ApplicationPart at runtime;
