@@ -525,7 +525,7 @@ namespace Vion.Dale.Sdk.MBus.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-MBUS-004.7")]
-        public void WaitOutBackstopWhenRunBeforeItIsDue()
+        public void WaitOutBackstopWhenRunBeforeDue()
         {
             // Arrange
             // A dispatcher that drains its queue early, as a test kit's does, runs the backstop at once.
