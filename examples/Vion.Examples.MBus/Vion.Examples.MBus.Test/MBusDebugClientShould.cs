@@ -83,6 +83,20 @@ namespace Vion.Examples.MBus.Test
         }
 
         [Fact]
+        public void SayReadIsInFlightWhenReadNowPressedAgain()
+        {
+            // Arrange
+            _sut.ReadNow = true;
+
+            // Act
+            _sut.ReadNow = true;
+
+            // Assert
+            Assert.Equal("A read is already in flight; its answer will replace these results.", _sut.LastReadError);
+            _context.VerifyMBusReadSent(times: Times.Once());
+        }
+
+        [Fact]
         public void PollOnlyWhenEnabled()
         {
             // Arrange

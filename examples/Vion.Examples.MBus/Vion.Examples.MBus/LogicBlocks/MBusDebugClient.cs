@@ -37,6 +37,8 @@ namespace Vion.Examples.MBus.LogicBlocks
 
         private int _pollIntervalSeconds = MinPollIntervalSeconds;
 
+        private bool _readInFlight;
+
         [ServiceProviderContractBinding(Identifier = "MBus", DefaultName = "M-Bus")]
         public IMBus MBus { get; set; } = null!;
 
@@ -133,13 +135,26 @@ namespace Vion.Examples.MBus.LogicBlocks
             InvokeSynchronizedAfter(PollTick, TimeSpan.FromSeconds(PollIntervalSeconds));
         }
 
+        /// <summary>
+        ///     A binding has one read in flight, and the contract drops a second one without a callback. A press of
+        ///     <i>Read now</i> while a poll waits in a busy line's queue would then change nothing on screen, so the
+        ///     client says why instead.
+        /// </summary>
         private void ExecuteRead()
         {
+            if (_readInFlight)
+            {
+                LastReadError = "A read is already in flight; its answer will replace these results.";
+                return;
+            }
+
+            _readInFlight = true;
             MBus.Read(PrimaryAddress, MaxTelegrams, this, OnReadout, OnError);
         }
 
         private void OnReadout(MBusReadout readout, MBusReceipt receipt)
         {
+            _readInFlight = false;
             var header = readout.Header;
             Header = new MBusHeaderRow(header.Identification,
                                        header.Manufacturer,
@@ -162,6 +177,8 @@ namespace Vion.Examples.MBus.LogicBlocks
 
         private void OnError(Exception error, MBusReceipt receipt)
         {
+            _readInFlight = false;
+
             // The telegrams of a protocol error are in the message, so a capture survives a failed check.
             LastReadError = $"{receipt.Outcome}: {error.Message}";
             Link = MBus.Link;
