@@ -1,6 +1,6 @@
 ---
 slug: mbus-service-provider
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: MBUS, TKIT, EMIT
 author: Jonas Bertsch (drafted in a Claude session)
@@ -185,6 +185,11 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
    - Anything else decodes as a record with no quantity, reachable by code.
    - The quantity and unit enums are pinned against the targets' captures in `T-002`, not against the
      whole standard.
+
+   **OUTCOME (2026-11-10, implementation):** the table as built is the primary VIF table, the FDh
+   voltage, current and dimensionless families, and four FBh codes, each pinned to an EM530 value (Drift
+   checkpoint `T-002`). Those four come from the vendor's frame table, because neither open-source decoder
+   carries them, so the pull request asks its reviewer to confirm them against EN 13757-3:2018.
 7. **(c) Does the M-Bus example, with its debug client, go to production?** Its consumer is
    commissioning at customer sites such as AVM, so it is needed where those gateways run.
    - **Recommendation:** add it to `examples.yml`'s production upload, both to `detect-prod`'s filters
