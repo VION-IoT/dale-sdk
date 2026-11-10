@@ -292,6 +292,63 @@ namespace Vion.Dale.Sdk.MBus.Test
             Assert.AreEqual(MBusVectors.Em530Telegram5, rendered);
         }
 
+        [TestMethod]
+        [DataRow(0, (byte)0x10, DisplayName = "first start byte")]
+        [DataRow(3, (byte)0x10, DisplayName = "second start byte")]
+        [DataRow(2, (byte)0x2B, DisplayName = "length bytes differ")]
+        [DataRow(48, (byte)0x87, DisplayName = "checksum")]
+        [DataRow(49, (byte)0x17, DisplayName = "stop byte")]
+        [DataRow(6, (byte)0x78, DisplayName = "control information other than 72h")]
+        public void RefuseFrameThatFailsItsChecks(int offset, byte replacement)
+        {
+            // Arrange
+            var frame = MBusFrames.Bytes(MBusVectors.Em530Telegram5);
+            frame[offset] = replacement;
+            if (offset == 6)
+            {
+                // Keep the checksum right, so the control information is the only fault.
+                frame[48] = (byte)(frame[48] + 0x78 - 0x72);
+            }
+
+            var hex = MBusFrames.Hex(frame);
+
+            // Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => MBusTelegram.Parse(hex));
+        }
+
+        [TestMethod]
+        [DataRow(-1, DisplayName = "one byte short")]
+        [DataRow(1, DisplayName = "one byte long")]
+        public void RefuseFrameWhoseLengthDisagreesWithLengthByte(int difference)
+        {
+            // Arrange
+            var frame = MBusFrames.Bytes(MBusVectors.Em530Telegram5).ToList();
+            if (difference < 0)
+            {
+                frame.RemoveAt(20);
+            }
+            else
+            {
+                frame.Insert(20, 0x00);
+            }
+
+            var hex = MBusFrames.Hex(frame.ToArray());
+
+            // Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => MBusTelegram.Parse(hex));
+        }
+
+        [TestMethod]
+        [DataRow("68 2", DisplayName = "odd number of digits")]
+        [DataRow("68 2G", DisplayName = "not a hexadecimal digit")]
+        public void RefuseTextThatIsNotHexadecimal(string hex)
+        {
+            // Arrange
+
+            // Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => MBusTelegram.Parse(hex));
+        }
+
         private static string Hex(System.Collections.Generic.IReadOnlyList<byte> bytes)
         {
             return MBusFrames.Hex(bytes.ToArray());

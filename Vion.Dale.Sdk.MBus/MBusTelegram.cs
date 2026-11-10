@@ -14,6 +14,12 @@ namespace Vion.Dale.Sdk.MBus
     [PublicApi]
     public sealed class MBusTelegram
     {
+        private const byte LongStart = 0x68;
+
+        private const byte Stop = 0x16;
+
+        private const byte VariableDataResponse = 0x72;
+
         private const int HeaderLength = 12;
 
         private const int DataStart = 7 + HeaderLength;
@@ -75,15 +81,59 @@ namespace Vion.Dale.Sdk.MBus
         /// <exception cref="MBusDecodeException">The frame cannot be decoded.</exception>
         internal static MBusTelegram Decode(byte[] frame)
         {
+            Check(frame);
+            var header = DecodeHeader(frame);
+            var (records, announcesMoreRecords) = MBusRecordDecoder.Decode(frame, DataStart);
+
+            return new MBusTelegram(frame, header, records, announcesMoreRecords);
+        }
+
+        /// <summary>
+        ///     The long-frame checks of EN 13757-2 — start bytes, the repeated length, checksum and stop byte — and the
+        ///     one control information this decoder reads, a variable data response with its long header.
+        /// </summary>
+        private static void Check(byte[] frame)
+        {
+            if (frame.Length < 6 || frame[0] != LongStart || frame[3] != LongStart)
+            {
+                throw new MBusDecodeException("The frame does not start with the long-frame start bytes 68h L L 68h.");
+            }
+
+            if (frame[1] != frame[2])
+            {
+                throw new MBusDecodeException($"The frame's two length bytes differ ({frame[1]:X2}h, {frame[2]:X2}h).");
+            }
+
+            if (frame.Length != frame[1] + 6)
+            {
+                throw new MBusDecodeException($"The frame is {frame.Length} bytes long, but its length byte {frame[1]:X2}h makes it {frame[1] + 6}.");
+            }
+
+            var checksum = 0;
+            for (var index = 4; index < frame.Length - 2; index++)
+            {
+                checksum += frame[index];
+            }
+
+            if ((byte)checksum != frame[frame.Length - 2])
+            {
+                throw new MBusDecodeException($"The frame's checksum is {frame[frame.Length - 2]:X2}h, but its bytes sum to {(byte)checksum:X2}h.");
+            }
+
+            if (frame[frame.Length - 1] != Stop)
+            {
+                throw new MBusDecodeException($"The frame ends on {frame[frame.Length - 1]:X2}h instead of the stop byte 16h.");
+            }
+
             if (frame.Length < DataStart + 2)
             {
                 throw new MBusDecodeException($"A frame of {frame.Length} bytes is too short for a variable data telegram.");
             }
 
-            var header = DecodeHeader(frame);
-            var (records, announcesMoreRecords) = MBusRecordDecoder.Decode(frame, DataStart);
-
-            return new MBusTelegram(frame, header, records, announcesMoreRecords);
+            if (frame[6] != VariableDataResponse)
+            {
+                throw new MBusDecodeException($"The frame's control information is {frame[6]:X2}h; only a variable data response (72h) is decoded.");
+            }
         }
 
         private static MBusHeader DecodeHeader(byte[] frame)
