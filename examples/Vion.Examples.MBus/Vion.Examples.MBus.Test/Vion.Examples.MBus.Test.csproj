@@ -8,19 +8,9 @@
     <!-- TestKit refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
          local project refs so you can test working-tree SDK changes against this example without editing the csproj. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.15.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.16.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.MBus.TestKit" Version="0.16.0"/>
     </ItemGroup>
-    <!-- Every test here drives the M-Bus TestKit, which no published version carries yet, so they compile only
-         against the working tree. The release that first ships Vion.Dale.Sdk.MBus.TestKit adds its
-         PackageReference above and removes this group. -->
-    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <Compile Remove="*.cs"/>
-    </ItemGroup>
-    <!-- With no test compiled, the xunit runner cannot launch the assembly and fails the run, so the project is no
-         test project until it has tests to run. Removed with the group above. -->
-    <PropertyGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <IsTestProject>false</IsTestProject>
-    </PropertyGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.MBus.TestKit\Vion.Dale.Sdk.MBus.TestKit.csproj"/>
