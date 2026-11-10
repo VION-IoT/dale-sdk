@@ -1009,7 +1009,10 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     reads the committed snapshot, so the kit's types have to be in it before the CI bot runs.
   - The kit answers the read that holds the contract's slot through an internal `PendingCorrelationId`,
     and builds a simulated failure's `MBusException` through `InternalsVisibleTo`. A simulated
-    `Expired`, `Dropped` or `Invalid` carries no publish instant, as the handler stamps them.
+    `Expired`, `Dropped` or `Invalid` carries no publish instant, as the handler stamps them. A mutation
+    found the first lookup's flaw: `LastOrDefault` over the request structs returns a default struct, never
+    `null`, so a missing pending read would have been answered with an empty request rather than refused.
+    The lookup now runs over nullable requests.
   - **Counts:** "six kits" became seven in `spec-process.md` § The roster, `testkit.md` (twice) and
     `analyzers.md`'s `AC-ANLZ-018.2`. The last is a `MODIFIED` delta line, because its `GAP` tail names the
     probes and now counts fourteen, `AC-MBUS-009.1` among them. `sdk-surface-conventions.md`'s counts were
@@ -1017,6 +1020,22 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     - fifteen assemblies declare a published namespace, where the doc read twelve (thirteen did before
       this change);
     - twenty-one projects reference the analyzers unconditionally.
+- 2026-11-10, `T-008`: the example, decided in implementation:
+  - **It compiles only against the working tree until the packages' first release.** Examples build
+    against the published SDK packages, and neither M-Bus package is published. So
+    `docs/releasing.md`'s first-release rule applies: every source is excluded unless
+    `-p:DaleLocalSource=true`, and the test project is no test project until then. With nothing compiled,
+    xunit v3 fails a run with "Could not launch test process".
+  - **`examples.yml`'s upload matrix gains the example in that same first-release bump, not here.**
+    Today's `main` push would upload an empty `Vion.Examples.MBus 0.15.0` to Cloud test: `dale upload`
+    does not refuse a library with no logic block, and `--skip-duplicate` keeps that empty upload once its
+    version exists. `D19`'s destination is unchanged: the example goes to Cloud through the matrix, as the
+    Modbus TCP example does. **This is the one point the reviewer should confirm**, since `D19` is on the
+    brief's STOP list. Adding the line now is the one-line alternative.
+  - The example has no DevHost, as § Package layout says. Its tests replay the EM530 capture, kept in the
+    example's own test data so the example reads as consumer code. The debug client keeps its own
+    quantity-to-unit symbols, from `MBusQuantity`'s documented reported units. Its primary address
+    defaults to 0.
 
 ---
 
