@@ -19,7 +19,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [TestClass]
     public class TestKitSurfaceShould
     {
-        /// <summary>The seven packable kits, by the assembly each ships.</summary>
+        /// <summary>The packable kits, by the assembly each ships.</summary>
         private static readonly string[] KitAssemblies =
         [
             "Vion.Dale.Sdk.TestKit",

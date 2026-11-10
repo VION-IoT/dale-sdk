@@ -24,7 +24,7 @@
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
-        <!-- The other six kits, so TestKitSurfaceShould can read the surface all seven ship rather than
+        <!-- The other kits, so TestKitSurfaceShould can read the surface every kit ships rather than
              this one's alone. Nothing else in this project uses them. -->
         <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo.TestKit\Vion.Dale.Sdk.DigitalIo.TestKit.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.AnalogIo.TestKit\Vion.Dale.Sdk.AnalogIo.TestKit.csproj"/>

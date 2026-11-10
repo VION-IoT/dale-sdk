@@ -5,9 +5,9 @@ trace: enforced
 # The test kits: what the SDK ships so a block can be tested without a runtime
 
 What the SDK guarantees a logic-block author who wants to test a block on their own machine, with no
-runtime, no broker, no device and no development host. Seven packable packages ship it — the core kit
-`Vion.Dale.Sdk.TestKit`, the two I/O kits `Vion.Dale.Sdk.DigitalIo.TestKit` and
-`Vion.Dale.Sdk.AnalogIo.TestKit`, the two Modbus kits `Vion.Dale.Sdk.Modbus.Rtu.TestKit` and
+runtime, no broker, no device and no development host. Packable packages ship it — the core kit
+`Vion.Dale.Sdk.TestKit`, the I/O kits `Vion.Dale.Sdk.DigitalIo.TestKit` and
+`Vion.Dale.Sdk.AnalogIo.TestKit`, the Modbus kits `Vion.Dale.Sdk.Modbus.Rtu.TestKit` and
 `Vion.Dale.Sdk.Modbus.Tcp.TestKit`, the HTTP kit `Vion.Dale.Sdk.Http.TestKit` and the M-Bus kit
 `Vion.Dale.Sdk.MBus.TestKit`. Area code `TKIT`.
 Process: [`../spec-process.md`](../spec-process.md).
@@ -289,7 +289,7 @@ not for "not finite".
   expression, refusing an unregistered identifier from either query with the registered identifiers
   named.
 
-**No kit waits on wall time.** There is no timeout anywhere in the seven packages: a delay is virtual
+**No kit waits on wall time.** There is no timeout anywhere in the kits: a delay is virtual
 time a driver consumes, and a test that wants to wait advances the clock.
 
 `AC-TKIT-008.1`'s last clause is a trap worth stating plainly. `WithTimeProvider` binds one clock to
@@ -598,8 +598,8 @@ test from a log or a datasheet; the kit offers no telegram builder.
   provider in the published signature of the core kit.
 
 The release roster is not this page's rule and is no longer stated here: it is `SYS-REL-001`
-([`_invariants.md`](_invariants.md)), a repository-wide release rule of which the seven kits are seven
-named packages.
+([`_invariants.md`](_invariants.md)), a repository-wide release rule of which each kit is one
+named package.
 
 `AC-TKIT-013.2` is what makes `AC-TKIT-013.1` enforceable rather than aspirational. Each kit declares
 its own namespace as published surface, and until the analyzer reference landed beside that

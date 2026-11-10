@@ -94,7 +94,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         private static readonly string[] ProbedProjects = ["Vion.Dale.Sdk.DigitalIo", "Vion.Dale.Sdk.AnalogIo"];
 
         /// <summary>
-        ///     The seven test kits and the published namespace each declares. Every one of them declares
+        ///     The test kits and the published namespace each declares. Every one of them declares
         ///     <c>[assembly: PublicApiNamespace]</c>, and until the analyzer reference landed beside it none
         ///     of those declarations had a reader.
         /// </summary>

@@ -1057,6 +1057,29 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
     unreadable answer, a `ProtocolError`. A null frame is also a decode failure, as defence in depth.
 
   Sibling sweep: every path that completes a read now goes through the one exactly-once guard.
+- 2026-11-10, the operator's review of #282:
+  - **Counts in prose go stale.** The counts this change wrote ("seven kits", "fourteen probes",
+    "fifteen assemblies", "twenty-one projects", "sixteen areas") are rewritten without numbers.
+    `AC-ANLZ-018.2`'s GAP tail changes with them, by editing its unpublished `MODIFIED` line. Counts
+    this change did not write stay.
+  - **`Expired` and `Dropped` are logged at Debug**, as RTU logs them. At Error, a congested runtime's
+    burst floods the gateway's log. This overrides § The block API's "every failure at Error".
+  - **Simpler and cheaper:**
+    - `MBusHex.Format` is `BitConverter.ToString`;
+    - each record keeps its DIB and VIB bytes once, so matching by code compares spans without
+      allocating;
+    - the readout finds every shadow in one pass.
+
+    A mutation of the new matching found that no test held a code to exact length, so
+    `MatchOnlyExactCode` now does.
+  - Answered without a change:
+    - the contract class keeps its name: `MBus` would share it with its namespace's last segment;
+    - the decoder stays hand-written: the one C# library found is unmaintained since 2019;
+    - the link summary stays as it is (`D8`);
+    - the enums stay as they are: Tc2_MBus carries units as strings and its function enum matches;
+    - the wire records stay internal (`D4`).
+  - The example's switch to the released packages, and its upload-matrix entry, are a follow-up pull
+    request after the first release.
 
 ---
 
@@ -1114,7 +1137,7 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
 - ADDED AC-TKIT-016.2 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test complete a pending M-Bus read through its error callback with an outcome other than success that the test names, and SHALL refuse success, naming the response simulation.
 - ADDED AC-TKIT-016.3 -> docs/specs/testkit.md : THE SYSTEM SHALL let a test verify that a block sent an M-Bus read, optionally to a primary address, for a telegram count and a number of times.
 - ADDED AC-TKIT-016.4 -> docs/specs/testkit.md : WHEN a simulation finds no pending M-Bus read THE SYSTEM SHALL refuse it, naming what the block must do first.
-- MODIFIED AC-ANLZ-018.2 -> docs/specs/analyzers.md : THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; fourteen of them carry a committed wiring probe that proves the mechanism, under the id of whichever page owns the package — `AC-INTRO-017.4` for the two I/O packages, `AC-TKIT-013.2` for the seven kits, `AC-HTTP-013.2` for HTTP, `AC-MODB-019.2` for the three Modbus packages, `AC-MBUS-009.1` for M-Bus; `AC-ANLZ-018.4` is the rule that the probe stays out of an ordinary build.
+- MODIFIED AC-ANLZ-018.2 -> docs/specs/analyzers.md : THE SYSTEM SHALL judge the declarations of every project that references the analyzer assembly as an analyzer, and no others. GAP: which projects those are is a build-graph fact, grep-enumerable from the csprojs; the packages named here each carry a committed wiring probe that proves the mechanism, under the id of whichever page owns the package — `AC-INTRO-017.4` for the I/O packages, `AC-TKIT-013.2` for the kits, `AC-HTTP-013.2` for HTTP, `AC-MODB-019.2` for the Modbus packages, `AC-MBUS-009.1` for M-Bus; `AC-ANLZ-018.4` is the rule that the probe stays out of an ordinary build.
 - MODIFIED AC-EMIT-002.8 -> docs/specs/emission.md : THE SYSTEM SHALL declare a `[DefaultMinInterval]` of 30 s on each diagnostics summary it ships: `ModbusLinkSummary`, `ModbusTcpConnectionSummary`, `MBusLinkSummary`, `HttpClientSummary` and `HttpServerSummary`.
 
 ---
