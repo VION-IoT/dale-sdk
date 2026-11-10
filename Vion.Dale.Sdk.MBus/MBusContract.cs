@@ -102,6 +102,12 @@ namespace Vion.Dale.Sdk.MBus
             get => _linkAccumulator.Snapshot();
         }
 
+        /// <summary>The correlation identifier of the read holding the slot, which the test kit answers; <c>null</c> when none is pending.</summary>
+        internal Guid? PendingCorrelationId
+        {
+            get => _pendingCorrelationId;
+        }
+
         /// <inheritdoc />
         public void Read(int primaryAddress,
                          int maxTelegrams,

@@ -288,7 +288,7 @@ not for "not finite".
   expression, refusing an unregistered identifier from either query with the registered identifiers
   named.
 
-**No kit waits on wall time.** There is no timeout anywhere in the six packages: a delay is virtual
+**No kit waits on wall time.** There is no timeout anywhere in the seven packages: a delay is virtual
 time a driver consumes, and a test that wants to wait advances the clock.
 
 `AC-TKIT-008.1`'s last clause is a trap worth stating plainly. `WithTimeProvider` binds one clock to
@@ -579,7 +579,7 @@ sockets. Every request the view sends is therefore answered and recorded.
   provider in the published signature of the core kit.
 
 The release roster is not this page's rule and is no longer stated here: it is `SYS-REL-001`
-([`_invariants.md`](_invariants.md)), a repository-wide release rule of which the six kits are six
+([`_invariants.md`](_invariants.md)), a repository-wide release rule of which the seven kits are seven
 named packages.
 
 `AC-TKIT-013.2` is what makes `AC-TKIT-013.1` enforceable rather than aspirational. Each kit declares

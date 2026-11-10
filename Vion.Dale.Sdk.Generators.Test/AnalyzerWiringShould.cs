@@ -94,7 +94,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         private static readonly string[] ProbedProjects = ["Vion.Dale.Sdk.DigitalIo", "Vion.Dale.Sdk.AnalogIo"];
 
         /// <summary>
-        ///     The six test kits and the published namespace each declares. Every one of them declares
+        ///     The seven test kits and the published namespace each declares. Every one of them declares
         ///     <c>[assembly: PublicApiNamespace]</c>, and until the analyzer reference landed beside it none
         ///     of those declarations had a reader.
         /// </summary>
@@ -106,6 +106,7 @@ namespace Vion.Dale.Sdk.Generators.Test
             ("Vion.Dale.Sdk.Modbus.Rtu.TestKit", "Vion.Dale.Sdk.Modbus.Rtu.TestKit"),
             ("Vion.Dale.Sdk.Modbus.Tcp.TestKit", "Vion.Dale.Sdk.Modbus.Tcp.TestKit"),
             ("Vion.Dale.Sdk.Http.TestKit", "Vion.Dale.Sdk.Http.TestKit"),
+            ("Vion.Dale.Sdk.MBus.TestKit", "Vion.Dale.Sdk.MBus.TestKit"),
         ];
 
         private static readonly BuildSet IoProbe = new(nameof(IoProbe), IoProbeProperty, null, ProbedProjects);
@@ -208,6 +209,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [DataRow("Vion.Dale.Sdk.Modbus.Rtu.TestKit")]
         [DataRow("Vion.Dale.Sdk.Modbus.Tcp.TestKit")]
         [DataRow("Vion.Dale.Sdk.Http.TestKit")]
+        [DataRow("Vion.Dale.Sdk.MBus.TestKit")]
         public void RunDaleAnalyzersOverTestKits(string projectName)
         {
             // Arrange
@@ -312,6 +314,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [DataRow("Vion.Dale.Sdk.Modbus.Rtu.TestKit")]
         [DataRow("Vion.Dale.Sdk.Modbus.Tcp.TestKit")]
         [DataRow("Vion.Dale.Sdk.Http.TestKit")]
+        [DataRow("Vion.Dale.Sdk.MBus.TestKit")]
         public void KeepTestKitProbeOutOfOrdinaryBuild(string projectName)
         {
             // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time

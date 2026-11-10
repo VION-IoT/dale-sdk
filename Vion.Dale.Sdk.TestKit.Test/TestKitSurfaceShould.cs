@@ -19,7 +19,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [TestClass]
     public class TestKitSurfaceShould
     {
-        /// <summary>The six packable kits, by the assembly each ships.</summary>
+        /// <summary>The seven packable kits, by the assembly each ships.</summary>
         private static readonly string[] KitAssemblies =
         [
             "Vion.Dale.Sdk.TestKit",
@@ -28,6 +28,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             "Vion.Dale.Sdk.Modbus.Rtu.TestKit",
             "Vion.Dale.Sdk.Modbus.Tcp.TestKit",
             "Vion.Dale.Sdk.Http.TestKit",
+            "Vion.Dale.Sdk.MBus.TestKit",
         ];
 
         [TestMethod]
@@ -38,6 +39,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [DataRow("Vion.Dale.Sdk.Modbus.Rtu.TestKit")]
         [DataRow("Vion.Dale.Sdk.Modbus.Tcp.TestKit")]
         [DataRow("Vion.Dale.Sdk.Http.TestKit")]
+        [DataRow("Vion.Dale.Sdk.MBus.TestKit")]
         public void ClassifyEveryPublicTypeAsPublishedSurface(string assemblyName)
         {
             // Arrange
@@ -63,6 +65,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [DataRow("Vion.Dale.Sdk.Modbus.Rtu.TestKit")]
         [DataRow("Vion.Dale.Sdk.Modbus.Tcp.TestKit")]
         [DataRow("Vion.Dale.Sdk.Http.TestKit")]
+        [DataRow("Vion.Dale.Sdk.MBus.TestKit")]
         public void DeclareNoAssertionOrTestFramework(string assemblyName)
         {
             // Arrange — a kit that pinned a test framework would decide its consumer's, and the nine
@@ -172,6 +175,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [DataRow("Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test")]
         [DataRow("Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test")]
         [DataRow("Vion.Dale.Sdk.Http.TestKit.Test")]
+        [DataRow("Vion.Dale.Sdk.MBus.TestKit.Test")]
         public void ReachNoRuntimeBrokerDeviceOrDevelopmentHostFromKitSuite(string projectName)
         {
             // Arrange — the kits are testable without any of them, and a suite that reached one would be

@@ -47,6 +47,8 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vion.Dale.Sdk.MBus.Test"/>
+        <!-- The kit answers the read holding the slot and builds the exception a simulated failure carries. -->
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.MBus.TestKit"/>
         <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>
     </ItemGroup>
 

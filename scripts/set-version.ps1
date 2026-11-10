@@ -281,6 +281,8 @@ function Clear-NuGetPackageCache
         "Vion.Dale.Sdk.Modbus.Rtu",
         "Vion.Dale.Sdk.Modbus.Rtu.TestKit",
         "Vion.Dale.Sdk.Modbus.Tcp.TestKit",
+        "Vion.Dale.Sdk.MBus",
+        "Vion.Dale.Sdk.MBus.TestKit",
         "Vion.Dale.Sdk.TestKit",
         "Vion.Dale.DevHost",
         "Vion.Dale.DevHost.Web",
