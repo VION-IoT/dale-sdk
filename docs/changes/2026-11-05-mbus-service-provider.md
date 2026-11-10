@@ -47,8 +47,10 @@ changed: binding, the handler base, link maps and publishing are `AC-BIND-*` as 
 - `D1` — **Wire option A: the provider sends raw telegrams and the SDK decodes them.** A provider may
   return fewer telegrams than asked when it can't read further. The readout then reports itself
   incomplete, so a first-telegram-only provider on `FB_MBUS_RawData` is a valid v1 (§ First telegram
-  only). Whether ST can read telegrams 2…n raw (§ ST feasibility) decides when full reads arrive, not
-  whether A holds.
+  only). The ST bench of 2026-11-10 settled full reads too. `Tc2_MBus` 3.5.4's `FB_MBUS_General_Ext`
+  leaves each received telegram whole in `ST_MBUS_Communication.arrMBusLongFrame`, so an ST provider can
+  return telegrams 2…n raw on an internal member, with the library version pinned (§ ST feasibility,
+  results).
 - `D2` — **Unused features stay out of v1.** No writes, no secondary addressing or scan, no rewind
   options, no per-request baud (§ Deferred).
 - `D3` — **One read in flight per binding.** This keeps an oversubscribed 2400 Bd line from filling
@@ -117,12 +119,19 @@ changed: binding, the handler base, link maps and publishing are `AC-BIND-*` as 
    `FB_MBUS_RawData` yields a frame the provider can hand over whole. F2 and F3 then decide when full
    reads arrive. If both fail, the choice is ST driving the KL6781 itself or `B′`, records with string
    units (§ Alternatives).
+
+   **OUTCOME (2026-11-10): no longer a STOP.** On the bench, F1 and F3 hold. An ST provider can serve
+   the EM5XX's billing telegrams raw in v1, through `arrMBusLongFrame` with `Tc2_MBus` pinned. Whether
+   ecocoach's first provider does that or starts first-telegram on the documented FB is the provider's
+   choice (`D5`). The contract serves both unchanged.
 2. **(c) Is this the decoding experience to build?** § The decoding experience proposes it: three
    layers, a selector a block declares once, values converted into the unit the block publishes, and
    `Describe()` for authoring. The operator asked for this to be defined, so it waits for the operator.
-3. **(c) Default operation timeout of 60 s.** The timeout includes the provider's queue (§ Timeouts).
-   60 s covers one pass of a full single-telegram KL6781 line at 2400 Bd. Alternatives: 30 s, with
-   blocks on busy lines overriding it, or have the provider report its own queue wait.
+3. **(c) Default operation timeout of 120 s** (60 s before the bench). The timeout includes the
+   provider's queue (§ Timeouts). Measured on the bench, a five-telegram EM530 read takes 3.75 s, so one
+   pass of AVM's line HV1 (32 EM5XX) takes about 120 s. 60 s would time out the tail of that line on
+   every pass. Alternatives: keep 60 s and have blocks on busy lines override it, or have the provider
+   report its own queue wait.
 4. **(c) Own diagnostics and exception types, or a shared set?** v1 proposes M-Bus-named receipt,
    outcome, link summary and exceptions, with no dependency on any Modbus package. The alternative is a
    transport-neutral set in core, which would also be a guideline for the next protocol (CAN, KNX). But
@@ -130,6 +139,11 @@ changed: binding, the handler base, link maps and publishing are `AC-BIND-*` as 
 5. **(b) Deadline in the payload?** If the bench shows ST can't read a received message's expiry, the
    request gains a relative `expiresInMs` field. Otherwise the deadline rides only as MQTT message
    expiry, as RTU's does (`AC-MODB-015.11`).
+
+   **OUTCOME (2026-11-10): MQTT expiry only, no payload field.** F4 holds: `Tc3_IotBase`'s
+   `FB_IotMqtt5Client` hands ST `pubExpiryInterval` with the seconds remaining. A message published with
+   60 s and delivered 15 s later read 45 (`mbus-st-bench` `30c2c5d`,
+   `logs/2026-11-10-f4-expiry-probe.txt`).
 
 ---
 
@@ -203,9 +217,8 @@ failure: the last telegram still announces more records, and the SDK reports the
    - Repetitions follow its own setting; the standard suggests up to two.
 3. **Return every frame verbatim.** It decodes nothing, and it does not report whether the read is
    complete: the SDK reads that from the last telegram.
-4. **Drop a request whose deadline passed before its turn** (the MQTT message expiry, or
-   `expiresInMs` if question 5 adds it). A dropped request gets no answer: dale has already timed it
-   out.
+4. **Drop a request whose deadline passed before its turn**, read from the MQTT message expiry. A
+   dropped request gets no answer: dale has already timed it out.
 5. **Answer every other request exactly once.** That includes a request on an action under
    `/hw/mbus/` it doesn't implement, or one carrying a member it doesn't know: answer those
    `NotSupported` instead of ignoring the member. This is what lets a later contract version meet a v1
@@ -230,7 +243,7 @@ namespace Vion.Dale.Sdk.MBus;
 public interface IMBus
 {
     bool IsEnabled { get; set; }                     // default false
-    TimeSpan DefaultOperationTimeout { get; set; }   // default 60 s (question 3)
+    TimeSpan DefaultOperationTimeout { get; set; }   // default 120 s (question 3)
     TimeSpan? MaxQueuedAge { get; set; }             // default 30 s; null = no limit
     MBusLinkSummary Link { get; }
 
@@ -301,8 +314,12 @@ and hide the congestion.
 
 **Timeouts.** As on RTU, the operation timeout starts when the handler publishes (`AC-MODB-015.3`). It
 therefore includes the provider's queue, which with `D3` holds at most one entry per meter on the line.
-The ecocoach research puts one single-telegram read at 2400 Bd at about 1.25 s. A full 41-slot KL6781
-line therefore takes about 51 s per pass, which is what the 60 s default covers (question 3). The
+The bench measured the EM530 at 2400 Bd through `Tc2_MBus`: 1.27 s for SND_NKE plus one telegram, and
+3.75 s for five telegrams. The library leaves about half a second between telegrams, so this is above
+the ecocoach research's line-time model of 2.4–2.6 s. A pass of AVM's HV1 (32 EM5XX) therefore takes
+about 120 s, which is what the proposed default covers (question 3). The legacy runs on the same
+library, so this is the line's existing speed, not a regression: HV1's 60 s interval is already
+stretched to about two minutes today. The
 request's deadline is its publish instant plus its operation timeout (`AC-MODB-015.11`'s rule), and it
 is what lets a provider drop a stale request instead of spending line time on it.
 
@@ -471,8 +488,43 @@ Half a day once the rig stands.
 | F2 fails, F3 holds | Full reads on a documented-but-internal member. Pin the library version in the provider and re-run E3 on every library update |
 | F2 and F3 fail | Full reads need ST to drive the KL6781 itself, and until then the provider stays first-telegram. `B′` only if that is too costly *and* the first-telegram limit can't be lived with (question 1) |
 
-The ST feasibility session (started 2026-11-05) works through steps 0–1. Its findings land here as Drift
-checkpoints.
+**Results, 2026-11-10.** The bench ran on real hardware:
+
+- **Setup:** the test CX8200 `BTN-000tr9nu` (VION image, TwinCAT 4026), with a KL6781 directly on the
+  CX8200's K-bus; a Carlo Gavazzi EM530 at primary address 1, 2400 Bd; `Tc2_MBus` 3.5.4, built with XAE
+  3.1.4026.28.
+- **Evidence:** `mbus-st-bench` `aadb307`, the clean run `logs/2026-11-10-all.txt` and its
+  `.report.md`, with journals cleared before the run and no sequence gaps. That repository is local to
+  the operator's machine and has no remote yet.
+
+| | Result | What it shows |
+|---|---|---|
+| **F1** | **holds** | `arrData` holds the whole frame, 68h…16h. `iLen` is the frame length after a REQ_UD2 but one more (112 for 111) when the read began with SND_NKE. **A provider takes the length from the frame's L field (L + 6), never from `iLen`.** CI refusal stays open: the EM530 answers only CI 72h |
+| **F2** | **fails** | `FB_MBUS_RawData` sends every REQ_UD2 with FCB = 1 (`10 7B 01 7C 16`), so the meter repeats telegram 1 with its access number moving (208…214). Confirmed again in the after-power run. This makes RawData a safe first-telegram reader: it never steps |
+| **F3** | **holds** | `FB_MBUS_General_Ext` toggles the FCB (7Bh, 5Bh, 7Bh, …) and reads 5 telegrams. Each sits whole at offset 0 of `arrMBusLongFrame` from its arrival until the next one, 46–81 cycles of 10 ms. A separate 10 ms task copied all five, and the copies' values match the library's decoded records 47 of 47 |
+| **F4** | **holds** | question 5's outcome |
+| **E4** | measured | SND_NKE + 1 telegram 1.27 s; 1 telegram 0.79 s (111 B); 5 telegrams 3.75 s (519 B) |
+
+**Not covered:** a CI other than 72h, and a maximum-length frame (L = 255 is 261 bytes;
+`arrMBusLongFrame` is `ARRAY[1..260]`, an inference, so a frame that long may not fit).
+
+**A note on the bench's own logs.** The standalone `logs/2026-11-10-e3.report.md` reads "F3 fails".
+That log starts mid-journal (copy journal from sequence 574), and the copy lines are delta-encoded
+("the changed range of the copy", `MBusBench/Bench/POUs/PRG_Copy.TcPOU:7`). The analyser therefore had
+no base to rebuild frames from. The clean run is the evidence.
+
+**What this means for an ST provider:**
+
+- **Full reads** use `FB_MBUS_General_Ext`, with a task of ≤ 100 ms copying `arrMBusLongFrame` on change;
+  a frame stays in place for at least 0.46 s.
+  - `cMBus_MaxTelegrams` is raised above 5 for the Superstatic's 6 telegrams.
+  - `Tc2_MBus` is pinned to 3.5.4, and E3 is re-run on every library update, because the member is
+    internal.
+- **First-telegram reads** use `FB_MBUS_RawData`, a documented FB.
+- **Either way**, the frame length comes from L, not `iLen`.
+
+A side finding for the TwinCAT HAL spec: a KL6781 ran on the CX8200's own K-bus on the VION image,
+which bears on VION-385.
 
 ### First telegram only — a v1 shortcut for the provider
 
@@ -516,8 +568,9 @@ The hub names three ways through the EM5XX billing gap (question 1):
 - The provider declares its ceiling as a read-only service property (e.g. `MBusMaxTelegrams = 1`), so
   commissioning can see why values are missing. The SDK doesn't read it.
 
-**What it saves.** The ST v1 is `FB_MBUS_RawData` plus framing at most, and F2/F3 leave the critical
-path. It also gives the smallest JSON of any option.
+**What it saves.** The ST v1 is `FB_MBUS_RawData`, a documented FB, and it needs no library pin. It
+also gives the smallest JSON of any option. Since the bench (F3 holds), the shortcut is a provider's
+option rather than a necessity: full reads are possible on the pinned internal member.
 
 ### Forward view — the deferred features, and how each arrives without breaking v1
 
@@ -650,7 +703,8 @@ expiry on the virtual clock). The area pass that absorbed the RFC dropped it, an
   - manufacturer data arrives as text, if at all;
   - the JSON stays large.
 
-  It is the fallback if the bench fails and ST driving the KL6781 itself is too costly (question 1).
+  It was the fallback in case the bench failed. Since F3 holds (§ ST feasibility, results), it is kept
+  only as the record of the path not taken.
   The block API above survives it, because only the decoder's input changes.
 - **Raw or records (ecocoach's § 6.4).** Two handler paths, with the vocabulary on the wire anyway.
   Rejected as a permanent shape.
@@ -665,7 +719,11 @@ expiry on the virtual clock). The area pass that absorbed the RFC dropped it, an
 
 ## Drift checkpoints
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-11-10: the ST bench (`mbus-st-bench` `aadb307`) answered F1–F4: F1 holds, F2 fails, F3 holds,
+  F4 holds. `D1` no longer depends on it, question 1 is closed, and question 5 is closed (no payload
+  deadline). Question 3's figures and the proposed default (60 → 120 s, `AC-MBUS-004.1`) are re-based on
+  the measured EM530 read. Sibling sweep: the Timeouts paragraph, the block API sketch and provider
+  obligation 4 were updated in the same commit.
 
 ---
 
@@ -681,7 +739,7 @@ expiry on the virtual clock). The area pass that absorbed the RFC dropped it, an
 - ADDED AC-MBUS-002.1 -> docs/specs/mbus.md : THE SYSTEM SHALL default an M-Bus contract to disabled.
 - ADDED AC-MBUS-002.2 -> docs/specs/mbus.md : WHILE an M-Bus contract is disabled THE SYSTEM SHALL execute no read and SHALL invoke neither callback.
 - ADDED AC-MBUS-003.1 -> docs/specs/mbus.md : WHEN a read is requested while the same contract's previous read has not completed THE SYSTEM SHALL complete the new read through its error callback with a `Skipped` receipt, without publishing it.
-- ADDED AC-MBUS-004.1 -> docs/specs/mbus.md : THE SYSTEM SHALL default the operation timeout to 60 seconds and the maximum queued age to 30 seconds, and SHALL accept `null` as no queued-age limit.
+- ADDED AC-MBUS-004.1 -> docs/specs/mbus.md : THE SYSTEM SHALL default the operation timeout to 120 seconds and the maximum queued age to 30 seconds, and SHALL accept `null` as no queued-age limit.
 - ADDED AC-MBUS-004.2 -> docs/specs/mbus.md : THE SYSTEM SHALL start the operation timeout when the handler publishes the request, and SHALL check the maximum queued age against the hop from the block to the handler.
 - ADDED AC-MBUS-004.3 -> docs/specs/mbus.md : THE SYSTEM SHALL publish each read with a deadline of the moment the handler publishes it plus the read's operation timeout.
 - ADDED AC-MBUS-005.1 -> docs/specs/mbus.md : THE SYSTEM SHALL publish a read as a `GetMBusPayload` JSON document carrying the primary address and the most telegrams wanted, labelled with the record's name as its schema and with the JSON content type.
