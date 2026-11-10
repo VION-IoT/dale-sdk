@@ -145,8 +145,8 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
   - `MBusDebugClient` lives in `examples/Vion.Examples.MBus` and goes to Cloud through
     `examples.yml`'s upload matrix (`.github/workflows/examples.yml:35-45`). That matrix reaches the
     `test` environment on every `main` push. Production gets only the three onboarding examples
-    (`examples.yml:66-91`), so the Modbus TCP debug client isn't in production either. Whether this
-    one goes there is question 7.
+    (`examples.yml:66-91`), so the Modbus TCP debug client isn't in production either. This example
+    is handled the same way (question 7).
   - Its precedent is `ModbusTcpDebugClient` in `examples/Vion.Examples.ModbusTcp`.
   - Its consumers exist now: commissioning the AVM meters, and capturing the telegrams that become test
     vectors. The legacy shipped the same tool, `MBusMeterRead`, of which a disabled instance sits on
@@ -192,6 +192,10 @@ handler base, link maps and publishing are `AC-BIND-*` as they stand.
      needs it.
 
    Production uploads stay behind the workflow's required reviewer either way.
+
+   **OUTCOME (2026-11-10): as the Modbus TCP example.** The example joins `examples.yml`'s upload
+   matrix, and its environments are handled the way `ModbusTcpDebugClient`'s are. This change makes no
+   production-upload change.
 
 ---
 
@@ -908,6 +912,8 @@ it (`git show 75e9650b^:docs/rfcs/0020-contract-pairing.md`, lines 357–386).
   - the example's production upload is stated as question 7.
 
   Sibling sweep: § The decoding experience, § The debug client and `D19`, in the same commit.
+- 2026-11-10: the operator answered question 7: the example is handled as the Modbus TCP example is.
+  `D19` updated in the same commit.
 
 ---
 
