@@ -153,7 +153,8 @@ namespace Vion.Dale.Sdk.Http.TestKit
 
             return new FakeHttpServerResponse(response.StatusCode,
                                               response.ContentType,
-                                              response.Headers.GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+                                              response.Headers
+                                                      .GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
                                                       .ToDictionary(group => group.Key,
                                                                     group => string.Join(", ", group.Select(header => header.Value)),
                                                                     StringComparer.OrdinalIgnoreCase),

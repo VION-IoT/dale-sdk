@@ -47,12 +47,13 @@ namespace Vion.Dale.Sdk.Http
     ///     values joined by <c>", "</c>; <c>null</c> when no response arrived.
     /// </param>
     [PublicApi]
-    public readonly record struct HttpReceipt(DateTime ReceivedAt,
-                                              long ReceivedTimestamp,
-                                              TimeSpan RoundTrip,
-                                              HttpOutcome Outcome,
-                                              HttpStatusCode? StatusCode,
-                                              IReadOnlyDictionary<string, string>? Headers = null)
+    public readonly record struct HttpReceipt(
+        DateTime ReceivedAt,
+        long ReceivedTimestamp,
+        TimeSpan RoundTrip,
+        HttpOutcome Outcome,
+        HttpStatusCode? StatusCode,
+        IReadOnlyDictionary<string, string>? Headers = null)
     {
         private const string HttpDateFormat = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
 
@@ -74,9 +75,8 @@ namespace Vion.Dale.Sdk.Http
                 {
                     // A value past what an int holds saturates rather than reading as absent: it is the standard form,
                     // only longer than anything a block can mean, which is how RFC 9111 has a cache read delta-seconds.
-                    return TimeSpan.FromSeconds(long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) && seconds <= int.MaxValue
-                                                    ? seconds
-                                                    : int.MaxValue);
+                    return TimeSpan.FromSeconds(long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) && seconds <= int.MaxValue ? seconds :
+                                                    int.MaxValue);
                 }
 
                 if (!TryParseHttpDate(value, out var retryAt))
@@ -101,11 +101,7 @@ namespace Vion.Dale.Sdk.Http
         {
             // The exact parse matches day and month names in any case, and an HTTP-date is case-sensitive; rendering the
             // instant back and comparing ordinally is what refuses `fri, 31 dec`.
-            return DateTime.TryParseExact(value,
-                                          HttpDateFormat,
-                                          CultureInfo.InvariantCulture,
-                                          DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
-                                          out instant) &&
+            return DateTime.TryParseExact(value, HttpDateFormat, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out instant) &&
                    string.Equals(instant.ToString(HttpDateFormat, CultureInfo.InvariantCulture), value, StringComparison.Ordinal);
         }
     }

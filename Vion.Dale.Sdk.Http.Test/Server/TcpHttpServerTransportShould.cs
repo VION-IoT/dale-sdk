@@ -97,7 +97,10 @@ namespace Vion.Dale.Sdk.Http.Test.Server
             var received = new TaskCompletionSource<HttpReceipt>();
 
             // Act
-            client.GetJson<object>(new InlineDispatcher(), $"http://127.0.0.1:{_port}/api/sites", (_, receipt) => received.TrySetResult(receipt), (_, receipt) => received.TrySetResult(receipt));
+            client.GetJson<object>(new InlineDispatcher(),
+                                   $"http://127.0.0.1:{_port}/api/sites",
+                                   (_, receipt) => received.TrySetResult(receipt),
+                                   (_, receipt) => received.TrySetResult(receipt));
             var throttledReceipt = await received.Task.WaitAsync(Timeout);
 
             // Assert

@@ -484,7 +484,12 @@ namespace Vion.Dale.Sdk.Http
         {
             var receivedTimestamp = _timeProvider.GetTimestamp();
             var roundTrip = trace.Sent ? _timeProvider.GetElapsedTime(trace.SentAt, receivedTimestamp) : TimeSpan.Zero;
-            var receipt = new HttpReceipt(_timeProvider.GetUtcNow().UtcDateTime, receivedTimestamp, roundTrip, outcome, trace.Status, trace.Headers);
+            var receipt = new HttpReceipt(_timeProvider.GetUtcNow().UtcDateTime,
+                                          receivedTimestamp,
+                                          roundTrip,
+                                          outcome,
+                                          trace.Status,
+                                          trace.Headers);
             _summary.Record(receipt);
 
             return receipt;
@@ -568,6 +573,9 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         private sealed class RequestTrace
         {
+            /// <summary>The headers of that response and of its content, copied when its status was recorded.</summary>
+            public IReadOnlyDictionary<string, string>? Headers;
+
             /// <summary>Whether the client took the request and handed it to its handlers.</summary>
             public bool Sent;
 
@@ -576,9 +584,6 @@ namespace Vion.Dale.Sdk.Http
 
             /// <summary>The status of the response the client returned, whether or not it was a success.</summary>
             public HttpStatusCode? Status;
-
-            /// <summary>The headers of that response and of its content, copied when its status was recorded.</summary>
-            public IReadOnlyDictionary<string, string>? Headers;
 
             /// <summary>Whether that status was outside 2xx and failed the request.</summary>
             public bool StatusRefused;

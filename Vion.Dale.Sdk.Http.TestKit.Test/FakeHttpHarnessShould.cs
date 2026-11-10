@@ -220,7 +220,11 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
             // Act
             harness.Respond(HttpStatusCode.OK,
                             "{\"Serial\":\"MTR-0000-4711\",\"Value\":42}",
-                            headers: new[] { new KeyValuePair<string, string>("X-Probe", "a"), new KeyValuePair<string, string>("X-Probe", "b"), new KeyValuePair<string, string>("Content-Language", "de-CH") });
+                            headers: new[]
+                                     {
+                                         new KeyValuePair<string, string>("X-Probe", "a"), new KeyValuePair<string, string>("X-Probe", "b"),
+                                         new KeyValuePair<string, string>("Content-Language", "de-CH"),
+                                     });
             ctx.FlushPendingActions();
 
             // Assert
@@ -284,7 +288,8 @@ namespace Vion.Dale.Sdk.Http.TestKit.Test
 
             // Act / Assert
             Assert.AreEqual("headers",
-                            Assert.ThrowsExactly<ArgumentException>(() => harness.Respond(HttpStatusCode.TooManyRequests, headers: new Dictionary<string, string> { ["Retry After"] = "120" }))
+                            Assert.ThrowsExactly<ArgumentException>(() => harness.Respond(HttpStatusCode.TooManyRequests,
+                                                                                          headers: new Dictionary<string, string> { ["Retry After"] = "120" }))
                                   .ParamName);
             Assert.AreEqual(1, harness.PendingCount);
         }

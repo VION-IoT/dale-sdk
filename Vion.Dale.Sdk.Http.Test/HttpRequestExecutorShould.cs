@@ -590,7 +590,13 @@ namespace Vion.Dale.Sdk.Http.Test
         public async Task ReportRetryAfterDelay(string retryAfter, string? date, int expectedSeconds)
         {
             // Arrange — the consumer's shape: a typed member answered 429, so the delay arrives on the error callback
-            var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.Zero));
+            var clock = new FakeTimeProvider(new DateTimeOffset(2026,
+                                                                11,
+                                                                10,
+                                                                12,
+                                                                0,
+                                                                0,
+                                                                TimeSpan.Zero));
             var sut = Executor(AnsweringWithHeaders(HttpStatusCode.TooManyRequests, ("Retry-After", retryAfter), ("Date", date)), clock: clock);
             HttpReceipt? received = null;
 

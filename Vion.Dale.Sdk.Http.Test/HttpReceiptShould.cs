@@ -20,7 +20,13 @@ namespace Vion.Dale.Sdk.Http.Test
         public void ReportNoRetryAfterDelayForDateOutsideGrammar(string retryAfter)
         {
             // Arrange
-            var sut = new HttpReceipt(new DateTime(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc),
+            var sut = new HttpReceipt(new DateTime(2026,
+                                                   11,
+                                                   10,
+                                                   12,
+                                                   0,
+                                                   0,
+                                                   DateTimeKind.Utc),
                                       0,
                                       TimeSpan.Zero,
                                       HttpOutcome.ClientError,
@@ -41,7 +47,13 @@ namespace Vion.Dale.Sdk.Http.Test
         public void ReportRetryAfterDelayForDateInGrammar(string retryAfter, int expectedSeconds)
         {
             // Arrange
-            var sut = new HttpReceipt(new DateTime(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc),
+            var sut = new HttpReceipt(new DateTime(2026,
+                                                   11,
+                                                   10,
+                                                   12,
+                                                   0,
+                                                   0,
+                                                   DateTimeKind.Utc),
                                       0,
                                       TimeSpan.Zero,
                                       HttpOutcome.ClientError,
