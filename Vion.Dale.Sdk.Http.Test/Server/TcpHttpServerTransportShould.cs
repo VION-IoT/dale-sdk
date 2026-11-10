@@ -63,6 +63,23 @@ namespace Vion.Dale.Sdk.Http.Test.Server
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-016.5")]
+        [TestProperty("spec", "AC-HTTP-016.13")]
+        public async Task WriteBlockHeadersInOrderAdded()
+        {
+            // Arrange
+            var throttled = HttpServerResponse.Json("{}", HttpStatusCode.TooManyRequests).WithHeader("Retry-After", "120").WithHeader("X-Probe", "a").WithHeader("X-Probe", "b");
+            _sut.Sync(snapshot => snapshot.SetResponse(HttpMethod.Get, "/sites", throttled));
+
+            // Act
+            var response = await ExchangeAsync("GET /sites HTTP/1.1\r\nHost: gateway\r\n\r\n");
+
+            // Assert
+            StringAssert.StartsWith(response, "HTTP/1.1 429 ");
+            StringAssert.Contains(response, "\r\nRetry-After: 120\r\nX-Probe: a\r\nX-Probe: b\r\n");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-016.7")]
         [TestProperty("spec", "AC-HTTP-016.8")]
         public async Task RouteOnPathAndRecordQueryAndHeadersAsSent()
