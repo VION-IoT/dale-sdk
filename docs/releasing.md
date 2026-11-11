@@ -28,7 +28,14 @@ the major by induction.
   `pwsh scripts/validate-packages.ps1` does the same.
 - **The baseline is derived, never bumped**: the highest `vMAJOR.MINOR.PATCH` tag reachable from the
   commit under test that does not point at it. After a release, the next pull request compares against
-  it with no edit anywhere. A prerelease tag is not a baseline.
+  it with no edit anywhere. A prerelease tag is not a baseline. The gate restores the baseline packages,
+  so from the moment a release is tagged until its packages are on the feed every pull request's run
+  fails restore with `NU1102`; a release whose publish failed blocks them until it is republished.
+- **A package's first release is not validated.** The script names each project whose `.csproj` is
+  absent from the baseline tag's tree, and those skip validation. It is keyed on the project file's
+  path, not on the published package: a project moved to another path skips validation for one
+  release, and a project that existed at the baseline tag unpacked and is now made packable fails
+  restore (`NU1102`), because the script does not name it.
 - **There is no suppression file.** A finding (`CP0001` a type removed or made internal, `CP0002` a
   member removed, `CP0006` a member added to an interface without a default implementation, …) is fixed
   in the code: add instead of change, give a new interface member a default implementation. A change
