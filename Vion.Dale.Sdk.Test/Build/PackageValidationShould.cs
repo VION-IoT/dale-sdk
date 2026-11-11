@@ -104,6 +104,7 @@ namespace Vion.Dale.Sdk.Test.Build
         {
             var results = new ConcurrentDictionary<string, EvaluatedProject>(StringComparer.Ordinal);
             Parallel.ForEach(projects,
+
                              // Each evaluation is a whole MSBuild process; a handful at a time keeps the suite's memory flat.
                              new ParallelOptions { MaxDegreeOfParallelism = Math.Min(4, Environment.ProcessorCount) },
                              project => results[Path.GetFileNameWithoutExtension(project)] = EvaluateOne(project, properties));

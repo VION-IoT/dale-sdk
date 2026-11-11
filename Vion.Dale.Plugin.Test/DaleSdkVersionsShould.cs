@@ -25,6 +25,27 @@ namespace Vion.Dale.Plugin.Test
 
         private string _pluginDirectory = null!;
 
+        public static IEnumerable<object?[]> MetOrUnknownMinimums
+        {
+            get
+            {
+                // Met: equal, below, and equal but for the fourth part, which is never compared.
+                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 15, 2), null), new Version(0, 15, 2, 0) };
+                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 14, 0), null), new Version(0, 15, 2, 0) };
+                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 15, 2, 7), null), new Version(0, 15, 2, 0) };
+
+                // Met by a declared minimum below a target the host does not reach: the declaration wins.
+                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 16, 0), new Version(0, 14, 3)), new Version(0, 15, 2, 0) };
+
+                // Unknown on either side.
+                yield return new object?[] { new LibraryDaleSdkVersions(null, null), new Version(0, 15, 2, 0) };
+                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 16, 0), null), null };
+
+                // A differing major is the major gate's refusal, not an unmet minimum.
+                yield return new object?[] { new LibraryDaleSdkVersions(new Version(1, 2, 0), null), new Version(0, 15, 2, 0) };
+            }
+        }
+
         [TestInitialize]
         public void Initialize()
         {
@@ -259,9 +280,24 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-009.4")]
-        [DataRow(0, 16, 0, 0, 15, 2)]
-        [DataRow(1, 4, 3, 1, 4, 2)]
-        public void ReportUnmetTargetWhenNoneDeclared(int targetMajor, int targetMinor, int targetPatch, int hostMajor, int hostMinor, int hostPatch)
+        [DataRow(0,
+                 16,
+                 0,
+                 0,
+                 15,
+                 2)]
+        [DataRow(1,
+                 4,
+                 3,
+                 1,
+                 4,
+                 2)]
+        public void ReportUnmetTargetWhenNoneDeclared(int targetMajor,
+                                                      int targetMinor,
+                                                      int targetPatch,
+                                                      int hostMajor,
+                                                      int hostMinor,
+                                                      int hostPatch)
         {
             // Arrange
             var library = new LibraryDaleSdkVersions(new Version(targetMajor, targetMinor, targetPatch), null);
@@ -286,27 +322,6 @@ namespace Vion.Dale.Plugin.Test
             Assert.IsNull(unmet);
         }
 
-        public static IEnumerable<object?[]> MetOrUnknownMinimums
-        {
-            get
-            {
-                // Met: equal, below, and equal but for the fourth part, which is never compared.
-                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 15, 2), null), new Version(0, 15, 2, 0) };
-                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 14, 0), null), new Version(0, 15, 2, 0) };
-                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 15, 2, 7), null), new Version(0, 15, 2, 0) };
-
-                // Met by a declared minimum below a target the host does not reach: the declaration wins.
-                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 16, 0), new Version(0, 14, 3)), new Version(0, 15, 2, 0) };
-
-                // Unknown on either side.
-                yield return new object?[] { new LibraryDaleSdkVersions(null, null), new Version(0, 15, 2, 0) };
-                yield return new object?[] { new LibraryDaleSdkVersions(new Version(0, 16, 0), null), null };
-
-                // A differing major is the major gate's refusal, not an unmet minimum.
-                yield return new object?[] { new LibraryDaleSdkVersions(new Version(1, 2, 0), null), new Version(0, 15, 2, 0) };
-            }
-        }
-
         private void EmitBuiltAgainstSdk(string simpleName, Version sdkVersion)
         {
             var standInSdk = FixtureAssembly.EmitStandInSdk(CreateDirectory(), sdkVersion);
@@ -317,7 +332,10 @@ namespace Vion.Dale.Plugin.Test
         {
             return FixtureAssembly.Emit(_pluginDirectory,
                                         simpleName,
-                                        attributes: new[] { $"[assembly: System.Reflection.AssemblyMetadata(\"{DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey}\", \"{declared}\")]" });
+                                        attributes: new[]
+                                                    {
+                                                        $"[assembly: System.Reflection.AssemblyMetadata(\"{DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey}\", \"{declared}\")]",
+                                                    });
         }
 
         private static bool LoadedAnywhere(string simpleName)

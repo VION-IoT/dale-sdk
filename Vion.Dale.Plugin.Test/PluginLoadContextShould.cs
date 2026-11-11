@@ -39,6 +39,12 @@ namespace Vion.Dale.Plugin.Test
 
         private static readonly TimeSpan BindTimeout = TimeSpan.FromSeconds(30);
 
+        /// <summary>
+        ///     A host SDK version both version checks treat as known. The SDK this process has loaded is
+        ///     <c>0.0.0</c>, which they treat as unknown, so a test that needs a comparison passes this one.
+        /// </summary>
+        private static readonly Version KnownHostSdk = new(1, 4, 0, 0);
+
         private readonly List<string> _directories = new();
 
         private readonly ILogger _logger = NullLogger.Instance;
@@ -46,12 +52,6 @@ namespace Vion.Dale.Plugin.Test
         private string _pluginDirectory = null!;
 
         private string _stagingDirectory = null!;
-
-        /// <summary>
-        ///     A host SDK version both version checks treat as known. The SDK this process has loaded is
-        ///     <c>0.0.0</c>, which they treat as unknown, so a test that needs a comparison passes this one.
-        /// </summary>
-        private static readonly Version KnownHostSdk = new(1, 4, 0, 0);
 
         /// <summary>The major version of the SDK this test process has loaded.</summary>
         private static int HostSdkMajor
@@ -113,9 +113,31 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-002.1")]
-        [DataRow(0, 0, 0, 0, 2, 0, 0, 0, DisplayName = "host 0.0.0")]
-        [DataRow(1, 4, 0, 0, 0, 0, 0, 0, DisplayName = "plugin 0.0.0")]
-        public void CreateContextWhenEitherSdkVersionUnknown(int hostMajor, int hostMinor, int hostBuild, int hostRevision, int pluginMajor, int pluginMinor, int pluginBuild,
+        [DataRow(0,
+                 0,
+                 0,
+                 0,
+                 2,
+                 0,
+                 0,
+                 0,
+                 DisplayName = "host 0.0.0")]
+        [DataRow(1,
+                 4,
+                 0,
+                 0,
+                 0,
+                 0,
+                 0,
+                 0,
+                 DisplayName = "plugin 0.0.0")]
+        public void CreateContextWhenEitherSdkVersionUnknown(int hostMajor,
+                                                             int hostMinor,
+                                                             int hostBuild,
+                                                             int hostRevision,
+                                                             int pluginMajor,
+                                                             int pluginMinor,
+                                                             int pluginBuild,
                                                              int pluginRevision)
         {
             // Arrange
@@ -285,7 +307,10 @@ namespace Vion.Dale.Plugin.Test
             // Arrange
             var main = FixtureAssembly.Emit(_pluginDirectory,
                                             FixtureAssembly.UniqueName("Main"),
-                                            attributes: new[] { $"[assembly: System.Reflection.AssemblyMetadata(\"{DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey}\", \"1.6.0\")]" });
+                                            attributes: new[]
+                                                        {
+                                                            $"[assembly: System.Reflection.AssemblyMetadata(\"{DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey}\", \"1.6.0\")]",
+                                                        });
             var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger, KnownHostSdk);
 
             // Act

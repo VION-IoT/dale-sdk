@@ -476,7 +476,8 @@ namespace Vion.Dale.LogicBlockParser.Test
                                             Path.Combine(PluginDirectory, "Vion.Dale.Sdk.dll"),
                                             Path.Combine(PluginDirectory, "Microsoft.Extensions.DependencyInjection.Abstractions.dll"),
                                         },
-                                        declaredMinimum == null ? null : new[] { $"[assembly: System.Reflection.AssemblyMetadata(\"MinimumDaleSdkVersion\", \"{declaredMinimum}\")]" },
+                                        declaredMinimum == null ? null :
+                                            new[] { $"[assembly: System.Reflection.AssemblyMetadata(\"MinimumDaleSdkVersion\", \"{declaredMinimum}\")]" },
                                         """
                                         public sealed class Registration : Vion.Dale.Sdk.Core.IConfigureServices
                                         {
