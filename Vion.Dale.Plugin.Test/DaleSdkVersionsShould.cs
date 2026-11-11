@@ -15,8 +15,9 @@ namespace Vion.Dale.Plugin.Test
     /// <remarks>
     ///     Fixtures are compiled onto disk, as in <see cref="PluginLoadContextShould" />: the versions are
     ///     read from assembly references and assembly metadata, so only a real assembly carries them. A
-    ///     fixture built against a stand-in SDK is what gives a library a known target, because every
-    ///     assembly this repository builds references a <c>0.0.0</c> SDK.
+    ///     fixture built against a stand-in SDK is what gives a library a target of the test's choosing,
+    ///     because an assembly this repository builds references whatever SDK version the build stamps:
+    ///     <c>0.0.0</c> at a desk or pull-request build, the release's at a tag build.
     /// </remarks>
     [TestClass]
     public class DaleSdkVersionsShould

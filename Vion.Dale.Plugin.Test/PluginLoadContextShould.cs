@@ -41,7 +41,8 @@ namespace Vion.Dale.Plugin.Test
 
         /// <summary>
         ///     A host SDK version both version checks treat as known. The SDK this process has loaded is
-        ///     <c>0.0.0</c>, which they treat as unknown, so a test that needs a comparison passes this one.
+        ///     <c>0.0.0</c> at a desk or pull-request build, which they treat as unknown, and the release's at
+        ///     a tag build, so a test that needs a comparison passes this one.
         /// </summary>
         private static readonly Version KnownHostSdk = new(1, 4, 0, 0);
 

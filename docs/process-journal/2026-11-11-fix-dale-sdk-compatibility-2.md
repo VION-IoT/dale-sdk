@@ -1,0 +1,1 @@
+2026-11-11 · gate · publish.yml · Parser tests written for #285 assumed the in-repo SDK is 0.0.0; every pull-request check builds at 0.0.0-ci.N and passed them, and the v0.17.0 tag's test gate, the only build at a real version, failed seven of them, so nothing was published. The tests now build their plugin against a 0.0.0 stand-in SDK.

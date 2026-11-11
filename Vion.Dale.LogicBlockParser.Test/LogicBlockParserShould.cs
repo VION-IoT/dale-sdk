@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -26,9 +27,11 @@ namespace Vion.Dale.LogicBlockParser.Test
     ///         directory beside the whole SDK closure. That directory is what the parser is pointed at.
     ///     </para>
     ///     <para>
-    ///         The Dale SDK version annotations need a library whose versions are known, which no project here
-    ///         is: each builds against a <c>0.0.0</c> SDK. Those tests compile a plugin of their own into a
-    ///         directory of its own, beside an assembly built against a stand-in SDK at a chosen version.
+    ///         The Dale SDK version annotations must not depend on the version the build stamps on the
+    ///         SDK: <c>0.0.0</c> at a desk or pull-request build, the release's at a tag build. Those tests
+    ///         compile a plugin of their own into a directory of its own, against a stand-in SDK at
+    ///         <c>0.0.0</c>, beside an assembly built against a stand-in SDK at a chosen version within
+    ///         the build's major — another major meets the host's major-version gate once that is known.
     ///     </para>
     /// </summary>
     [TestClass]
@@ -40,6 +43,12 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         /// <summary>Where the fixture plugins and the whole SDK closure sit: what the parser is pointed at.</summary>
         private static readonly string PluginDirectory = AppContext.BaseDirectory;
+
+        /// <summary>
+        ///     The major of the <c>Vion.Dale.Sdk</c> this build compiled, which the parser hosts: <c>0</c> at
+        ///     <c>0.0.0</c>, the release's major at a tag build.
+        /// </summary>
+        private static readonly int BuildSdkMajor = AssemblyName.GetAssemblyName(Path.Combine(PluginDirectory, "Vion.Dale.Sdk.dll")).Version!.Major;
 
         /// <summary>
         ///     Where the documents these tests produce go. One directory per run, deleted after it: writing
@@ -167,11 +176,12 @@ namespace Vion.Dale.LogicBlockParser.Test
         [TestProperty("spec", "AC-INTRO-001.4")]
         public void ReportEmptyDocumentLevelAnnotations()
         {
-            // Arrange
+            // Arrange — the plugin's only reference to the SDK is to the 0.0.0 stand-in, which is unknown
+            var plugin = EmitPlugin(null, null);
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
-            RunParser(PluginAssembly, output);
+            RunParserRaw(plugin, output);
 
             // Assert
             Assert.IsEmpty((JsonObject)ReadDocument(output)["annotations"]!);
@@ -182,7 +192,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void ReportOnlyDaleSdkVersionAnnotations()
         {
             // Arrange
-            var plugin = EmitPlugin("0.14.3", new Version(0, 15, 1, 0));
+            var plugin = EmitPlugin(AtBuildMajor(14, 3).ToString(3), AtBuildMajor(15, 1));
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
@@ -195,27 +205,29 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-001.7")]
-        [DataRow(0, 15, 1)]
-        [DataRow(2, 3, 0)]
-        public void ReportTargetDaleSdkVersion(int major, int minor, int patch)
+        [DataRow(15, 1)]
+        [DataRow(3, 0)]
+        public void ReportTargetDaleSdkVersion(int minor, int patch)
         {
             // Arrange
-            var plugin = EmitPlugin(null, new Version(major, minor, patch, 0));
+            var target = AtBuildMajor(minor, patch);
+            var plugin = EmitPlugin(null, target);
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParserRaw(plugin, output);
 
             // Assert
-            Assert.AreEqual($"{major}.{minor}.{patch}", ReadDocument(output)["annotations"]?["targetDaleSdkVersion"]?.GetValue<string>());
+            Assert.AreEqual(target.ToString(3), ReadDocument(output)["annotations"]?["targetDaleSdkVersion"]?.GetValue<string>());
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-001.7")]
         public void OmitTargetDaleSdkVersionWhenUnknown()
         {
-            // Arrange — the plugin declares a minimum, so the map is not empty for want of anything to say
-            var plugin = EmitPlugin("0.14.3", null);
+            // Arrange — the plugin declares a minimum, so the map is not empty for want of anything to say;
+            // its only reference to the SDK is to the 0.0.0 stand-in, which is unknown
+            var plugin = EmitPlugin(AtBuildMajor(14, 3).ToString(3), null);
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
@@ -229,12 +241,13 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-001.8")]
-        [DataRow("0.14.3", DisplayName = "below the target")]
-        [DataRow("0.16.0", DisplayName = "above the target")]
-        public void ReportDeclaredMinimumDaleSdkVersion(string declared)
+        [DataRow(14, 3, DisplayName = "below the target")]
+        [DataRow(16, 0, DisplayName = "above the target")]
+        public void ReportDeclaredMinimumDaleSdkVersion(int minor, int patch)
         {
             // Arrange
-            var plugin = EmitPlugin(declared, new Version(0, 15, 1, 0));
+            var declared = AtBuildMajor(minor, patch).ToString(3);
+            var plugin = EmitPlugin(declared, AtBuildMajor(15, 1));
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
@@ -249,7 +262,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void OmitMinimumDaleSdkVersionWhenNoneDeclared()
         {
             // Arrange — the target is known, so the map is not empty for want of anything to say
-            var plugin = EmitPlugin(null, new Version(0, 15, 1, 0));
+            var plugin = EmitPlugin(null, AtBuildMajor(15, 1));
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
@@ -397,7 +410,8 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void RefuseMalformedDeclaredMinimum(string declared)
         {
             // Arrange
-            var plugin = EmitPlugin(declared, new Version(0, 15, 1, 0));
+            var target = AtBuildMajor(15, 1);
+            var plugin = EmitPlugin(declared, target);
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
@@ -407,7 +421,7 @@ namespace Vion.Dale.LogicBlockParser.Test
             Assert.AreEqual(1, run.ExitCode, run.Output);
             Assert.IsFalse(File.Exists(output), "A refused run writes no document.");
             Assert.Contains($"'{declared}'", run.Output);
-            Assert.Contains("0.15.1", run.Output);
+            Assert.Contains(target.ToString(3), run.Output);
         }
 
         [TestMethod]
@@ -415,7 +429,9 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void RefuseDeclaredMinimumOfAnotherMajor()
         {
             // Arrange
-            var plugin = EmitPlugin("1.0.0", new Version(0, 15, 1, 0));
+            var declared = $"{BuildSdkMajor + 1}.0.0";
+            var target = AtBuildMajor(15, 1);
+            var plugin = EmitPlugin(declared, target);
             var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
@@ -424,8 +440,8 @@ namespace Vion.Dale.LogicBlockParser.Test
             // Assert
             Assert.AreEqual(1, run.ExitCode, run.Output);
             Assert.IsFalse(File.Exists(output), "A refused run writes no document.");
-            Assert.Contains("1.0.0", run.Output);
-            Assert.Contains("0.15.1", run.Output);
+            Assert.Contains(declared, run.Output);
+            Assert.Contains(target.ToString(3), run.Output);
         }
 
         [TestMethod]
@@ -448,17 +464,38 @@ namespace Vion.Dale.LogicBlockParser.Test
             Assert.DoesNotContain("AbstractBaseBlock", run.Output);
         }
 
+        /// <summary>A version within the major of the SDK this build compiled, which the parser's major-version gate admits.</summary>
+        private static Version AtBuildMajor(int minor, int patch)
+        {
+            return new Version(BuildSdkMajor, minor, patch, 0);
+        }
+
         /// <summary>
         ///     Compiles a plugin with no logic block into a directory of its own and returns its path. It
         ///     declares <paramref name="declaredMinimum" /> as its minimum Dale SDK, and a second assembly
-        ///     beside it is built against a stand-in <c>Vion.Dale.Sdk</c> at <paramref name="dependencySdk" />
-        ///     — the only way to give a library a known target, since the real SDK every project here builds
-        ///     against is <c>0.0.0</c>. The directory holds nothing else: the parser's load context resolves
-        ///     the SDK and everything it references from the parser's own process.
+        ///     beside it is built against a stand-in <c>Vion.Dale.Sdk</c> at <paramref name="dependencySdk" />.
+        ///     The plugin itself is built against a stand-in SDK at <c>0.0.0</c>, never the real one, whose
+        ///     version is whatever the build stamped: the dependency alone decides the target. The directory
+        ///     holds nothing else: the parser's load context resolves the SDK and everything it references
+        ///     from the parser's own process, by name.
         /// </summary>
         private static string EmitPlugin(string? declaredMinimum, Version? dependencySdk)
         {
             var directory = Directory.CreateDirectory(Path.Combine(_outputDirectory, $"plugin-{Guid.NewGuid():N}")).FullName;
+            var dependencyInjection = Path.Combine(PluginDirectory, "Microsoft.Extensions.DependencyInjection.Abstractions.dll");
+            var unknownSdk = FixtureAssembly.Emit(Directory.CreateDirectory(Path.Combine(directory, "unknown-sdk")).FullName,
+                                                  "Vion.Dale.Sdk",
+                                                  new[] { dependencyInjection },
+                                                  new[] { """[assembly: System.Reflection.AssemblyVersion("0.0.0.0")]""" },
+                                                  """
+                                                  namespace Vion.Dale.Sdk.Core
+                                                  {
+                                                      public interface IConfigureServices
+                                                      {
+                                                          void ConfigureServices(Microsoft.Extensions.DependencyInjection.IServiceCollection serviceCollection);
+                                                      }
+                                                  }
+                                                  """);
 
             if (dependencySdk != null)
             {
@@ -471,11 +508,7 @@ namespace Vion.Dale.LogicBlockParser.Test
 
             return FixtureAssembly.Emit(directory,
                                         FixtureAssembly.UniqueName("Vion.Dale.ParserProbe.Emitted"),
-                                        new[]
-                                        {
-                                            Path.Combine(PluginDirectory, "Vion.Dale.Sdk.dll"),
-                                            Path.Combine(PluginDirectory, "Microsoft.Extensions.DependencyInjection.Abstractions.dll"),
-                                        },
+                                        new[] { unknownSdk, dependencyInjection },
                                         declaredMinimum == null ? null :
                                             new[] { $"[assembly: System.Reflection.AssemblyMetadata(\"MinimumDaleSdkVersion\", \"{declaredMinimum}\")]" },
                                         """
