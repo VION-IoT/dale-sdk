@@ -293,20 +293,17 @@ namespace Vion.Dale.Plugin
         /// </remarks>
         internal static void EnsureSdkMajorCompatible(string packageId, string sdkAssemblyName, Version? hostVersion, Version? pluginReferencedVersion, ILogger logger)
         {
-            if (DaleSdkVersions.Known(hostVersion) == null || DaleSdkVersions.Known(pluginReferencedVersion) == null)
-            {
-                return;
-            }
-
-            if (hostVersion.Major == pluginReferencedVersion.Major)
+            var knownHostVersion = DaleSdkVersions.Known(hostVersion);
+            var knownPluginReferencedVersion = DaleSdkVersions.Known(pluginReferencedVersion);
+            if (knownHostVersion == null || knownPluginReferencedVersion == null || knownHostVersion.Major == knownPluginReferencedVersion.Major)
             {
                 return;
             }
 
             var message = $"Plugin '{packageId}' was built against {sdkAssemblyName} {pluginReferencedVersion} " +
                           $"but the host runtime has loaded {sdkAssemblyName} {hostVersion}. These major versions " +
-                          $"are incompatible (major {pluginReferencedVersion.Major} vs {hostVersion.Major}). " +
-                          $"Rebuild the plugin against a compatible {sdkAssemblyName} (matching major version {hostVersion.Major}.x) and redeploy it.";
+                          $"are incompatible (major {knownPluginReferencedVersion.Major} vs {knownHostVersion.Major}). " +
+                          $"Rebuild the plugin against a compatible {sdkAssemblyName} (matching major version {knownHostVersion.Major}.x) and redeploy it.";
 
             logger.LogError("Plugin {PackageId} references {SdkAssemblyName} {PluginVersion} but the host loaded {HostVersion} — " +
                             "incompatible major versions, failing the plugin load",
