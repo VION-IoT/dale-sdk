@@ -242,6 +242,14 @@ namespace Vion.Dale.LogicBlockParser
                        $"but the library is built against Vion.Dale.Sdk {targetText}. Declare a minimum within major {target.Major}.";
             }
 
+            // 0.0.0 is what an unset pipeline version expands to as often as a real choice, and it reads as
+            // unknown, so the document carries no minimum; the pack says so rather than dropping it quietly.
+            if (DaleSdkVersions.Known(declared) == null)
+            {
+                WriteNotice($"the declared {DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey} 0.0.0 is read as not declared; " +
+                            $"the version the library is built against ({targetText}) stands in.");
+            }
+
             return null;
         }
 
