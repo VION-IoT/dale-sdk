@@ -53,7 +53,7 @@ namespace Vion.Dale.Plugin.Test
         /// </summary>
         private static readonly Version KnownHostSdk = new(1, 4, 0, 0);
 
-        /// <summary>The major version of the SDK this test process has loaded — what the gate compares against.</summary>
+        /// <summary>The major version of the SDK this test process has loaded.</summary>
         private static int HostSdkMajor
         {
             get => typeof(LogicBlockBase).Assembly.GetName().Version!.Major;
@@ -104,25 +104,43 @@ namespace Vion.Dale.Plugin.Test
         public void RejectPluginBuiltAgainstDifferingSdkMajor()
         {
             // Arrange
-            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(HostSdkMajor + 1, 0, 0, 0));
+            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(KnownHostSdk.Major + 1, 0, 0, 0));
             EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("Fixture"), standInSdk);
 
             // Act / Assert
-            Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() => new PluginLoadContext(_pluginDirectory, PackageId, _logger));
+            Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() => new PluginLoadContext(_pluginDirectory, PackageId, _logger, KnownHostSdk));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-002.1")]
+        [DataRow(0, 0, 0, 0, 2, 0, 0, 0, DisplayName = "host 0.0.0")]
+        [DataRow(1, 4, 0, 0, 0, 0, 0, 0, DisplayName = "plugin 0.0.0")]
+        public void CreateContextWhenEitherSdkVersionUnknown(int hostMajor, int hostMinor, int hostBuild, int hostRevision, int pluginMajor, int pluginMinor, int pluginBuild,
+                                                             int pluginRevision)
+        {
+            // Arrange
+            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(pluginMajor, pluginMinor, pluginBuild, pluginRevision));
+            EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("Fixture"), standInSdk);
+
+            // Act
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger, new Version(hostMajor, hostMinor, hostBuild, hostRevision));
+
+            // Assert
+            CollectionAssert.Contains(AssemblyLoadContext.All.ToList(), sut, "A 0.0.0 on either side is a local or CI build, and an unknown version rejects nothing.");
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-002.2")]
         [DataRow(9, 9, 0, DisplayName = "higher minor")]
-        [DataRow(0, 0, 1, DisplayName = "higher revision only")]
+        [DataRow(4, 0, 1, DisplayName = "higher revision only")]
         public void CreateContextWhenSdkMajorMatches(int minor, int build, int revision)
         {
             // Arrange
-            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(HostSdkMajor, minor, build, revision));
+            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(KnownHostSdk.Major, minor, build, revision));
             EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("Fixture"), standInSdk);
 
             // Act
-            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger, KnownHostSdk);
 
             // Assert
             CollectionAssert.Contains(AssemblyLoadContext.All.ToList(), sut, "Minor, build and revision skew leaves a usable context behind.");
@@ -246,13 +264,13 @@ namespace Vion.Dale.Plugin.Test
         public void RejectPluginNamingOneFailingAssembly()
         {
             // Arrange
-            var firstSkew = new Version(HostSdkMajor + 1, 0, 0, 0);
-            var secondSkew = new Version(HostSdkMajor + 2, 0, 0, 0);
+            var firstSkew = new Version(KnownHostSdk.Major + 1, 0, 0, 0);
+            var secondSkew = new Version(KnownHostSdk.Major + 2, 0, 0, 0);
             EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("FixtureA"), FixtureAssembly.EmitStandInSdk(_stagingDirectory, firstSkew));
             EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("FixtureB"), FixtureAssembly.EmitStandInSdk(CreateDirectory(), secondSkew));
 
             // Act
-            var exception = Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() => new PluginLoadContext(_pluginDirectory, PackageId, _logger));
+            var exception = Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() => new PluginLoadContext(_pluginDirectory, PackageId, _logger, KnownHostSdk));
 
             // Assert
             Assert.AreNotEqual(exception.Message.Contains(firstSkew.ToString()),
@@ -831,11 +849,11 @@ namespace Vion.Dale.Plugin.Test
         public void IgnoreSubdirectoriesInVersionCheck()
         {
             // Arrange
-            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(HostSdkMajor + 1, 0, 0, 0));
+            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(KnownHostSdk.Major + 1, 0, 0, 0));
             EmitBuiltAgainstSdk(CreateSubdirectory(_pluginDirectory), FixtureAssembly.UniqueName("Fixture"), standInSdk);
 
             // Act
-            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger, KnownHostSdk);
 
             // Assert
             CollectionAssert.Contains(AssemblyLoadContext.All.ToList(), sut, "An incompatible assembly one level down is not part of the plugin and does not reject it.");

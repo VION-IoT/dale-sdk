@@ -281,7 +281,8 @@ namespace Vion.Dale.Plugin
 
         /// <summary>
         ///     Throws when <paramref name="pluginReferencedVersion" /> has a different MAJOR component
-        ///     than <paramref name="hostVersion" /> (both non-null). Minor and patch differences are
+        ///     than <paramref name="hostVersion" />, both known: a <c>null</c> or a <c>0.0.0</c> — what a
+        ///     local or CI build stamps — is unknown and never rejects. Minor and patch differences are
         ///     deliberately not this method's concern: they stay warn-and-continue.
         /// </summary>
         /// <remarks>
@@ -291,7 +292,7 @@ namespace Vion.Dale.Plugin
         /// </remarks>
         internal static void EnsureSdkMajorCompatible(string packageId, string sdkAssemblyName, Version? hostVersion, Version? pluginReferencedVersion, ILogger logger)
         {
-            if (hostVersion == null || pluginReferencedVersion == null)
+            if (DaleSdkVersions.Known(hostVersion) == null || DaleSdkVersions.Known(pluginReferencedVersion) == null)
             {
                 return;
             }
