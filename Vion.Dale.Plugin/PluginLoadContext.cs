@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 
 [assembly: InternalsVisibleTo("Vion.Dale.Plugin.Test")]
+[assembly: InternalsVisibleTo("Vion.Dale.LogicBlockParser")]
 
 namespace Vion.Dale.Plugin
 {

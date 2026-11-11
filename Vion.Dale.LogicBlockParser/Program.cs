@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Dale.Plugin;
 using Vion.Dale.Sdk;
@@ -130,6 +131,15 @@ namespace Vion.Dale.LogicBlockParser
             logger.LogInformation($"Plugin path: {pluginDllPath}");
             logger.LogInformation($"Output JSON path: {outputJsonPath}");
 
+            var absolutePluginDllPath = Path.GetFullPath(pluginDllPath);
+            var libraryDaleSdkVersions = DaleSdkVersions.ReadLibrary(Path.GetDirectoryName(absolutePluginDllPath)!, absolutePluginDllPath);
+            var declaredMinimumError = ValidateDeclaredMinimum(DaleSdkVersions.ReadDeclaredMinimumValue(absolutePluginDllPath), libraryDaleSdkVersions.Target);
+            if (declaredMinimumError != null)
+            {
+                Console.Error.WriteLine($"Error: {declaredMinimumError}");
+                return 1;
+            }
+
             // for local test against sdk, uncomment this line and comment the two lines below
             //var pluginAssembly = typeof(LogicBlockBase).Assembly;
             var pluginAssembly = LoadPluginAssembly(pluginDllPath, logger);
@@ -198,12 +208,61 @@ namespace Vion.Dale.LogicBlockParser
                          {
                              PackageId = ResolvePackageId(suppliedPackageId, pluginAssembly),
                              PackageVersion = GetLogicBlockAssemblyVersion(pluginAssembly) ?? "0.0.0",
-                             Annotations = new Dictionary<string, object>(),
+                             Annotations = DaleSdkVersionAnnotations(libraryDaleSdkVersions),
                              LogicBlocks = logicBlockResults,
                          };
 
             WriteResultsToFile(result, outputJsonPath, logger);
             return 0;
+        }
+
+        /// <summary>
+        ///     Refuses a declared minimum that is not <c>MAJOR.MINOR.PATCH</c>, or whose major differs from the
+        ///     version the library was built against: a host of another major refuses the library outright, so
+        ///     such a minimum can never be met. Returns the error to print, or <c>null</c>.
+        /// </summary>
+        private static string? ValidateDeclaredMinimum(string? declaredValue, Version? target)
+        {
+            if (declaredValue == null)
+            {
+                return null;
+            }
+
+            var targetText = target?.ToString(3) ?? "unknown";
+            var declared = DaleSdkVersions.ParseMajorMinorPatch(declaredValue);
+            if (declared == null)
+            {
+                return $"the declared {DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey} '{declaredValue}' is not a MAJOR.MINOR.PATCH version " +
+                       $"(the library is built against Vion.Dale.Sdk {targetText}).";
+            }
+
+            if (target != null && DaleSdkVersions.Known(declared) is { } knownDeclared && knownDeclared.Major != target.Major)
+            {
+                return $"the declared {DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey} {declaredValue} has major version {knownDeclared.Major}, " +
+                       $"but the library is built against Vion.Dale.Sdk {targetText}. Declare a minimum within major {target.Major}.";
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     The document-level annotations: the library's Dale SDK versions, each only when known. A reader
+        ///     takes the declared minimum, else the target, as the oldest Dale SDK the library runs on.
+        /// </summary>
+        private static Dictionary<string, object> DaleSdkVersionAnnotations(LibraryDaleSdkVersions libraryDaleSdkVersions)
+        {
+            var annotations = new Dictionary<string, object>();
+            if (libraryDaleSdkVersions.Target != null)
+            {
+                annotations[DaleSdkCompatibilityConventions.TargetDaleSdkVersionAnnotationKey] = libraryDaleSdkVersions.Target.ToString(3);
+            }
+
+            if (libraryDaleSdkVersions.DeclaredMinimum != null)
+            {
+                annotations[DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey] = libraryDaleSdkVersions.DeclaredMinimum.ToString(3);
+            }
+
+            return annotations;
         }
 
         /// <summary>

@@ -1,0 +1,1 @@
+2026-11-11 · brief · dale-sdk-compatibility · Vion.Contracts 11.4.0 documents TargetDaleSdkVersion as always present, while the brief's coordinator decision omits it when the target is unknown; the parser omits it, and the doc comment is left to vion-contracts. (self)
