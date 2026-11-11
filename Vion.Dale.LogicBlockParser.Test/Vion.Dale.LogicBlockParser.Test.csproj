@@ -20,8 +20,9 @@
     </ItemGroup>
 
     <!-- The plugin loader's fixture compiler, linked rather than copied: a library whose Dale SDK versions
-         are known needs an assembly built against a non-zero SDK, and every project in this repository
-         builds against 0.0.0. -->
+         a test chooses needs assemblies built against stand-in SDKs, since the projects in this repository
+         build against whatever version the build stamps - 0.0.0 at a desk or pull-request build, the
+         release's at a tag build. -->
     <ItemGroup>
         <Compile Include="..\Vion.Dale.Plugin.Test\TestHelpers\FixtureAssembly.cs" LinkBase="TestHelpers"/>
     </ItemGroup>

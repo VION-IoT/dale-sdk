@@ -63,8 +63,9 @@ namespace Vion.Dale.Plugin
 
         /// <summary>
         ///     Creates the context comparing the plugin against <paramref name="hostSdkVersion" /> rather
-        ///     than the SDK this process has loaded. Every build of this repository loads a <c>0.0.0</c> SDK,
-        ///     which both version checks treat as unknown, so a test reaches a known host only through here.
+        ///     than the SDK this process has loaded. A desk or pull-request build of this repository loads a
+        ///     <c>0.0.0</c> SDK, which both version checks treat as unknown, and a tag build loads the
+        ///     release's; a test reaches a host version of its choosing only through here.
         /// </summary>
         internal PluginLoadContext(string pluginPath, string packageId, ILogger logger, Version? hostSdkVersion) : base(false)
         {
