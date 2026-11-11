@@ -33,12 +33,11 @@ binary-incompatible, and the failure it produces without a gate is a `MissingMet
 actionable error at load time.
 
 Minor and patch skew is **not** rejected — it is logged and the load continues. Because the SDK is
-pre-1.0, every released major is `0`, so the gate is dormant today; it arms itself at 1.0.
+pre-1.0, every released major is `0`, so the gate is dormant today; it arms itself at 1.0. A version
+of `0.0.0` on either side — what a local or CI build stamps — is unknown, and an unknown version
+rejects nothing.
 
-- `AC-PLUG-002.1` (Event-driven): WHEN a plugin load context is created over a directory containing
-  an assembly built against a `Vion.Dale.Sdk` whose major version differs from the SDK the host has
-  loaded, THE SYSTEM SHALL reject the plugin with a `PluginSdkVersionMismatchException` before
-  loading any plugin assembly into the context.
+- `AC-PLUG-002.1` (Event-driven): WHEN a plugin load context is created over a directory containing an assembly built against a `Vion.Dale.Sdk` whose major version differs from the SDK the host has loaded, and neither version is `0.0.0`, THE SYSTEM SHALL reject the plugin with a `PluginSdkVersionMismatchException` before loading any plugin assembly into the context.
 - `AC-PLUG-002.2` (State-driven): WHILE the host and plugin `Vion.Dale.Sdk` major versions are
   equal, THE SYSTEM SHALL create the context whatever the minor and patch versions are.
 - `AC-PLUG-002.3` (Event-driven): WHEN the version gate rejects a plugin THE SYSTEM SHALL name the
@@ -53,6 +52,34 @@ pre-1.0, every released major is `0`, so the gate is dormant today; it arms itse
 - `AC-PLUG-002.7` (Event-driven): WHEN more than one assembly in the plugin directory fails the
   version check THE SYSTEM SHALL reject the plugin naming one failing assembly's `Vion.Dale.Sdk`
   version, not a summary of all of them.
+
+## The library's minimum Dale SDK
+
+Within a major, a library built against a newer `Vion.Dale.Sdk` than the host's loads, and a block
+that calls SDK surface the host lacks fails with `MissingMethodException` when it does. The library
+carries the oldest SDK it runs on, and the host can compare it with its own before running a block.
+
+A library's minimum is a pair of facts, never a derived value: the **declared minimum** its author set
+with the `MinimumDaleSdkVersion` MSBuild property, and the **target**, the version it was built
+against. The minimum is the declared one, else the target. The same reading feeds the introspection
+document's annotations ([`introspection.md`](introspection.md)) and the host's comparison.
+
+- `AC-PLUG-009.1` (Ubiquitous): THE SYSTEM SHALL report a library's target Dale SDK version as the highest `Vion.Dale.Sdk` version referenced by any assembly directly in its plugin directory, as major, minor and patch, without loading any of them, and SHALL report none where no assembly there references `Vion.Dale.Sdk`.
+- `AC-PLUG-009.2` (Ubiquitous): THE SYSTEM SHALL report a library's declared minimum Dale SDK version from the `MinimumDaleSdkVersion` assembly metadata of its main assembly, without loading it, and SHALL report none where that value is absent or not a major.minor.patch version.
+- `AC-PLUG-009.3` (Event-driven): WHEN a host, target or declared `Vion.Dale.Sdk` version is `0.0.0` THE SYSTEM SHALL report it as unknown.
+- `AC-PLUG-009.4` (Event-driven): WHEN a library's minimum Dale SDK version — the declared minimum, else the target version — is above the host's `Vion.Dale.Sdk` version within the same major, comparing major, minor and patch only, THE SYSTEM SHALL report the minimum as unmet, naming the minimum, whether it was declared or is the target, and the host version, and SHALL let the load proceed.
+- `AC-PLUG-009.5` (Event-driven): WHEN the library's minimum is not above the host's `Vion.Dale.Sdk` version, either of them is unknown, or their majors differ, THE SYSTEM SHALL report no unmet minimum.
+
+The comparison is a call of its own, made after the context exists — never part of creating it,
+because `Vion.Dale.LogicBlockParser` creates a context too, against the SDK copy it ships with. An
+unmet minimum is a warning the host logs, never a refusal: a mismatch may matter only to some of a
+library's blocks. A differing major is not an unmet minimum (`AC-PLUG-009.5`); the version gate above
+refuses that library outright.
+
+Only the first three parts of a version count, the only form an assembly reference carries, so a
+prerelease compares as its release. The target is the highest reference in the directory, not the
+main assembly's own: a library built against one SDK can ship a dependency built against a newer one,
+and that dependency's calls are what fail.
 
 ## Resolution rules
 
