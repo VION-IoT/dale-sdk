@@ -1,6 +1,6 @@
 ---
 slug: dale-sdk-compatibility
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: PLUG, INTRO, API
 author: jonasbertsch
