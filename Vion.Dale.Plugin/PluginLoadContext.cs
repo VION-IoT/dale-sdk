@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 
 [assembly: InternalsVisibleTo("Vion.Dale.Plugin.Test")]
+[assembly: InternalsVisibleTo("Vion.Dale.LogicBlockParser")]
 
 namespace Vion.Dale.Plugin
 {
@@ -46,6 +47,8 @@ namespace Vion.Dale.Plugin
         /// </summary>
         private static readonly Lazy<IReadOnlySet<string>> HostTrustedPlatformAssemblyNames = new(ReadTrustedPlatformAssemblyNames);
 
+        private readonly Version? _hostSdkVersion;
+
         private readonly ILogger _logger;
 
         private readonly string _packageId;
@@ -54,11 +57,21 @@ namespace Vion.Dale.Plugin
 
         private readonly IReadOnlySet<string> _sharedAssemblyNames = GetSharedAssemblyNames();
 
-        public PluginLoadContext(string pluginPath, string packageId, ILogger logger) : base(false)
+        public PluginLoadContext(string pluginPath, string packageId, ILogger logger) : this(pluginPath, packageId, logger, typeof(LogicBlockBase).Assembly.GetName().Version)
+        {
+        }
+
+        /// <summary>
+        ///     Creates the context comparing the plugin against <paramref name="hostSdkVersion" /> rather
+        ///     than the SDK this process has loaded. Every build of this repository loads a <c>0.0.0</c> SDK,
+        ///     which both version checks treat as unknown, so a test reaches a known host only through here.
+        /// </summary>
+        internal PluginLoadContext(string pluginPath, string packageId, ILogger logger, Version? hostSdkVersion) : base(false)
         {
             _pluginPath = pluginPath;
             _packageId = packageId;
             _logger = logger;
+            _hostSdkVersion = hostSdkVersion;
             _logger.LogInformation("PluginLoadContext created for plugin {PackageId} at path: {PluginPath}", _packageId, _pluginPath);
 
             // Fail fast on a binary-incompatible SDK major-version skew BEFORE any plugin
@@ -78,6 +91,30 @@ namespace Vion.Dale.Plugin
         public static IReadOnlyCollection<Assembly> GetLoadedSharedExtensionAssemblies()
         {
             return SharedExtensionAssemblies.Values.ToList().AsReadOnly();
+        }
+
+        /// <summary>
+        ///     Compares the library's minimum <c>Vion.Dale.Sdk</c> version with the host's, logs a warning
+        ///     when the host is below it, and returns the unmet minimum — or <c>null</c> when it is met,
+        ///     either version is unknown, or the majors differ (the context refuses that library when it is
+        ///     created). It never refuses the library: call it after creating the context
+        ///     and load the library either way.
+        /// </summary>
+        /// <param name="mainAssemblyPath">The library's own assembly, which carries its declared minimum.</param>
+        public UnmetDaleSdkMinimum? CheckLibraryDaleSdkMinimum(string mainAssemblyPath)
+        {
+            var unmet = DaleSdkVersions.Compare(DaleSdkVersions.ReadLibrary(_pluginPath, mainAssemblyPath), _hostSdkVersion);
+            if (unmet != null)
+            {
+                _logger.LogWarning("Plugin {PackageId} needs Vion.Dale.Sdk {MinimumVersion} ({MinimumSource}) but the host runtime has loaded {HostVersion} — " +
+                                   "the plugin loads, and a logic block that uses SDK surface the host lacks fails when it does. Update the host runtime",
+                                   _packageId,
+                                   unmet.Minimum,
+                                   unmet.IsDeclared ? "declared by the library" : "the version the library was built against",
+                                   unmet.Host);
+            }
+
+            return unmet;
         }
 
         /// <summary>
@@ -246,7 +283,8 @@ namespace Vion.Dale.Plugin
 
         /// <summary>
         ///     Throws when <paramref name="pluginReferencedVersion" /> has a different MAJOR component
-        ///     than <paramref name="hostVersion" /> (both non-null). Minor and patch differences are
+        ///     than <paramref name="hostVersion" />, both known: a <c>null</c> or a <c>0.0.0</c> — what a
+        ///     local or CI build stamps — is unknown and never rejects. Minor and patch differences are
         ///     deliberately not this method's concern: they stay warn-and-continue.
         /// </summary>
         /// <remarks>
@@ -256,20 +294,17 @@ namespace Vion.Dale.Plugin
         /// </remarks>
         internal static void EnsureSdkMajorCompatible(string packageId, string sdkAssemblyName, Version? hostVersion, Version? pluginReferencedVersion, ILogger logger)
         {
-            if (hostVersion == null || pluginReferencedVersion == null)
-            {
-                return;
-            }
-
-            if (hostVersion.Major == pluginReferencedVersion.Major)
+            var knownHostVersion = DaleSdkVersions.Known(hostVersion);
+            var knownPluginReferencedVersion = DaleSdkVersions.Known(pluginReferencedVersion);
+            if (knownHostVersion == null || knownPluginReferencedVersion == null || knownHostVersion.Major == knownPluginReferencedVersion.Major)
             {
                 return;
             }
 
             var message = $"Plugin '{packageId}' was built against {sdkAssemblyName} {pluginReferencedVersion} " +
                           $"but the host runtime has loaded {sdkAssemblyName} {hostVersion}. These major versions " +
-                          $"are incompatible (major {pluginReferencedVersion.Major} vs {hostVersion.Major}). " +
-                          $"Rebuild the plugin against a compatible {sdkAssemblyName} (matching major version {hostVersion.Major}.x) and redeploy it.";
+                          $"are incompatible (major {knownPluginReferencedVersion.Major} vs {knownHostVersion.Major}). " +
+                          $"Rebuild the plugin against a compatible {sdkAssemblyName} (matching major version {knownHostVersion.Major}.x) and redeploy it.";
 
             logger.LogError("Plugin {PackageId} references {SdkAssemblyName} {PluginVersion} but the host loaded {HostVersion} — " +
                             "incompatible major versions, failing the plugin load",
@@ -383,7 +418,6 @@ namespace Vion.Dale.Plugin
         {
             // The host's loaded SDK — the same assembly GetSharedAssemblyNames() keys off.
             var sdkAssemblyName = typeof(LogicBlockBase).Assembly.GetName().Name!;
-            var hostSdkVersion = typeof(LogicBlockBase).Assembly.GetName().Version;
 
             if (!Directory.Exists(_pluginPath))
             {
@@ -406,7 +440,7 @@ namespace Vion.Dale.Plugin
 
                 // Throws PluginSdkVersionMismatchException on a differing major. Minor/patch
                 // differences return normally and remain warn-and-continue via LogDefaultContextLoad.
-                EnsureSdkMajorCompatible(_packageId, sdkAssemblyName, hostSdkVersion, referencedSdkVersion, _logger);
+                EnsureSdkMajorCompatible(_packageId, sdkAssemblyName, _hostSdkVersion, referencedSdkVersion, _logger);
             }
         }
 

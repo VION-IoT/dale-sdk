@@ -6,6 +6,15 @@
         <VionDalePluginInfoOutputPath>$(VionDalePublishDir)$(MSBuildProjectName).json</VionDalePluginInfoOutputPath>
     </PropertyGroup>
 
+    <!-- The oldest Vion.Dale.Sdk this library runs on, when its author or pipeline declares one
+         (<MinimumDaleSdkVersion>0.14.3</MinimumDaleSdkVersion>, or -p:MinimumDaleSdkVersion=0.14.3 on pack).
+         It is compiled into the library's assembly as plain assembly metadata, never an SDK attribute, so a
+         host older than this SDK can still read it; the logic block parser reads it at pack, and the host
+         runtime at load. Undeclared, the version the library is built against stands in. -->
+    <ItemGroup Condition="'$(MinimumDaleSdkVersion)' != ''">
+        <AssemblyMetadata Include="MinimumDaleSdkVersion" Value="$(MinimumDaleSdkVersion)"/>
+    </ItemGroup>
+
     <!-- Automatically include Vion.Dale.Sdk.Generators as analyzer -->
     <ItemGroup>
         <Analyzer Include="$(MSBuildThisFileDirectory)..\analyzers\dotnet\cs\Vion.Dale.Sdk.Generators.dll"/>

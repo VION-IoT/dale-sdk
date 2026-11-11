@@ -21,7 +21,8 @@ does to a member before it is described, and for an instantiation parameter's ow
 
 ## The document
 
-One document per plugin assembly: who the library is, which version, and one record per logic block.
+One document per plugin assembly: who the library is, which version, the Dale SDK versions it
+carries, and one record per logic block.
 
 - `AC-INTRO-001.1` (Event-driven): WHEN a plugin assembly is introspected THE SYSTEM SHALL emit one
   document carrying the package identity, the package version and one record per logic block.
@@ -30,11 +31,13 @@ One document per plugin assembly: who the library is, which version, and one rec
   identity is supplied or the supplied one is blank.
 - `AC-INTRO-001.3` (Event-driven): WHEN the plugin assembly declares an informational version THE
   SYSTEM SHALL report it with any build-metadata suffix removed.
-- `AC-INTRO-001.4` (Ubiquitous): THE SYSTEM SHALL report an empty annotation map at document level.
+- `AC-INTRO-001.4` (Ubiquitous): THE SYSTEM SHALL report at document level no annotation but the Dale SDK version annotations, and an empty annotation map when neither applies.
 - `AC-INTRO-001.5` (Ubiquitous): THE SYSTEM SHALL introspect every non-abstract logic block of the
   plugin assembly, ordered by full type name.
 - `AC-INTRO-001.6` (Ubiquitous): THE SYSTEM SHALL write the document with camelCase member names and
   camelCase annotation keys, and every enum value as its member name.
+- `AC-INTRO-001.7` (Event-driven): WHEN the plugin's target Dale SDK version is known THE SYSTEM SHALL report it as the document-level `TargetDaleSdkVersion` annotation in major.minor.patch form, and SHALL omit that annotation when it is unknown.
+- `AC-INTRO-001.8` (Event-driven): WHEN the plugin assembly declares a minimum Dale SDK version THE SYSTEM SHALL report it as the document-level `MinimumDaleSdkVersion` annotation, and SHALL omit that annotation when none is declared.
 
 `AC-INTRO-001.2` is the rule the whole naming scheme hangs from. The package identity is the
 namespace every identifier below is read under, so it has to be the id the package is *registered*
@@ -43,8 +46,13 @@ set independently. MSBuild defaults the package id to the assembly name, so a li
 neither is unaffected. A blank supplied identity is treated as absent, because an unset MSBuild
 property expands to the empty string.
 
-`AC-INTRO-001.4` describes a slot this producer never fills. It is stable and empty; a consumer that
-read its absence as a version signal would be wrong.
+`AC-INTRO-001.4`, `AC-INTRO-001.7` and `AC-INTRO-001.8` make the document-level annotations the
+library's Dale SDK versions and nothing else. The target is the highest `Vion.Dale.Sdk` version any
+assembly of the published library was built against; the minimum is what the library's author declared
+(`AC-INTRO-018.1`). Both are facts, stored as such: a reader takes the declared minimum, else the
+target, as the oldest Dale SDK the library runs on. A version is read as `major.minor.patch`, and
+`0.0.0` — what a local or CI build stamps — is unknown, so a library built against such an SDK carries
+no target. An absent annotation is no version, never an old one: it means unknown.
 
 `AC-INTRO-001.6` is what makes the annotation keys below wire-visible in camelCase even though the
 producer spells them in Pascal case: the serializer camel-cases dictionary keys at this boundary.
@@ -72,6 +80,7 @@ much cheaper than an artifact that is quietly incomplete.
   the originating exception rather than a reflection wrapper.
 - `AC-INTRO-002.9` (Ubiquitous): THE SYSTEM SHALL apply the development-only exclusion to the document
   alone, so an excluded block is still introspected and every refusal above still applies to it.
+- `AC-INTRO-002.10` (Unwanted): IF the plugin assembly declares a minimum Dale SDK version that is not a major.minor.patch version, or whose major differs from a known target version's, THEN THE SYSTEM SHALL fail the run naming both values and SHALL write no document.
 
 `AC-INTRO-002.1` is why a pack either produces a complete document or none: an artifact missing one
 block uploads without complaint and is discovered by that block's absence in the dashboard. Register
@@ -520,6 +529,15 @@ Publishing first is not an optimisation. The introspection loads the plugin into
 context and needs the plugin's whole dependency closure in one directory, which only a publish
 produces. The opt-out is what lets a project that references the SDK without being a logic-block
 library — a development host, a test host — still pack.
+
+The same targets carry a library's declared minimum Dale SDK, set as the `MinimumDaleSdkVersion`
+MSBuild property in the project, a `Directory.Build.props` or on the pack's command line:
+
+- `AC-INTRO-018.1` (Optional): WHERE a library project sets the `MinimumDaleSdkVersion` MSBuild property THE SYSTEM SHALL compile it into the library's assembly as `MinimumDaleSdkVersion` assembly metadata, and SHALL add no such metadata where the property is not set.
+
+It is plain assembly metadata, never an attribute type of the SDK's, so a host older than the SDK the
+library was built against still reads it. `AC-INTRO-002.10` is where a minimum no host of the
+library's major could meet is refused: a host of another major refuses the library outright.
 
 ## Identifier stability, in one place
 
