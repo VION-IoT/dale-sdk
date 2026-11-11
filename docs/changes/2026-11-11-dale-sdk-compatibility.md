@@ -1,6 +1,6 @@
 ---
 slug: dale-sdk-compatibility
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: PLUG, INTRO, API
 author: jonasbertsch
@@ -33,8 +33,8 @@ which is what makes "minimum version" a sufficient answer.
 `plugin-loading.md` gains § The library's minimum Dale SDK (`AC-PLUG-009.*`): reading the target
 version (the highest `Vion.Dale.Sdk` reference in the directory) and the declared minimum (assembly
 metadata on the main assembly), `0.0.0` as unknown, and the comparison dale calls after constructing a
-context. § The SDK version gate's `AC-PLUG-002.1` is `MODIFIED` **only if** question 3 below is
-answered "apply"; otherwise that delta line and `T-003` are dropped. `introspection.md` rewords `AC-INTRO-001.4` — the document-level map is no longer
+context. § The SDK version gate's `AC-PLUG-002.1` is `MODIFIED`: a `0.0.0` on either side is unknown
+there too (question 3). `introspection.md` rewords `AC-INTRO-001.4` — the document-level map is no longer
 always empty — and rewrites the prose under it (`introspection.md:46-47`), which today tells a
 consumer the slot never carries a version signal; it gains `AC-INTRO-001.7` (target stamp),
 `AC-INTRO-001.8` (declared-minimum stamp), `AC-INTRO-002.10` (the pack refuses a malformed or
@@ -59,15 +59,15 @@ This session's calls, each (b) decide-and-document:
 - `D1` — **API shape in `Vion.Dale.Plugin`.** A public static `DaleSdkVersions` with
   `Host` (the loaded SDK's `MAJOR.MINOR.PATCH`, `null` when `0.0.0`), `ReadLibrary(pluginDirectory,
   mainAssemblyPath)` → a `LibraryDaleSdkVersions(Target, DeclaredMinimum)` record, and
-  `Compare(library, host)` → a `DaleSdkShortfall?` (`null` = nothing to say). `PluginLoadContext`
-  gains `CheckLibraryDaleSdkMinimum(mainAssemblyPath)`, which reads, compares, logs the Warning and
-  returns the shortfall — dale's change at `LibraryLoader.cs:391` is that one line after construction.
-  The parser calls `ReadLibrary` only. The names are provisional; see question 4.
+  `Compare(library, host)` → an `UnmetDaleSdkMinimum?` (`null`: the minimum is met, a version is
+  unknown, or the majors differ). `PluginLoadContext` gains `CheckLibraryDaleSdkMinimum(mainAssemblyPath)`,
+  which reads, compares, logs the Warning and returns the unmet minimum — dale's change at
+  `LibraryLoader.cs:391` is that one line after construction. The parser calls `ReadLibrary` only.
 - `D2` — **The comparison is a call of its own and returns its verdict.** Constraint 7 (no comparison
   in the constructor) is held by this shape, not by a criterion: moved into the constructor, the check
   would change only a log line, which no test here may assert, so no mutation could redden such a
   criterion. It returns its verdict rather than only logging it: log text is not
-  observable here (`testing-conventions.md` §15), so the criteria pin the returned shortfall and the
+  observable here (`testing-conventions.md` §15), so the criteria pin the returned value and the
   Warning is the instance method's side effect. `Compare` takes the host version as a parameter
   because every in-repo build hosts `0.0.0` — no end-to-end test could otherwise reach a known host.
 - `D3` — **Validation runs in a job this repo owns.** A new `package-validation` job in
@@ -109,12 +109,15 @@ This session's calls, each (b) decide-and-document:
    name grep does not see. Cost of the recommendation: every `[InternalApi]` type stays public and is
    held additive until 1.0, the planned break, where internalising is free. Alternative: vet a subset
    per type (public-signature exposure, dale by name and by reflection, TestKit reach) in its own PR.
+   **OUTCOME: accepted — none** (operator, 2026-11-11, amendment 1). Every `[InternalApi]` type stays
+   public and is held additive until 1.0.
 2. **(c) Sequencing.** Follows from 1. **(A, recommended) empty list:** arm the gate in this PR; one
    release, `0.17.0`, carries the load check, the stamp and the targets property; the gate is CI-only
    and ships nothing. **(B) a non-empty list:** this PR internalises and does not arm; release `0.17.0`;
    a second PR arms the gate and must merge only after the `v0.17.0` tag exists (before it, the derived
    baseline is still `0.16.0` and the internalisation fails it). Still one release for dale's step 5,
-   but two PRs and a window in which `0.17.0` ships unguarded.
+   but two PRs and a window in which `0.17.0` ships unguarded. **OUTCOME: accepted — A** (operator,
+   2026-11-11, amendment 1): the gate arms in this PR; one release, `0.17.0`.
 3. **(c) Does `0.0.0`-is-unknown also apply to the major gate (`AC-PLUG-002.1`)?** Pre-1.0 nothing
    observable changes either way — every major is 0. At 1.0: **not applied**, a desk-built host
    (`0.0.0`) rejects every released 1.x library and every 1.x host rejects a desk-built library;
@@ -125,12 +128,19 @@ This session's calls, each (b) decide-and-document:
    being `1.0.0` (`PluginLoadContextShould.cs:96-105`); under the rule that pair is "unknown" and no
    rejection follows, so the test moves to a host-version seam (an internal constructor overload, as
    `EnsureSdkMajorCompatible` already takes both versions for `AC-PLUG-002.3`).
+   **OUTCOME: accepted — apply** (operator, 2026-11-11, amendment 1). The `MODIFIED AC-PLUG-002.1` line
+   stands; `AC-PLUG-002.7`'s test (`RejectPluginNamingOneFailingAssembly`) relies on the `0.0.0` host the
+   same way and moves to the seam too (`T-003`).
 4. **(b) The public names in `D1`** (`DaleSdkVersions`, `LibraryDaleSdkVersions`, `DaleSdkShortfall`,
    `CheckLibraryDaleSdkMinimum`) are mine; dale is the only caller beyond the parser. Rename at
    ratification if you prefer others — afterwards they are held by the gate this PR arms.
+   **OUTCOME: changed** (operator, 2026-11-11, amendment 1): `DaleSdkShortfall` → `UnmetDaleSdkMinimum`;
+   the other three stand.
 5. **(b) The 1.0 baseline reset is not built here.** `D5` derives the previous tag whatever its major,
    so the PR that starts 1.0 must also teach the script to skip a baseline of an older major (or the
    1.0 tag fails). No major is planned in this round; building the reset now would be untested code.
+   **OUTCOME: accepted — left out** (operator, 2026-11-11, amendment 1); a known limitation, named in
+   the PR body for the PR that starts 1.0.
 
 ---
 
@@ -150,7 +160,7 @@ This session's calls, each (b) decide-and-document:
   metadata with `PEReader`, as `HasDaleSharedAssemblyAttribute` reads its marker (`:329-372`), so an
   older host never meets a type it lacks. A value that is not `MAJOR.MINOR.PATCH` reads as not
   declared at load (the pack already refused it, `AC-INTRO-002.10`); `0.0.0` reads as not declared.
-- **Compare**: effective minimum = declared, else target. Shortfall when both it and the host are
+- **Compare**: effective minimum = declared, else target. Unmet when both it and the host are
   known, the majors are equal and minimum > host on `MAJOR.MINOR.PATCH`. A differing major is the major
   gate's (`AC-PLUG-002.1`), so the comparison says nothing about it.
 - **Warning** (dale's log): package id, the minimum and whether it was declared or the target, the
@@ -177,23 +187,22 @@ referencing the package directly — the only kind the parser runs for):
 ```
 
 Its test builds a small project that imports the targets file with the property set and reads the
-compiled metadata. If the import cannot be made to build cleanly in a test (the targets file also adds
-the analyzer and the parser run), the criterion is `GAP` with that reason rather than proven through a
-different mechanism.
+compiled metadata. The project removes the analyzer item the targets file adds (a path that exists
+only inside the packed package); the parser run is a pack target and a build does not reach it.
 
 ### The CI gate
 
-`scripts/validate-packages.ps1 [-Baseline <v>]`: derives the baseline (`D5`) unless given, then
-`dotnet pack Vion.Dale.Sdk.sln -c Release -p:PackageValidationBaselineVersion=<b> -o <fresh temp dir>`
-after a fresh build — the spec's spike saw an up-to-date package skip `RunPackageValidation`.
-`publish.yml` gains `package-validation` (needs `changes`; `dotnet == 'true'`; not on a tag;
-`fetch-depth: 0`; private feed set up as `style` does), and `ci` waits on it. The trial command and
-counts above are in this doc's Drift checkpoints as they were measured.
+`scripts/validate-packages.ps1 [-Baseline <v>]`: derives the baseline (`D5`) unless given; names the
+solution's projects absent from the baseline tag's tree in `-p:DaleProjectsWithoutBaseline` (their
+first release has nothing to compare with); deletes the validation's up-to-date markers under `obj/`
+(the spec's spike saw an up-to-date package skip `RunPackageValidation`, and its inputs do not include
+the baseline); then `dotnet pack Vion.Dale.Sdk.sln -c Release -p:Version=<b+1 patch>-validation
+-p:PackageValidationBaselineVersion=<b> -o <temp dir>`. `publish.yml` gains `package-validation`
+(needs `changes`; `dotnet == 'true'`; not on a tag; `fetch-depth: 0`; private feed set up as `style`
+does), `ci` waits on it, and the scope step counts `validate-packages.ps1` as read by the build.
 
-Open item for implementation, not a design point: whether a pack at the CI version `0.0.0-ci.N`
-(assembly version `0.0.0.0`) against a `0.16.0.0` baseline raises an identity finding. The trial packed
-at `0.17.0`; if `0.0.0-ci.N` trips one, the script passes a version above the baseline's and the
-checkpoint says so.
+The pack version is above the baseline because a pack at the CI version `0.0.0-ci.N` fails on its own
+(Drift checkpoints).
 
 ### Alternatives discarded
 
@@ -222,6 +231,39 @@ checkpoint says so.
 - 2026-11-11: brief said `origin/main` differed from `v0.16.0` (`9e4c230a`) only in
   `scripts/set-version.ps1` and `examples.yml`; it is now at `da812778`, two more commits
   (#283, #284) touching examples only. The derived baseline is still `0.16.0`.
+- 2026-11-11: the open item resolved — `dotnet pack Vion.Dale.Sdk.Http -p:Version=0.0.0-ci.1
+  -p:PackageValidationBaselineVersion=0.16.0` → exit 1, `error CP0003` (assembly version `0.0.0.0`
+  below the baseline's). The script packs at the baseline's next patch, `-validation`-suffixed.
+- 2026-11-11: **a package's first release has no baseline** — not in the spec or this doc's design.
+  `validate-packages.ps1 -Baseline 0.14.1` failed restore with 14 × `NU1102` for `Vion.Dale.Sdk.MBus`
+  and its TestKit, first released in 0.16.0; the same would fail every pull request that adds a
+  package. The script now names the projects absent from the baseline tag's tree and
+  `Directory.Build.targets` leaves them out, so `SYS-API-002` gains that exception. Surfaced in the PR
+  and the REPORT as a decision the brief did not name.
+- 2026-11-11: the red proof after that fix — `-Baseline 0.14.1` → exit 1, 26 × `CP0002`, 22 × `CP0006`
+  (34 of them `Vion.Dale.Sdk.Http`, the spec's 20 + 14); `validate-packages.ps1` with the derived
+  `0.16.0` baseline → exit 0, no `CP` diagnostic, 21 packages, the new `Vion.Dale.Plugin` surface
+  included.
+- 2026-11-11: the script's first form exited 0 on a failed pack: `dotnet pack`'s output joined the
+  function's return value and `exit` received an array. Found by that red proof, fixed with `Out-Host`.
+  Sibling sweep of `scripts/*.ps1` for a native call writing into a returned exit code: done, none
+  other — `verify-packed-assembly-versions.ps1` is the one other script exiting with a function's return
+  value, and its gate path calls no native command (`grep -nE '^\s+& (dotnet|git|pwsh|node)\b[^|]*$'`).
+- 2026-11-11: `D6` changed shape — the parser fixtures copy nothing. An emitted plugin with no logic
+  block sits alone in its own directory (plus the stand-in-referencing dependency); the parser's load
+  context resolves `Vion.Dale.Sdk` and its references from the parser's own process (`AC-PLUG-003.3`).
+- 2026-11-11: the `0.0.0` sweep beyond the amendment's `AC-PLUG-002.1` and `AC-PLUG-002.7`: the tests of
+  `AC-PLUG-002.2` and `AC-PLUG-008.1`'s version-check half also compared against the in-repo `0.0.0`
+  host and would pass vacuously; both moved to the seam. `AC-PLUG-002.5`'s tests skip a file before
+  any comparison and stay on the real host.
+- 2026-11-11: the `PackAsTool` clause `D4` added to the `Directory.Build.targets` condition survived its
+  mutation, even with `-p:IsPackable=true`: the .NET SDK sets `EnablePackageValidation` to `false` for a
+  tool itself (`dotnet msbuild Vion.Dale.Cli/Vion.Dale.Cli.csproj -p:PackageValidationBaselineVersion=0.16.0
+  -p:IsPackable=true -getProperty:EnablePackageValidation` → `false` with the clause removed). The clause
+  is removed; `SYS-API-002`'s whole-solution test still pins that the tool is not validated.
+- 2026-11-11: criteria reworded before publication to say what their tests prove: `AC-PLUG-009.1`
+  (none when no assembly references the SDK), `AC-PLUG-009.5` (a met minimum), `AC-INTRO-018.1` (no
+  metadata when the property is unset), `SYS-API-002` (the tool and a project the baseline lacks).
 
 ---
 
@@ -240,18 +282,18 @@ checkpoint says so.
 > ad-hoc label and never another repo's area. A criterion the delta declares unreachable carries
 > its `GAP: <reason>` marker on the delta line.
 
-- ADDED AC-PLUG-009.1 -> docs/specs/plugin-loading.md : THE SYSTEM SHALL report a library's target Dale SDK version as the highest `Vion.Dale.Sdk` version referenced by any assembly directly in its plugin directory, as major, minor and patch, without loading any of them.
+- ADDED AC-PLUG-009.1 -> docs/specs/plugin-loading.md : THE SYSTEM SHALL report a library's target Dale SDK version as the highest `Vion.Dale.Sdk` version referenced by any assembly directly in its plugin directory, as major, minor and patch, without loading any of them, and SHALL report none where no assembly there references `Vion.Dale.Sdk`.
 - ADDED AC-PLUG-009.2 -> docs/specs/plugin-loading.md : THE SYSTEM SHALL report a library's declared minimum Dale SDK version from the `MinimumDaleSdkVersion` assembly metadata of its main assembly, without loading it, and SHALL report none where that value is absent or not a major.minor.patch version.
 - ADDED AC-PLUG-009.3 -> docs/specs/plugin-loading.md : WHEN a host, target or declared `Vion.Dale.Sdk` version is `0.0.0` THE SYSTEM SHALL report it as unknown.
-- ADDED AC-PLUG-009.4 -> docs/specs/plugin-loading.md : WHEN a library's minimum Dale SDK version — the declared minimum, else the target version — is above the host's `Vion.Dale.Sdk` version within the same major, comparing major, minor and patch only, THE SYSTEM SHALL report a shortfall naming the minimum, whether it was declared or is the target, and the host version, and SHALL let the load proceed.
-- ADDED AC-PLUG-009.5 -> docs/specs/plugin-loading.md : WHEN the library's minimum or the host's version is unknown, or their majors differ, THE SYSTEM SHALL report no shortfall.
+- ADDED AC-PLUG-009.4 -> docs/specs/plugin-loading.md : WHEN a library's minimum Dale SDK version — the declared minimum, else the target version — is above the host's `Vion.Dale.Sdk` version within the same major, comparing major, minor and patch only, THE SYSTEM SHALL report the minimum as unmet, naming the minimum, whether it was declared or is the target, and the host version, and SHALL let the load proceed.
+- ADDED AC-PLUG-009.5 -> docs/specs/plugin-loading.md : WHEN the library's minimum is not above the host's `Vion.Dale.Sdk` version, either of them is unknown, or their majors differ, THE SYSTEM SHALL report no unmet minimum.
 - MODIFIED AC-PLUG-002.1 -> docs/specs/plugin-loading.md : WHEN a plugin load context is created over a directory containing an assembly built against a `Vion.Dale.Sdk` whose major version differs from the SDK the host has loaded, and neither version is `0.0.0`, THE SYSTEM SHALL reject the plugin with a `PluginSdkVersionMismatchException` before loading any plugin assembly into the context.
 - MODIFIED AC-INTRO-001.4 -> docs/specs/introspection.md : THE SYSTEM SHALL report at document level no annotation but the Dale SDK version annotations, and an empty annotation map when neither applies.
 - ADDED AC-INTRO-001.7 -> docs/specs/introspection.md : WHEN the plugin's target Dale SDK version is known THE SYSTEM SHALL report it as the document-level `TargetDaleSdkVersion` annotation in major.minor.patch form, and SHALL omit that annotation when it is unknown.
 - ADDED AC-INTRO-001.8 -> docs/specs/introspection.md : WHEN the plugin assembly declares a minimum Dale SDK version THE SYSTEM SHALL report it as the document-level `MinimumDaleSdkVersion` annotation, and SHALL omit that annotation when none is declared.
 - ADDED AC-INTRO-002.10 -> docs/specs/introspection.md : IF the plugin assembly declares a minimum Dale SDK version that is not a major.minor.patch version, or whose major differs from a known target version's, THEN THE SYSTEM SHALL fail the run naming both values and SHALL write no document.
-- ADDED AC-INTRO-018.1 -> docs/specs/introspection.md : WHERE a library project sets the `MinimumDaleSdkVersion` MSBuild property THE SYSTEM SHALL compile it into the library's assembly as `MinimumDaleSdkVersion` assembly metadata.
-- ADDED SYS-API-002 -> docs/specs/_invariants.md : THE SYSTEM SHALL enable package validation for every packable project of the repository whenever a baseline version is given, and for none when it is not.
+- ADDED AC-INTRO-018.1 -> docs/specs/introspection.md : WHERE a library project sets the `MinimumDaleSdkVersion` MSBuild property THE SYSTEM SHALL compile it into the library's assembly as `MinimumDaleSdkVersion` assembly metadata, and SHALL add no such metadata where the property is not set.
+- ADDED SYS-API-002 -> docs/specs/_invariants.md : THE SYSTEM SHALL enable package validation, whenever a baseline version is given, for every packable project of the repository that is not a .NET tool and that the baseline release contains, and SHALL enable it for none when no baseline version is given.
 - ADDED SYS-API-003 -> docs/specs/_invariants.md : THE SYSTEM SHALL fail a pull request whose packages are not binary-compatible with the previous release's, the previous release being the highest release tag reachable from the commit under test that does not point at it, with no suppression file. GAP: the gate runs only inside `.github/workflows/publish.yml`, which no in-process test can construct; the baseline derivation has a script self-test.
 
 ---
@@ -262,9 +304,9 @@ checkpoint says so.
 > Plain list, no checkboxes — the PR's per-task commits are the completion record.
 
 - `T-001` (`AC-PLUG-009.1`, `AC-PLUG-009.2`, `AC-PLUG-009.3`): bump `Vion.Contracts` to 11.4.0; `DaleSdkVersions.Host` and `ReadLibrary` in `Vion.Dale.Plugin`; fixture emit option for assembly metadata; tests.
-- `T-002` (`AC-PLUG-009.4`, `AC-PLUG-009.5`): `Compare`, `DaleSdkShortfall`, `PluginLoadContext.CheckLibraryDaleSdkMinimum`; tests.
-- `T-003` (`AC-PLUG-002.1`): only if question 3 is "apply" — the `0.0.0` rule in the major gate and the host-version seam for its test.
+- `T-002` (`AC-PLUG-009.4`, `AC-PLUG-009.5`): `Compare`, `UnmetDaleSdkMinimum`, `PluginLoadContext.CheckLibraryDaleSdkMinimum`; tests.
+- `T-003` (`AC-PLUG-002.1`, `AC-PLUG-002.7`): the `0.0.0` rule in the major gate, and the host-version seam both tests move to.
 - `T-004` (`AC-INTRO-001.4`, `AC-INTRO-001.7`, `AC-INTRO-001.8`, `AC-INTRO-002.10`): the parser stamp and its validation; known-path parser fixtures; tests.
 - `T-005` (`AC-INTRO-018.1`): the `AssemblyMetadata` mapping in `Vion.Dale.Sdk.targets`; its test.
-- `T-006` (`SYS-API-002`, `SYS-API-003`): `Directory.Build.targets` condition; `scripts/validate-packages.ps1` and its self-test; the `package-validation` job; `docs/releasing.md`; the internalisations question 1 names, if any.
+- `T-006` (`SYS-API-002`, `SYS-API-003`): `Directory.Build.targets` condition; `scripts/validate-packages.ps1` and its self-test; the `package-validation` job; `docs/releasing.md`.
 - `T-007`: distill every delta line, rewrite `introspection.md:46-47`, archive.

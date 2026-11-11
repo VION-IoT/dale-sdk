@@ -7,6 +7,7 @@ using System.Runtime.Loader;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vion.Contracts.Conventions;
 using Vion.Dale.Plugin.Test.TestHelpers;
 using Vion.Dale.Sdk.Core;
 
@@ -45,6 +46,12 @@ namespace Vion.Dale.Plugin.Test
         private string _pluginDirectory = null!;
 
         private string _stagingDirectory = null!;
+
+        /// <summary>
+        ///     A host SDK version both version checks treat as known. The SDK this process has loaded is
+        ///     <c>0.0.0</c>, which they treat as unknown, so a test that needs a comparison passes this one.
+        /// </summary>
+        private static readonly Version KnownHostSdk = new(1, 4, 0, 0);
 
         /// <summary>The major version of the SDK this test process has loaded — what the gate compares against.</summary>
         private static int HostSdkMajor
@@ -251,6 +258,25 @@ namespace Vion.Dale.Plugin.Test
             Assert.AreNotEqual(exception.Message.Contains(firstSkew.ToString()),
                                exception.Message.Contains(secondSkew.ToString()),
                                "Exactly one of the two failing assemblies is named — the rejection reports a failure, not an inventory of them.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-009.4")]
+        public void ReportUnmetMinimumAndLoadLibrary()
+        {
+            // Arrange
+            var main = FixtureAssembly.Emit(_pluginDirectory,
+                                            FixtureAssembly.UniqueName("Main"),
+                                            attributes: new[] { $"[assembly: System.Reflection.AssemblyMetadata(\"{DaleSdkCompatibilityConventions.MinimumDaleSdkVersionAnnotationKey}\", \"1.6.0\")]" });
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger, KnownHostSdk);
+
+            // Act
+            var unmet = sut.CheckLibraryDaleSdkMinimum(main);
+            var loaded = sut.LoadFromAssemblyPath(main);
+
+            // Assert
+            Assert.AreEqual(new UnmetDaleSdkMinimum(new Version(1, 6, 0), true, new Version(1, 4, 0)), unmet);
+            Assert.AreSame(sut, AssemblyLoadContext.GetLoadContext(loaded), "An unmet minimum is reported, never a refusal: the library still loads.");
         }
 
         [TestMethod]

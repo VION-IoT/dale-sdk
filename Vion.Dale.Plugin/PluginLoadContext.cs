@@ -46,6 +46,8 @@ namespace Vion.Dale.Plugin
         /// </summary>
         private static readonly Lazy<IReadOnlySet<string>> HostTrustedPlatformAssemblyNames = new(ReadTrustedPlatformAssemblyNames);
 
+        private readonly Version? _hostSdkVersion;
+
         private readonly ILogger _logger;
 
         private readonly string _packageId;
@@ -54,11 +56,21 @@ namespace Vion.Dale.Plugin
 
         private readonly IReadOnlySet<string> _sharedAssemblyNames = GetSharedAssemblyNames();
 
-        public PluginLoadContext(string pluginPath, string packageId, ILogger logger) : base(false)
+        public PluginLoadContext(string pluginPath, string packageId, ILogger logger) : this(pluginPath, packageId, logger, typeof(LogicBlockBase).Assembly.GetName().Version)
+        {
+        }
+
+        /// <summary>
+        ///     Creates the context comparing the plugin against <paramref name="hostSdkVersion" /> rather
+        ///     than the SDK this process has loaded. Every build of this repository loads a <c>0.0.0</c> SDK,
+        ///     which both version checks treat as unknown, so a test reaches a known host only through here.
+        /// </summary>
+        internal PluginLoadContext(string pluginPath, string packageId, ILogger logger, Version? hostSdkVersion) : base(false)
         {
             _pluginPath = pluginPath;
             _packageId = packageId;
             _logger = logger;
+            _hostSdkVersion = hostSdkVersion;
             _logger.LogInformation("PluginLoadContext created for plugin {PackageId} at path: {PluginPath}", _packageId, _pluginPath);
 
             // Fail fast on a binary-incompatible SDK major-version skew BEFORE any plugin
@@ -78,6 +90,29 @@ namespace Vion.Dale.Plugin
         public static IReadOnlyCollection<Assembly> GetLoadedSharedExtensionAssemblies()
         {
             return SharedExtensionAssemblies.Values.ToList().AsReadOnly();
+        }
+
+        /// <summary>
+        ///     Compares the library's minimum <c>Vion.Dale.Sdk</c> version with the host's, logs a warning
+        ///     when the host is below it, and returns the unmet minimum — or <c>null</c> when it is met or
+        ///     either version is unknown. It never refuses the library: call it after creating the context
+        ///     and load the library either way.
+        /// </summary>
+        /// <param name="mainAssemblyPath">The library's own assembly, which carries its declared minimum.</param>
+        public UnmetDaleSdkMinimum? CheckLibraryDaleSdkMinimum(string mainAssemblyPath)
+        {
+            var unmet = DaleSdkVersions.Compare(DaleSdkVersions.ReadLibrary(_pluginPath, mainAssemblyPath), _hostSdkVersion);
+            if (unmet != null)
+            {
+                _logger.LogWarning("Plugin {PackageId} needs Vion.Dale.Sdk {MinimumVersion} ({MinimumSource}) but the host runtime has loaded {HostVersion} — " +
+                                   "the plugin loads, and a logic block that uses SDK surface the host lacks fails when it does. Update the host runtime",
+                                   _packageId,
+                                   unmet.Minimum,
+                                   unmet.IsDeclared ? "declared by the library" : "the version the library was built against",
+                                   unmet.Host);
+            }
+
+            return unmet;
         }
 
         /// <summary>
@@ -383,7 +418,6 @@ namespace Vion.Dale.Plugin
         {
             // The host's loaded SDK — the same assembly GetSharedAssemblyNames() keys off.
             var sdkAssemblyName = typeof(LogicBlockBase).Assembly.GetName().Name!;
-            var hostSdkVersion = typeof(LogicBlockBase).Assembly.GetName().Version;
 
             if (!Directory.Exists(_pluginPath))
             {
@@ -406,7 +440,7 @@ namespace Vion.Dale.Plugin
 
                 // Throws PluginSdkVersionMismatchException on a differing major. Minor/patch
                 // differences return normally and remain warn-and-continue via LogDefaultContextLoad.
-                EnsureSdkMajorCompatible(_packageId, sdkAssemblyName, hostSdkVersion, referencedSdkVersion, _logger);
+                EnsureSdkMajorCompatible(_packageId, sdkAssemblyName, _hostSdkVersion, referencedSdkVersion, _logger);
             }
         }
 
