@@ -95,8 +95,9 @@ namespace Vion.Dale.Plugin
 
         /// <summary>
         ///     Compares the library's minimum <c>Vion.Dale.Sdk</c> version with the host's, logs a warning
-        ///     when the host is below it, and returns the unmet minimum — or <c>null</c> when it is met or
-        ///     either version is unknown. It never refuses the library: call it after creating the context
+        ///     when the host is below it, and returns the unmet minimum — or <c>null</c> when it is met,
+        ///     either version is unknown, or the majors differ (the context refuses that library when it is
+        ///     created). It never refuses the library: call it after creating the context
         ///     and load the library either way.
         /// </summary>
         /// <param name="mainAssemblyPath">The library's own assembly, which carries its declared minimum.</param>
