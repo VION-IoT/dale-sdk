@@ -14,6 +14,30 @@ Git tags drive versions. There is no `<Version>` in any SDK `.csproj`.
 
 All packages in this repository ship at the same version, bumped together.
 
+## Every release is additive within its major
+
+A logic-block library declares the oldest `Vion.Dale.Sdk` it runs on (the `MinimumDaleSdkVersion`
+MSBuild property, else the version it is built against), and the host runtime warns when it is
+older. That minimum is a sufficient answer only while each release is binary-compatible with the one
+before it within a major — so that is gated, and additive from release to release is additive across
+the major by induction.
+
+- **The gate** is `publish.yml`'s `package-validation` job, on every pull request and push to `main`
+  that builds: [`scripts/validate-packages.ps1`](../scripts/validate-packages.ps1) packs the solution
+  with the .NET SDK's package validation against the previous release. At the desk,
+  `pwsh scripts/validate-packages.ps1` does the same.
+- **The baseline is derived, never bumped**: the highest `vMAJOR.MINOR.PATCH` tag reachable from the
+  commit under test that does not point at it. After a release, the next pull request compares against
+  it with no edit anywhere. A prerelease tag is not a baseline.
+- **There is no suppression file.** A finding (`CP0001` a type removed or made internal, `CP0002` a
+  member removed, `CP0006` a member added to an interface without a default implementation, …) is fixed
+  in the code: add instead of change, give a new interface member a default implementation. A change
+  that cannot be made additive waits for the next major.
+- **What it does not cover**: behaviour, attribute semantics read by reflection, inlined constants and
+  the introspection JSON — those are the spec corpus's and the golden tests'.
+- **At 1.0** the previous release is of another major, and the script does not yet know to skip it:
+  the pull request that starts 1.0 teaches it to, as part of the planned break.
+
 ## Cutting a release
 
 Prerequisites:

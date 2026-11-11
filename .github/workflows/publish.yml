@@ -7,6 +7,8 @@ name: Pack & Publish
 #     push on a release tag.
 #   - style: the ReSharper cleanupcode gate (scripts/cleanup-code.ps1 -Verify) on its own
 #     runner, beside publish instead of after its tests — see the Code Style section in CLAUDE.md.
+#   - package-validation: every library package binary-compatible with the previous release
+#     (scripts/validate-packages.ps1), on its own runner beside publish.
 #   - verify-packages: the artifact gate for the 0.11.1 class — a packed assembly whose
 #     AssemblyVersion disagrees with its package version. See the job below for why it
 #     runs here and what that placement does not cover.
@@ -95,7 +97,7 @@ jobs:
           changed="$(git diff --name-only --no-renames "$base"...HEAD)"
 
           inert='^([^/]+\.md|docs/.*\.md|\.claude/(.*\.md|settings\.json)|\.github/([^/]+\.md|CODEOWNERS|release\.yml)|scripts/[^/]+\.ps1)$'
-          read_by_build='^(docs/package-readme\.md|scripts/(cleanup-code|set-version|stage-xml-docs|verify-packed-assembly-versions)\.ps1)$'
+          read_by_build='^(docs/package-readme\.md|scripts/(cleanup-code|set-version|stage-xml-docs|validate-packages|verify-packed-assembly-versions)\.ps1)$'
           others="$(grep -vE "$inert" <<< "$changed" || true)"
           if [ -n "$others" ] || grep -qE "$read_by_build" <<< "$changed"; then
             dotnet=true
@@ -169,6 +171,37 @@ jobs:
           else {
             ./scripts/cleanup-code.ps1 -Verify
           }
+
+  # A library declares the oldest Vion.Dale.Sdk it runs on, which is a sufficient answer only while
+  # every release is additive over the one before it within a major. scripts/validate-packages.ps1
+  # packs every library package against the previous release tag and fails on any binary-incompatible
+  # change; a finding is fixed in the code or waits for a major (docs/releasing.md).
+  #
+  # Placement: its own job, because the shared publish job's pack takes no baseline and its checkout
+  # carries no tags. Not on a release tag: the tag's commit came through a pull request whose run
+  # compared against the same previous release.
+  package-validation:
+    needs: changes
+    if: github.actor != 'github-actions[bot]' && needs.changes.outputs.dotnet == 'true' && github.ref_type != 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the baseline is the previous release tag, and a shallow checkout carries no tags
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1
+        with:
+          pat: ${{ secrets.AZURE_DEVOPS_PAT }}
+
+      - name: Validate packages against the previous release
+        shell: pwsh
+        run: ./scripts/validate-packages.ps1
 
   # Release 0.11.1 shipped three lib assemblies stamped 0.0.0.0 under correct nuspecs and
   # every consumer of them died at startup. The packages were well-formed, the tests were
@@ -440,7 +473,7 @@ jobs:
   # will not report. A skipped job passes; a failed or cancelled one fails this.
   ci:
     if: always()
-    needs: [changes, publish, style, verify-packages, drift-and-docs]
+    needs: [changes, publish, style, package-validation, verify-packages, drift-and-docs]
     runs-on: ubuntu-latest
     permissions: {}
     steps:

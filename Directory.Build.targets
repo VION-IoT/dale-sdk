@@ -14,4 +14,20 @@
         <None Include="$(MSBuildThisFileDirectory)docs\package-readme.md" Pack="true" PackagePath="/README.md"/>
     </ItemGroup>
 
+    <!--
+        Package validation: a pack given a baseline version fails on any binary-incompatible change from
+        that release of the same package, so every release stays additive over the one before it within
+        a major. scripts/validate-packages.ps1 derives the baseline (the previous release tag) and passes
+        it; without one nothing is validated, so an ordinary pack is unchanged. Every packable library
+        project takes part; the .NET SDK turns validation off for the CLI, a tool nothing compiles
+        against. Enabling it
+        solution-wide instead makes restore fetch a baseline for test projects that never shipped one.
+        For the same reason a project the baseline release did not contain is left out: the script
+        names each in DaleProjectsWithoutBaseline, |-separated, and its first release has nothing to
+        be compatible with.
+    -->
+    <PropertyGroup Condition="'$(IsPackable)' == 'true' AND '$(PackageValidationBaselineVersion)' != '' AND !$([System.String]::Copy('|$(DaleProjectsWithoutBaseline)|').Contains('|$(MSBuildProjectName)|'))">
+        <EnablePackageValidation>true</EnablePackageValidation>
+    </PropertyGroup>
+
 </Project>
