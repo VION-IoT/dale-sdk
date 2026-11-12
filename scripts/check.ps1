@@ -57,6 +57,12 @@
     3. `-p:Version=0.0.0-ci.1`. CI passes Version as a global MSBuild property, which beats a
        project's own <Version>; a fixture pinning a build literal reads 0.0.0-ci.N there and
        its own value here. Applied to -Build and -Test.
+
+  With -Test it also runs the suite the way publish.yml's real-version-test job does, as the
+  `test-real-version` line: in Release at the previous release's next patch, the version
+  `scripts/validate-packages.ps1 -NextPatch` prints. A pull request's CI tests twice because the
+  SDK reads 0.0.0 as an unknown version, so a test green at 0.0.0-ci.N can still fail at the
+  release tag; this run needs the release tags fetched, and fails when it cannot derive the version.
 .EXAMPLE
   pwsh -File scripts/check.ps1
 .EXAMPLE
@@ -221,7 +227,7 @@ try {
             if (-not $IsWindows) { 'dot-directories are already hidden on this platform' }
             elseif ($hiddenByUs.Count) { "dot-directories hidden for this run: $(($hiddenByUs.Name | Sort-Object) -join ', ')" }
             else { 'every dot-directory was hidden already' }
-        Write-Host "check: -CiShape - $shape1; -Build/-Test carry -p:Version=$ciVersion"
+        Write-Host "check: -CiShape - $shape1; -Build/-Test carry -p:Version=$ciVersion; -Test also tests at the previous release's next patch"
     }
     Write-Host ''
 
@@ -366,6 +372,14 @@ try {
     else { Add-Result 'build' 'SKIP' '-' 'not requested (pass -Build)' '' }
     if ($Test) { Invoke-Step 'test' 'dotnet' (@('test', $solution) + $versionArg) }
     else { Add-Result 'test' 'SKIP' '-' 'not requested (pass -Test)' '' }
+
+    # --- -CiShape: the suite again at a release-shaped version, as real-version-test runs it --
+    if ($CiShape -and -not $Test) { Add-Result 'test-real-version' 'SKIP' '-' 'not requested (pass -Test)' '' }
+    elseif ($CiShape) {
+        $nextPatch = & pwsh -NoProfile -File (Join-Path $RepoRoot 'scripts/validate-packages.ps1') -NextPatch -RepoRoot $RepoRoot 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) { Add-Result 'test-real-version' 'FAIL' '-' (Get-Summary $nextPatch) $nextPatch '' }
+        else { Invoke-Step 'test-real-version' 'dotnet' @('test', $solution, '-c', 'Release', "-p:Version=$($nextPatch.Trim())") }
+    }
 }
 finally {
     foreach ($d in $hiddenByUs) { $d.Attributes = $d.Attributes -band -bnot [System.IO.FileAttributes]::Hidden }

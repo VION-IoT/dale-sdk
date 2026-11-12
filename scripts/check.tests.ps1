@@ -329,7 +329,11 @@ try {
     # Case 10: -CiShape says what it did to the dot-directories and what it would pass to a
     # build, so a reader can tell a CI-shaped run from a plain one.
     Write-File (Join-Path $scriptsDir 'reader.ps1') @("`$p = 'Vion.Dale.Sdk/Foo.cs'", 'Write-Host $p')
-    Expect 0 'Case 10 (CiShape banner)' @('check: -CiShape - ', '-Build/-Test carry -p:Version=0.0.0-ci.1') @('-CiShape')
+    Expect 0 'Case 10 (CiShape banner)' @('check: -CiShape - ', '-Build/-Test carry -p:Version=0.0.0-ci.1',
+        "-Test also tests at the previous release's next patch", 'SKIP  test-real-version') @('-CiShape')
+    # Without -CiShape there is no real-version run to report, skipped or not.
+    Expect 0 'Case 10a (no real-version line unshaped)' @('SKIP  test') @()
+    if ($script:out -match 'test-real-version') { throw "Case 10a reported a real-version line without -CiShape`n$script:out" }
 
     # Case 10b: -CiShape's only side effect on the working tree is undone, including on the
     # path a reader would most doubt - a run that ended with a gate red.
@@ -348,6 +352,14 @@ try {
             throw "Case 10b needs a visible dot-directory to be a test at all; got '$($before -join ',')'"
         }
     }
+
+    # Case 10c: -CiShape -Test in a repository with no release tag cannot derive the real version,
+    # and that is a FAIL naming why, not a pass or a run at some other version. The fixture has no
+    # solution, so the plain test step fails too; the assertion is on the real-version line.
+    $nextPatchScript = Join-Path $scriptsDir 'validate-packages.ps1'
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'validate-packages.ps1') -Destination $nextPatchScript
+    Expect 1 'Case 10c (real version not derivable)' @('FAIL  test-real-version', 'no vMAJOR.MINOR.PATCH tag is reachable') @('-CiShape', '-Test')
+    Remove-Item -LiteralPath $nextPatchScript
 
     # Case 11: no workflow to derive from -> exit 2, distinct from a gate failing.
     Remove-Item -LiteralPath $workflow

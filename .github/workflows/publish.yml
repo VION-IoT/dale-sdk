@@ -9,6 +9,9 @@ name: Pack & Publish
 #     runner, beside publish instead of after its tests — see the Code Style section in CLAUDE.md.
 #   - package-validation: every library package binary-compatible with the previous release
 #     (scripts/validate-packages.ps1), on its own runner beside publish.
+#   - real-version-test: on a pull request, the solution built and tested once more at a
+#     release-shaped version (scripts/validate-packages.ps1 -NextPatch), since every non-tag run
+#     stamps 0.0.0.
 #   - verify-packages: the artifact gate for the 0.11.1 class — a packed assembly whose
 #     AssemblyVersion disagrees with its package version. See the job below for why it
 #     runs here and what that placement does not cover.
@@ -203,6 +206,54 @@ jobs:
         shell: pwsh
         run: ./scripts/validate-packages.ps1
 
+  # Every run but a tag's stamps 0.0.0-ci.N, and the SDK reads 0.0.0 as an unknown version, so a test
+  # that passes only there first fails on the release tag (v0.17.0, fixed in #286). This job builds and
+  # tests the solution once more at the previous release's next patch, stable, in Release as the tag's
+  # gate does: a real version in the release's major, which is what the version checks read. It need
+  # not be the next tag's version. Nothing is packed or pushed.
+  #
+  # Placement: its own job beside publish, not a step in package-validation: that job's pack already
+  # builds the solution at another version, so a step there would add a second full build to the same
+  # runner instead of running it in parallel. Pull requests only: main is branch-protected, so every
+  # change reaches it through a pull request whose run already tested it here, and a release tag's
+  # publish gate tests at the tag's own version.
+  real-version-test:
+    needs: changes
+    if: github.actor != 'github-actions[bot]' && needs.changes.outputs.dotnet == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the version derives from the previous release tag, and a shallow checkout carries no tags
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1
+        with:
+          pat: ${{ secrets.AZURE_DEVOPS_PAT }}
+
+      - name: Derive the version
+        id: version
+        shell: pwsh
+        run: |
+          $version = ./scripts/validate-packages.ps1 -NextPatch
+          if ($LASTEXITCODE -ne 0) { exit 1 }   # the script has said why, to the log
+          Write-Host "Testing at $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      # The shared dotnet-gate's two steps, at this version.
+      - name: Build
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: dotnet build Vion.Dale.Sdk.sln -c Release "-p:Version=$VERSION"
+
+      - name: Test
+        run: dotnet test Vion.Dale.Sdk.sln -c Release --no-build
+
   # Release 0.11.1 shipped three lib assemblies stamped 0.0.0.0 under correct nuspecs and
   # every consumer of them died at startup. The packages were well-formed, the tests were
   # green and the style gate was clean — only the dll bytes were stale, and nothing in the
@@ -248,7 +299,8 @@ jobs:
       !cancelled() && github.actor != 'github-actions[bot]'
       && needs.publish.result == 'success' && needs.verify-packages.result == 'success'
       && (needs.style.result == 'success' || needs.style.result == 'skipped')
-    needs: [publish, style, verify-packages]
+      && (needs.real-version-test.result == 'success' || needs.real-version-test.result == 'skipped')
+    needs: [publish, style, verify-packages, real-version-test]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # for snapshot auto-commit on PR head and on main
@@ -473,7 +525,7 @@ jobs:
   # will not report. A skipped job passes; a failed or cancelled one fails this.
   ci:
     if: always()
-    needs: [changes, publish, style, package-validation, verify-packages, drift-and-docs]
+    needs: [changes, publish, style, package-validation, real-version-test, verify-packages, drift-and-docs]
     runs-on: ubuntu-latest
     permissions: {}
     steps:

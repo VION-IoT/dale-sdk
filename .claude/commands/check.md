@@ -17,8 +17,10 @@ Run the repo's gate suite and report the result:
    behaviour could depend on the filesystem. It runs with the repository's dot-directories
    hidden (Linux hides them, Windows does not), scans `scripts/*.ps1` for path literals whose
    casing disagrees with the git index, and makes `-Build`/`-Test` carry the
-   `-p:Version=0.0.0-ci.1` that CI passes as a global MSBuild property. These are the three
-   shapes that were green at the desk and red on the runner during the SDD closeout. The
+   `-p:Version=0.0.0-ci.1` that CI passes as a global MSBuild property. With `-Test` it also runs
+   the suite as a pull request's second CI test run does, in Release at the previous release's next patch: the
+   `test-real-version` line, which needs the release tags fetched. Add it when a test's outcome can
+   depend on the version the build stamps. The
    hidden-directory shape shows up as a **smaller file tally**, not as a failure, so compare the
    counts against a plain run rather than reading the exit code alone.
 3. Add `-Build` and/or `-Test` when the change touches C#. They are off by default so the cheap

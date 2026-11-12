@@ -323,8 +323,9 @@ invocation fails `check.ps1` instead of quietly not running — and prints one p
 carrying that gate's own summary line. `-Build` and `-Test` add the solution build and test suite,
 off by default because this suite's whole point is being cheap enough to run on every change.
 `-CiShape` runs in the Linux runner's shape: the repository's dot-directories hidden, a scan for path
-literals in `scripts/*.ps1` whose casing disagrees with the git index, and `-p:Version=0.0.0-ci.1` on
-the build and test.
+literals in `scripts/*.ps1` whose casing disagrees with the git index, `-p:Version=0.0.0-ci.1` on
+the build and test, and with `-Test` the suite again in Release at the previous release's next patch,
+which needs the release tags fetched.
 
 Two gates' scripts live in other repositories, and `check.ps1` runs them from a checkout beside this
 one. The plugin's `spec-lint` and `spec-trace` run from `../architecture`, or `-ArchitectureRoot`:
