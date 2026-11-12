@@ -329,7 +329,11 @@ try {
     # Case 10: -CiShape says what it did to the dot-directories and what it would pass to a
     # build, so a reader can tell a CI-shaped run from a plain one.
     Write-File (Join-Path $scriptsDir 'reader.ps1') @("`$p = 'Vion.Dale.Sdk/Foo.cs'", 'Write-Host $p')
-    Expect 0 'Case 10 (CiShape banner)' @('check: -CiShape - ', '-Build/-Test carry -p:Version=0.0.0-ci.1') @('-CiShape')
+    Expect 0 'Case 10 (CiShape banner)' @('check: -CiShape - ', '-Build/-Test carry -p:Version=0.0.0-ci.1',
+        "-Test also tests at the previous release's next patch", 'SKIP  test-real-version') @('-CiShape')
+    # Without -CiShape there is no real-version run to report, skipped or not.
+    Expect 0 'Case 10a (no real-version line unshaped)' @('SKIP  test') @()
+    if ($script:out -match 'test-real-version') { throw "Case 10a reported a real-version line without -CiShape`n$script:out" }
 
     # Case 10b: -CiShape's only side effect on the working tree is undone, including on the
     # path a reader would most doubt - a run that ended with a gate red.
