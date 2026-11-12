@@ -31,6 +31,14 @@
 .PARAMETER Baseline
   Compare against this MAJOR.MINOR.PATCH release instead of deriving it from the tags.
 
+.PARAMETER NextPatch
+  Print the baseline's next patch, MAJOR.MINOR.(PATCH+1) with no prerelease suffix, and pack nothing.
+  It is the version publish.yml's real-version-test job stamps on its Release build: every other
+  pull-request and main build stamps 0.0.0, which the SDK reads as an unknown version, so a test that
+  passes only there would otherwise first fail on a release tag. It need not be the version the next
+  tag stamps, but it is a real version in the release's major. The version is the only output; a
+  missing or malformed baseline fails as it does for the gate.
+
 .PARAMETER RepoRoot
   The repository to validate; defaults to the one this script lives in.
 
@@ -42,16 +50,25 @@
   The CI gate: exit 1 on any binary-incompatible change from the previous release.
 
 .EXAMPLE
+  pwsh scripts/validate-packages.ps1 -NextPatch
+  The version CI's real-version-test job builds and tests the solution at.
+
+.EXAMPLE
   pwsh scripts/validate-packages.ps1 -Baseline 0.14.1
   Compare against an older release, at the desk.
 #>
 [CmdletBinding(DefaultParameterSetName = 'Validate')]
 param(
     [Parameter(ParameterSetName = 'Validate')]
+    [Parameter(ParameterSetName = 'NextPatch')]
     [string]$Baseline,
 
     [Parameter(ParameterSetName = 'Validate')]
+    [Parameter(ParameterSetName = 'NextPatch')]
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
+
+    [Parameter(Mandatory, ParameterSetName = 'NextPatch')]
+    [switch]$NextPatch,
 
     [Parameter(Mandatory, ParameterSetName = 'SelfTest')]
     [switch]$SelfTest
@@ -102,25 +119,44 @@ function Get-SolutionProjects([string]$repository)
             ForEach-Object { $_.Groups[1].Value.Replace('\', '/') })
 }
 
+# One patch above the baseline, stable: what -NextPatch prints.
+function Get-NextPatchVersion([string]$baseline)
+{
+    $version = [Version]$baseline
+    return "$($version.Major).$($version.Minor).$($version.Build + 1)"
+}
+
 # The version the validation pack stamps: one patch above the baseline, marked as no release.
 function Get-ValidationVersion([string]$baseline)
 {
-    $version = [Version]$baseline
-    return "$($version.Major).$($version.Minor).$($version.Build + 1)-validation"
+    return "$(Get-NextPatchVersion $baseline)-validation"
 }
 
-function Invoke-Validate
+# The -Baseline given or the one the tags derive, as MAJOR.MINOR.PATCH; $null once it has reported
+# why there is none.
+function Resolve-Baseline
 {
     $baselineVersion = if ($Baseline) { $Baseline } else { Get-ValidationBaseline $RepoRoot }
     if (-not $baselineVersion)
     {
         Write-Host "validate-packages: FAIL - no vMAJOR.MINOR.PATCH tag is reachable from HEAD in $RepoRoot other than one on HEAD itself, so there is no previous release to compare against. A shallow clone carries no tags: fetch them (git fetch --tags, or fetch-depth: 0)."
-        return 1
+        return $null
     }
 
     if ($baselineVersion -notmatch '^\d+\.\d+\.\d+$')
     {
         Write-Host "validate-packages: FAIL - baseline '$baselineVersion' is not MAJOR.MINOR.PATCH."
+        return $null
+    }
+
+    return $baselineVersion
+}
+
+function Invoke-Validate
+{
+    $baselineVersion = Resolve-Baseline
+    if (-not $baselineVersion)
+    {
         return 1
     }
 
@@ -265,6 +301,11 @@ function Invoke-SelfTest
         if ($stamped -eq '0.16.1-validation') { Write-Host "ok   validation version above 0.16.0 -> $stamped" }
         else { Write-Host "FAIL validation version above 0.16.0 -> $stamped"; $failures.Add('validation version') }
 
+        # -NextPatch over the derived baseline: the version is the whole output, stable, nothing packed.
+        $printed = & pwsh -NoProfile -File $PSCommandPath -NextPatch -RepoRoot $repository 2>&1
+        if ($LASTEXITCODE -eq 0 -and "$printed" -eq '0.11.1') { Write-Host "ok   -NextPatch above the derived 0.11.0 -> $printed" }
+        else { Write-Host "FAIL -NextPatch above the derived 0.11.0 -> exit $LASTEXITCODE`: $printed"; $failures.Add('next patch') }
+
         # The gate itself, on a repository with no release tag: it must fail before packing anything.
         $untagged = Join-Path $root 'untagged'
         New-Item -ItemType Directory -Path $untagged | Out-Null
@@ -281,6 +322,10 @@ function Invoke-SelfTest
         $gate = & pwsh -NoProfile -File $PSCommandPath -RepoRoot $untagged -Baseline 'v0.16' 2>&1
         if ($LASTEXITCODE -eq 1 -and "$gate" -match "baseline 'v0\.16' is not MAJOR\.MINOR\.PATCH") { Write-Host 'ok   malformed baseline fails the gate' }
         else { Write-Host "FAIL malformed baseline fails the gate -> exit $LASTEXITCODE`: $gate"; $failures.Add('malformed baseline') }
+
+        $gate = & pwsh -NoProfile -File $PSCommandPath -NextPatch -RepoRoot $untagged 2>&1
+        if ($LASTEXITCODE -eq 1 -and "$gate" -match 'no vMAJOR\.MINOR\.PATCH tag is reachable') { Write-Host 'ok   no baseline fails -NextPatch' }
+        else { Write-Host "FAIL no baseline fails -NextPatch -> exit $LASTEXITCODE`: $gate"; $failures.Add('next patch without baseline') }
     }
     finally
     {
@@ -296,6 +341,18 @@ function Invoke-SelfTest
 
     Write-Host 'Self-test passed.'
     return 0
+}
+
+if ($NextPatch)
+{
+    $baselineVersion = Resolve-Baseline
+    if (-not $baselineVersion)
+    {
+        exit 1
+    }
+
+    Write-Output (Get-NextPatchVersion $baselineVersion)
+    exit 0
 }
 
 $exitCode = if ($SelfTest) { Invoke-SelfTest } else { Invoke-Validate }
