@@ -353,6 +353,14 @@ try {
         }
     }
 
+    # Case 10c: -CiShape -Test in a repository with no release tag cannot derive the real version,
+    # and that is a FAIL naming why, not a pass or a run at some other version. The fixture has no
+    # solution, so the plain test step fails too; the assertion is on the real-version line.
+    $nextPatchScript = Join-Path $scriptsDir 'validate-packages.ps1'
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'validate-packages.ps1') -Destination $nextPatchScript
+    Expect 1 'Case 10c (real version not derivable)' @('FAIL  test-real-version', 'no vMAJOR.MINOR.PATCH tag is reachable') @('-CiShape', '-Test')
+    Remove-Item -LiteralPath $nextPatchScript
+
     # Case 11: no workflow to derive from -> exit 2, distinct from a gate failing.
     Remove-Item -LiteralPath $workflow
     Expect 2 'Case 11 (no workflow)' @('nothing to derive the gate list from')
