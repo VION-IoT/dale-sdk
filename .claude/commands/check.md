@@ -18,7 +18,7 @@ Run the repo's gate suite and report the result:
    hidden (Linux hides them, Windows does not), scans `scripts/*.ps1` for path literals whose
    casing disagrees with the git index, and makes `-Build`/`-Test` carry the
    `-p:Version=0.0.0-ci.1` that CI passes as a global MSBuild property. With `-Test` it also runs
-   the suite as CI's second test run does, in Release at the previous release's next patch: the
+   the suite as a pull request's second CI test run does, in Release at the previous release's next patch: the
    `test-real-version` line, which needs the release tags fetched. Add it when a test's outcome can
    depend on the version the build stamps. The
    hidden-directory shape shows up as a **smaller file tally**, not as a failure, so compare the

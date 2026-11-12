@@ -151,10 +151,11 @@ level. The reason belongs after the directive or directly above it, where the ne
 above the class; `scripts/pragma-reason-lint.ps1` gates it.
 
 **CI runs the suite in a shape a local run does not.** CI passes `Version` as a global property, so a
-project's own `<Version>` loses to it, and runs the suite twice: at `0.0.0-ci.N`, and in Release at
-the previous release's next patch (`scripts/validate-packages.ps1 -NextPatch`), because the SDK reads
-`0.0.0` as an unknown version and a release tag stamps a real one. A test whose outcome depends on the
-version the build stamps passes at both before it lands: `scripts/check.ps1 -CiShape -Test` runs both.
+project's own `<Version>` loses to it, and on a pull request runs the suite twice: at `0.0.0-ci.N`,
+and in Release at the previous release's next patch (`scripts/validate-packages.ps1 -NextPatch`),
+because the SDK reads `0.0.0` as an unknown version and a release tag stamps a real one. A test whose
+outcome depends on the version the build stamps passes at both: `scripts/check.ps1 -CiShape -Test`
+runs both.
 
 A proof about what the build decides — which projects pack, which assemblies carry an attribute,
 what a property evaluates to — is taken from the build system's evaluation (`dotnet msbuild <csproj>

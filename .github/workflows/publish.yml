@@ -9,8 +9,9 @@ name: Pack & Publish
 #     runner, beside publish instead of after its tests — see the Code Style section in CLAUDE.md.
 #   - package-validation: every library package binary-compatible with the previous release
 #     (scripts/validate-packages.ps1), on its own runner beside publish.
-#   - real-version-test: the solution built and tested once more at a release-shaped version
-#     (scripts/validate-packages.ps1 -NextPatch), since every non-tag run stamps 0.0.0.
+#   - real-version-test: on a pull request, the solution built and tested once more at a
+#     release-shaped version (scripts/validate-packages.ps1 -NextPatch), since every non-tag run
+#     stamps 0.0.0.
 #   - verify-packages: the artifact gate for the 0.11.1 class — a packed assembly whose
 #     AssemblyVersion disagrees with its package version. See the job below for why it
 #     runs here and what that placement does not cover.
@@ -213,11 +214,12 @@ jobs:
   #
   # Placement: its own job beside publish, not a step in package-validation: that job's pack already
   # builds the solution at another version, so a step there would add a second full build to the same
-  # runner instead of running it in parallel. Not on a release tag: the publish job's gate tests at the
-  # tag's own version.
+  # runner instead of running it in parallel. Pull requests only: main is branch-protected, so every
+  # change reaches it through a pull request whose run already tested it here, and a release tag's
+  # publish gate tests at the tag's own version.
   real-version-test:
     needs: changes
-    if: github.actor != 'github-actions[bot]' && needs.changes.outputs.dotnet == 'true' && github.ref_type != 'tag'
+    if: github.actor != 'github-actions[bot]' && needs.changes.outputs.dotnet == 'true' && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read

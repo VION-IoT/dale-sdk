@@ -60,9 +60,9 @@
 
   With -Test it also runs the suite the way publish.yml's real-version-test job does, as the
   `test-real-version` line: in Release at the previous release's next patch, the version
-  `scripts/validate-packages.ps1 -NextPatch` prints. CI tests twice because the SDK reads 0.0.0 as
-  an unknown version, so a test green at 0.0.0-ci.N can still fail at the release tag; this run
-  needs the release tags fetched, and fails when it cannot derive the version.
+  `scripts/validate-packages.ps1 -NextPatch` prints. A pull request's CI tests twice because the
+  SDK reads 0.0.0 as an unknown version, so a test green at 0.0.0-ci.N can still fail at the
+  release tag; this run needs the release tags fetched, and fails when it cannot derive the version.
 .EXAMPLE
   pwsh -File scripts/check.ps1
 .EXAMPLE
