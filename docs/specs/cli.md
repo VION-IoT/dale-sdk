@@ -348,7 +348,7 @@ consumer regenerating a committed copy then reads a diff of their drift and noth
 ## `dale upload`
 
 - `AC-CLI-011.1` (Ubiquitous): THE SYSTEM SHALL upload the packed package as multipart form data bearing the resolved access token, to the integrator's library-versions endpoint. GAP: the upload runs inside the command's own action, which packs a real project first; the request's shape is stated and its transport is proven by `AC-CLI-017.1`.
-- `AC-CLI-011.2` (Optional): WHERE no release notes were given THE SYSTEM SHALL omit that part rather than send an empty one. GAP: the same pack-and-upload path as `AC-CLI-011.1`.
+- `AC-CLI-011.2` (Optional): WHERE no release notes were given THE SYSTEM SHALL omit that part rather than send an empty one.
 - `AC-CLI-011.3` (Ubiquitous): THE SYSTEM SHALL pack in Release with packing forced on, and SHALL
   pass an explicit version to the pack only when one was given.
 - `AC-CLI-011.4` (Ubiquitous): THE SYSTEM SHALL report the version it packed by reading it back from
@@ -369,6 +369,15 @@ consumer regenerating a committed copy then reads a diff of their drift and noth
 - `AC-CLI-011.10` (Optional): WHERE a continuous-integration upload supplies no integrator THE
   SYSTEM SHALL resolve it from the credential's own memberships, which holds while each service
   account maps to exactly one integrator.
+- `AC-CLI-011.11` (Optional): WHERE release notes are given as a file THE SYSTEM SHALL send the
+  file's text unchanged as the release notes, and SHALL send none where the file is empty or holds
+  only whitespace.
+- `AC-CLI-011.12` (Event-driven): WHEN the release-notes file does not exist, or release notes are
+  given both inline and as a file, THE SYSTEM SHALL refuse before packing.
+
+The notes are text the platform parses no structure in, and this tool neither checks nor transforms
+them in either form. Their bound is the endpoint's: an over-long note is its refusal, relayed as any
+other upload failure.
 
 `AC-CLI-011.8` rests on the error envelope's `exceptionType`, and on nothing else: a conflict is a
 skip only when that member is the string `DuplicateLibraryVersionException`, compared exactly, with
