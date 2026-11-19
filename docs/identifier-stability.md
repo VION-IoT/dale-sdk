@@ -26,6 +26,9 @@ The one sentence everything here follows from:
   platform registers your library under, globally and case-insensitively: `dale upload` fails with a
   409 when the id is already taken by someone else. Use a vendor-prefixed id (`Acme.Chargers`), the
   same discipline nuget.org asks for.
+- **Say a rename in the version's release notes.** Translations are not the only readers of an
+  identifier: an integration reading block, service or property identifiers through the cloud API
+  meets the new one too, and nothing tells it the old one is gone.
 - **The contract-type token is the one identifier that is not a translation key**, and the one whose
   rename actually breaks something: the platform pairs a binding to its handler through it, so an
   orphaned contract type does not match where an orphaned translation merely falls back. Pick it once.
