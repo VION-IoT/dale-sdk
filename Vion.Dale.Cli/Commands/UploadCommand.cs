@@ -28,6 +28,11 @@ namespace Vion.Dale.Cli.Commands
             var clientIdOption = new Option<string?>("--client-id") { Description = "Keycloak client ID (for CI/non-interactive auth)" };
             var clientSecretOption = new Option<string?>("--client-secret") { Description = "Keycloak client secret (for CI/non-interactive auth)" };
             var releaseNotesOption = new Option<string?>("--release-notes") { Description = "Release notes for this version" };
+            var releaseNotesFileOption = new Option<string?>("--release-notes-file")
+                                         {
+                                             Description =
+                                                 "File holding the release notes for this version (Markdown); an empty file sends none",
+                                         };
             var environmentOption = new Option<string?>("--environment", "-e") { Description = "Target environment (overrides stored config)" };
             var integratorIdOption = new Option<Guid?>("--integrator-id") { Description = "Integrator ID (overrides stored config)" };
             var skipDuplicateOption = new Option<bool>("--skip-duplicate") { Description = "Treat 409 Conflict (version already exists) as success" };
@@ -36,6 +41,7 @@ namespace Vion.Dale.Cli.Commands
             command.Options.Add(clientIdOption);
             command.Options.Add(clientSecretOption);
             command.Options.Add(releaseNotesOption);
+            command.Options.Add(releaseNotesFileOption);
             command.Options.Add(environmentOption);
             command.Options.Add(integratorIdOption);
             command.Options.Add(skipDuplicateOption);
@@ -44,6 +50,16 @@ namespace Vion.Dale.Cli.Commands
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
                                   var projectPath = parseResult.GetValue<string?>("--project");
+
+                                  // Settled before packing or signing in, so a wrong notes argument costs nothing.
+                                  var releaseNotesChoice = ResolveReleaseNotes(parseResult.GetValue(releaseNotesOption), parseResult.GetValue(releaseNotesFileOption));
+                                  if (releaseNotesChoice.Error != null)
+                                  {
+                                      DaleConsole.Error(releaseNotesChoice.Error);
+                                      return 1;
+                                  }
+
+                                  var releaseNotes = releaseNotesChoice.Notes;
 
                                   // 1. Find project
                                   var project = CommandHelpers.RequireProject(projectPath);
@@ -103,7 +119,7 @@ namespace Vion.Dale.Cli.Commands
                                                                            ctx.ApiBaseUrl,
                                                                            ctx.IntegratorId,
                                                                            nupkgPath,
-                                                                           parseResult.GetValue(releaseNotesOption),
+                                                                           releaseNotes,
                                                                            skipDuplicate);
                                           if (response.StatusCode == HttpStatusCode.Conflict)
                                           {
@@ -183,7 +199,7 @@ namespace Vion.Dale.Cli.Commands
                                                                                                         ctx.ApiBaseUrl,
                                                                                                         ctx.IntegratorId,
                                                                                                         nupkgPath,
-                                                                                                        parseResult.GetValue(releaseNotesOption),
+                                                                                                        releaseNotes,
                                                                                                         skipDuplicate);
                                                                        responseBody = await response.Content.ReadAsStringAsync();
                                                                        if (response.StatusCode == HttpStatusCode.Conflict)
@@ -428,6 +444,68 @@ namespace Vion.Dale.Cli.Commands
         }
 
         /// <summary>
+        ///     The upload's multipart body: the package, and a <c>releaseNotes</c> part only when notes were
+        ///     given. An inline <c>--release-notes ""</c> is given, so it still sends its empty part.
+        /// </summary>
+        internal static MultipartFormDataContent BuildUploadForm(byte[] nupkgBytes, string nupkgFileName, string? releaseNotes)
+        {
+            var form = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(nupkgBytes);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            form.Add(fileContent, "nugetPackageFile", nupkgFileName);
+
+            if (releaseNotes != null)
+            {
+                form.Add(new StringContent(releaseNotes), "releaseNotes");
+            }
+
+            return form;
+        }
+
+        /// <summary>
+        ///     The release notes to send, from <c>--release-notes</c> or <c>--release-notes-file</c>, or the
+        ///     reason to refuse. A file's text is sent as read, because the platform parses no structure in
+        ///     it; a file holding only whitespace sends none, since the endpoint trims it to empty anyway. A
+        ///     missing file is refused, as <c>dale</c> refuses any named file that is not there.
+        /// </summary>
+        internal static ReleaseNotesChoice ResolveReleaseNotes(string? inlineNotes, string? notesFilePath)
+        {
+            if (notesFilePath == null)
+            {
+                return new ReleaseNotesChoice(inlineNotes, null);
+            }
+
+            if (inlineNotes != null)
+            {
+                return new ReleaseNotesChoice(null, "Give release notes with --release-notes or --release-notes-file, not both.");
+            }
+
+            // An unset CI variable arrives as an empty value; refused here, it never reaches GetFullPath's throw.
+            if (string.IsNullOrWhiteSpace(notesFilePath))
+            {
+                return new ReleaseNotesChoice(null, "No release notes file given to --release-notes-file.");
+            }
+
+            var fullPath = Path.GetFullPath(notesFilePath);
+            if (!File.Exists(fullPath))
+            {
+                return new ReleaseNotesChoice(null, $"No release notes file at '{fullPath}'.");
+            }
+
+            string text;
+            try
+            {
+                text = File.ReadAllText(fullPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return new ReleaseNotesChoice(null, $"Could not read the release notes file '{fullPath}': {ex.Message}");
+            }
+
+            return new ReleaseNotesChoice(string.IsNullOrWhiteSpace(text) ? null : text, null);
+        }
+
+        /// <summary>
         ///     Uploads the .nupkg to the cloud API. When skipDuplicate is true, 409 Conflict is returned as a response instead of
         ///     throwing.
         /// </summary>
@@ -440,18 +518,12 @@ namespace Vion.Dale.Cli.Commands
         {
             var uploadUrl = $"{apiBaseUrl}/Integrator/{integratorId}/LogicBlockLibraryVersions";
 
-            using var form = new MultipartFormDataContent();
-            var fileContent = new ByteArrayContent(await File.ReadAllBytesAsync(nupkgPath));
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            form.Add(fileContent, "nugetPackageFile", Path.GetFileName(nupkgPath));
-
-            if (releaseNotes != null)
-            {
-                form.Add(new StringContent(releaseNotes), "releaseNotes");
-            }
+            using var form = BuildUploadForm(await File.ReadAllBytesAsync(nupkgPath), Path.GetFileName(nupkgPath), releaseNotes);
 
             var allowed = skipDuplicate ? new[] { HttpStatusCode.Conflict } : Array.Empty<HttpStatusCode>();
             return await DaleHttpClient.PostAsync(uploadUrl, form, accessToken, default, allowed);
         }
+
+        internal sealed record ReleaseNotesChoice(string? Notes, string? Error);
     }
 }

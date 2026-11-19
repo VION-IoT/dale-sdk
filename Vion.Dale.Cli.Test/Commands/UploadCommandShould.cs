@@ -1,7 +1,10 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Commands;
 using Vion.Dale.Cli.Helpers;
@@ -284,6 +287,132 @@ namespace Vion.Dale.Cli.Test.Commands
 
             // Assert
             Assert.AreEqual(0, notices.Count);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.2")]
+        public void OmitReleaseNotesPartWhenNoneGiven()
+        {
+            // Arrange
+            var nupkg = new byte[] { 1, 2, 3 };
+
+            // Act
+            using var form = UploadCommand.BuildUploadForm(nupkg, "Acme.Energy.1.4.0.nupkg", null);
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { "nugetPackageFile" }, PartNames(form));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.11")]
+        public async Task SendReleaseNotesAsTextPartBesidePackage()
+        {
+            // Arrange
+            var nupkg = new byte[] { 1, 2, 3 };
+
+            // Act
+            using var form = UploadCommand.BuildUploadForm(nupkg, "Acme.Energy.1.4.0.nupkg", "## Added\n- a block");
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { "nugetPackageFile", "releaseNotes" }, PartNames(form));
+            Assert.AreEqual("## Added\n- a block", await form.Last().ReadAsStringAsync());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.11")]
+        public void SendNotesFileTextUnchanged()
+        {
+            // Arrange
+            const string notes = "---\ntitle: kept\n---\n## 1.4.0\n\n- Adds the `Heat pump` block.\n";
+            var notesFile = Path.Combine(_root, "RELEASE_NOTES.md");
+            File.WriteAllText(notesFile, notes);
+
+            // Act
+            var choice = UploadCommand.ResolveReleaseNotes(null, notesFile);
+
+            // Assert
+            Assert.AreEqual(notes, choice.Notes);
+            Assert.IsNull(choice.Error);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.11")]
+        [DataRow("")]
+        [DataRow(" \r\n\t\n")]
+        public void SendNoNotesFromBlankNotesFile(string content)
+        {
+            // Arrange
+            var notesFile = Path.Combine(_root, "RELEASE_NOTES.md");
+            File.WriteAllText(notesFile, content);
+
+            // Act
+            var choice = UploadCommand.ResolveReleaseNotes(null, notesFile);
+
+            // Assert
+            Assert.IsNull(choice.Notes);
+            Assert.IsNull(choice.Error);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.11")]
+        public void KeepInlineNotesWhenNoNotesFileGiven()
+        {
+            // Arrange / Act
+            var choice = UploadCommand.ResolveReleaseNotes("", null);
+
+            // Assert
+            Assert.AreEqual("", choice.Notes);
+            Assert.IsNull(choice.Error);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.12")]
+        public void RefuseMissingNotesFile()
+        {
+            // Arrange
+            var notesFile = Path.Combine(_root, "absent.md");
+
+            // Act
+            var choice = UploadCommand.ResolveReleaseNotes(null, notesFile);
+
+            // Assert
+            Assert.IsNull(choice.Notes);
+            StringAssert.Contains(choice.Error, notesFile);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.12")]
+        [DataRow("")]
+        [DataRow("  ")]
+        public void RefuseBlankNotesFilePath(string notesFile)
+        {
+            // Arrange / Act
+            var choice = UploadCommand.ResolveReleaseNotes(null, notesFile);
+
+            // Assert
+            Assert.IsNull(choice.Notes);
+            StringAssert.Contains(choice.Error, "--release-notes-file");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.12")]
+        public void RefuseNotesGivenInlineAndAsFile()
+        {
+            // Arrange
+            var notesFile = Path.Combine(_root, "RELEASE_NOTES.md");
+            File.WriteAllText(notesFile, "notes");
+
+            // Act
+            var choice = UploadCommand.ResolveReleaseNotes("inline", notesFile);
+
+            // Assert
+            Assert.IsNull(choice.Notes);
+            StringAssert.Contains(choice.Error, "not both");
+        }
+
+        private static string[] PartNames(MultipartFormDataContent form)
+        {
+            return form.Select(part => part.Headers.ContentDisposition!.Name!.Trim('"')).ToArray();
         }
 
         private DaleProject ProjectAt(string packageId)

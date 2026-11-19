@@ -411,17 +411,18 @@ Usage:
   Vion.Dale.Cli upload [options]
 
 Options:
-  --client-id <client-id>          Keycloak client ID (for CI/non-interactive auth)
-  --client-secret <client-secret>  Keycloak client secret (for CI/non-interactive auth)
-  --release-notes <release-notes>  Release notes for this version
-  -e, --environment <environment>  Target environment (overrides stored config)
-  --integrator-id <integrator-id>  Integrator ID (overrides stored config)
-  --skip-duplicate                 Treat 409 Conflict (version already exists) as success
-  --version <version>              Override the package version (drives the produced .nupkg, e.g. from a tag/CI)
-  -?, -h, --help                   Show help and usage information
-  -o, --output <json|table>        Output format [default: table]
-  --project <project>              Path to .csproj file
-  --verbose                        Show detailed output
+  --client-id <client-id>                    Keycloak client ID (for CI/non-interactive auth)
+  --client-secret <client-secret>            Keycloak client secret (for CI/non-interactive auth)
+  --release-notes <release-notes>            Release notes for this version
+  --release-notes-file <release-notes-file>  File holding the release notes for this version (Markdown); an empty file sends none
+  -e, --environment <environment>            Target environment (overrides stored config)
+  --integrator-id <integrator-id>            Integrator ID (overrides stored config)
+  --skip-duplicate                           Treat 409 Conflict (version already exists) as success
+  --version <version>                        Override the package version (drives the produced .nupkg, e.g. from a tag/CI)
+  -?, -h, --help                             Show help and usage information
+  -o, --output <json|table>                  Output format [default: table]
+  --project <project>                        Path to .csproj file
+  --verbose                                  Show detailed output
 
 ---
 ## dale login
