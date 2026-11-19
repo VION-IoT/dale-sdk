@@ -1,0 +1,1 @@
+2026-11-20 · review · mbus-service-provider · Vion.Dale.Sdk.MBus shipped in 0.17.0 without an IConfigureServices, dropped in T-005 as surface with no job; the host runtime logs an Error for a shared assembly with handler actors and none, a rule no SDK doc, spec or analyzer stated. The operator found it in gateway logs and asked for the registration and a build-time check.
