@@ -24,7 +24,8 @@ namespace Vion.Dale.Sdk.Generators.Test
                                                                                                           .ToImmutableArray();
 
         /// <summary>The analyzers that report from a whole-compilation action, which is what the tag is for.</summary>
-        private static readonly DiagnosticAnalyzer[] WholeCompilationAnalyzers = [new PublicApiDocumentationAnalyzer(), new ServiceRelationAnalyzer()];
+        private static readonly DiagnosticAnalyzer[] WholeCompilationAnalyzers =
+            [new PublicApiDocumentationAnalyzer(), new ServiceRelationAnalyzer(), new SharedHandlerRegistrationAnalyzer()];
 
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-001.1")]

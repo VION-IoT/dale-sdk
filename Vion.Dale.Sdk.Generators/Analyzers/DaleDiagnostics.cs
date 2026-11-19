@@ -629,5 +629,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                   Category,
                                                                                                   DiagnosticSeverity.Error,
                                                                                                   true);
+
+        // --- Shared assemblies ---
+
+        /// <summary>
+        ///     An assembly marked <c>[DaleSharedAssembly]</c> that declares handler actors but no
+        ///     <c>IConfigureServices</c>. The host runtime reports exactly that shape when it loads the
+        ///     assembly, on every gateway that does, and nothing before it says so.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE049_SharedHandlerAssemblyWithoutRegistration = new("DALE049",
+                                                                                                           "Shared assembly declares handler actors but no IConfigureServices",
+                                                                                                           "Assembly '{0}' is marked [DaleSharedAssembly] and declares handler actors ({1}) but no IConfigureServices implementation. The host runtime reports such an assembly when it loads it. Add a class implementing IConfigureServices to this assembly.",
+                                                                                                           Category,
+                                                                                                           DiagnosticSeverity.Error,
+                                                                                                           true,
+                                                                                                           customTags: new[] { WellKnownDiagnosticTags.CompilationEnd });
     }
 }

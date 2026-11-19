@@ -16,6 +16,11 @@ namespace Vion.Dale.Sdk.Core
     ///         <item>Contract message types used in cross-plugin communication</item>
     ///     </list>
     ///     <para>
+    ///         An assembly that defines handler actors also contains a class implementing
+    ///         <see cref="IConfigureServices" />, which the runtime invokes when it loads the assembly; the build
+    ///         reports one that does not.
+    ///     </para>
+    ///     <para>
     ///         Without this attribute, each plugin loads its own copy of the assembly, causing
     ///         types like <c>ContractMessage&lt;SetDigitalOutput&gt;</c> to have different type
     ///         identities across plugins. This breaks actor message pattern matching and routing.

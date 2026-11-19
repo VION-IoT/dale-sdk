@@ -332,3 +332,25 @@ namespace Vion.Dale.Sdk.Emission
         bool Exceeds(in T lastEmitted, in T candidate, string threshold);
     }
 }
+
+namespace Vion.Dale.Sdk.Core
+{
+    // The shared-assembly mark and the registration interface, by the names the plugin loader and the
+    // host runtime read. The real interface takes an IServiceCollection, which no test compilation
+    // references; the shared-handler rule reads only that a type implements it.
+    [AttributeUsage(AttributeTargets.Assembly)]
+    public sealed class DaleSharedAssemblyAttribute : Attribute;
+
+    public interface IConfigureServices;
+}
+
+namespace Vion.Dale.Sdk.Abstractions
+{
+    // The handler-actor interface and the base the SDK's handlers derive from, reduced to their names.
+    public interface IServiceProviderHandlerActor;
+
+    public abstract class ServiceProviderHandlerBase : IServiceProviderHandlerActor;
+
+    [AttributeUsage(AttributeTargets.Class)]
+    public sealed class DevelopmentOnlyHandlerAttribute : Attribute;
+}

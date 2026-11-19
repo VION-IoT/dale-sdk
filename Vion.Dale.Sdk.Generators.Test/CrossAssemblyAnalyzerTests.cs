@@ -1,12 +1,8 @@
-using System.Collections.Immutable;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Testing;
 using Vion.Dale.Sdk.Generators.Analyzers;
+using static Vion.Dale.Sdk.Generators.Test.Helpers.MetadataCompilation;
 
 namespace Vion.Dale.Sdk.Generators.Test
 {
@@ -14,7 +10,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     ///     The rules whose subject is the boundary between the compilation and its references. The
     ///     ordinary harness injects the stub attribute file as a source document, so nothing in it can
     ///     reproduce a consumer's compilation — where the SDK, and anything else, is metadata. These tests
-    ///     emit a real referenced assembly instead.
+    ///     emit a real referenced assembly instead, through <see cref="Helpers.MetadataCompilation" />.
     ///     <para>
     ///         <c>DALE026</c> is why the file exists: <c>Vion.Dale.Sdk.Core.PropertyGroup</c> is a source
     ///         declaration inside the SDK and metadata for every consumer, and a source-only lookup warned
@@ -157,7 +153,7 @@ namespace Api
 public class Consumer { }";
 
             // Act
-            var diagnostics = await RunAsync(source, new PublicApiDocumentationAnalyzer(), sdkReference, library);
+            var diagnostics = await RunAnalyzerAsync(source, new PublicApiDocumentationAnalyzer(), sdkReference, library);
 
             // Assert
             Assert.IsEmpty(diagnostics, "a referenced assembly's declarations are its own build's business: " + string.Join("; ", diagnostics.Select(d => d.GetMessage())));
@@ -188,62 +184,16 @@ public abstract class BaseBlock : LogicBlockBase
 public class MyBlock : BaseBlock { }";
 
             // Act
-            var diagnostics = await RunAsync(source, new VisibleWhenPredicateAnalyzer(), sdkReference, library);
+            var diagnostics = await RunAnalyzerAsync(source, new VisibleWhenPredicateAnalyzer(), sdkReference, library);
 
             // Assert
             Assert.IsEmpty(diagnostics,
                            "a predicate declared in metadata was judged when its own assembly was built: " + string.Join("; ", diagnostics.Select(d => d.GetMessage())));
         }
 
-        private static async Task<MetadataReference> CompileSdkStubAsync()
-        {
-            var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(CrossAssemblyAnalyzerTests).Assembly.Location)!,
-                                         "..",
-                                         "..",
-                                         "..",
-                                         "Helpers",
-                                         "TestAttributeStubs.cs");
-            return await CompileLibraryAsync("DaleSdkStub", File.ReadAllText(stubsPath));
-        }
-
-        private static async Task<MetadataReference> CompileLibraryAsync(string assemblyName, string source, params MetadataReference[] additionalReferences)
-        {
-            var refs = await ReferenceAssemblies.Net.Net90.ResolveAsync(LanguageNames.CSharp, default);
-            var compilation = CSharpCompilation.Create(assemblyName,
-                                                       new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
-                                                       refs.AddRange(additionalReferences),
-                                                       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
-            using var stream = new MemoryStream();
-            var emit = compilation.Emit(stream);
-            if (!emit.Success)
-            {
-                Assert.Fail($"{assemblyName} compilation failed:\n" + string.Join("\n", emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
-            }
-
-            stream.Position = 0;
-            return MetadataReference.CreateFromImage(stream.ToArray());
-        }
-
         private static Task<Diagnostic[]> RunAsync(string consumerSource, params MetadataReference[] references)
         {
-            return RunAsync(consumerSource, new LiteralGroupKeyAnalyzer(), references);
-        }
-
-        private static async Task<Diagnostic[]> RunAsync(string consumerSource, DiagnosticAnalyzer analyzer, params MetadataReference[] references)
-        {
-            var refs = await ReferenceAssemblies.Net.Net90.ResolveAsync(LanguageNames.CSharp, default);
-            var compilation = CSharpCompilation.Create("Consumer",
-                                                       new[] { CSharpSyntaxTree.ParseText(consumerSource, new CSharpParseOptions(LanguageVersion.Latest)) },
-                                                       refs.AddRange(references),
-                                                       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
-            var compileErrors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-            Assert.IsEmpty(compileErrors, "consumer compilation has errors: " + string.Join("; ", compileErrors.Select(d => d.ToString())));
-
-            var withAnalyzers = compilation.WithAnalyzers(ImmutableArray.Create(analyzer));
-            var diagnostics = await withAnalyzers.GetAnalyzerDiagnosticsAsync(default);
-            return diagnostics.ToArray();
+            return RunAnalyzerAsync(consumerSource, new LiteralGroupKeyAnalyzer(), references);
         }
     }
 }
