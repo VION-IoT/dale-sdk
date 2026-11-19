@@ -265,6 +265,9 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
 - 2026-11-20, review note 3: **handler names print as the runtime prints them**, `Type.FullName`
   form (`Acme.Outer+MeterHandler`, with a generic's arity), which is what `D3`'s "same shape" promised.
   The `nested and private` row now pins it: going back to C# display names reddens that row alone.
+- 2026-11-20, review note 2: **no separate keep-out test for the probe.** `KeepModbusProbeOutOfOrdinaryBuild`'s
+  Modbus.Core row already fails on any error the ordinary build reports, `DALE049` included, so a
+  test of its own reddened under no change the existing row does not.
 
 ---
 

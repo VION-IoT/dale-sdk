@@ -67,7 +67,9 @@ namespace Vion.Dale.Sdk.Generators.Test
 
         /// <summary>
         ///     The shared assembly the shared-handler probe is linked into. It declares neither a handler actor nor an
-        ///     <c>IConfigureServices</c>, so the probe's handler is the only thing that can draw DALE049 there.
+        ///     <c>IConfigureServices</c>, so the probe's handler is the only thing that can draw DALE049 there. That the
+        ///     probe stays out of its ordinary build is <see cref="KeepModbusProbeOutOfOrdinaryBuild" />'s row for this
+        ///     project: DALE049 is an error, and that row fails on any error the ordinary build reports.
         /// </summary>
         private const string SharedHandlerProbedPackage = "Vion.Dale.Sdk.Modbus.Core";
 
@@ -350,14 +352,6 @@ namespace Vion.Dale.Sdk.Generators.Test
             Assert.IsTrue(build.LinesOf(SharedHandlerProbedPackage)
                                .Any(line => line.Contains("error DALE049") && line.Contains("Vion.Dale.Sdk.Modbus.Core.SharedHandlerWiringProbe")),
                           $"The probe build of {SharedHandlerProbedPackage} drew no DALE049 naming the probe's handler, so the rule did not fail it.{Environment.NewLine}{build.Output}");
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-ANLZ-018.4")]
-        public void KeepSharedHandlerProbeOutOfOrdinaryBuild()
-        {
-            // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time
-            AssertOrdinaryBuildOf(SharedHandlerProbedPackage, "DALE049");
         }
 
         [TestMethod]
