@@ -53,10 +53,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            var handlerActors = concreteTypes.Where(type => Implements(type, HandlerActorInterfaceName))
-                                             .Select(type => type.ToDisplayString())
-                                             .OrderBy(name => name, StringComparer.Ordinal)
-                                             .ToList();
+            var handlerActors = concreteTypes.Where(type => Implements(type, HandlerActorInterfaceName)).Select(RuntimeName).OrderBy(name => name, StringComparer.Ordinal).ToList();
             if (handlerActors.Count == 0)
             {
                 return;
@@ -72,6 +69,18 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static bool Implements(INamedTypeSymbol type, string interfaceFullName)
         {
             return type.AllInterfaces.Any(i => AnalyzerHelper.GetFullName(i) == interfaceFullName);
+        }
+
+        // The name as the runtime's report prints it, Type.FullName: a nested type after '+' and a generic one with its
+        // arity, so a name taken from a gateway's log finds the build's line and the other way round.
+        private static string RuntimeName(INamedTypeSymbol type)
+        {
+            if (type.ContainingType != null)
+            {
+                return RuntimeName(type.ContainingType) + "+" + type.MetadataName;
+            }
+
+            return type.ContainingNamespace.IsGlobalNamespace ? type.MetadataName : type.ContainingNamespace.ToDisplayString() + "." + type.MetadataName;
         }
     }
 }

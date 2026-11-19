@@ -20,7 +20,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [DataRow("public class MeterHandler : ServiceProviderHandlerBase { }", "Acme.MeterHandler", DisplayName = "deriving from the SDK's base")]
         [DataRow("public class MeterHandler : IServiceProviderHandlerActor { }", "Acme.MeterHandler", DisplayName = "implementing the interface")]
         [DataRow("[DevelopmentOnlyHandler] public class MeterProviderHandler : ServiceProviderHandlerBase { }", "Acme.MeterProviderHandler", DisplayName = "development-only")]
-        [DataRow("internal class Outer { private sealed class MeterHandler : ServiceProviderHandlerBase { } }", "Acme.Outer.MeterHandler", DisplayName = "nested and private")]
+        [DataRow("internal class Outer { private sealed class MeterHandler : ServiceProviderHandlerBase { } }", "Acme.Outer+MeterHandler", DisplayName = "nested and private")]
         public async Task ReportHandlerActorOfSharedAssemblyWithoutRegistration(string handlerDeclaration, string handlerName)
         {
             // Arrange

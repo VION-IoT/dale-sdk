@@ -262,6 +262,9 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
   internal one can become public later. `mbus.md` had called it public "so the runtime can reach it",
   which was not true; it now says the registration is internal. Sibling sweep: the I/O packages'
   registrations stay public `[InternalApi]`, since narrowing them is a break this change does not need.
+- 2026-11-20, review note 3: **handler names print as the runtime prints them**, `Type.FullName`
+  form (`Acme.Outer+MeterHandler`, with a generic's arity), which is what `D3`'s "same shape" promised.
+  The `nested and private` row now pins it: going back to C# display names reddens that row alone.
 
 ---
 
