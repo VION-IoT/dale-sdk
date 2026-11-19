@@ -46,6 +46,14 @@
                  Link="AnalyzerWiring\ModbusCorePublicApiWiringProbe.cs"/>
     </ItemGroup>
 
+    <!-- The shared-handler probe: a concrete handler actor in this shared assembly, which declares no
+         IConfigureServices, so DALE049 must fail the build. Linked in only under
+         `dotnet build -p:DaleSharedHandlerAnalyzerWiringProbe=true`; AnalyzerWiringShould runs it. -->
+    <ItemGroup Condition="'$(DaleSharedHandlerAnalyzerWiringProbe)' == 'true'">
+        <Compile Include="..\Vion.Dale.Sdk.Generators.Test\AnalyzerWiring\SharedHandlerWiringProbe.cs"
+                 Link="AnalyzerWiring\SharedHandlerWiringProbe.cs"/>
+    </ItemGroup>
+
     <ItemGroup>
         <InternalsVisibleTo Include="Vion.Dale.Sdk.Modbus.Core.Test"/>
         <InternalsVisibleTo Include="DynamicProxyGenAssembly2"/>

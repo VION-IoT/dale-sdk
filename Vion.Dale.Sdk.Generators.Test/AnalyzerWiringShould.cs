@@ -63,6 +63,14 @@ namespace Vion.Dale.Sdk.Generators.Test
 
         private const string TestKitProbeProperty = "DaleTestKitAnalyzerWiringProbe";
 
+        private const string SharedHandlerProbeProperty = "DaleSharedHandlerAnalyzerWiringProbe";
+
+        /// <summary>
+        ///     The shared assembly the shared-handler probe is linked into. It declares neither a handler actor nor an
+        ///     <c>IConfigureServices</c>, so the probe's handler is the only thing that can draw DALE049 there.
+        /// </summary>
+        private const string SharedHandlerProbedPackage = "Vion.Dale.Sdk.Modbus.Core";
+
         /// <summary>
         ///     The three Modbus packages and the published namespace each declares. Until the analyzer
         ///     reference landed beside it, none of the three was judged by any DALE diagnostic at all, and
@@ -119,6 +127,8 @@ namespace Vion.Dale.Sdk.Generators.Test
 
         private static readonly BuildSet MBusProbe = new(nameof(MBusProbe), MBusProbeProperty, null, [MBusPackage]);
 
+        private static readonly BuildSet SharedHandlerProbe = new(nameof(SharedHandlerProbe), SharedHandlerProbeProperty, null, [SharedHandlerProbedPackage]);
+
         /// <summary>Every probed project with no probe property set: the build a consumer of the SDK gets.</summary>
         private static readonly BuildSet Ordinary = new(nameof(Ordinary),
                                                         null,
@@ -152,7 +162,7 @@ namespace Vion.Dale.Sdk.Generators.Test
             // lands under here and is thrown away after the last test.
             _scratch = Path.Combine(Path.GetTempPath(), "dale-analyzer-wiring", Guid.NewGuid().ToString("N"));
 
-            foreach (var set in new[] { IoProbe, TestKitProbe, ModbusProbe, HttpProbe, MBusProbe, Ordinary })
+            foreach (var set in new[] { IoProbe, TestKitProbe, ModbusProbe, HttpProbe, MBusProbe, SharedHandlerProbe, Ordinary })
             {
                 Results[set.Name] = Build(set);
             }
@@ -323,6 +333,30 @@ namespace Vion.Dale.Sdk.Generators.Test
         {
             // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time
             AssertOrdinaryBuildOf(projectName, "DALE014");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-010.1")]
+        public void FailSharedAssemblyBuildWhenHandlerActorHasNoRegistration()
+        {
+            // Arrange
+            // The unit tests compile the SDK from stubs; this is the real package against the real SDK, where the mark
+            // and both interfaces are metadata.
+
+            // Act
+            var build = Results[SharedHandlerProbe.Name];
+
+            // Assert
+            Assert.IsTrue(build.LinesOf(SharedHandlerProbedPackage).Any(line => line.Contains("error DALE049") && line.Contains("Vion.Dale.Sdk.Modbus.Core.SharedHandlerWiringProbe")),
+                          $"The probe build of {SharedHandlerProbedPackage} drew no DALE049 naming the probe's handler, so the rule did not fail it.{Environment.NewLine}{build.Output}");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-018.4")]
+        public void KeepSharedHandlerProbeOutOfOrdinaryBuild()
+        {
+            // Arrange / Act / Assert — the probe is only a gate as long as it is invisible the rest of the time
+            AssertOrdinaryBuildOf(SharedHandlerProbedPackage, "DALE049");
         }
 
         [TestMethod]

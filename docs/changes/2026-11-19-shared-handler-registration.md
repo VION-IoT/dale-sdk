@@ -241,6 +241,11 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
   `AssemblyAttributes.cs(3,12): error DALE049: Assembly 'Vion.Dale.Sdk.MBus' is marked
   [DaleSharedAssembly] and declares handler actors (Vion.Dale.Sdk.MBus.MBusHandler) but no
   IConfigureServices implementation. …`
+- 2026-11-20, `T-003`: the probe gets a **build set of its own**
+  (`-p:DaleSharedHandlerAnalyzerWiringProbe=true`) rather than riding the Modbus probe's property.
+  `DALE049` is an error, so under the shared property Modbus.Core would fail to compile and take the
+  Rtu and Tcp builds, and so their `DALE014` rows, down with it. The probe implements
+  `IServiceProviderHandlerActor` directly, the smallest concrete handler the real SDK accepts.
 
 ---
 
