@@ -29,9 +29,10 @@ namespace Vion.Dale.Cli.Commands
             var clientSecretOption = new Option<string?>("--client-secret") { Description = "Keycloak client secret (for CI/non-interactive auth)" };
             var releaseNotesOption = new Option<string?>("--release-notes") { Description = "Release notes for this version" };
             var releaseNotesFileOption = new Option<string?>("--release-notes-file")
-            {
-                Description = "File holding the release notes for this version (Markdown); an empty file sends none",
-            };
+                                         {
+                                             Description =
+                                                 "File holding the release notes for this version (Markdown); an empty file sends none",
+                                         };
             var environmentOption = new Option<string?>("--environment", "-e") { Description = "Target environment (overrides stored config)" };
             var integratorIdOption = new Option<Guid?>("--integrator-id") { Description = "Integrator ID (overrides stored config)" };
             var skipDuplicateOption = new Option<bool>("--skip-duplicate") { Description = "Treat 409 Conflict (version already exists) as success" };
@@ -51,8 +52,7 @@ namespace Vion.Dale.Cli.Commands
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
                                   // Settled before packing or signing in, so a wrong notes argument costs nothing.
-                                  var releaseNotesChoice = ResolveReleaseNotes(parseResult.GetValue(releaseNotesOption),
-                                                                               parseResult.GetValue(releaseNotesFileOption));
+                                  var releaseNotesChoice = ResolveReleaseNotes(parseResult.GetValue(releaseNotesOption), parseResult.GetValue(releaseNotesFileOption));
                                   if (releaseNotesChoice.Error != null)
                                   {
                                       DaleConsole.Error(releaseNotesChoice.Error);
@@ -499,8 +499,6 @@ namespace Vion.Dale.Cli.Commands
             return new ReleaseNotesChoice(string.IsNullOrWhiteSpace(text) ? null : text, null);
         }
 
-        internal sealed record ReleaseNotesChoice(string? Notes, string? Error);
-
         /// <summary>
         ///     Uploads the .nupkg to the cloud API. When skipDuplicate is true, 409 Conflict is returned as a response instead of
         ///     throwing.
@@ -519,5 +517,7 @@ namespace Vion.Dale.Cli.Commands
             var allowed = skipDuplicate ? new[] { HttpStatusCode.Conflict } : Array.Empty<HttpStatusCode>();
             return await DaleHttpClient.PostAsync(uploadUrl, form, accessToken, default, allowed);
         }
+
+        internal sealed record ReleaseNotesChoice(string? Notes, string? Error);
     }
 }
