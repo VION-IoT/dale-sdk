@@ -347,7 +347,8 @@ namespace Vion.Dale.Sdk.Generators.Test
             var build = Results[SharedHandlerProbe.Name];
 
             // Assert
-            Assert.IsTrue(build.LinesOf(SharedHandlerProbedPackage).Any(line => line.Contains("error DALE049") && line.Contains("Vion.Dale.Sdk.Modbus.Core.SharedHandlerWiringProbe")),
+            Assert.IsTrue(build.LinesOf(SharedHandlerProbedPackage)
+                               .Any(line => line.Contains("error DALE049") && line.Contains("Vion.Dale.Sdk.Modbus.Core.SharedHandlerWiringProbe")),
                           $"The probe build of {SharedHandlerProbedPackage} drew no DALE049 naming the probe's handler, so the rule did not fail it.{Environment.NewLine}{build.Output}");
         }
 

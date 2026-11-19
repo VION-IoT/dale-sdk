@@ -93,7 +93,8 @@ namespace Acme
             var diagnostics = await MetadataCompilation.RunAnalyzerAsync(source, new SharedHandlerRegistrationAnalyzer(), sdkReference);
 
             // Assert
-            Assert.IsEmpty(diagnostics, "an unmarked assembly is loaded once per plugin, and the runtime asks nothing of it: " + string.Join("; ", diagnostics.Select(d => d.GetMessage())));
+            Assert.IsEmpty(diagnostics,
+                           "an unmarked assembly is loaded once per plugin, and the runtime asks nothing of it: " + string.Join("; ", diagnostics.Select(d => d.GetMessage())));
         }
 
         [TestMethod]
