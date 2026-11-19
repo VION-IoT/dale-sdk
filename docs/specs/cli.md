@@ -372,8 +372,8 @@ consumer regenerating a committed copy then reads a diff of their drift and noth
 - `AC-CLI-011.11` (Optional): WHERE release notes are given as a file THE SYSTEM SHALL send the
   file's text unchanged as the release notes, and SHALL send none where the file is empty or holds
   only whitespace.
-- `AC-CLI-011.12` (Event-driven): WHEN the release-notes file does not exist, or release notes are
-  given both inline and as a file, THE SYSTEM SHALL refuse before packing.
+- `AC-CLI-011.12` (Event-driven): WHEN the release-notes file is not named or does not exist, or
+  release notes are given both inline and as a file, THE SYSTEM SHALL refuse the upload.
 
 The notes are text the platform parses no structure in, and this tool neither checks nor transforms
 them in either form. Their bound is the endpoint's: an over-long note is its refusal, relayed as any
