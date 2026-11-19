@@ -232,7 +232,7 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
 - 2026-11-20, `T-001`: the tests compile the stubs as a **referenced assembly**, because the mark
   counts only where another assembly defines it (`D2`, `AC-PLUG-005.8`). The ordinary harness injects
   the stubs as source, and the analyzer would treat them as the assembly's own attribute. The
-  referenced-assembly harness `CrossAssemblyAnalyzerTests` already had moved to
+  referenced-assembly harness that `CrossAssemblyAnalyzerTests` already had moved to
   `Helpers/MetadataCompilation.cs`, since two test classes now use it. The stubs gain
   `DaleSharedAssemblyAttribute`, `IConfigureServices`, `IServiceProviderHandlerActor`,
   `ServiceProviderHandlerBase` and `DevelopmentOnlyHandlerAttribute`.
