@@ -1,6 +1,6 @@
 ---
 slug: shared-handler-registration
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight          # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: PLUG, ANLZ, MBUS
 author: Jonas Bertsch (drafted in a Claude session)
@@ -102,7 +102,7 @@ registration it lacks.
   be built. Whether dale keeps, rewords or drops its check is dale's call. It goes in the PR body's
   `Draft items`, for the operator to file or drop (§ Routing of `spec-process.md`).
 
-**(c) Proposed, waiting for the operator:** question 1.
+**(c) Proposed, waiting for the operator:** question 1, answered `Error` (2026-11-19).
 
 ### Reviewer's questions
 
@@ -119,6 +119,9 @@ registration it lacks.
      additive within its major says what the gate does not cover). The ANLZ pass added `DALE048` at
      `Error` within major 0 (`2902b933`).
    - **Alternative: `Warning`.** No consumer build breaks, but this repo is guarded only by review.
+
+   **OUTCOME (2026-11-19, operator, in session): `Error`.** The delta's "fail its build" wording
+   stands.
 2. **(b) Development-only handlers count (`D2`).** The I/O packages' provider handlers are
    `[DevelopmentOnlyHandler]` and never run on a production host (`io.md`). The runtime counts them
    anyway, and the I/O packages already ship registrations, so nothing in the tree changes. Confirm
@@ -223,7 +226,21 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
 > `YYYY-MM-DD: <what changed and why>`. Never inline in a spec page. A checkpoint that fixes a
 > CLASS bug states the sibling sweep (done / N/A / handed off).
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-11-20, `T-001`: the message names the handler classes **ordered by name**, not in declaration
+  order as § The analyzer had it. Walking the declared types gives no order a reader can see across
+  files, and a sorted list is the same on every build.
+- 2026-11-20, `T-001`: the tests compile the stubs as a **referenced assembly**, because the mark
+  counts only where another assembly defines it (`D2`, `AC-PLUG-005.8`). The ordinary harness injects
+  the stubs as source, and the analyzer would treat them as the assembly's own attribute. The
+  referenced-assembly harness `CrossAssemblyAnalyzerTests` already had moved to
+  `Helpers/MetadataCompilation.cs`, since two test classes now use it. The stubs gain
+  `DaleSharedAssemblyAttribute`, `IConfigureServices`, `IServiceProviderHandlerActor`,
+  `ServiceProviderHandlerBase` and `DevelopmentOnlyHandlerAttribute`.
+- 2026-11-20, `T-001`: defect proof for `T-002`, run and observed. With the analyzer in place,
+  `dotnet build Vion.Dale.Sdk.MBus/Vion.Dale.Sdk.MBus.csproj` fails with
+  `AssemblyAttributes.cs(3,12): error DALE049: Assembly 'Vion.Dale.Sdk.MBus' is marked
+  [DaleSharedAssembly] and declares handler actors (Vion.Dale.Sdk.MBus.MBusHandler) but no
+  IConfigureServices implementation. …`
 
 ---
 
@@ -244,8 +261,7 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
 
 - ADDED AC-PLUG-010.1 -> docs/specs/plugin-loading.md : WHEN an assembly that applies the SDK's `[DaleSharedAssembly]` declares a concrete class implementing `IServiceProviderHandlerActor` and no concrete class implementing `IConfigureServices` THE SYSTEM SHALL fail its build with `DALE049`, reported once for that assembly and naming every such handler class, and SHALL report `DALE049` for no other assembly.
 
-The wording "fail its build" assumes question 1 is answered `Error`. At `Warning` it becomes
-"report `DALE049`".
+"Fail its build" is question 1's outcome, `Error`.
 
 ---
 
