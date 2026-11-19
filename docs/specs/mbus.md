@@ -209,6 +209,6 @@ published, so neither feeds it. Queued wait comes from every outcome but invalid
 
 Published: the contract interface `IMBus`; the readout, telegram, header, record and status types; the
 selector, quantity, unit and function types; the receipt, outcome, link state and link summary; and the one
-exception every failure arrives as. Plumbing: the contract implementation, the handler, its registration
-and the actor messages, which are public only so the runtime and the kit can reach them. The wire records
-are internal.
+exception every failure arrives as. Plumbing: the contract implementation, the handler and the actor
+messages, which are public only so the runtime and the kit can reach them. The registration and the wire
+records are internal.

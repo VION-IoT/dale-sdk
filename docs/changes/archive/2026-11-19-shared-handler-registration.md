@@ -255,6 +255,13 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
   `DALE049` is an error, so under the shared property Modbus.Core would fail to compile and take the
   Rtu and Tcp builds, and so their `DALE014` rows, down with it. The probe implements
   `IServiceProviderHandlerActor` directly, the smallest concrete handler the real SDK accepts.
+- 2026-11-20, review of `aa411bb8`, note 1: **the M-Bus registration is `internal`, not `[InternalApi]`
+  public** (supersedes `D5`'s accessibility). Every host that invokes a registration finds an internal
+  one: the runtime and the parser read `GetTypes()`, and so do `DevHostBuilder` and the test kit's
+  `LogicBlockTestContextBuilder`. A public type cannot become internal within a major, while an
+  internal one can become public later. `mbus.md` had called it public "so the runtime can reach it",
+  which was not true; it now says the registration is internal. Sibling sweep: the I/O packages'
+  registrations stay public `[InternalApi]`, since narrowing them is a break this change does not need.
 
 ---
 

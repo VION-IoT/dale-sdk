@@ -7,8 +7,7 @@ namespace Vion.Dale.Sdk.MBus
     ///     Registers the M-Bus handler with the Dale runtime's service container.
     ///     Discovered by the runtime via reflection at plugin load time — consumers do not call this directly.
     /// </summary>
-    [InternalApi]
-    public class DependencyInjection : IConfigureServices
+    internal sealed class DependencyInjection : IConfigureServices
     {
         /// <inheritdoc />
         public void ConfigureServices(IServiceCollection serviceCollection)
