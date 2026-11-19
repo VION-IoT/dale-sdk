@@ -23,7 +23,9 @@ page names the id and stops: [`config-gating.md`](config-gating.md) for what `[I
 timer binder's own refusals (`AC-LIFE-007.2`); [`contracts.md`](contracts.md) for what a contract
 declaration means (`DALE001`, `009`, `010`, `011`, `019`, `020`, `025`, `045`);
 [`introspection.md`](introspection.md) for the wiring probe (`AC-INTRO-017.4`) and endpoint
-identity; [`scenarios.md`](scenarios.md) for the scenario wire (`DALE046`).
+identity; [`scenarios.md`](scenarios.md) for the scenario wire (`DALE046`);
+[`plugin-loading.md`](plugin-loading.md) for what a shared assembly that declares handler actors
+owes (`AC-PLUG-010.1`, `DALE049`).
 
 Three ids are stated **here** because no other page states them: `DALE041` and `DALE042`, which
 judge a `[Presentation(VisibleWhen = …)]` predicate — visibility hides a member that still exists

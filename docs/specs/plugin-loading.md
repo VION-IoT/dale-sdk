@@ -189,6 +189,18 @@ folder at all. The first binder owns the instance, and every dependency it pulls
 resolved by that owner — so a plugin that ships a shared library but not the same dependencies
 beside it still runs against the first owner's copies.
 
+**A shared assembly that declares handler actors registers them.** The host runtime invokes every
+`IConfigureServices` of every shared assembly it loads, and reports a shared assembly that declares
+handler actors but none (`dale/AC-LOAD-005.3`). An assembly of message types alone has nothing to
+register and is asked for nothing.
+
+- `AC-PLUG-010.1` (Event-driven): WHEN an assembly that applies the SDK's `[DaleSharedAssembly]` declares a concrete class implementing `IServiceProviderHandlerActor` and no concrete class implementing `IConfigureServices`, each of any accessibility and development-only handlers included, THE SYSTEM SHALL fail its build with `DALE049`, reported once at the mark and naming every such handler class, and SHALL report `DALE049` for no other assembly.
+
+The rule reads what the runtime reads, not whether a handler would resolve: a handler built only
+from what the SDK itself registers still draws it, because the runtime still reports its assembly.
+It recognises the mark as `AC-PLUG-005.8` does, so an assembly declaring its own attribute is not
+judged.
+
 ### 4. Plugin-private assemblies, and the fall-through
 
 - `AC-PLUG-006.1` (Event-driven): WHEN a plugin binds to an assembly present in its own directory

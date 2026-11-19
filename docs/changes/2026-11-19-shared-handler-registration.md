@@ -5,7 +5,7 @@ blocked-on: none           # for parked docs: what's blocking + ref
 areas: PLUG, ANLZ, MBUS
 author: Jonas Bertsch (drafted in a Claude session)
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-20
 supersedes: none           # path of a superseded change doc, or none
 ---
 
@@ -126,9 +126,18 @@ registration it lacks.
    `[DevelopmentOnlyHandler]` and never run on a production host (`io.md`). The runtime counts them
    anyway, and the I/O packages already ship registrations, so nothing in the tree changes. Confirm
    that mirroring the runtime is preferred over a narrower rule.
+
+   **OUTCOME (2026-11-20): kept as decided in `D2`.** The operator ratified question 1 and raised
+   nothing here. It is open to the pull request's review, and the `development-only` data row is what
+   a change would move.
 3. **(b) No M-Bus criterion (`D6`).** Confirm that the package build failing under `DALE049` is
    enough proof, rather than a per-package surface test that names the registration, as RTU's test
    does (`ModbusRtuPackageSurfaceShould.cs:67`).
+
+   **OUTCOME (2026-11-20): kept as decided in `D6`.** The operator raised nothing here, and it is open
+   to the pull request's review. The ordinary build in `AnalyzerWiringShould` now builds the M-Bus
+   package and fails on any error it reports, `DALE049` included, so the package's own build is
+   checked by a test as well as by the solution build.
 
 ---
 
@@ -266,7 +275,11 @@ it. The first plugin loaded fixes which version of a shared assembly every plugi
 
 - ADDED AC-PLUG-010.1 -> docs/specs/plugin-loading.md : WHEN an assembly that applies the SDK's `[DaleSharedAssembly]` declares a concrete class implementing `IServiceProviderHandlerActor` and no concrete class implementing `IConfigureServices` THE SYSTEM SHALL fail its build with `DALE049`, reported once for that assembly and naming every such handler class, and SHALL report `DALE049` for no other assembly.
 
-"Fail its build" is question 1's outcome, `Error`.
+- MODIFIED AC-PLUG-010.1 -> docs/specs/plugin-loading.md : WHEN an assembly that applies the SDK's `[DaleSharedAssembly]` declares a concrete class implementing `IServiceProviderHandlerActor` and no concrete class implementing `IConfigureServices`, each of any accessibility and development-only handlers included, THE SYSTEM SHALL fail its build with `DALE049`, reported once at the mark and naming every such handler class, and SHALL report `DALE049` for no other assembly.
+
+"Fail its build" is question 1's outcome, `Error`. The `MODIFIED` line states as clauses what the
+tests' data rows prove beyond the `ADDED` text: accessibility, development-only handlers, and the
+location.
 
 ---
 
