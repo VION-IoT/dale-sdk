@@ -1,6 +1,6 @@
 ---
 slug: shared-handler-registration
-status: in-flight          # proposed | in-flight | parked | archived
+status: archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: PLUG, ANLZ, MBUS
 author: Jonas Bertsch (drafted in a Claude session)
@@ -29,15 +29,15 @@ registration it lacks.
 
 ### Spec implications
 
-- [`plugin-loading.md`](../specs/plugin-loading.md) § 3 gains one criterion, `AC-PLUG-010.1`:
+- [`plugin-loading.md`](../../specs/plugin-loading.md) § 3 gains one criterion, `AC-PLUG-010.1`:
   `DALE049`'s firing rule. That page owns `[DaleSharedAssembly]`, and the rule is about what a marked
   assembly owes.
 - The page also gains a sentence citing the runtime's half, `dale/AC-LOAD-005.3`.
-- [`analyzers.md`](../specs/analyzers.md) names `DALE049` in its "Cited rather than restated"
+- [`analyzers.md`](../../specs/analyzers.md) names `DALE049` in its "Cited rather than restated"
   paragraph. It does the same for `config-gating.md`'s `DALE043` and `DALE044`. No `ANLZ` criterion
   changes: `AC-ANLZ-001.4` (the compilation-end tag) and `AC-ANLZ-001.6` (what `Error` means) already
   cover the new id.
-- [`mbus.md`](../specs/mbus.md) § The published surface lists the registration among the plumbing.
+- [`mbus.md`](../../specs/mbus.md) § The published surface lists the registration among the plumbing.
   That is prose; no `MBUS` criterion changes (`D6`).
 
 ### Decisions
@@ -47,7 +47,7 @@ registration it lacks.
 - `D1` — **The rule is enforced at compile time by a new diagnostic, and the M-Bus package gains its
   registration in the same change** (operator, 2026-11-19, in session). This reverses the archived
   M-Bus change's implementation decision "No `DependencyInjection`"
-  ([`2026-11-05-mbus-service-provider.md:980-982`](archive/2026-11-05-mbus-service-provider.md)).
+  ([`2026-11-05-mbus-service-provider.md:980-982`](2026-11-05-mbus-service-provider.md)).
   That decision was sound against everything the SDK documents, and it missed the runtime's rule
   (§ How it happened).
 
@@ -115,7 +115,7 @@ registration it lacks.
      `Ecocoach.EnergyManagement.Common` declares no handler. Neither would be reported.
    - **The cost of `Error`.** A consumer this machine cannot see, with a shared handler assembly and
      no registration, would fail its build when it upgrades. That is a source break, not a binary
-     one, so package validation does not see it ([`releasing.md`](../releasing.md) § Every release is
+     one, so package validation does not see it ([`releasing.md`](../../releasing.md) § Every release is
      additive within its major says what the gate does not cover). The ANLZ pass added `DALE048` at
      `Error` within major 0 (`2902b933`).
    - **Alternative: `Warning`.** No consumer build breaks, but this repo is guarded only by review.
