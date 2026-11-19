@@ -480,6 +480,12 @@ namespace Vion.Dale.Cli.Commands
                 return new ReleaseNotesChoice(null, "Give release notes with --release-notes or --release-notes-file, not both.");
             }
 
+            // An unset CI variable arrives as an empty value; refused here, it never reaches GetFullPath's throw.
+            if (string.IsNullOrWhiteSpace(notesFilePath))
+            {
+                return new ReleaseNotesChoice(null, "No release notes file given to --release-notes-file.");
+            }
+
             var fullPath = Path.GetFullPath(notesFilePath);
             if (!File.Exists(fullPath))
             {

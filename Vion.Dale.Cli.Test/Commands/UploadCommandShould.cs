@@ -382,6 +382,20 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-011.12")]
+        [DataRow("")]
+        [DataRow("  ")]
+        public void RefuseBlankNotesFilePath(string notesFile)
+        {
+            // Arrange / Act
+            var choice = UploadCommand.ResolveReleaseNotes(null, notesFile);
+
+            // Assert
+            Assert.IsNull(choice.Notes);
+            StringAssert.Contains(choice.Error, "--release-notes-file");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-011.12")]
         public void RefuseNotesGivenInlineAndAsFile()
         {
             // Arrange
