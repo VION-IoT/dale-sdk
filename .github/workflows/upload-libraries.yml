@@ -11,6 +11,12 @@
 #                PackageReference, so a library ships on the release cadence unless someone bumps it by
 #                hand in between.
 #
+# Release notes: a version's notes are release-notes/<Version>.md under the library's csproj folder, passed
+# with --release-notes-file only when that file exists, so a version that only tracks the SDK uploads with
+# none. The workflow checks the file name and never reads the notes. A file for an already-uploaded version
+# is skipped with the upload (--skip-duplicate); correct such a note with the dashboard's edit. Passing the
+# option needs Vion.Dale.Cli 0.17.1 or later on nuget.org (docs/releasing.md, "Release notes for a library").
+#
 # Credentials are environment-scoped secrets: the `test` and `production` GitHub environments each carry
 # their own DALE_CI_CLIENT_ID/SECRET (different integrator service accounts). The integrator is auto-resolved
 # from the service account, so no --integrator-id is passed. NB: the GitHub `environment:` and the dale
@@ -52,11 +58,21 @@ jobs:
       - name: Upload library
         working-directory: libraries/${{ matrix.library }}/${{ matrix.library }}
         run: |
+          version=$(dotnet msbuild -getProperty:Version)
+          notes="release-notes/$version.md"
+          notes_args=()
+          if [ -f "$notes" ]; then
+            notes_args=(--release-notes-file "$notes")
+            echo "Release notes: $notes"
+          else
+            echo "No $notes - uploading $version without release notes"
+          fi
           dale upload \
             --client-id "$DALE_CI_CLIENT_ID" \
             --client-secret "$DALE_CI_CLIENT_SECRET" \
             --environment test \
-            --skip-duplicate
+            --skip-duplicate \
+            "${notes_args[@]}"
         env:
           DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
           DALE_CI_CLIENT_SECRET: ${{ secrets.DALE_CI_CLIENT_SECRET }}
@@ -83,11 +99,21 @@ jobs:
       - name: Upload library
         working-directory: libraries/${{ matrix.library }}/${{ matrix.library }}
         run: |
+          version=$(dotnet msbuild -getProperty:Version)
+          notes="release-notes/$version.md"
+          notes_args=()
+          if [ -f "$notes" ]; then
+            notes_args=(--release-notes-file "$notes")
+            echo "Release notes: $notes"
+          else
+            echo "No $notes - uploading $version without release notes"
+          fi
           dale upload \
             --client-id "$DALE_CI_CLIENT_ID" \
             --client-secret "$DALE_CI_CLIENT_SECRET" \
             --environment production \
-            --skip-duplicate
+            --skip-duplicate \
+            "${notes_args[@]}"
         env:
           DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
           DALE_CI_CLIENT_SECRET: ${{ secrets.DALE_CI_CLIENT_SECRET }}
