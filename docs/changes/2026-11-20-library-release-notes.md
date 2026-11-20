@@ -24,8 +24,9 @@ dale-sdk's slice 5 of the cross-repo spec `specs/in-flight/2026-11-18-library-re
 `libraries/Vion.Diagnostics` uploads with no notes today. It should upload with the author's notes,
 and a version that only follows the SDK should upload with none. The open question is how the
 workflow avoids sending the previous version's notes with the next version: `set-version.ps1` bumps
-`<Version>` on every SDK release. **Recommended: one file per version, `RELEASE_NOTES-<Version>.md`
-beside the csproj. The workflow passes `--release-notes-file` only when that file exists.**
+`<Version>` on every SDK release. **Ratified: one file per version, `release-notes/<Version>.md`
+under the library's project folder. The workflow passes `--release-notes-file` only when that file
+exists.**
 
 ### Spec implications
 
@@ -40,27 +41,36 @@ criteria. It adds none, so the Spec delta is empty. The process changes go in
 
 - `D1` — Only `Vion.Diagnostics` gets notes. The `examples/` uploads stay without them — the brief
   and the spec both leave them out.
-- `D2` — The mechanism is one of the three options in Full design. **Not decided here (c).**
+- `D2` — The mechanism is option C, one file per version under `release-notes/`, sent only when it
+  exists. Ratified by Jonas on 2026-11-20 (amendment 1 to the brief); see Reviewer's questions 1–2.
 - `D3` — A note for a version that has already been uploaded does not reach the cloud through this
   workflow. It is corrected with the dashboard's edit, which is how the spec corrects a note.
   Reason: `--skip-duplicate` skips the upload as a whole. Every option shares this.
 
 ### Reviewer's questions
 
-1. **(c) Which mechanism prevents stale notes?** The options are A (`set-version.ps1` empties one
-   notes file), B (a version marker inside the notes) and C (one file per version, used only if it
-   exists). Recommendation: **C**. Costs and reasons are in Full design.
-2. **(c) If C: where do the files go?** `RELEASE_NOTES-<Version>.md` beside the csproj, as the brief
-   says, or `release-notes/<Version>.md` under it, so that a dozen versions do not crowd the project
-   folder. Recommendation: beside the csproj, as briefed. Moving them later costs one rename and one
-   path in the workflow.
-3. **(b) Merge order.** This PR changes only `.github/workflows/upload-libraries.yml`, `docs/` and
-   possibly `scripts/`. None of these match the workflow's trigger, `paths: libraries/**`
-   (`upload-libraries.yml:23-24`). So merging this PR does not start an upload. The first run that
-   passes the option is the v0.17.1 reference PR, the PR where the first notes file is written. By
-   that point `Vion.Dale.Cli` 0.17.1 is on nuget.org, because the reference PR cannot restore
-   without it (`docs/releasing.md` § Wait for the packages). The vion-test outage still applies to
-   that PR, not to this one.
+1. **[resolved] (c) Which mechanism prevents stale notes?** The options were A (`set-version.ps1`
+   empties one notes file), B (a version marker inside the notes) and C (one file per version, used
+   only if it exists). OUTCOME: accepted as recommended, **C**. Jonas ratified it on 2026-11-20
+   (amendment 1 to the brief).
+2. **[resolved] (c) If C: where do the files go?** The choice was between `RELEASE_NOTES-<Version>.md`
+   beside the csproj and `release-notes/<Version>.md` under the project folder. OUTCOME: changed
+   from the recommendation to the **`release-notes/` subfolder**, so that versions do not crowd the
+   project folder. Ratified on 2026-11-20 (amendment 1). The path is
+   `libraries/Vion.Diagnostics/Vion.Diagnostics/release-notes/<Version>.md`.
+3. **[resolved] (b) Merge order.** This PR changes only `.github/workflows/upload-libraries.yml` and
+   `docs/`. Neither matches the workflow's trigger, `paths: libraries/**`
+   (`upload-libraries.yml:23-24`), so merging this PR starts no upload. The PR therefore commits
+   nothing under `libraries/`: no `.gitkeep` and no README in `release-notes/`. The first run that
+   can pass notes is the v0.17.1 reference PR. The vion-test outage applies to that PR, not to this
+   one. **Correction:** an earlier draft said `Vion.Dale.Cli` is on nuget.org by that point because
+   the reference PR cannot restore without it. That was wrong:
+   - the wait loop in `docs/releasing.md:137` waits for the SDK, DevHost and TestKit packages, not
+     `vion.dale.cli`;
+   - the reference PR restores `Vion.Dale.Sdk`, not the tool.
+
+   So nothing guarantees that the CLI is listed; see "Which CLI uploads the notes" in Full design.
+   OUTCOME: accepted with that correction. Ratified on 2026-11-20 (amendment 1).
 
 ---
 
@@ -109,14 +119,14 @@ matches `<Version>`.
   the marker line reaches consumers. A stripped copy means the workflow is now transforming notes as
   well as reading them.
 
-### Option C — one file per version, sent only when it exists (recommended)
+### Option C — one file per version, sent only when it exists (ratified)
 
-`RELEASE_NOTES-<Version>.md` sits beside the csproj. The upload step reads the project's version,
-then passes the option only for a file with that exact name:
+`release-notes/<Version>.md` sits under the csproj's folder. The upload step reads the project's
+version, then passes the option only for a file with that exact name:
 
 ```bash
 version=$(dotnet msbuild -getProperty:Version)
-notes="RELEASE_NOTES-$version.md"
+notes="release-notes/$version.md"
 args=()
 if [ -f "$notes" ]; then args=(--release-notes-file "$notes"); echo "Release notes: $notes"
 else echo "No $notes — uploading $version without release notes"; fi
@@ -140,6 +150,42 @@ argument. Locally, `dotnet msbuild libraries/Vion.Diagnostics/Vion.Diagnostics/V
   is the dashboard edit (D3).
 - **Cost:** the workflow learns the version, which it does not need today. Getting it costs one
   `msbuild` evaluation in a job that has already run `setup-dotnet`.
+
+### Which CLI uploads the notes
+
+Both jobs install whatever `dotnet tool update -g Vion.Dale.Cli` finds on nuget.org
+(`upload-libraries.yml:50`, `:81`). Under C, the option is passed only when a notes file exists.
+That gives three cases:
+
+- **A version without notes** uploads exactly as it does today, whatever CLI version is installed.
+- **A version with notes** needs `Vion.Dale.Cli` 0.17.1 or later, the first release that has
+  `--release-notes-file`. An older CLI refuses the unknown option and fails the upload.
+- **The version-bump PR merges before the CLI is listed:**
+  - If the PR carries a notes file, the upload fails.
+  - If the PR leaves the notes file out, that version uploads without notes. A file added later is
+    skipped as a duplicate (D3), and the dashboard's edit is then the way to add the notes.
+
+Nothing in `docs/releasing.md` waits for the CLI. Its feed-wait loop (`:137`) lists the packages
+the reference PR restores, and `vion.dale.cli` is not among them. Whether it should be is a
+proposal for the report, not part of this change.
+
+What was observed: the v0.17.1 publish run succeeded. nuget.org's flat-container index for
+`vion.dale.cli` still ended at `0.17.0` at 2026-11-19T23:58Z. It listed `0.17.1` at
+2026-11-20T00:16Z.
+
+### The notes are not packed
+
+`dale` packs with `-p:IsPackable=true` (`Vion.Dale.Cli/Commands/UploadCommand.cs:399`), because
+the csproj sets `<IsPackable>false</IsPackable>`. The same pack was run with an uncommitted probe
+file in the folder:
+
+- Probe: `libraries/Vion.Diagnostics/Vion.Diagnostics/release-notes/0.17.0.md`.
+- Command: `dotnet pack libraries/Vion.Diagnostics/Vion.Diagnostics/Vion.Diagnostics.csproj -c
+  Release -p:IsPackable=true -o <scratch>`.
+- Result: `unzip -l` on the `.nupkg` listed 38 entries. None was under `release-notes/`. The only
+  `.md` was the existing `README.md`. The `publish/` folder held no `.md` either.
+
+The probe was deleted afterwards, and `git status --porcelain` was empty.
 
 ### Docs that move with the code (any option)
 
@@ -190,10 +236,8 @@ _(none — the change consumes `AC-CLI-011.11` and `AC-CLI-011.12` unchanged; se
 > One-commit tasks, each tagged with ≥1 AC id. Ephemeral — they live and die with this change doc.
 > Plain list, no checkboxes — the PR's per-task commits are the completion record.
 
-Written for option C; they get rewritten if A or B is chosen.
-
 - `T-001` (`AC-CLI-011.11`, `AC-CLI-011.12`): `upload-libraries.yml` — both upload steps read
-  `<Version>` and pass `--release-notes-file RELEASE_NOTES-<Version>.md` only when that file exists.
-  Also the header comment.
+  `<Version>` and pass `--release-notes-file release-notes/<Version>.md` only when that file
+  exists. Also the header comment.
 - `T-002` (`AC-CLI-011.11`): `docs/releasing.md` — where a library version's notes go and when
   they must land.
