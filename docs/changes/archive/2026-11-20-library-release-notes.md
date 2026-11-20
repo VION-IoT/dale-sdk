@@ -91,7 +91,11 @@ criteria. It adds none, so the Spec delta is empty. The process changes go in
 - Two harmless effects follow, shared by every option:
   - A push that changes only notes for a version that is already uploaded starts the workflow,
     which then skips the upload as a duplicate (D3).
-  - The same commit is uploaded to test and then to prod, so both environments get the same notes.
+  - Within one run, the same commit is uploaded to test and then to prod. Across runs the two can
+    differ. The production upload waits for approval, so a notes file pushed after the bump
+    starts a second run. That run's test upload is skipped as a duplicate. If its production
+    upload is approved before the bump run's, production gets the notes and test does not.
+    `docs/releasing.md` says so (review finding, 2026-11-20).
 
 ### Option A — `set-version.ps1` empties one `RELEASE_NOTES.md`
 

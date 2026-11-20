@@ -158,11 +158,13 @@ tracks the SDK release here rather than being bumped separately — see
 [`upload-libraries.yml`](../.github/workflows/upload-libraries.yml).
 
 **Release notes for a library.** A library version that changes anything for its consumers gets its
-notes as `release-notes/<Version>.md` beside the library's csproj. The notes are free text, with no
-version line and no placeholder. A version that only tracks the SDK gets no file. The file must
-reach `main` no later than the bump to that `<Version>`: either in the reference PR or in an earlier
-PR that names the coming version. A file that lands after that version uploaded never reaches the
-cloud, so the note is written with the dashboard's edit instead.
+notes as `release-notes/<Version>.md` in the library project's folder, next to its csproj. The notes
+are free text, with no version line and no placeholder. A version that only tracks the SDK gets no
+file. The file must reach `main` no later than the bump to that `<Version>`: either in the
+reference PR or in an earlier PR that names the coming version. A file that lands after the bump
+never reaches Cloud test, and it reaches production only if its own run's production upload is
+approved before the bump's. Either way, write a late note with the dashboard's edit, in each
+environment that lacks it.
 
 **A package's first release is the one manual part.** The script rewrites references that exist and
 only warns on one that does not, so a project whose tests wait for a package no release has carried yet
