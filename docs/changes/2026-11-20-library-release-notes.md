@@ -208,7 +208,11 @@ The probe was deleted afterwards, and `git status --porcelain` was empty.
 > `YYYY-MM-DD: <what changed and why>`. Never inline in a spec page. A checkpoint that fixes a
 > CLASS bug states the sibling sweep (done / N/A / handed off).
 
-- _(none yet — append as implementation diverges from Full design)_
+- 2026-11-20: `docs/releasing.md` does not include the CLI precondition from "Which CLI uploads the
+  notes". `Vion.Dale.Cli` 0.17.1 was listed on nuget.org at 2026-11-20T00:16Z, before this PR
+  merged. The workflow installs the newest listed CLI, so every upload from here on has the option
+  and no author can hit the failure. The precondition is recorded here and in the PR instead.
+  Sibling sweep: N/A.
 
 ---
 
