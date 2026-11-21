@@ -1,0 +1,1 @@
+2026-11-20 · review · library-release-notes · Change doc's merge-order answer said Vion.Dale.Cli would be on nuget.org by the reference PR because that PR cannot restore without it; ratification corrected it: the feed wait and the PR's restore cover SDK packages, not the tool. Asked for the CLI precondition to be stated instead.
