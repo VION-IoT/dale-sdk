@@ -18,7 +18,13 @@ namespace Vion.Dale.Sdk.Test.Core
     [TestClass]
     public sealed class LogicBlockEmissionFlushShould
     {
-        private static readonly DateTimeOffset Start = new(2026, 11, 24, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset Start = new(2026,
+                                                           11,
+                                                           24,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           TimeSpan.Zero);
 
         private readonly LifecycleHarness _harness = new();
 

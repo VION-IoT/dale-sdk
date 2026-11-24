@@ -81,6 +81,10 @@ namespace Vion.Dale.Sdk.Core
 
         private IActorContext _actorContext = null!;
 
+        // Counts the flushes armed, so a wakeup can tell whether it is the live one: only the flush armed
+        // last may clear _scheduledFlushDeadline and re-arm.
+        private long _armedFlushes;
+
         // Why the first configuration failed, when it did — so a refused retry names the original reason
         // rather than pointing the operator back at the configuration that just failed. Null after a
         // configuration that succeeded.
@@ -125,10 +129,6 @@ namespace Vion.Dale.Sdk.Core
         // _servicePropertyHandlerActorRef and the ServicePropertyHandler never learns the
         // bindings, causing every subsequent property/set to be silently dropped.
         private bool _runtimeActorsLinked;
-
-        // Counts the flushes armed, so a wakeup can tell whether it is the live one: only the flush armed
-        // last may clear _scheduledFlushDeadline and re-arm.
-        private long _armedFlushes;
 
         // tracks the deadline of the live flush timer. Null when no flush is armed. Set in
         // ScheduleEmissionFlush; cleared at the top of OnEmissionFlushDue by the live wakeup, so the body can

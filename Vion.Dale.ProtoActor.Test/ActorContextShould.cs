@@ -365,7 +365,10 @@ namespace Vion.Dale.ProtoActor.Test
             }
         }
 
-        /// <summary>Sends itself a delayed message, measures how long it took to come back on the system's monotonic clock, and repeats.</summary>
+        /// <summary>
+        ///     Sends itself a delayed message, measures how long it took to come back on the system's monotonic clock, and
+        ///     repeats.
+        /// </summary>
         private sealed class DelayMeasuringReceiver : IActorReceiver
         {
             private readonly TimeSpan _delay;
