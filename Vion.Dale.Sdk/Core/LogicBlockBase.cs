@@ -1014,8 +1014,9 @@ namespace Vion.Dale.Sdk.Core
         ///     ensures one trailing-edge flush is scheduled at the earliest pending deadline
         ///     across all throttlers. Mirrors <see cref="ScheduleNextTimerTick" /> — a single idiomatic
         ///     self-send via the pause-gated / stepper-aware self-scheduling path. The flush body
-        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest, so an
-        ///     extra wakeup at worst finds nothing due and reschedules.
+        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest. Only the
+        ///     flush armed last does so: a wakeup an earlier deadline superseded does nothing, and the live
+        ///     one, should it wake before its deadline, finds nothing due and reschedules.
         ///     <para>
         ///         The flush is dispatched as an <c>InvokeSynchronized</c> action rather than a bespoke
         ///         self-message: the action wrapper is what both the production actor loop and the
