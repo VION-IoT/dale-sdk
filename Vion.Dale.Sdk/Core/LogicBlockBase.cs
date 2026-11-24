@@ -81,8 +81,7 @@ namespace Vion.Dale.Sdk.Core
 
         private IActorContext _actorContext = null!;
 
-        // Counts the flushes armed, so a wakeup can tell whether it is the live one: only the flush armed
-        // last may clear _scheduledFlushDeadline and re-arm.
+        // The sequence number of the flush armed last, which is the live one.
         private long _armedFlushes;
 
         // Why the first configuration failed, when it did — so a refused retry names the original reason
@@ -1014,9 +1013,7 @@ namespace Vion.Dale.Sdk.Core
         ///     ensures one trailing-edge flush is scheduled at the earliest pending deadline
         ///     across all throttlers. Mirrors <see cref="ScheduleNextTimerTick" /> — a single idiomatic
         ///     self-send via the pause-gated / stepper-aware self-scheduling path. The flush body
-        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest. Only the
-        ///     flush armed last does so: a wakeup an earlier deadline superseded does nothing, and the live
-        ///     one, should it wake before its deadline, finds nothing due and reschedules.
+        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest.
         ///     <para>
         ///         The flush is dispatched as an <c>InvokeSynchronized</c> action rather than a bespoke
         ///         self-message: the action wrapper is what both the production actor loop and the
@@ -1062,11 +1059,8 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            /* A wakeup armed before the live one was superseded by an earlier deadline, and the live flush is
-               armed no later than any deadline still held, so the superseded wakeup has nothing to release
-               that the live one will not. Were it to clear the sentinel, the reschedule below would arm a
-               second timer beside the live one, and each further superseded wakeup would add another chain
-               of flushes that re-arms itself for as long as any value is held. */
+            // A superseded wakeup leaves releasing to the live flush, which is due no later; clearing the
+            // sentinel here would arm a second chain of flushes beside it.
             if (flush != _armedFlushes)
             {
                 return;
