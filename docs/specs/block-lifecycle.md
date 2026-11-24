@@ -196,12 +196,9 @@ durations already carry (`AC-SCEN-003.2`), because it is the same real clock und
 `AC-LIFE-006.4` is the honest half of the stop hook's symmetry rule: an action already armed cannot be
 cancelled, so a cycle that must not run after a stop ends by not re-scheduling itself.
 
-`AC-LIFE-006.5` guards a spin rather than a loss: a real clock's timer counts whole milliseconds, so a
-delay under one would otherwise come back at once, and an action that finds its deadline not yet reached
-and re-arms for the remainder would run hundreds of times before it. The floor is measured on the
-monotonic clock; a block that compares against the wall clock can still see a wakeup land early when the
-wall clock steps, and its re-arm for the remainder then costs another wakeup rather than a spin. A zero
-delay is still due on the actor's next turn (`AC-LIFE-006.2`).
+`AC-LIFE-006.5` is measured on the monotonic clock. A block that compares against the wall clock can
+still see a wakeup land early when the wall clock steps; its re-arm for the remainder then costs one more
+wakeup. A zero delay is still due on the actor's next turn (`AC-LIFE-006.2`).
 
 ## Timers
 
