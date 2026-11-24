@@ -81,6 +81,9 @@ namespace Vion.Dale.Sdk.Core
 
         private IActorContext _actorContext = null!;
 
+        // The sequence number of the flush armed last, which is the live one.
+        private long _armedFlushes;
+
         // Why the first configuration failed, when it did — so a refused retry names the original reason
         // rather than pointing the operator back at the configuration that just failed. Null after a
         // configuration that succeeded.
@@ -126,9 +129,9 @@ namespace Vion.Dale.Sdk.Core
         // bindings, causing every subsequent property/set to be silently dropped.
         private bool _runtimeActorsLinked;
 
-        // tracks the deadline of the single outstanding flush timer (≤1 per block at a
-        // time). Null when no flush is armed. Set in ScheduleEmissionFlush; cleared at the top of
-        // OnEmissionFlushDue so the body can re-arm if further pending values remain.
+        // tracks the deadline of the live flush timer. Null when no flush is armed. Set in
+        // ScheduleEmissionFlush; cleared at the top of OnEmissionFlushDue by the live wakeup, so the body can
+        // re-arm if further pending values remain.
         private DateTimeOffset? _scheduledFlushDeadline;
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
@@ -1010,8 +1013,7 @@ namespace Vion.Dale.Sdk.Core
         ///     ensures one trailing-edge flush is scheduled at the earliest pending deadline
         ///     across all throttlers. Mirrors <see cref="ScheduleNextTimerTick" /> — a single idiomatic
         ///     self-send via the pause-gated / stepper-aware self-scheduling path. The flush body
-        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest, so an
-        ///     extra wakeup at worst finds nothing due and reschedules.
+        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest.
         ///     <para>
         ///         The flush is dispatched as an <c>InvokeSynchronized</c> action rather than a bespoke
         ///         self-message: the action wrapper is what both the production actor loop and the
@@ -1023,12 +1025,12 @@ namespace Vion.Dale.Sdk.Core
         /// </summary>
         private void ScheduleEmissionFlush(DateTimeOffset earliestDeadline)
         {
-            // Invariant: at most one outstanding flush per block. Skip arming a new timer
+            // Invariant: at most one live flush per block. Skip arming a new timer
             // when one is already scheduled for the same or an earlier deadline — the common case
             // for a burst of holds sharing _lastEmitAt + MinInterval as their deadline. Only arm
             // (or re-arm) when the new deadline is strictly earlier than the in-flight one, which
-            // replaces it (InvokeSynchronizedAfter cannot be cancelled; the earlier wakeup wins and
-            // the late one fires into an idempotent no-op or a same-deadline reschedule).
+            // replaces it (InvokeSynchronizedAfter cannot be cancelled; the earlier wakeup becomes the
+            // live one and the superseded one fires into a no-op).
             if (_scheduledFlushDeadline is not null && earliestDeadline >= _scheduledFlushDeadline.Value)
             {
                 return;
@@ -1042,22 +1044,30 @@ namespace Vion.Dale.Sdk.Core
             }
 
             _scheduledFlushDeadline = earliestDeadline;
-            InvokeSynchronizedAfter(OnEmissionFlushDue, delay);
+            var flush = ++_armedFlushes;
+            InvokeSynchronizedAfter(() => OnEmissionFlushDue(flush), delay);
         }
 
         /// <summary>
         ///     flushes every throttler whose hold deadline has elapsed, emitting its pending
         ///     value, then reschedules a single wakeup for the earliest still-pending deadline (if any).
         /// </summary>
-        private void OnEmissionFlushDue()
+        private void OnEmissionFlushDue(long flush)
         {
             if (!_started)
             {
                 return;
             }
 
-            // Clear the outstanding-flush sentinel first, before any work, so that the reschedule
-            // call below (if further pending values remain) correctly re-arms rather than no-ops.
+            // A superseded wakeup leaves releasing to the live flush, which is due no later; clearing the
+            // sentinel here would arm a second chain of flushes beside it.
+            if (flush != _armedFlushes)
+            {
+                return;
+            }
+
+            // Clear the sentinel first, before any work, so that the reschedule call below (if further
+            // pending values remain) correctly re-arms rather than no-ops.
             _scheduledFlushDeadline = null;
 
             var now = _timeProvider.GetUtcNow();

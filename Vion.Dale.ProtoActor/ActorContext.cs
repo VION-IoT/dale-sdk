@@ -100,14 +100,14 @@ namespace Vion.Dale.ProtoActor
             // not this stale one. Null schedule (production) → unchanged.
             if (_schedule is null)
             {
-                _context().ReenterAfter(Task.Delay(delay, _timeProvider), _ => SendToSelf(message));
+                _context().ReenterAfter(DelayOfAtLeast(delay), _ => SendToSelf(message));
                 return;
             }
 
             var token = new object();
             _schedule.Register(token, _timeProvider.GetUtcNow() + delay);
             _context()
-                .ReenterAfter(Task.Delay(delay, _timeProvider),
+                .ReenterAfter(DelayOfAtLeast(delay),
                               _ =>
                               {
                                   _schedule.Unregister(token);
@@ -127,6 +127,23 @@ namespace Vion.Dale.ProtoActor
         public IActorReference LookupByName(string name)
         {
             return new ActorReference(PidUtils.FromName(name));
+        }
+
+        // The system timer drops the fraction of a millisecond, so each wait is rounded up to a whole one and
+        // any shortfall waited out (AC-LIFE-006.5). A zero delay, and a controllable clock with no such cut-off,
+        // pass through.
+        private Task DelayOfAtLeast(TimeSpan delay)
+        {
+            return delay <= TimeSpan.Zero || _stepped ? Task.Delay(delay, _timeProvider) : WaitOutAsync(delay);
+        }
+
+        private async Task WaitOutAsync(TimeSpan delay)
+        {
+            var armedAt = _timeProvider.GetTimestamp();
+            for (var remaining = delay; remaining > TimeSpan.Zero; remaining = delay - _timeProvider.GetElapsedTime(armedAt))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds((long)Math.Ceiling(remaining.TotalMilliseconds)), _timeProvider).ConfigureAwait(false);
+            }
         }
 
         // Structural detection of a controllable clock (FakeTimeProvider): a public instance Advance(TimeSpan)
