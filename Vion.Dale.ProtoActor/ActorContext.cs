@@ -129,41 +129,20 @@ namespace Vion.Dale.ProtoActor
             return new ActorReference(PidUtils.FromName(name));
         }
 
-        /* A system-clock timer counts its due time in whole milliseconds, cutting off the fraction: a delay
-           under a millisecond completes at once, and a delay of 1.5 ms can complete after 1 ms where the
-           platform timer is finer than the scheduler tick. A caller that wakes, finds its deadline not yet
-           reached and re-arms for the remainder then re-arms for a smaller remainder each time, so one
-           deadline costs hundreds of self-messages. Each wait is therefore rounded up to a whole millisecond,
-           and a wait the monotonic clock still finds short is waited out again off the actor, so the send
-           arrives once and never before its delay.
-
-           A zero delay stays a completed task, which ReenterAfter runs on the actor's next turn. A
-           controllable clock has no millisecond cut-off and completes a timer exactly at its due time, so it
-           keeps the delay it was given. */
+        // The system timer drops the fraction of a millisecond, so each wait is rounded up to a whole one and
+        // any shortfall waited out (AC-LIFE-006.5). A zero delay, and a controllable clock with no such cut-off,
+        // pass through.
         private Task DelayOfAtLeast(TimeSpan delay)
         {
-            if (delay <= TimeSpan.Zero || _stepped)
-            {
-                return Task.Delay(delay, _timeProvider);
-            }
+            return delay <= TimeSpan.Zero || _stepped ? Task.Delay(delay, _timeProvider) : WaitOutAsync(delay);
+        }
 
-            return WaitOutAsync(delay, _timeProvider);
-
-            static async Task WaitOutAsync(TimeSpan delay, TimeProvider timeProvider)
+        private async Task WaitOutAsync(TimeSpan delay)
+        {
+            var armedAt = _timeProvider.GetTimestamp();
+            for (var remaining = delay; remaining > TimeSpan.Zero; remaining = delay - _timeProvider.GetElapsedTime(armedAt))
             {
-                var armedAt = timeProvider.GetTimestamp();
-                var remaining = delay;
-                while (remaining > TimeSpan.Zero)
-                {
-                    await Task.Delay(WholeMillisecondsAtLeast(remaining), timeProvider).ConfigureAwait(false);
-                    remaining = delay - timeProvider.GetElapsedTime(armedAt);
-                }
-            }
-
-            static TimeSpan WholeMillisecondsAtLeast(TimeSpan span)
-            {
-                var milliseconds = (span.Ticks + TimeSpan.TicksPerMillisecond - 1) / TimeSpan.TicksPerMillisecond;
-                return TimeSpan.FromMilliseconds(milliseconds);
+                await Task.Delay(TimeSpan.FromMilliseconds((long)Math.Ceiling(remaining.TotalMilliseconds)), _timeProvider).ConfigureAwait(false);
             }
         }
 
