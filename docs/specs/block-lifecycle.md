@@ -184,6 +184,9 @@ itself started while that block's members read their defaults.
   its first message THE SYSTEM SHALL refuse the call, naming the hooks a block schedules from.
 - `AC-LIFE-006.4` (Ubiquitous): THE SYSTEM SHALL run a delayed action that comes due after a stop, the
   dispatcher offering no cancellation.
+- `AC-LIFE-006.5` (Ubiquitous): THE SYSTEM SHALL run a delayed action no earlier than the delay it was
+  scheduled at, however far under a millisecond that delay is, so an action that re-arms for what
+  remains of a deadline runs once at that deadline.
 
 `AC-LIFE-006.2` and `AC-LIFE-006.3` are guards over a silent loss rather than over a crash: both
 failures used to leave the handler as an exception the middleware swallows, so a block simply stopped
@@ -192,6 +195,13 @@ durations already carry (`AC-SCEN-003.2`), because it is the same real clock und
 
 `AC-LIFE-006.4` is the honest half of the stop hook's symmetry rule: an action already armed cannot be
 cancelled, so a cycle that must not run after a stop ends by not re-scheduling itself.
+
+`AC-LIFE-006.5` guards a spin rather than a loss: a real clock's timer counts whole milliseconds, so a
+delay under one would otherwise come back at once, and an action that finds its deadline not yet reached
+and re-arms for the remainder would run hundreds of times before it. The floor is measured on the
+monotonic clock; a block that compares against the wall clock can still see a wakeup land early when the
+wall clock steps, and its re-arm for the remainder then costs another wakeup rather than a spin. A zero
+delay is still due on the actor's next turn (`AC-LIFE-006.2`).
 
 ## Timers
 

@@ -100,14 +100,14 @@ namespace Vion.Dale.ProtoActor
             // not this stale one. Null schedule (production) → unchanged.
             if (_schedule is null)
             {
-                _context().ReenterAfter(Task.Delay(delay, _timeProvider), _ => SendToSelf(message));
+                _context().ReenterAfter(DelayOfAtLeast(delay), _ => SendToSelf(message));
                 return;
             }
 
             var token = new object();
             _schedule.Register(token, _timeProvider.GetUtcNow() + delay);
             _context()
-                .ReenterAfter(Task.Delay(delay, _timeProvider),
+                .ReenterAfter(DelayOfAtLeast(delay),
                               _ =>
                               {
                                   _schedule.Unregister(token);
@@ -127,6 +127,44 @@ namespace Vion.Dale.ProtoActor
         public IActorReference LookupByName(string name)
         {
             return new ActorReference(PidUtils.FromName(name));
+        }
+
+        /* A system-clock timer counts its due time in whole milliseconds, cutting off the fraction: a delay
+           under a millisecond completes at once, and a delay of 1.5 ms can complete after 1 ms where the
+           platform timer is finer than the scheduler tick. A caller that wakes, finds its deadline not yet
+           reached and re-arms for the remainder then re-arms for a smaller remainder each time, so one
+           deadline costs hundreds of self-messages. Each wait is therefore rounded up to a whole millisecond,
+           and a wait the monotonic clock still finds short is waited out again off the actor, so the send
+           arrives once and never before its delay.
+
+           A zero delay stays a completed task, which ReenterAfter runs on the actor's next turn. A
+           controllable clock has no millisecond cut-off and completes a timer exactly at its due time, so it
+           keeps the delay it was given. */
+        private Task DelayOfAtLeast(TimeSpan delay)
+        {
+            if (delay <= TimeSpan.Zero || _stepped)
+            {
+                return Task.Delay(delay, _timeProvider);
+            }
+
+            return WaitOutAsync(delay, _timeProvider);
+
+            static async Task WaitOutAsync(TimeSpan delay, TimeProvider timeProvider)
+            {
+                var armedAt = timeProvider.GetTimestamp();
+                var remaining = delay;
+                while (remaining > TimeSpan.Zero)
+                {
+                    await Task.Delay(WholeMillisecondsAtLeast(remaining), timeProvider).ConfigureAwait(false);
+                    remaining = delay - timeProvider.GetElapsedTime(armedAt);
+                }
+            }
+
+            static TimeSpan WholeMillisecondsAtLeast(TimeSpan span)
+            {
+                var milliseconds = (span.Ticks + TimeSpan.TicksPerMillisecond - 1) / TimeSpan.TicksPerMillisecond;
+                return TimeSpan.FromMilliseconds(milliseconds);
+            }
         }
 
         // Structural detection of a controllable clock (FakeTimeProvider): a public instance Advance(TimeSpan)

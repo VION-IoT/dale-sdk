@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -144,6 +145,31 @@ namespace Vion.Dale.ProtoActor.Test
 
             // Assert
             Assert.IsTrue(receiver.RanOnItsOwnActor, "A scheduled action comes back as a message to the same actor, which is what makes a block's state safe to touch from it.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-006.5")]
+        [DataRow(100)]
+        [DataRow(500)]
+        [DataRow(900)]
+        public async Task DeliverDelayedSelfSendNoEarlierThanDelay(int delayMicroseconds)
+        {
+            // Arrange — a delay under a millisecond, on the system clock: the remainder a flush re-arms for
+            // when it wakes a fraction of a millisecond before its deadline. Several sends in a row, because
+            // one early completion is the failure and a single send could land late by luck.
+            await using var host = new PipelineHost();
+            var delay = TimeSpan.FromMicroseconds(delayMicroseconds);
+            var receiver = new DelayMeasuringReceiver(delay, 20);
+            var actor = host.System.CreateRootActorFor(() => receiver, "context_delay_floor");
+
+            // Act
+            host.System.SendTo(actor, new StartLogicBlockRequest());
+            await receiver.Done.WaitAsync(Generous);
+
+            // Assert — load only makes a delivery later, so this lower bound cannot flake under it.
+            Assert.IsGreaterThanOrEqualTo(delay,
+                                          receiver.Elapsed.Min(),
+                                          "A delayed self-send comes back no earlier than the delay it was given, so a caller that re-arms for what remains of a deadline wakes once rather than spinning.");
         }
 
         [TestMethod]
@@ -335,6 +361,43 @@ namespace Vion.Dale.ProtoActor.Test
                         break;
                 }
 
+                return Task.CompletedTask;
+            }
+        }
+
+        /// <summary>Sends itself a delayed message, measures how long it took to come back on the system's monotonic clock, and repeats.</summary>
+        private sealed class DelayMeasuringReceiver : IActorReceiver
+        {
+            private readonly TimeSpan _delay;
+
+            private readonly int _sends;
+
+            private long _sentAt;
+
+            public SemaphoreSlim Done { get; } = new(0);
+
+            public List<TimeSpan> Elapsed { get; } = new();
+
+            public DelayMeasuringReceiver(TimeSpan delay, int sends)
+            {
+                _delay = delay;
+                _sends = sends;
+            }
+
+            public Task HandleMessageAsync(object message, IActorContext actorContext)
+            {
+                if (message is StopLogicBlockRequest)
+                {
+                    Elapsed.Add(Stopwatch.GetElapsedTime(_sentAt));
+                    if (Elapsed.Count == _sends)
+                    {
+                        Done.Release();
+                        return Task.CompletedTask;
+                    }
+                }
+
+                _sentAt = Stopwatch.GetTimestamp();
+                actorContext.SendToSelfAfter(new StopLogicBlockRequest(), _delay);
                 return Task.CompletedTask;
             }
         }
